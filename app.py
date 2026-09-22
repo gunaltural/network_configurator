@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Network Configurator v5.9.5 — Hosted Zero-Install Direct Deploy
+Network Configurator v5.9.6 — Hosted Zero-Install Direct Deploy
 
 Designed for Railway / hosted web use:
 - Browser-only client experience
@@ -13,6 +13,7 @@ Designed for Railway / hosted web use:
 import hashlib
 import os
 import re
+import socket
 from pathlib import Path
 from typing import List
 
@@ -21,7 +22,7 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 import uvicorn
 
-VERSION = "5.9.5"
+VERSION = "5.9.6"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
 
@@ -239,6 +240,81 @@ def health():
         "hosted": True,
         "allowed_targets": sorted(ALLOWED_TARGETS),
         "allow_any_target": ALLOW_ANY_TARGET,
+        "diagnostics": "/api/diagnostics/network",
+    }
+
+
+
+
+def tcp_probe(host: str, port: int, timeout: float = 6.0):
+    result = {
+        "host": host,
+        "port": port,
+        "resolved": [],
+        "connected": False,
+        "error": None,
+    }
+    try:
+        infos = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+        seen = []
+        for info in infos:
+            ip = info[4][0]
+            if ip not in seen:
+                seen.append(ip)
+        result["resolved"] = seen[:8]
+    except Exception as exc:
+        result["error"] = f"DNS: {exc}"
+        return result
+
+    last_error = None
+    for ip in result["resolved"] or [host]:
+        family = socket.AF_INET6 if ":" in ip else socket.AF_INET
+        sock = socket.socket(family, socket.SOCK_STREAM)
+        sock.settimeout(timeout)
+        try:
+            sock.connect((ip, port))
+            result["connected"] = True
+            result["connected_ip"] = ip
+            try:
+                sock.settimeout(1.2)
+                banner = sock.recv(256)
+                if banner:
+                    result["banner"] = banner.decode("utf-8", "replace").strip()
+            except Exception:
+                pass
+            return result
+        except Exception as exc:
+            last_error = str(exc)
+        finally:
+            try:
+                sock.close()
+            except Exception:
+                pass
+
+    result["error"] = last_error or "connection failed"
+    return result
+
+
+@app.get("/api/diagnostics/network")
+def network_diagnostics():
+    """
+    Safe outbound connectivity test.
+    No credentials, no SSH login, no device writes.
+    Used to distinguish Railway/network egress issues from SSH/authentication issues.
+    """
+    probes = [
+        ("devnetsandboxiosxec9k.cisco.com", 22),
+        ("devnetsandboxiosxec9k.cisco.com", 443),
+        ("github.com", 22),
+        ("github.com", 443),
+        ("ssh.github.com", 443),
+    ]
+    results = [tcp_probe(host, port) for host, port in probes]
+    return {
+        "ok": True,
+        "version": VERSION,
+        "purpose": "raw TCP/DNS diagnostics only; no SSH authentication and no device changes",
+        "results": results,
     }
 
 

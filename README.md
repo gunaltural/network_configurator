@@ -1,4 +1,4 @@
-# Network Configurator v5.9.5 — Hosted Zero-Install Direct Deploy
+# Network Configurator v5.9.6 — Hosted Zero-Install Direct Deploy
 
 Railway-ready demo build.
 
@@ -28,3 +28,25 @@ Only use write mode against a lab/reservation device where configuration changes
 ## Important
 A hosted Railway service can SSH only to destinations reachable from Railway's outbound network.
 Private corporate management IPs will require an internal/on-prem hosted instance or another private connectivity design.
+
+
+## Network diagnostic endpoint
+
+Open:
+
+`/api/diagnostics/network`
+
+This performs only DNS resolution and raw TCP connect tests. It does not send credentials,
+does not log in to an SSH server, and does not change any device configuration.
+
+The endpoint tests:
+- Cisco DevNet C9K sandbox TCP/22
+- Cisco DevNet C9K sandbox TCP/443
+- GitHub TCP/22
+- GitHub TCP/443
+- ssh.github.com TCP/443
+
+Interpretation:
+- If Cisco:22 and GitHub:22 both fail while 443 succeeds, suspect Railway/shared-cloud egress behavior for TCP/22.
+- If GitHub:22 succeeds but Cisco:22 fails, suspect Cisco-side filtering/routing for Railway's source IP range.
+- If Cisco:443 also fails, suspect DNS/path/reachability rather than SSH specifically.
