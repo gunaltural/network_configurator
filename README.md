@@ -21,8 +21,8 @@ The endpoint is `POST /api/device/show` and validates the target allowlist indep
 
 ## Render deployment
 Connect this GitHub repository to a Render Web Service and select the Docker runtime.
-The Dockerfile starts the FastAPI server on Render's `PORT`; set the health check path
-to `/api/health`.
+The Dockerfile starts the FastAPI server on `PORT` (default `10000`) and binds to
+`0.0.0.0`; set the health check path to `/api/health`.
 
 Set these environment variables in Render:
 - `ENABLE_REAL_DEPLOY=0`
