@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Network Configurator v5.9.11 — Hosted multi-vendor Live CLI
+Network Configurator v5.9.12 — Hosted multi-vendor Live CLI
 
 Designed for Render / hosted web use:
 - Browser-only client experience
@@ -23,7 +23,7 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 import uvicorn
 
-VERSION = "5.9.11"
+VERSION = "5.9.12"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
 

@@ -1,6 +1,9 @@
-# Network Configurator v5.9.11 — Multi-Vendor Read-Only Live CLI
+# Network Configurator v5.9.12 — Multi-Vendor Read-Only Live CLI
 
 Render Web Service deployment using the repository's Dockerfile.
+
+System and Management generates a baseline for one managed device. Its parameters,
+topology and configuration output contain one device block.
 
 ## Browser user experience
 No local installation is required. Users open the Render service URL and use:

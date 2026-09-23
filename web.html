@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Network Configurator v5.9.11</title>
+<title>Network Configurator v5.9.12</title>
 <style>
 :root{
   --bg:#0d1117;--panel:#161b22;--panel2:#1f2630;--line:#2b3440;
@@ -373,7 +373,7 @@ pre{
     <div class="logo">NC</div>
     <div><h1>Network Configurator</h1><small>Configure · Validate · Troubleshoot</small></div>
   </div>
-  <div class="badge">Version 5.9.11 · Multi-Vendor Read-Only Live CLI</div>
+  <div class="badge">Version 5.9.12 · Multi-Vendor Read-Only Live CLI</div>
 </header>
 
 <section class="hero">
@@ -416,9 +416,7 @@ pre{
       <div id="topologyControls"></div>
       <div id="topologyArea">
         <div class="topology-row">
-          <div class="device"><strong id="topoD1">SW-01</strong><small id="topoD1Role">Device-1</small></div>
-          <div class="link"></div>
-          <div class="device"><strong id="topoD2">SW-02</strong><small id="topoD2Role">Device-2</small></div>
+          <div class="device"><strong id="topoD1">SW-01</strong><small id="topoD1Role">Managed Device</small></div>
         </div>
       </div>
     </section>
@@ -569,20 +567,12 @@ const modules = {
 BASIC:{
  title:"System and Management", subtitle:"Secure Management Baseline · OOB · AAA · SSH · SNMPv3 · NTP · Syslog",
  params:()=>`
- <div class="section-title">Device-1</div>
+ <div class="section-title">Device</div>
  <div class="param-grid">
    <div><label>Hostname</label><input id="d1host" value="SW-01"></div>
    <div><label>OOB Interface</label><input id="d1oobif" value="GigabitEthernet0/0"></div>
    <div><label>OOB IP</label><input id="d1oobip" value="192.168.100.11"></div>
    <div><label>OOB Mask / Prefix</label><input id="d1mask" value="255.255.255.0"></div>
- </div>
-
- <div class="section-title">Device-2</div>
- <div class="param-grid">
-   <div><label>Hostname</label><input id="d2host" value="SW-02"></div>
-   <div><label>OOB Interface</label><input id="d2oobif" value="GigabitEthernet0/0"></div>
-   <div><label>OOB IP</label><input id="d2oobip" value="192.168.100.12"></div>
-   <div><label>OOB Mask / Prefix</label><input id="d2mask" value="255.255.255.0"></div>
  </div>
 
  <div class="section-title">Management Network</div>
@@ -2313,8 +2303,7 @@ function basicReadableCliBlocks(text){
 }
 function basicGenerate(tab){
  const p=platform(),
- h1=v("d1host"),h2=v("d2host"),if1=v("d1oobif"),if2=v("d2oobif"),
- ip1=v("d1oobip"),ip2=v("d2oobip"),m1=v("d1mask"),m2=v("d2mask"),
+ h1=v("d1host"),if1=v("d1oobif"),ip1=v("d1oobip"),m1=v("d1mask"),
  gw=v("gw"),mgmt=v("mgmtSubnet"),dom=v("domain"),dns1=v("dns1"),dns2=v("dns2"),
  tz=v("timezone"),user=v("adminuser"),aaaType=v("aaaType"),aaa1=v("aaa1"),aaa2=v("aaa2"),
  key=v("keysize"),idle=v("sshIdle"),retries=v("sshRetries"),consoleTimeout=v("consoleTimeout")||"10",auxTimeout=v("auxTimeout")||"10",
@@ -2827,13 +2816,9 @@ end
    return forti(host,iface,ip,mask);
  }
 
- return `################ DEVICE-1 ################
+ return `################ DEVICE ################
 
 ${basicReadableCliBlocks(one(h1,if1,ip1,m1))}
-
-################ DEVICE-2 ################
-
-${basicReadableCliBlocks(one(h2,if2,ip2,m2))}
 
 ################ SECURITY IMPLEMENTATION NOTES ################
 # CHANGE_ME_* değerlerini production secret/vault entegrasyonu ile değiştirin.
