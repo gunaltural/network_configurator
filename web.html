@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Network Configurator v5.9.8</title>
+<title>Network Configurator v5.9.9</title>
 <style>
 :root{
   --bg:#0d1117;--panel:#161b22;--panel2:#1f2630;--line:#2b3440;
@@ -92,7 +92,8 @@ pre{
 .sd-card h4{margin:0 0 10px;color:#d9edf8;font-size:11px;text-transform:uppercase;letter-spacing:.05em}
 .sd-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px}
 .sd-card label{display:block;font-size:9px;font-weight:800;color:#829cad;margin:0 0 5px;text-transform:uppercase;letter-spacing:.04em}
-.sd-card input,.sd-card select{width:100%;box-sizing:border-box;background:#07111a;color:#dcebf4;border:1px solid #2b465a;border-radius:8px;padding:9px 10px;font:11px/1.35 'JetBrains Mono','Fira Code','Roboto Mono','Consolas','Courier New',monospace}
+.sd-card input,.sd-card select,.sd-card textarea{width:100%;box-sizing:border-box;background:#07111a;color:#dcebf4;border:1px solid #2b465a;border-radius:8px;padding:9px 10px;font:11px/1.35 'JetBrains Mono','Fira Code','Roboto Mono','Consolas','Courier New',monospace}
+.live-cli textarea{min-height:112px;resize:vertical}
 .sd-card input[readonly]{color:#71d9ff;background:#071823}
 #sdBlockRow{margin-top:11px}
 .sd-advanced{margin-top:12px;border-top:1px solid #1d3344;padding-top:9px}
@@ -372,7 +373,7 @@ pre{
     <div class="logo">NC</div>
     <div><h1>Network Configurator</h1><small>Configure · Validate · Troubleshoot</small></div>
   </div>
-  <div class="badge">Version 5.9.8 · Multi-Vendor Read-Only Live CLI</div>
+  <div class="badge">Version 5.9.9 · Multi-Vendor Read-Only Live CLI</div>
 </header>
 
 <section class="hero">
@@ -517,7 +518,7 @@ pre{
           </div>
         </div>
         <div id="livePanel" class="live-cli" hidden>
-          <div class="simple-deploy-head"><div><b>LIVE CLI · <span id="livePlatformTitle">CISCO IOS-XE</span></b><span>One read-only command at a time</span></div></div>
+          <div class="simple-deploy-head"><div><b>LIVE CLI · <span id="livePlatformTitle">CISCO IOS-XE</span></b><span>Read-only commands, one per line</span></div></div>
           <div class="sd-card">
             <div class="sd-grid">
               <div><label for="liveTarget">Device IP / Host</label><input id="liveTarget" value="devnetsandboxiosxec9k.cisco.com" autocomplete="off"></div>
@@ -532,7 +533,7 @@ pre{
           <div class="sd-card">
             <label for="liveCommand">Command</label>
             <select id="liveCommand"><option value="__custom__">User-defined command</option></select>
-            <div id="liveCustomRow"><label for="liveCustomCommand">Your read-only command</label><input id="liveCustomCommand" maxlength="180" autocomplete="off" spellcheck="false" placeholder="show ip route 10.0.0.0/8"><small class="live-help">Enter one show / display / get command. Custom pipes, separators, redirects and configuration commands are blocked by the server.</small></div>
+            <div id="liveCustomRow"><label for="liveCustomCommand">Your read-only commands, one per line</label><textarea id="liveCustomCommand" maxlength="131072" autocomplete="off" spellcheck="false" placeholder="show ip route 10.0.0.0/8"></textarea><small class="live-help">Add as many show / display / get commands as needed, one per line. Common display filters such as | include and | grep work. Configuration commands, redirects and command chaining are blocked.</small></div>
           </div>
           <div class="sd-actions"><button class="btn primary" id="liveRun" type="button">Run Command</button><button class="btn" id="liveCopy" type="button" disabled>Copy Output</button><button class="btn" id="liveDownload" type="button" disabled>Download TXT</button></div>
           <div id="liveStatus" class="sd-result neutral" role="status" aria-live="polite">Select a command and run it against the sandbox.</div>
@@ -5099,9 +5100,9 @@ const LiveCliEngine=(()=>{
      platform:el("livePlatform").value,username:el("liveUsername").value.trim(),
      password:el("livePassword").value,secret:el("liveSecret").value,
      command:selected==="__custom__"?el("liveCustomCommand").value.trim():selected};
-   if(!p.command){status("Enter a read-only command.","fail");el("liveCustomCommand").focus();return;}
+   if(!p.command){status("Enter one or more read-only commands.","fail");el("liveCustomCommand").focus();return;}
    clear();const currentRequest=requestId;button.disabled=true;button.textContent="Running…";
-   status(`Connecting to ${p.target} and running ${p.command}…`,"busy");
+   status(`Connecting to ${p.target} and running ${p.command.split(/\r?\n/).filter(Boolean).length} command(s)…`,"busy");
    try{
      const response=await fetch("/api/device/show",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(p)});
      let data;
@@ -5111,7 +5112,7 @@ const LiveCliEngine=(()=>{
      lastOutput=data.output;lastCommand=data.command;lastDevice=data.device;
      el("liveOutput").textContent=lastOutput||"(Command returned no output.)";
      el("liveCopy").disabled=!lastOutput;el("liveDownload").disabled=!lastOutput;
-     status(`${data.mock?"MOCK output":"Device output"} · ${p.platform} · ${data.device} · ${data.command}${data.truncated?" · Output truncated at 1 MB":""}${!data.ok?" · Device reported a CLI error":""}`,data.truncated||!data.ok?"warn":"pass");
+     status(`${data.mock?"MOCK output":"Device output"} · ${p.platform} · ${data.device} · ${data.command_count} command(s)${data.truncated?" · Output truncated at 1 MB":""}${!data.ok?" · One or more commands reported an error":""}`,data.truncated||!data.ok?"warn":"pass");
    }catch(error){
      if(currentRequest!==requestId)return;
      el("liveOutput").textContent="No CLI output received.";
@@ -5128,18 +5129,18 @@ const LiveCliEngine=(()=>{
    el("livePlatform").addEventListener("change",renderCommands);
    el("liveCommand").addEventListener("change",()=>{el("liveCustomRow").hidden=el("liveCommand").value!=="__custom__";clear();});
    el("liveCustomCommand").addEventListener("input",clear);
-   el("liveCustomCommand").addEventListener("keydown",event=>{if(event.key==="Enter")run();});
+   el("liveCustomCommand").addEventListener("keydown",event=>{if(event.key==="Enter"&&(event.ctrlKey||event.metaKey)){event.preventDefault();run();}});
    el("liveRun").addEventListener("click",run);
    el("liveCopy").addEventListener("click",async()=>{
      if(!lastOutput)return;
-     try{await navigator.clipboard.writeText(lastOutput);status(`Copied output · ${lastDevice} · ${lastCommand}`,"pass")}
+     try{await navigator.clipboard.writeText(lastOutput);status(`Copied output · ${lastDevice}`,"pass")}
      catch{status("Copy failed. Select the text in the output panel instead.","fail")}
    });
    el("liveDownload").addEventListener("click",()=>{
      if(!lastOutput)return;
      const blob=new Blob([`Device: ${lastDevice}\nCommand: ${lastCommand}\n\n${lastOutput}\n`],{type:"text/plain;charset=utf-8"});
      const url=URL.createObjectURL(blob),link=document.createElement("a");
-     link.href=url;link.download=`${lastCommand.replace(/[^a-z0-9]+/gi,"_")}.txt`;
+     link.href=url;link.download=lastCommand.includes("\n")?"live_cli_commands.txt":`${lastCommand.replace(/[^a-z0-9]+/gi,"_").slice(0,80)}.txt`;
      link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
    });
  }

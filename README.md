@@ -1,4 +1,4 @@
-# Network Configurator v5.9.8 — Multi-Vendor Read-Only Live CLI
+# Network Configurator v5.9.9 — Multi-Vendor Read-Only Live CLI
 
 Render Web Service deployment using the repository's Dockerfile.
 
@@ -8,10 +8,13 @@ No local installation is required. Users open the Render service URL and use:
 
 Live CLI supports Cisco IOS-XE, Cisco NX-OS, Arista EOS, Huawei CloudEngine (VRP 8), and
 FortiGate. Choose the platform and a command from the grouped catalog, or choose the first
-option, **User-defined command**, to enter one read-only command. The server validates the
-command against a platform-specific read-only family and rejects custom pipes, command
-separators, redirection, control characters, and configuration commands. It returns the
-device's raw output (up to 1 MB), including CLI errors. Exact command availability varies
+option, **User-defined command**, to enter multiple read-only commands, one per line.
+The server accepts `show` on Cisco and Arista, `display` on Huawei, and `show` / `get`
+on FortiGate. It also accepts the built-in FortiGate diagnostic commands and common
+read-only output filters such as `| include` and `| grep`. Commands run in order over
+one SSH session. Configuration commands, redirects, other pipe actions, shell operators,
+and command chaining are rejected. Combined output is capped at 1 MB, and the input
+at 128 KiB; there is no fixed command-count limit. Exact command availability varies
 by model, feature set, and operating system release.
 
 Live CLI uses the same SSH details entered in Deploy Config. Passwords are used for the

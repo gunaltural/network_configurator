@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Network Configurator v5.9.7 — Hosted read-only Live CLI
+Network Configurator v5.9.9 — Hosted read-only Live CLI
 
 Designed for Render / hosted web use:
 - Browser-only client experience
@@ -22,7 +22,7 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 import uvicorn
 
-VERSION = "5.9.8"
+VERSION = "5.9.9"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
 
@@ -92,17 +92,15 @@ LIVE_COMMANDS = {
     },
 }
 
-# Custom commands are single read-only queries within these vetted command families.
-# Pipes, redirection, shell operators and control characters are never accepted.
-LIVE_CUSTOM_ROOTS = {
-    "Cisco IOS-XE": ("show version", "show clock", "show inventory", "show environment", "show logging", "show processes", "show memory", "show users", "show ntp", "show interfaces", "show interface", "show ip", "show ipv6", "show bgp", "show arp", "show vlan", "show mac", "show spanning-tree", "show etherchannel", "show cdp", "show lldp", "show standby", "show running-config"),
-    "Cisco NX-OS": ("show version", "show clock", "show inventory", "show module", "show environment", "show system", "show logging", "show feature", "show interface", "show port-channel", "show lacp", "show vlan", "show mac", "show ip", "show ipv6", "show vrf", "show bgp", "show nve", "show vpc", "show spanning-tree", "show lldp", "show cdp", "show running-config"),
-    "Arista EOS": ("show version", "show clock", "show inventory", "show logging", "show ntp", "show interfaces", "show interface", "show port-channel", "show lacp", "show vlan", "show mac", "show arp", "show ip", "show ipv6", "show vrf", "show bgp", "show vxlan", "show mlag", "show spanning-tree", "show lldp", "show running-config"),
-    "Huawei_CE_SW": ("display version", "display device", "display clock", "display logbuffer", "display alarm", "display cpu-usage", "display memory-usage", "display ntp-service", "display interface", "display ip", "display ipv6", "display vlan", "display port", "display mac-address", "display arp", "display eth-trunk", "display stp", "display lldp", "display ospf", "display bgp", "display vxlan", "display evpn", "display dfs-group", "display current-configuration"),
-    "FortiGate": ("get system", "get router info", "get router info6", "get vpn", "show system", "show router", "show vpn", "show firewall"),
+LIVE_READONLY_VERBS = {
+    "Cisco IOS-XE": ("show",), "Cisco NX-OS": ("show",),
+    "Arista EOS": ("show",), "Huawei_CE_SW": ("display",),
+    "FortiGate": ("show", "get"),
 }
-LIVE_SAFE_CHARS = re.compile(r"^[A-Za-z0-9_./:\- ]+$")
+# Only display filters are allowed after a pipe; e.g. "| redirect" writes a file.
+LIVE_PIPE_FILTERS = {"include", "exclude", "begin", "section", "count", "grep", "no-more", "json", "xml"}
 LIVE_OUTPUT_LIMIT = 1_000_000
+LIVE_INPUT_LIMIT = 131_072
 LIVE_CLI_ERROR_RE = re.compile(
     r"(?im)^(?:%\s*(?:Invalid|Incomplete|Ambiguous)|Invalid input|Error:|"
     r"Unrecognized command|Unknown command|Wrong parameter|Too many parameters|"
@@ -223,14 +221,36 @@ def ok(items) -> bool:
 def live_command_allowed(platform: str, command: str) -> bool:
     canonical = LIVE_PLATFORM_ALIASES.get(platform, platform)
     groups = LIVE_COMMANDS.get(canonical)
-    if not groups or not isinstance(command, str) or not command or len(command) > 180:
+    if not groups or not isinstance(command, str) or not command or command != command.strip():
         return False
-    if any(command in commands for commands in groups.values()):
-        return True
-    if not LIVE_SAFE_CHARS.fullmatch(command) or command != command.strip() or "  " in command:
+    if any(ord(ch) < 32 or ord(ch) > 126 or ch in ";&<>`$\\!#" for ch in command):
         return False
-    lower = command.lower()
-    return any(lower == root or lower.startswith(root + " ") for root in LIVE_CUSTOM_ROOTS[canonical])
+    parts = command.split("|")
+    base = parts[0].strip()
+    if not (any(base.lower().startswith(verb + " ") for verb in LIVE_READONLY_VERBS[canonical])
+            or any(command in commands for commands in groups.values())):
+        return False
+    for part in parts[1:]:
+        filter_parts = part.strip().split(None, 1)
+        if not filter_parts or filter_parts[0].lower() not in LIVE_PIPE_FILTERS:
+            return False
+    return True
+
+
+def live_command_list(platform: str, text: str) -> List[str]:
+    if not isinstance(text, str) or not text.strip() or len(text) > LIVE_INPUT_LIMIT:
+        raise ValueError("Enter read-only commands (maximum 128 KiB of text).")
+    commands = []
+    for number, raw in enumerate(text.splitlines(), 1):
+        command = raw.strip()
+        if not command:
+            continue
+        if not live_command_allowed(platform, command):
+            raise ValueError(f"Line {number} is not a read-only command for {platform}: {command[:100]}")
+        commands.append(command)
+    if not commands:
+        raise ValueError("Enter at least one read-only command.")
+    return commands
 
 
 def connect(payload: DeviceRequest, live: bool = False):
@@ -512,24 +532,44 @@ def live_commands():
 
 @app.post("/api/device/show")
 def live_show(p: LiveCommandRequest):
-    if not live_command_allowed(p.platform, p.command):
-        raise HTTPException(status_code=400, detail={"ok": False, "error": "Only one permitted read-only command is allowed for the selected platform. Pipes and command separators are blocked for custom commands."})
+    try:
+        commands = live_command_list(p.platform, p.command)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"ok": False, "error": str(exc)}) from exc
     items = checks(p, include_config=False, live=True)
     if not ok(items):
         raise HTTPException(status_code=400, detail={"ok": False, "checks": items, "error": "Connection parameters are incomplete or target is blocked."})
 
     if MOCK_SSH:
         return {"ok": True, "device": p.target, "command": p.command,
-                "output": f"MOCK SSH OUTPUT — {p.command} on {p.target}\nNo command was sent to a device.",
+                "command_count": len(commands), "results": [],
+                "output": "\n\n".join(f"> {command}\nMOCK SSH OUTPUT — no device command sent."
+                                      for command in commands),
                 "truncated": False, "mock": True}
 
     conn = None
     try:
         conn, _ = connect(p, live=True)
-        output = conn.send_command(p.command, read_timeout=60)
-        return {"ok": not bool(LIVE_CLI_ERROR_RE.search(output)), "device": p.target, "command": p.command,
-                "output": output[:LIVE_OUTPUT_LIMIT],
-                "truncated": len(output) > LIVE_OUTPUT_LIMIT, "mock": False}
+        results, sections, remaining, truncated = [], [], LIVE_OUTPUT_LIMIT, False
+        for command in commands:
+            try:
+                output = conn.send_command(command, read_timeout=60)
+                command_ok = not bool(LIVE_CLI_ERROR_RE.search(output))
+            except Exception as exc:
+                output, command_ok = str(exc), False
+            results.append({"command": command, "ok": command_ok})
+            section = f"> {command}\n{output}"
+            if remaining:
+                chunk = ("\n\n" if sections else "") + section
+                if len(chunk) > remaining:
+                    truncated = True
+                sections.append(chunk[:remaining])
+                remaining -= min(len(chunk), remaining)
+            else:
+                truncated = True
+        return {"ok": all(item["ok"] for item in results), "device": p.target, "command": p.command,
+                "command_count": len(commands), "results": results,
+                "output": "".join(sections), "truncated": truncated, "mock": False}
     except Exception as exc:
         raise HTTPException(status_code=502, detail={"ok": False, "error": str(exc)})
     finally:
