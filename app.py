@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Network Configurator v5.9.10 — Hosted multi-vendor Live CLI
+Network Configurator v5.9.11 — Hosted multi-vendor Live CLI
 
 Designed for Render / hosted web use:
 - Browser-only client experience
@@ -23,7 +23,7 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 import uvicorn
 
-VERSION = "5.9.10"
+VERSION = "5.9.11"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
 
@@ -75,14 +75,15 @@ LIVE_COMMANDS = {
         "System": ["show version", "show clock", "show inventory", "show logging last 100", "show ntp status"],
         "Interfaces & L2": ["show interfaces status", "show interfaces description", "show interfaces counters errors", "show interfaces transceiver", "show interfaces trunk", "show port-channel summary", "show lacp peer", "show vlan", "show mac address-table", "show arp", "show lldp neighbors", "show spanning-tree root"],
         "Routing": ["show ip interface brief", "show ip route", "show ipv6 route", "show vrf", "show ip ospf neighbor", "show ip bgp summary", "show bgp evpn summary", "show bgp evpn"],
-        "EVPN / MLAG": ["show vxlan vni", "show vxlan address-table", "show vxlan flood vtep", "show mlag", "show mlag detail", "show mlag interfaces", "show mlag config-sanity"],
+        "EVPN / MLAG": ["show interfaces Vxlan1", "show vxlan vni", "show vxlan address-table", "show vxlan flood vtep", "show vxlan config-sanity detail", "show bgp evpn route-type imet", "show mlag", "show mlag detail", "show mlag interfaces", "show mlag interfaces detail", "show mlag config-sanity"],
         "Configuration": ["show running-config | include hostname"],
     },
     "Huawei_CE_SW": {
         "System": ["display version", "display device", "display clock", "display logbuffer", "display alarm active", "display cpu-usage", "display memory-usage", "display ntp-service status"],
         "Interfaces & L2": ["display interface brief", "display interface description", "display ip interface brief", "display ipv6 interface brief", "display vlan", "display port vlan", "display mac-address", "display arp all", "display eth-trunk", "display stp brief", "display lldp neighbor brief"],
         "Routing": ["display ip routing-table", "display ipv6 routing-table", "display ip vpn-instance", "display ospf peer brief", "display bgp peer", "display bgp routing-table", "display bgp evpn peer", "display bgp evpn all routing-table"],
-        "EVPN / VXLAN": ["display vxlan tunnel", "display vxlan vni", "display evpn vpn-instance"],
+        "EVPN / VXLAN": ["display vxlan tunnel", "display vxlan vni", "display vxlan peer", "display evpn vpn-instance", "display bgp evpn all routing-table mac-route", "display bgp evpn all routing-table prefix-route"],
+        "M-LAG / DFS": ["display dfs-group", "display dfs-group 1 peer-link", "display dfs-group 1 node 1 m-lag brief", "display dfs-group 1 node 2 m-lag brief"],
         "Configuration": ["display current-configuration | include sysname"],
     },
     "FortiGate": {

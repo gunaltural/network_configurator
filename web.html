@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Network Configurator v5.9.10</title>
+<title>Network Configurator v5.9.11</title>
 <style>
 :root{
   --bg:#0d1117;--panel:#161b22;--panel2:#1f2630;--line:#2b3440;
@@ -373,7 +373,7 @@ pre{
     <div class="logo">NC</div>
     <div><h1>Network Configurator</h1><small>Configure · Validate · Troubleshoot</small></div>
   </div>
-  <div class="badge">Version 5.9.10 · Multi-Vendor Read-Only Live CLI</div>
+  <div class="badge">Version 5.9.11 · Multi-Vendor Read-Only Live CLI</div>
 </header>
 
 <section class="hero">
@@ -523,7 +523,7 @@ pre{
             <div class="sd-grid">
               <div><label for="liveTarget">Device IP / Host</label><input id="liveTarget" placeholder="Device IP or hostname" autocomplete="off"></div>
               <div><label for="livePort">SSH Port</label><input id="livePort" type="number" min="1" max="65535" value="22"></div>
-              <div><label for="livePlatform">Device platform</label><select id="livePlatform"><option>Cisco IOS-XE</option><option>Cisco NX-OS</option><option>Arista EOS</option><option>Huawei_CE_SW</option><option>FortiGate</option></select></div>
+              <div><label for="livePlatform">Device platform</label><select id="livePlatform"><option>Cisco IOS-XE</option><option>Cisco NX-OS</option><option>Arista EOS</option><option>Huawei_CE_SW</option><option>FortiGate</option></select><small class="live-help">Follows the workspace platform; choose another vendor here when needed.</small></div>
               <div><label for="liveUsername">Username</label><input id="liveUsername" autocomplete="username"></div>
               <div><label for="livePassword">Password</label><input id="livePassword" type="password" autocomplete="current-password"></div>
               <div><label for="liveSecret">Enable Secret (optional)</label><input id="liveSecret" type="password" autocomplete="off"></div>
@@ -5051,7 +5051,7 @@ window.SimpleDeployEngine=SimpleDeployEngine;
 const LiveCliEngine=(()=>{
  const el=id=>document.getElementById(id);
  const fields=[["sdTarget","liveTarget"],["sdPort","livePort"],["sdUsername","liveUsername"],["sdPassword","livePassword"],["sdSecret","liveSecret"]];
- let lastOutput="", lastCommand="", lastDevice="", catalog=null, loading=null, requestId=0;
+ let lastOutput="", lastCommand="", lastDevice="", catalog=null, loading=null, requestId=0, lastWorkspacePlatform="";
  function status(message,kind="neutral"){
    const box=el("liveStatus");box.textContent=message;box.className=`sd-result ${kind}`;
  }
@@ -5076,7 +5076,17 @@ const LiveCliEngine=(()=>{
    el("liveCustomCommand").placeholder=examples[vendor]||"Enter a read-only command";
    clear();
  }
+ function syncWorkspacePlatform(){
+   const selected=el("platform")?.value;
+   if(!selected||selected===lastWorkspacePlatform)return;
+   lastWorkspacePlatform=selected;
+   if([...el("livePlatform").options].some(option=>option.value===selected)&&el("livePlatform").value!==selected){
+     el("livePlatform").value=selected;
+     if(catalog)renderCommands();
+   }
+ }
  async function activate(){
+   syncWorkspacePlatform();
    if(catalog)return;
    if(loading)return loading;
    el("liveRun").disabled=true;
