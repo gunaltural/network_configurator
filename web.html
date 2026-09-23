@@ -65,6 +65,7 @@ pre{
   box-shadow:inset 0 0 0 1px rgba(56,189,248,.05);
 }
 .actions{display:flex;gap:8px;margin-top:10px}.btn{padding:9px 11px;border:1px solid var(--line);background:#17202a;color:var(--text);border-radius:8px;cursor:pointer}
+.actions[hidden]{display:none!important}
 .btn.primary{border-color:#2f6f3e;color:var(--ok)}
 .note{font-size:12px;color:var(--muted);line-height:1.5}
 .runbook{margin-top:16px}.runbook ol{color:var(--muted);line-height:1.7}
@@ -5061,6 +5062,7 @@ const LiveCliEngine=(()=>{
  }
  function renderCommands(){
    const select=el("liveCommand"), vendor=el("livePlatform").value;
+   const examples={"Cisco IOS-XE":"show ip route 10.0.0.0/8","Cisco NX-OS":"show nve peers detail","Arista EOS":"show bgp evpn summary","Huawei_CE_SW":"display dfs-group 1 m-lag","FortiGate":"get router info bgp neighbors 10.0.0.1"};
    select.replaceChildren(new Option("User-defined command","__custom__"));
    for(const [group,commands] of Object.entries(catalog?.[vendor]||{})){
      const optgroup=document.createElement("optgroup");optgroup.label=group;
@@ -5070,6 +5072,7 @@ const LiveCliEngine=(()=>{
    el("livePlatformTitle").textContent=vendor.toUpperCase();
    el("liveCustomRow").hidden=false;
    el("liveCustomCommand").value="";
+   el("liveCustomCommand").placeholder=examples[vendor]||"Enter a read-only command";
    clear();
  }
  async function activate(){
