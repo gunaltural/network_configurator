@@ -22,7 +22,7 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 import uvicorn
 
-VERSION = "5.9.7"
+VERSION = "5.9.8"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
 
@@ -45,6 +45,8 @@ PLATFORM_MAP = {
     "Huawei_CE_SW": "huawei_vrpv8",
     "Huawei": "huawei_vrpv8",
 }
+LIVE_PLATFORM_MAP = {**PLATFORM_MAP, "FortiGate": "fortinet"}
+LIVE_PLATFORM_ALIASES = {"Cisco_StackWise": "Cisco IOS-XE", "Huawei": "Huawei_CE_SW"}
 
 RUNNING_COMMAND = {
     "cisco_nxos": "show running-config",
@@ -54,18 +56,58 @@ RUNNING_COMMAND = {
 }
 
 READONLY_PREFIXES = ("show ", "display ", "get ", "diagnose ")
-LIVE_SHOW_COMMANDS = (
-    "show version",
-    "show ip interface brief",
-    "show interfaces status",
-    "show ip route",
-    "show bgp summary",
-    "show running-config | include hostname",
-    "show inventory",
-    "show lldp neighbors",
-    "show cdp neighbors",
-)
+LIVE_COMMANDS = {
+    "Cisco IOS-XE": {
+        "System": ["show version", "show clock", "show inventory", "show environment", "show logging", "show processes cpu sorted", "show memory statistics", "show users", "show ntp status", "show ntp associations"],
+        "Interfaces & L2": ["show ip interface brief", "show ipv6 interface brief", "show interfaces status", "show interfaces description", "show interfaces counters errors", "show interfaces trunk", "show etherchannel summary", "show vlan brief", "show mac address-table", "show spanning-tree summary", "show spanning-tree root", "show arp", "show cdp neighbors", "show cdp neighbors detail", "show lldp neighbors", "show lldp neighbors detail"],
+        "Routing": ["show ip route", "show ipv6 route", "show ip protocols", "show ip vrf", "show ip ospf neighbor", "show ip ospf interface brief", "show bgp summary", "show ip bgp summary", "show bgp ipv4 unicast", "show bgp neighbors", "show standby brief"],
+        "Configuration": ["show running-config | include hostname", "show running-config | section router bgp"],
+    },
+    "Cisco NX-OS": {
+        "System": ["show version", "show clock", "show inventory", "show module", "show environment", "show system resources", "show logging last 100", "show feature"],
+        "Interfaces & L2": ["show interface brief", "show interface status", "show interface description", "show interface counters errors", "show interface trunk", "show port-channel summary", "show lacp neighbor", "show vlan brief", "show mac address-table", "show ip arp", "show spanning-tree root", "show lldp neighbors", "show cdp neighbors"],
+        "Routing": ["show ip interface brief", "show ip route", "show ipv6 route", "show vrf", "show ip ospf neighbors", "show bgp ipv4 unicast summary", "show bgp l2vpn evpn summary", "show bgp l2vpn evpn"],
+        "EVPN / vPC": ["show nve peers", "show nve vni", "show nve interface nve1", "show vpc brief", "show vpc consistency-parameters global", "show vpc peer-keepalive"],
+        "Configuration": ["show running-config | include hostname"],
+    },
+    "Arista EOS": {
+        "System": ["show version", "show clock", "show inventory", "show logging last 100", "show ntp status"],
+        "Interfaces & L2": ["show interfaces status", "show interfaces description", "show interfaces counters errors", "show interfaces transceiver", "show interfaces trunk", "show port-channel summary", "show lacp peer", "show vlan", "show mac address-table", "show arp", "show lldp neighbors", "show spanning-tree root"],
+        "Routing": ["show ip interface brief", "show ip route", "show ipv6 route", "show vrf", "show ip ospf neighbor", "show ip bgp summary", "show bgp evpn summary", "show bgp evpn"],
+        "EVPN / MLAG": ["show vxlan vni", "show vxlan address-table", "show vxlan flood vtep", "show mlag", "show mlag detail", "show mlag interfaces", "show mlag config-sanity"],
+        "Configuration": ["show running-config | include hostname"],
+    },
+    "Huawei_CE_SW": {
+        "System": ["display version", "display device", "display clock", "display logbuffer", "display alarm active", "display cpu-usage", "display memory-usage", "display ntp-service status"],
+        "Interfaces & L2": ["display interface brief", "display interface description", "display ip interface brief", "display ipv6 interface brief", "display vlan", "display port vlan", "display mac-address", "display arp all", "display eth-trunk", "display stp brief", "display lldp neighbor brief"],
+        "Routing": ["display ip routing-table", "display ipv6 routing-table", "display ip vpn-instance", "display ospf peer brief", "display bgp peer", "display bgp routing-table", "display bgp evpn peer", "display bgp evpn all routing-table"],
+        "EVPN / VXLAN": ["display vxlan tunnel", "display vxlan vni", "display evpn vpn-instance"],
+        "Configuration": ["display current-configuration | include sysname"],
+    },
+    "FortiGate": {
+        "System": ["get system status", "get system performance status", "get system interface", "get system ha status", "get system session status", "get system arp", "get system dns", "get system ntp"],
+        "Routing": ["get router info routing-table all", "get router info routing-table details", "get router info routing-table bgp", "get router info routing-table connected", "get router info routing-table static", "get router info bgp summary", "get router info bgp neighbors", "get router info bgp network", "get router info6 bgp summary", "get router info ospf neighbor all"],
+        "SD-WAN / VPN": ["diagnose vpn tunnel list", "diagnose sys sdwan health-check", "diagnose sys sdwan service", "diagnose sys sdwan member", "get vpn ipsec tunnel summary"],
+        "Configuration view": ["show system interface", "show router bgp", "show router static", "show system sdwan", "show vpn ipsec phase1-interface"],
+    },
+}
+
+# Custom commands are single read-only queries within these vetted command families.
+# Pipes, redirection, shell operators and control characters are never accepted.
+LIVE_CUSTOM_ROOTS = {
+    "Cisco IOS-XE": ("show version", "show clock", "show inventory", "show environment", "show logging", "show processes", "show memory", "show users", "show ntp", "show interfaces", "show interface", "show ip", "show ipv6", "show bgp", "show arp", "show vlan", "show mac", "show spanning-tree", "show etherchannel", "show cdp", "show lldp", "show standby", "show running-config"),
+    "Cisco NX-OS": ("show version", "show clock", "show inventory", "show module", "show environment", "show system", "show logging", "show feature", "show interface", "show port-channel", "show lacp", "show vlan", "show mac", "show ip", "show ipv6", "show vrf", "show bgp", "show nve", "show vpc", "show spanning-tree", "show lldp", "show cdp", "show running-config"),
+    "Arista EOS": ("show version", "show clock", "show inventory", "show logging", "show ntp", "show interfaces", "show interface", "show port-channel", "show lacp", "show vlan", "show mac", "show arp", "show ip", "show ipv6", "show vrf", "show bgp", "show vxlan", "show mlag", "show spanning-tree", "show lldp", "show running-config"),
+    "Huawei_CE_SW": ("display version", "display device", "display clock", "display logbuffer", "display alarm", "display cpu-usage", "display memory-usage", "display ntp-service", "display interface", "display ip", "display ipv6", "display vlan", "display port", "display mac-address", "display arp", "display eth-trunk", "display stp", "display lldp", "display ospf", "display bgp", "display vxlan", "display evpn", "display dfs-group", "display current-configuration"),
+    "FortiGate": ("get system", "get router info", "get router info6", "get vpn", "show system", "show router", "show vpn", "show firewall"),
+}
+LIVE_SAFE_CHARS = re.compile(r"^[A-Za-z0-9_./:\- ]+$")
 LIVE_OUTPUT_LIMIT = 1_000_000
+LIVE_CLI_ERROR_RE = re.compile(
+    r"(?im)^(?:%\s*(?:Invalid|Incomplete|Ambiguous)|Invalid input|Error:|"
+    r"Unrecognized command|Unknown command|Wrong parameter|Too many parameters|"
+    r"command parse error)"
+)
 ERROR_RE = re.compile(
     r"(% ?Invalid|% ?Incomplete|% ?Ambiguous|Invalid input|Error:|ERROR:|"
     r"Unrecognized command|Unknown command|Wrong parameter|Too many parameters)",
@@ -109,8 +151,8 @@ def target_allowed(value: str) -> bool:
     return bool(host) and (ALLOW_ANY_TARGET or host in ALLOWED_TARGETS)
 
 
-def device_type(platform: str) -> str:
-    dt = PLATFORM_MAP.get(platform)
+def device_type(platform: str, live: bool = False) -> str:
+    dt = (LIVE_PLATFORM_MAP if live else PLATFORM_MAP).get(platform)
     if not dt:
         raise ValueError(f"Unsupported platform: {platform}")
     return dt
@@ -135,7 +177,7 @@ def verification_list(text: str) -> List[str]:
     return out[:25]
 
 
-def checks(payload: DeviceRequest, include_config: bool = True):
+def checks(payload: DeviceRequest, include_config: bool = True, live: bool = False):
     out = []
 
     def add(name, status, detail):
@@ -152,7 +194,7 @@ def checks(payload: DeviceRequest, include_config: bool = True):
     add("SSH port", "PASS" if 1 <= payload.port <= 65535 else "FAIL", str(payload.port))
 
     try:
-        add("Platform", "PASS", device_type(payload.platform))
+        add("Platform", "PASS", device_type(payload.platform, live=live))
     except Exception as exc:
         add("Platform", "FAIL", str(exc))
 
@@ -178,7 +220,20 @@ def ok(items) -> bool:
     return not any(x["status"] == "FAIL" for x in items)
 
 
-def connect(payload: DeviceRequest):
+def live_command_allowed(platform: str, command: str) -> bool:
+    canonical = LIVE_PLATFORM_ALIASES.get(platform, platform)
+    groups = LIVE_COMMANDS.get(canonical)
+    if not groups or not isinstance(command, str) or not command or len(command) > 180:
+        return False
+    if any(command in commands for commands in groups.values()):
+        return True
+    if not LIVE_SAFE_CHARS.fullmatch(command) or command != command.strip() or "  " in command:
+        return False
+    lower = command.lower()
+    return any(lower == root or lower.startswith(root + " ") for root in LIVE_CUSTOM_ROOTS[canonical])
+
+
+def connect(payload: DeviceRequest, live: bool = False):
     if not target_allowed(payload.target):
         raise RuntimeError("SSH target is blocked by the hosted demo allowlist.")
 
@@ -187,7 +242,7 @@ def connect(payload: DeviceRequest):
     except Exception as exc:
         raise RuntimeError("Netmiko is unavailable on the web server.") from exc
 
-    dt = device_type(payload.platform)
+    dt = device_type(payload.platform, live=live)
     params = {
         "device_type": dt,
         "host": payload.target,
@@ -450,14 +505,16 @@ def precheck(p: DeviceRequest):
                 pass
 
 
+@app.get("/api/device/commands")
+def live_commands():
+    return {"ok": True, "platforms": LIVE_COMMANDS}
+
+
 @app.post("/api/device/show")
 def live_show(p: LiveCommandRequest):
-    # Compare the complete string; no arbitrary CLI, pipes, separators or config commands.
-    if p.command not in LIVE_SHOW_COMMANDS:
-        raise HTTPException(status_code=400, detail={"ok": False, "error": "Command is not in the Live CLI allowlist."})
-    items = checks(p, include_config=False)
-    if p.platform != "Cisco IOS-XE":
-        items.append({"name": "Platform", "status": "FAIL", "detail": "Live CLI currently supports Cisco IOS-XE only."})
+    if not live_command_allowed(p.platform, p.command):
+        raise HTTPException(status_code=400, detail={"ok": False, "error": "Only one permitted read-only command is allowed for the selected platform. Pipes and command separators are blocked for custom commands."})
+    items = checks(p, include_config=False, live=True)
     if not ok(items):
         raise HTTPException(status_code=400, detail={"ok": False, "checks": items, "error": "Connection parameters are incomplete or target is blocked."})
 
@@ -468,11 +525,9 @@ def live_show(p: LiveCommandRequest):
 
     conn = None
     try:
-        conn, _ = connect(p)
+        conn, _ = connect(p, live=True)
         output = conn.send_command(p.command, read_timeout=60)
-        if ERROR_RE.search(output):
-            raise RuntimeError("Device reported a CLI error: " + output[:500])
-        return {"ok": True, "device": p.target, "command": p.command,
+        return {"ok": not bool(LIVE_CLI_ERROR_RE.search(output)), "device": p.target, "command": p.command,
                 "output": output[:LIVE_OUTPUT_LIMIT],
                 "truncated": len(output) > LIVE_OUTPUT_LIMIT, "mock": False}
     except Exception as exc:

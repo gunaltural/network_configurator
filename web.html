@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Network Configurator v5.9.7</title>
+<title>Network Configurator v5.9.8</title>
 <style>
 :root{
   --bg:#0d1117;--panel:#161b22;--panel2:#1f2630;--line:#2b3440;
@@ -76,6 +76,8 @@ pre{
 .live-cli .sd-cli{white-space:pre;min-height:270px;max-height:580px;overflow:auto}
 .live-cli .sd-actions{justify-content:flex-start}
 .live-cli .sd-result{min-height:auto}
+.live-cli #liveCustomRow[hidden]{display:none!important}
+.live-cli .live-help{display:block;margin-top:7px;color:#95adbd;font-size:12px;line-height:1.5}
 .simple-deploy{display:grid;gap:12px}
 .simple-deploy-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:1px solid #25445c;border-radius:12px;background:#0a1823}
 .simple-deploy-head b{display:block;color:#e5f5ff;font-size:13px;letter-spacing:.05em}
@@ -369,7 +371,7 @@ pre{
     <div class="logo">NC</div>
     <div><h1>Network Configurator</h1><small>Configure · Validate · Troubleshoot</small></div>
   </div>
-  <div class="badge">Version 5.9.7 · Hosted Read-Only Live CLI</div>
+  <div class="badge">Version 5.9.8 · Multi-Vendor Read-Only Live CLI</div>
 </header>
 
 <section class="hero">
@@ -514,29 +516,22 @@ pre{
           </div>
         </div>
         <div id="livePanel" class="live-cli" hidden>
-          <div class="simple-deploy-head"><div><b>LIVE CLI · CISCO IOS-XE</b><span>Sandbox show commands · READ-ONLY</span></div></div>
+          <div class="simple-deploy-head"><div><b>LIVE CLI · <span id="livePlatformTitle">CISCO IOS-XE</span></b><span>One read-only command at a time</span></div></div>
           <div class="sd-card">
             <div class="sd-grid">
               <div><label for="liveTarget">Device IP / Host</label><input id="liveTarget" value="devnetsandboxiosxec9k.cisco.com" autocomplete="off"></div>
               <div><label for="livePort">SSH Port</label><input id="livePort" type="number" min="1" max="65535" value="22"></div>
+              <div><label for="livePlatform">Device platform</label><select id="livePlatform"><option>Cisco IOS-XE</option><option>Cisco NX-OS</option><option>Arista EOS</option><option>Huawei_CE_SW</option><option>FortiGate</option></select></div>
               <div><label for="liveUsername">Username</label><input id="liveUsername" autocomplete="username"></div>
               <div><label for="livePassword">Password</label><input id="livePassword" type="password" autocomplete="current-password"></div>
               <div><label for="liveSecret">Enable Secret (optional)</label><input id="liveSecret" type="password" autocomplete="off"></div>
             </div>
+            <small class="live-help">The server must allow this device address in ALLOWED_TARGETS.</small>
           </div>
           <div class="sd-card">
-            <label for="liveCommand">Show command</label>
-            <select id="liveCommand">
-              <option>show ip interface brief</option>
-              <option>show version</option>
-              <option>show interfaces status</option>
-              <option>show ip route</option>
-              <option>show bgp summary</option>
-              <option>show running-config | include hostname</option>
-              <option>show inventory</option>
-              <option>show lldp neighbors</option>
-              <option>show cdp neighbors</option>
-            </select>
+            <label for="liveCommand">Command</label>
+            <select id="liveCommand"><option value="__custom__">User-defined command</option></select>
+            <div id="liveCustomRow"><label for="liveCustomCommand">Your read-only command</label><input id="liveCustomCommand" maxlength="180" autocomplete="off" spellcheck="false" placeholder="show ip route 10.0.0.0/8"><small class="live-help">Enter one show / display / get command. Custom pipes, separators, redirects and configuration commands are blocked by the server.</small></div>
           </div>
           <div class="sd-actions"><button class="btn primary" id="liveRun" type="button">Run Command</button><button class="btn" id="liveCopy" type="button" disabled>Copy Output</button><button class="btn" id="liveDownload" type="button" disabled>Download TXT</button></div>
           <div id="liveStatus" class="sd-result neutral" role="status" aria-live="polite">Select a command and run it against the sandbox.</div>
@@ -5054,33 +5049,68 @@ window.SimpleDeployEngine=SimpleDeployEngine;
 const LiveCliEngine=(()=>{
  const el=id=>document.getElementById(id);
  const fields=[["sdTarget","liveTarget"],["sdPort","livePort"],["sdUsername","liveUsername"],["sdPassword","livePassword"],["sdSecret","liveSecret"]];
- let lastOutput="", lastCommand="", lastDevice="";
+ let lastOutput="", lastCommand="", lastDevice="", catalog=null, loading=null, requestId=0;
  function status(message,kind="neutral"){
    const box=el("liveStatus");box.textContent=message;box.className=`sd-result ${kind}`;
  }
  function clear(){
+   requestId++;
    lastOutput="";el("liveOutput").textContent="Output will appear here.";
    el("liveCopy").disabled=true;el("liveDownload").disabled=true;
-   status("Select a command and run it against the sandbox.");
+   status("Select a command and run it against the device.");
+ }
+ function renderCommands(){
+   const select=el("liveCommand"), vendor=el("livePlatform").value;
+   select.replaceChildren(new Option("User-defined command","__custom__"));
+   for(const [group,commands] of Object.entries(catalog?.[vendor]||{})){
+     const optgroup=document.createElement("optgroup");optgroup.label=group;
+     for(const command of commands)optgroup.append(new Option(command,command));
+     select.append(optgroup);
+   }
+   el("livePlatformTitle").textContent=vendor.toUpperCase();
+   el("liveCustomRow").hidden=false;
+   el("liveCustomCommand").value="";
+   clear();
+ }
+ async function activate(){
+   if(catalog)return;
+   if(loading)return loading;
+   el("liveRun").disabled=true;
+   status("Loading read-only command catalog…","busy");
+   loading=(async()=>{
+     try{
+       const response=await fetch("/api/device/commands");
+       if(!response.ok)throw new Error(`HTTP ${response.status}`);
+       const data=await response.json();
+       if(!data.ok||!data.platforms)throw new Error("Invalid command catalog.");
+       catalog=data.platforms;renderCommands();el("liveRun").disabled=false;
+     }catch(error){status(`Command catalog unavailable: ${error.message}`,"fail");}
+     finally{loading=null;}
+   })();
+   return loading;
  }
  async function run(){
    const button=el("liveRun");
+   const selected=el("liveCommand").value;
    const p={target:el("liveTarget").value.trim(),port:Number(el("livePort").value),
-     platform:"Cisco IOS-XE",username:el("liveUsername").value.trim(),
+     platform:el("livePlatform").value,username:el("liveUsername").value.trim(),
      password:el("livePassword").value,secret:el("liveSecret").value,
-     command:el("liveCommand").value};
-   clear();button.disabled=true;button.textContent="Running…";
+     command:selected==="__custom__"?el("liveCustomCommand").value.trim():selected};
+   if(!p.command){status("Enter a read-only command.","fail");el("liveCustomCommand").focus();return;}
+   clear();const currentRequest=requestId;button.disabled=true;button.textContent="Running…";
    status(`Connecting to ${p.target} and running ${p.command}…`,"busy");
    try{
      const response=await fetch("/api/device/show",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(p)});
      let data;
      try{data=await response.json()}catch{throw new Error(`Invalid server response (HTTP ${response.status}).`)}
      if(!response.ok)throw new Error(data.detail?.error||data.error||`HTTP ${response.status}`);
+     if(currentRequest!==requestId)return;
      lastOutput=data.output;lastCommand=data.command;lastDevice=data.device;
      el("liveOutput").textContent=lastOutput||"(Command returned no output.)";
      el("liveCopy").disabled=!lastOutput;el("liveDownload").disabled=!lastOutput;
-     status(`${data.mock?"MOCK output":"Device output"} · ${data.device} · ${data.command}${data.truncated?" · Output truncated at 1 MB":""}`,data.truncated?"warn":"pass");
+     status(`${data.mock?"MOCK output":"Device output"} · ${p.platform} · ${data.device} · ${data.command}${data.truncated?" · Output truncated at 1 MB":""}${!data.ok?" · Device reported a CLI error":""}`,data.truncated||!data.ok?"warn":"pass");
    }catch(error){
+     if(currentRequest!==requestId)return;
      el("liveOutput").textContent="No CLI output received.";
      status(`Command failed: ${error.message}`,"fail");
    }finally{button.disabled=false;button.textContent="Run Command";}
@@ -5092,7 +5122,10 @@ const LiveCliEngine=(()=>{
        source.addEventListener("input",()=>{destination.value=source.value;clear();});
      }
    }
-   el("liveCommand").addEventListener("change",clear);
+   el("livePlatform").addEventListener("change",renderCommands);
+   el("liveCommand").addEventListener("change",()=>{el("liveCustomRow").hidden=el("liveCommand").value!=="__custom__";clear();});
+   el("liveCustomCommand").addEventListener("input",clear);
+   el("liveCustomCommand").addEventListener("keydown",event=>{if(event.key==="Enter")run();});
    el("liveRun").addEventListener("click",run);
    el("liveCopy").addEventListener("click",async()=>{
      if(!lastOutput)return;
@@ -5107,7 +5140,7 @@ const LiveCliEngine=(()=>{
      link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
    });
  }
- return {bind};
+ return {bind,activate};
 })();
 LiveCliEngine.bind();
 
@@ -5135,6 +5168,7 @@ function renderOutput(){
      if(actions)actions.hidden=true;
      if(deploy)deploy.hidden=true;
      if(live)live.hidden=false;
+     LiveCliEngine.activate();
      return;
    }
    if(out)out.hidden=false;

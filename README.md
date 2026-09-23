@@ -1,4 +1,4 @@
-# Network Configurator v5.9.7 — Hosted Read-Only Live CLI
+# Network Configurator v5.9.8 — Multi-Vendor Read-Only Live CLI
 
 Render Web Service deployment using the repository's Dockerfile.
 
@@ -6,16 +6,25 @@ Render Web Service deployment using the repository's Dockerfile.
 No local installation is required. Users open the Render service URL and use:
 `Test Connection -> Pre-Check` and `Live CLI -> Run Command -> Copy Output / Download TXT`.
 
-Live CLI uses the same sandbox SSH details entered in Deploy Config. The server accepts only
-the fixed Cisco IOS-XE show command list, runs one command over SSH, and returns its raw
-output (up to 1 MB). Passwords are used for the request and are not saved in a project.
-The endpoint is `POST /api/device/show` and validates the target allowlist independently.
+Live CLI supports Cisco IOS-XE, Cisco NX-OS, Arista EOS, Huawei CloudEngine (VRP 8), and
+FortiGate. Choose the platform and a command from the grouped catalog, or choose the first
+option, **User-defined command**, to enter one read-only command. The server validates the
+command against a platform-specific read-only family and rejects custom pipes, command
+separators, redirection, control characters, and configuration commands. It returns the
+device's raw output (up to 1 MB), including CLI errors. Exact command availability varies
+by model, feature set, and operating system release.
+
+Live CLI uses the same SSH details entered in Deploy Config. Passwords are used for the
+request and are not saved in a project. `GET /api/device/commands` supplies the catalog;
+`POST /api/device/show` executes one validated command and checks the target allowlist.
 
 ## Default safety
 - Default mode is READ-ONLY (`ENABLE_REAL_DEPLOY=0`).
 - Default allowed SSH target:
   `devnetsandboxiosxec9k.cisco.com`
 - Arbitrary SSH targets are blocked server-side.
+- To use non-sandbox vendors, add their specific hostnames or IP addresses to Render's
+  `ALLOWED_TARGETS` list. The Live CLI platform menu does not grant network access.
 - Credentials are accepted only in the HTTPS request and are not stored by this app.
 - `CHANGE_ME_*` placeholders and obvious destructive exec commands block deploy.
 
