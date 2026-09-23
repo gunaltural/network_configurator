@@ -376,7 +376,7 @@ pre{
 <div class="layout">
   <aside class="sidebar">
     <h3>Technologies</h3>
-    <button class="tech active" data-tech="BASIC"><strong>Basic Configuration</strong><span>OOB · AAA · SSH · SNMPv3 · NTP · Syslog · Hardening</span></button>
+    <button class="tech active" data-tech="BASIC"><strong>System and Management</strong><span>OOB · AAA · SSH · SNMPv3 · NTP · Syslog · Hardening</span></button>
     <button class="tech" data-tech="BGP"><strong>BGP</strong><span>eBGP / iBGP · two-node peering</span></button>
     <button class="tech" data-tech="OSPF"><strong>OSPF</strong><span>Area · adjacency · point-to-point</span></button>
     <button class="tech" data-tech="STP"><strong>STP</strong><span>Root · PortFast · Guard · UDLD</span></button>
@@ -390,7 +390,7 @@ pre{
 
   <main class="workspace">
     <div class="topbar">
-      <div><h2 id="moduleTitle">Basic Configuration</h2><div id="moduleSubtitle" class="muted">Temel cihaz konfigürasyonu</div></div>
+      <div><h2 id="moduleTitle">System and Management</h2><div id="moduleSubtitle" class="muted">Temel cihaz konfigürasyonu</div></div>
       <div class="platform-wrap"><span class="muted">Platform</span>
         <select id="platform">
           <option value="Cisco IOS-XE">Cisco_StackWise</option>
@@ -535,7 +535,7 @@ let tech="BASIC", tab="config"; window.activeTech=tech; window.currentTech=tech;
 
 const modules = {
 BASIC:{
- title:"Basic Configuration", subtitle:"Secure Management Baseline · OOB · AAA · SSH · SNMPv3 · NTP · Syslog",
+ title:"System and Management", subtitle:"Secure Management Baseline · OOB · AAA · SSH · SNMPv3 · NTP · Syslog",
  params:()=>`
  <div class="section-title">Device-1</div>
  <div class="param-grid">
@@ -5104,7 +5104,7 @@ renderModule();
  const grid=$("v3TechGrid");
  cards.forEach(([key,icon,tag,desc])=>{
    const d=document.createElement("div"); d.className="v3-card";
-   const label=key==="VPC"?"vPC / MLAG":key==="BASIC"?"Basic":key;
+   const label=key==="VPC"?"vPC / MLAG":key==="BASIC"?"System and Management":key;
    d.innerHTML=`<div class="icon">${icon}</div><h3>${label}</h3><p>${desc}</p><span class="tag">${tag}</span>`;
    d.onclick=()=>openTech(key); grid.appendChild(d);
  });
