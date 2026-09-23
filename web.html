@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Network Configurator v5.9.9</title>
+<title>Network Configurator v5.9.10</title>
 <style>
 :root{
   --bg:#0d1117;--panel:#161b22;--panel2:#1f2630;--line:#2b3440;
@@ -373,7 +373,7 @@ pre{
     <div class="logo">NC</div>
     <div><h1>Network Configurator</h1><small>Configure · Validate · Troubleshoot</small></div>
   </div>
-  <div class="badge">Version 5.9.9 · Multi-Vendor Read-Only Live CLI</div>
+  <div class="badge">Version 5.9.10 · Multi-Vendor Read-Only Live CLI</div>
 </header>
 
 <section class="hero">
@@ -453,7 +453,7 @@ pre{
             <div class="sd-grid">
               <div>
                 <label>Device IP / Host</label>
-                <input id="sdTarget" value="devnetsandboxiosxec9k.cisco.com" placeholder="10.10.10.10">
+                <input id="sdTarget" placeholder="Device IP or hostname" autocomplete="off">
               </div>
               <div>
                 <label>Platform</label>
@@ -521,14 +521,14 @@ pre{
           <div class="simple-deploy-head"><div><b>LIVE CLI · <span id="livePlatformTitle">CISCO IOS-XE</span></b><span>Read-only commands, one per line</span></div></div>
           <div class="sd-card">
             <div class="sd-grid">
-              <div><label for="liveTarget">Device IP / Host</label><input id="liveTarget" value="devnetsandboxiosxec9k.cisco.com" autocomplete="off"></div>
+              <div><label for="liveTarget">Device IP / Host</label><input id="liveTarget" placeholder="Device IP or hostname" autocomplete="off"></div>
               <div><label for="livePort">SSH Port</label><input id="livePort" type="number" min="1" max="65535" value="22"></div>
               <div><label for="livePlatform">Device platform</label><select id="livePlatform"><option>Cisco IOS-XE</option><option>Cisco NX-OS</option><option>Arista EOS</option><option>Huawei_CE_SW</option><option>FortiGate</option></select></div>
               <div><label for="liveUsername">Username</label><input id="liveUsername" autocomplete="username"></div>
               <div><label for="livePassword">Password</label><input id="livePassword" type="password" autocomplete="current-password"></div>
               <div><label for="liveSecret">Enable Secret (optional)</label><input id="liveSecret" type="password" autocomplete="off"></div>
             </div>
-            <small class="live-help">The server must allow this device address in ALLOWED_TARGETS.</small>
+            <small class="live-help">Enter any publicly reachable device address. Private network addresses require an explicit server exception and a network path from Render.</small>
           </div>
           <div class="sd-card">
             <label for="liveCommand">Command</label>
@@ -536,7 +536,7 @@ pre{
             <div id="liveCustomRow"><label for="liveCustomCommand">Your read-only commands, one per line</label><textarea id="liveCustomCommand" maxlength="131072" autocomplete="off" spellcheck="false" placeholder="show ip route 10.0.0.0/8"></textarea><small class="live-help">Add as many show / display / get commands as needed, one per line. Common display filters such as | include and | grep work. Configuration commands, redirects and command chaining are blocked.</small></div>
           </div>
           <div class="sd-actions"><button class="btn primary" id="liveRun" type="button">Run Command</button><button class="btn" id="liveCopy" type="button" disabled>Copy Output</button><button class="btn" id="liveDownload" type="button" disabled>Download TXT</button></div>
-          <div id="liveStatus" class="sd-result neutral" role="status" aria-live="polite">Select a command and run it against the sandbox.</div>
+          <div id="liveStatus" class="sd-result neutral" role="status" aria-live="polite">Select a command and run it against your device.</div>
           <pre id="liveOutput" class="sd-cli" aria-label="CLI output">Output will appear here.</pre>
         </div>
         <pre id="output"></pre>

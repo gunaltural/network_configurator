@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """
-Network Configurator v5.9.9 — Hosted read-only Live CLI
+Network Configurator v5.9.10 — Hosted multi-vendor Live CLI
 
 Designed for Render / hosted web use:
 - Browser-only client experience
 - Same-origin FastAPI backend
 - Server-side SSH via Netmiko
 - No local Python, local agent, browser extension, or desktop app
-- Server-side SSH target allowlist for the public demo
+- User-selected public SSH targets, with explicit exceptions for private networks
 """
 
 import hashlib
+import ipaddress
 import os
 import re
 import socket
@@ -22,7 +23,7 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 import uvicorn
 
-VERSION = "5.9.9"
+VERSION = "5.9.10"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
 
@@ -144,9 +145,34 @@ def valid_host(value: str) -> bool:
     return bool(re.fullmatch(r"[A-Za-z0-9_.:-]{1,255}", str(value or "")))
 
 
-def target_allowed(value: str) -> bool:
+def resolve_ssh_target(value: str) -> str:
+    """Resolve once and return a pinned address for the SSH connection."""
     host = str(value or "").strip().lower()
-    return bool(host) and (ALLOW_ANY_TARGET or host in ALLOWED_TARGETS)
+    if not valid_host(host):
+        raise ValueError("Enter a valid device IP address or hostname.")
+    try:
+        addresses = [str(ipaddress.ip_address(host))]
+    except ValueError:
+        try:
+            addresses = [info[4][0] for info in socket.getaddrinfo(host, None, type=socket.SOCK_STREAM)]
+        except OSError as exc:
+            raise ValueError(f"Cannot resolve device hostname: {exc}") from exc
+    if not addresses:
+        raise ValueError("Device hostname resolved to no addresses.")
+    if ALLOW_ANY_TARGET or host in ALLOWED_TARGETS:
+        return addresses[0]
+    for address in addresses:
+        if ipaddress.ip_address(address).is_global:
+            return address
+    raise ValueError("Private or reserved device addresses require an explicit server exception.")
+
+
+def target_allowed(value: str) -> bool:
+    try:
+        resolve_ssh_target(value)
+        return True
+    except ValueError:
+        return False
 
 
 def device_type(platform: str, live: bool = False) -> str:
@@ -183,12 +209,11 @@ def checks(payload: DeviceRequest, include_config: bool = True, live: bool = Fal
 
     host_ok = valid_host(payload.target)
     add("Target syntax", "PASS" if host_ok else "FAIL", payload.target or "missing")
-    add(
-        "Target allowlist",
-        "PASS" if host_ok and target_allowed(payload.target) else "FAIL",
-        "allowed" if target_allowed(payload.target) else
-        f"blocked by server allowlist ({', '.join(sorted(ALLOWED_TARGETS)) or 'empty'})",
-    )
+    try:
+        resolved = resolve_ssh_target(payload.target)
+        add("SSH target", "PASS", f"{payload.target} → {resolved}")
+    except ValueError as exc:
+        add("SSH target", "FAIL", str(exc))
     add("SSH port", "PASS" if 1 <= payload.port <= 65535 else "FAIL", str(payload.port))
 
     try:
@@ -254,8 +279,7 @@ def live_command_list(platform: str, text: str) -> List[str]:
 
 
 def connect(payload: DeviceRequest, live: bool = False):
-    if not target_allowed(payload.target):
-        raise RuntimeError("SSH target is blocked by the hosted demo allowlist.")
+    address = resolve_ssh_target(payload.target)
 
     try:
         from netmiko import ConnectHandler
@@ -265,7 +289,7 @@ def connect(payload: DeviceRequest, live: bool = False):
     dt = device_type(payload.platform, live=live)
     params = {
         "device_type": dt,
-        "host": payload.target,
+        "host": address,
         "port": payload.port,
         "username": payload.username,
         "password": payload.password,
@@ -331,6 +355,8 @@ def health():
         "hosted": True,
         "allowed_targets": sorted(ALLOWED_TARGETS),
         "allow_any_target": ALLOW_ANY_TARGET,
+        "public_targets_allowed": True,
+        "target_policy": "Publicly routable addresses or explicitly allowed private targets",
         "diagnostics": "/api/diagnostics/network",
     }
 
@@ -387,25 +413,28 @@ def tcp_probe(host: str, port: int, timeout: float = 6.0):
 
 
 @app.get("/api/diagnostics/network")
-def network_diagnostics():
+def network_diagnostics(target: str = "", port: int = 22):
     """
-    Safe outbound connectivity test.
+    Outbound TCP connectivity test for a user-selected device.
     No credentials, no SSH login, no device writes.
     Used to distinguish hosting-network egress issues from SSH/authentication issues.
     """
-    probes = [
-        ("devnetsandboxiosxec9k.cisco.com", 22),
-        ("devnetsandboxiosxec9k.cisco.com", 443),
-        ("github.com", 22),
-        ("github.com", 443),
-        ("ssh.github.com", 443),
-    ]
-    results = [tcp_probe(host, port) for host, port in probes]
+    if not target:
+        return {"ok": True, "version": VERSION,
+                "purpose": "Raw TCP/DNS diagnostics only; no SSH authentication or device changes",
+                "usage": "/api/diagnostics/network?target=DEVICE_HOST&port=22"}
+    if not 1 <= port <= 65535:
+        raise HTTPException(status_code=400, detail="SSH port must be between 1 and 65535.")
+    try:
+        address = resolve_ssh_target(target)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {
         "ok": True,
         "version": VERSION,
         "purpose": "raw TCP/DNS diagnostics only; no SSH authentication and no device changes",
-        "results": results,
+        "target": target,
+        "results": [tcp_probe(address, port)],
     }
 
 

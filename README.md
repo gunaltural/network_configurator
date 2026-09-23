@@ -1,4 +1,4 @@
-# Network Configurator v5.9.9 — Multi-Vendor Read-Only Live CLI
+# Network Configurator v5.9.10 — Multi-Vendor Read-Only Live CLI
 
 Render Web Service deployment using the repository's Dockerfile.
 
@@ -19,15 +19,16 @@ by model, feature set, and operating system release.
 
 Live CLI uses the same SSH details entered in Deploy Config. Passwords are used for the
 request and are not saved in a project. `GET /api/device/commands` supplies the catalog;
-`POST /api/device/show` executes one validated command and checks the target allowlist.
+`POST /api/device/show` executes the validated command list against the address entered by the user.
 
 ## Default safety
 - Default mode is READ-ONLY (`ENABLE_REAL_DEPLOY=0`).
-- Default allowed SSH target:
-  `devnetsandboxiosxec9k.cisco.com`
-- Arbitrary SSH targets are blocked server-side.
-- To use non-sandbox vendors, add their specific hostnames or IP addresses to Render's
-  `ALLOWED_TARGETS` list. The Live CLI platform menu does not grant network access.
+- Enter a publicly routable hostname or IP for any supported vendor; no per-device
+  Render setting is needed. SSH connects to the resolved address selected by the server.
+- Private, loopback, link-local, and reserved addresses require an explicit exception in
+  `ALLOWED_TARGETS`; the default list includes the Cisco DevNet sandbox for continuity.
+- `ALLOW_ANY_TARGET=1` overrides the address policy for an isolated, trusted deployment.
+- The selected device still must be reachable from the server over its SSH port.
 - Credentials are accepted only in the HTTPS request and are not stored by this app.
 - `CHANGE_ME_*` placeholders and obvious destructive exec commands block deploy.
 
@@ -38,10 +39,10 @@ The Dockerfile starts the FastAPI server on `PORT` (default `10000`) and binds t
 
 Set these environment variables in Render:
 - `ENABLE_REAL_DEPLOY=0`
-- `ALLOWED_TARGETS=devnetsandboxiosxec9k.cisco.com`
-- `ALLOW_ANY_TARGET=0`
+- `ALLOWED_TARGETS=devnetsandboxiosxec9k.cisco.com` (optional additional exceptions)
+- `ALLOW_ANY_TARGET=0` (keep the default on a public service)
 
-Leave `ENABLE_REAL_DEPLOY=0` for read-only sandbox access.
+Leave `ENABLE_REAL_DEPLOY=0` for read-only access to any reachable vendor device.
 
 ## Important
 A hosted Render service can SSH only to destinations reachable from Render's outbound network.
@@ -52,19 +53,10 @@ Private corporate management IPs will require an internal/on-prem hosted instanc
 
 Open:
 
-`/api/diagnostics/network`
+`/api/diagnostics/network?target=DEVICE_HOST&port=22`
 
 This performs only DNS resolution and raw TCP connect tests. It does not send credentials,
 does not log in to an SSH server, and does not change any device configuration.
 
-The endpoint tests:
-- Cisco DevNet C9K sandbox TCP/22
-- Cisco DevNet C9K sandbox TCP/443
-- GitHub TCP/22
-- GitHub TCP/443
-- ssh.github.com TCP/443
-
-Interpretation:
-- If Cisco:22 and GitHub:22 both fail while 443 succeeds, suspect hosted-network egress behavior for TCP/22.
-- If GitHub:22 succeeds but Cisco:22 fails, suspect Cisco-side filtering/routing for the service's outbound IP range.
-- If Cisco:443 also fails, suspect DNS/path/reachability rather than SSH specifically.
+The endpoint tests the user-selected device and port, subject to the same address policy
+as Live CLI. A failed TCP probe indicates that Render cannot reach that device and port.
