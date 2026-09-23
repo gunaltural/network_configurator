@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Network Configurator v5.9.6 — Hosted Zero-Install Direct Deploy
+Network Configurator v5.9.7 — Hosted read-only Live CLI
 
-Designed for Railway / hosted web use:
+Designed for Render / hosted web use:
 - Browser-only client experience
 - Same-origin FastAPI backend
 - Server-side SSH via Netmiko
@@ -22,7 +22,7 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 import uvicorn
 
-VERSION = "5.9.6"
+VERSION = "5.9.7"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
 
@@ -54,6 +54,18 @@ RUNNING_COMMAND = {
 }
 
 READONLY_PREFIXES = ("show ", "display ", "get ", "diagnose ")
+LIVE_SHOW_COMMANDS = (
+    "show version",
+    "show ip interface brief",
+    "show interfaces status",
+    "show ip route",
+    "show bgp summary",
+    "show running-config | include hostname",
+    "show inventory",
+    "show lldp neighbors",
+    "show cdp neighbors",
+)
+LIVE_OUTPUT_LIMIT = 1_000_000
 ERROR_RE = re.compile(
     r"(% ?Invalid|% ?Incomplete|% ?Ambiguous|Invalid input|Error:|ERROR:|"
     r"Unrecognized command|Unknown command|Wrong parameter|Too many parameters)",
@@ -78,6 +90,10 @@ class DeviceRequest(BaseModel):
     block_label: str = "Configuration"
     config: str = ""
     verification_commands: str = ""
+
+
+class LiveCommandRequest(DeviceRequest):
+    command: str = ""
 
 
 def sha256(text: str) -> str:
@@ -300,7 +316,7 @@ def network_diagnostics():
     """
     Safe outbound connectivity test.
     No credentials, no SSH login, no device writes.
-    Used to distinguish Railway/network egress issues from SSH/authentication issues.
+    Used to distinguish hosting-network egress issues from SSH/authentication issues.
     """
     probes = [
         ("devnetsandboxiosxec9k.cisco.com", 22),
@@ -434,6 +450,41 @@ def precheck(p: DeviceRequest):
                 pass
 
 
+@app.post("/api/device/show")
+def live_show(p: LiveCommandRequest):
+    # Compare the complete string; no arbitrary CLI, pipes, separators or config commands.
+    if p.command not in LIVE_SHOW_COMMANDS:
+        raise HTTPException(status_code=400, detail={"ok": False, "error": "Command is not in the Live CLI allowlist."})
+    items = checks(p, include_config=False)
+    if p.platform != "Cisco IOS-XE":
+        items.append({"name": "Platform", "status": "FAIL", "detail": "Live CLI currently supports Cisco IOS-XE only."})
+    if not ok(items):
+        raise HTTPException(status_code=400, detail={"ok": False, "checks": items, "error": "Connection parameters are incomplete or target is blocked."})
+
+    if MOCK_SSH:
+        return {"ok": True, "device": p.target, "command": p.command,
+                "output": f"MOCK SSH OUTPUT — {p.command} on {p.target}\nNo command was sent to a device.",
+                "truncated": False, "mock": True}
+
+    conn = None
+    try:
+        conn, _ = connect(p)
+        output = conn.send_command(p.command, read_timeout=60)
+        if ERROR_RE.search(output):
+            raise RuntimeError("Device reported a CLI error: " + output[:500])
+        return {"ok": True, "device": p.target, "command": p.command,
+                "output": output[:LIVE_OUTPUT_LIMIT],
+                "truncated": len(output) > LIVE_OUTPUT_LIMIT, "mock": False}
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail={"ok": False, "error": str(exc)})
+    finally:
+        if conn:
+            try:
+                conn.disconnect()
+            except Exception:
+                pass
+
+
 @app.post("/api/device/deploy")
 def deploy(p: DeviceRequest):
     items = checks(p, include_config=True)
@@ -461,7 +512,7 @@ def deploy(p: DeviceRequest):
             status_code=403,
             detail={
                 "ok": False,
-                "error": "This hosted Network Configurator is READ-ONLY. Set ENABLE_REAL_DEPLOY=1 in Railway to allow writes.",
+                "error": "This hosted Network Configurator is READ-ONLY. Write mode is disabled in the server environment.",
                 "steps": [{"name": "Deployment", "status": "FAIL", "detail": "Server write mode disabled"}],
             },
         )

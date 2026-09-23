@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Network Configurator v0.3</title>
+<title>Network Configurator v5.9.7</title>
 <style>
 :root{
   --bg:#0d1117;--panel:#161b22;--panel2:#1f2630;--line:#2b3440;
@@ -71,6 +71,11 @@ pre{
 @media(max-width:1000px){.layout{grid-template-columns:1fr}.grid{grid-template-columns:1fr}.topology-row{grid-template-columns:1fr}.link{height:60px;width:3px;margin:auto}.param-grid{grid-template-columns:1fr}.checks{grid-template-columns:1fr}}
 
 .simple-deploy[hidden]{display:none!important}
+.live-cli[hidden]{display:none!important}
+.live-cli{display:grid;gap:12px}
+.live-cli .sd-cli{white-space:pre;min-height:270px;max-height:580px;overflow:auto}
+.live-cli .sd-actions{justify-content:flex-start}
+.live-cli .sd-result{min-height:auto}
 .simple-deploy{display:grid;gap:12px}
 .simple-deploy-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:1px solid #25445c;border-radius:12px;background:#0a1823}
 .simple-deploy-head b{display:block;color:#e5f5ff;font-size:13px;letter-spacing:.05em}
@@ -364,7 +369,7 @@ pre{
     <div class="logo">NC</div>
     <div><h1>Network Configurator</h1><small>Configure · Validate · Troubleshoot</small></div>
   </div>
-  <div class="badge">Version 5.9.6 · Hosted Zero-Install Direct Deploy</div>
+  <div class="badge">Version 5.9.7 · Hosted Read-Only Live CLI</div>
 </header>
 
 <section class="hero">
@@ -425,6 +430,7 @@ pre{
         <div class="tabs">
           <button class="tab active" data-tab="config">Configuration</button>
           <button class="tab" data-tab="deploy">Deploy Config</button>
+          <button class="tab" data-tab="live">Live CLI</button>
           <button class="tab" data-tab="verify">Verification</button>
           <button class="tab" data-tab="trouble">Troubleshooting</button>
           <button class="tab" data-tab="notes">Design Notes</button>
@@ -506,6 +512,35 @@ pre{
             Direct Deploy runs through the same Network Configurator web server. No local agent URL or second interface is required. RBAC / approval remains preserved for later reintroduction.
             <span id="sdServerHint"></span>
           </div>
+        </div>
+        <div id="livePanel" class="live-cli" hidden>
+          <div class="simple-deploy-head"><div><b>LIVE CLI · CISCO IOS-XE</b><span>Sandbox show commands · READ-ONLY</span></div></div>
+          <div class="sd-card">
+            <div class="sd-grid">
+              <div><label for="liveTarget">Device IP / Host</label><input id="liveTarget" value="devnetsandboxiosxec9k.cisco.com" autocomplete="off"></div>
+              <div><label for="livePort">SSH Port</label><input id="livePort" type="number" min="1" max="65535" value="22"></div>
+              <div><label for="liveUsername">Username</label><input id="liveUsername" autocomplete="username"></div>
+              <div><label for="livePassword">Password</label><input id="livePassword" type="password" autocomplete="current-password"></div>
+              <div><label for="liveSecret">Enable Secret (optional)</label><input id="liveSecret" type="password" autocomplete="off"></div>
+            </div>
+          </div>
+          <div class="sd-card">
+            <label for="liveCommand">Show command</label>
+            <select id="liveCommand">
+              <option>show ip interface brief</option>
+              <option>show version</option>
+              <option>show interfaces status</option>
+              <option>show ip route</option>
+              <option>show bgp summary</option>
+              <option>show running-config | include hostname</option>
+              <option>show inventory</option>
+              <option>show lldp neighbors</option>
+              <option>show cdp neighbors</option>
+            </select>
+          </div>
+          <div class="sd-actions"><button class="btn primary" id="liveRun" type="button">Run Command</button><button class="btn" id="liveCopy" type="button" disabled>Copy Output</button><button class="btn" id="liveDownload" type="button" disabled>Download TXT</button></div>
+          <div id="liveStatus" class="sd-result neutral" role="status" aria-live="polite">Select a command and run it against the sandbox.</div>
+          <pre id="liveOutput" class="sd-cli" aria-label="CLI output">Output will appear here.</pre>
         </div>
         <pre id="output"></pre>
         <div class="actions" id="outputActions">
@@ -5016,11 +5051,72 @@ const SimpleDeployEngine=(()=>{
 })();
 window.SimpleDeployEngine=SimpleDeployEngine;
 
+const LiveCliEngine=(()=>{
+ const el=id=>document.getElementById(id);
+ const fields=[["sdTarget","liveTarget"],["sdPort","livePort"],["sdUsername","liveUsername"],["sdPassword","livePassword"],["sdSecret","liveSecret"]];
+ let lastOutput="", lastCommand="", lastDevice="";
+ function status(message,kind="neutral"){
+   const box=el("liveStatus");box.textContent=message;box.className=`sd-result ${kind}`;
+ }
+ function clear(){
+   lastOutput="";el("liveOutput").textContent="Output will appear here.";
+   el("liveCopy").disabled=true;el("liveDownload").disabled=true;
+   status("Select a command and run it against the sandbox.");
+ }
+ async function run(){
+   const button=el("liveRun");
+   const p={target:el("liveTarget").value.trim(),port:Number(el("livePort").value),
+     platform:"Cisco IOS-XE",username:el("liveUsername").value.trim(),
+     password:el("livePassword").value,secret:el("liveSecret").value,
+     command:el("liveCommand").value};
+   clear();button.disabled=true;button.textContent="Running…";
+   status(`Connecting to ${p.target} and running ${p.command}…`,"busy");
+   try{
+     const response=await fetch("/api/device/show",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(p)});
+     let data;
+     try{data=await response.json()}catch{throw new Error(`Invalid server response (HTTP ${response.status}).`)}
+     if(!response.ok)throw new Error(data.detail?.error||data.error||`HTTP ${response.status}`);
+     lastOutput=data.output;lastCommand=data.command;lastDevice=data.device;
+     el("liveOutput").textContent=lastOutput||"(Command returned no output.)";
+     el("liveCopy").disabled=!lastOutput;el("liveDownload").disabled=!lastOutput;
+     status(`${data.mock?"MOCK output":"Device output"} · ${data.device} · ${data.command}${data.truncated?" · Output truncated at 1 MB":""}`,data.truncated?"warn":"pass");
+   }catch(error){
+     el("liveOutput").textContent="No CLI output received.";
+     status(`Command failed: ${error.message}`,"fail");
+   }finally{button.disabled=false;button.textContent="Run Command";}
+ }
+ function bind(){
+   for(const [deployId,liveId] of fields){
+     const deploy=el(deployId),live=el(liveId);
+     for(const [source,destination] of [[deploy,live],[live,deploy]]){
+       source.addEventListener("input",()=>{destination.value=source.value;clear();});
+     }
+   }
+   el("liveCommand").addEventListener("change",clear);
+   el("liveRun").addEventListener("click",run);
+   el("liveCopy").addEventListener("click",async()=>{
+     if(!lastOutput)return;
+     try{await navigator.clipboard.writeText(lastOutput);status(`Copied output · ${lastDevice} · ${lastCommand}`,"pass")}
+     catch{status("Copy failed. Select the text in the output panel instead.","fail")}
+   });
+   el("liveDownload").addEventListener("click",()=>{
+     if(!lastOutput)return;
+     const blob=new Blob([`Device: ${lastDevice}\nCommand: ${lastCommand}\n\n${lastOutput}\n`],{type:"text/plain;charset=utf-8"});
+     const url=URL.createObjectURL(blob),link=document.createElement("a");
+     link.href=url;link.download=`${lastCommand.replace(/[^a-z0-9]+/gi,"_")}.txt`;
+     link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+   });
+ }
+ return {bind};
+})();
+LiveCliEngine.bind();
+
 function renderOutput(){
  if(tech==="BGP")bgpV39ContextUI();
  if(tech==="VPC"){vpcLeafUi();vpcV42ContextUI();} if(tech==="EVPN")evpnV431Ui();
  const out=document.getElementById("output");
  const deploy=document.getElementById("deployPanel");
+ const live=document.getElementById("livePanel");
  const actions=document.getElementById("outputActions");
  try{
    const m=modules[tech];
@@ -5030,18 +5126,28 @@ function renderOutput(){
      if(out)out.hidden=true;
      if(actions)actions.hidden=true;
      if(deploy)deploy.hidden=false;
+     if(live)live.hidden=true;
      SimpleDeployEngine.refresh();
+     return;
+   }
+   if(tab==="live"){
+     if(out)out.hidden=true;
+     if(actions)actions.hidden=true;
+     if(deploy)deploy.hidden=true;
+     if(live)live.hidden=false;
      return;
    }
    if(out)out.hidden=false;
    if(actions)actions.hidden=false;
    if(deploy)deploy.hidden=true;
+   if(live)live.hidden=true;
    const result=(typeof m.generate==="function") ? m.generate(tab) : "";
    out.textContent=(result && String(result).trim()) ? result : "# No configuration output generated.";
  }catch(err){
    console.error("Configurator render error:",err);
    if(out){out.hidden=false;out.textContent="# CONFIGURATOR ERROR\n# "+err.message+"\n# Module: "+tech+"\n# Platform: "+platform();}
    if(deploy)deploy.hidden=true;
+   if(live)live.hidden=true;
  }
 }
 
