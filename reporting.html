@@ -11,7 +11,7 @@
 .button{border:1px solid #34536b;background:#122330;color:#d6e9f5;border-radius:9px;padding:9px 13px;font-weight:700}.button:hover{border-color:#75afd8}.button.primary{background:#173851;border-color:#5586a8;color:#fff}.button.subtle{background:transparent}.button.small{padding:6px 9px;font-size:12px}.button.link{display:inline-block;text-decoration:none}
 .intro{display:flex;justify-content:space-between;align-items:end;gap:20px;padding:28px 0 20px}.intro h1{font-size:28px;line-height:1.2;margin:4px 0}.intro p{color:var(--muted);margin:0}.eyebrow{font-size:11px;color:#82c7f4;font-weight:800;letter-spacing:.14em;text-transform:uppercase}.status{border:1px solid #2d4c61;border-radius:30px;padding:7px 12px;font-size:12px;color:#c2deef;white-space:nowrap}
 .editor{display:grid;grid-template-columns:minmax(0,1fr) minmax(370px,.9fr);gap:18px;align-items:start}.stack{display:grid;gap:16px}.panel{border:1px solid var(--line);border-radius:15px;background:var(--surface);padding:19px}.panel h2{font-size:17px;margin:0 0 5px}.panel p.hint{color:var(--muted);margin:0 0 15px;font-size:12px}.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.fields .wide{grid-column:1/-1}label{display:block;color:#b9c7d1;font-size:12px;font-weight:700}input,select,textarea{display:block;width:100%;margin-top:5px;background:#0d141b;border:1px solid #3b4856;color:#e6edf3;border-radius:8px;padding:9px 10px;min-width:0}input:focus,select:focus,textarea:focus{outline:2px solid #448dce;outline-offset:0}textarea{min-height:76px;resize:vertical}.note{font-size:12px;color:var(--muted);margin:10px 0 0}.count{font-variant-numeric:tabular-nums;color:#91d3ff;font-weight:800}.devices{display:grid;gap:9px}.device{border:1px solid #304255;border-radius:11px;padding:12px;background:#111b25}.device-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}.device-top strong{font-size:14px}.device-top span,.source{color:#96b4c5;font-size:11px}.source{display:inline-block;margin:4px 0 0}.device-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.device-fields label{font-size:11px}.device-fields input,.device-fields select{font-size:12px;margin-top:3px;padding:7px 8px}.device-actions{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px}.device-actions .note{margin:0}
-.links{overflow:auto;max-height:310px}.links table{width:100%;border-collapse:collapse;font-size:12px}.links th,.links td{text-align:left;padding:7px;border-bottom:1px solid #2b3948}.links input:not([type=checkbox]){width:115px;margin:0;padding:6px}.links input[type=checkbox]{width:auto;margin:auto}.links th{color:#a8c3d6}.ssh-box{border:1px solid #34607b;background:#0b1d2b;padding:14px;border-radius:11px}.ssh-box[hidden]{display:none}.ssh-box h3{margin:0 0 8px;font-size:14px}.ssh-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px}.ssh-result{white-space:pre-wrap;font-size:12px;color:#a7cbe2}.ssh-result.error{color:#ffacac}.ssh-result.ok{color:#91e1b3}
+.links{overflow:auto;max-height:310px}.links table{width:100%;min-width:720px;border-collapse:collapse;font-size:12px}.links th,.links td{text-align:left;padding:7px;border-bottom:1px solid #2b3948}.links input:not([type=checkbox]){width:115px;margin:0;padding:6px}.links input[type=checkbox]{width:auto;margin:auto}.links th{color:#a8c3d6}.ssh-box{border:1px solid #34607b;background:#0b1d2b;padding:14px;border-radius:11px}.ssh-box[hidden]{display:none}.ssh-box h3{margin:0 0 8px;font-size:14px}.ssh-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px}.ssh-result{white-space:pre-wrap;font-size:12px;color:#a7cbe2}.ssh-result.error{color:#ffacac}.ssh-result.ok{color:#91e1b3}
 .preview-panel{position:sticky;top:16px}.preview-panel h2{margin-bottom:13px}.paper{background:white;color:#1b2933;border-radius:5px;padding:34px;min-height:700px;box-shadow:0 12px 30px #0004;overflow:hidden}.paper h1{font-size:26px;line-height:1.2;margin:8px 0}.paper h2{font-size:17px;border-bottom:1px solid #cad5dd;padding:0 0 5px;margin:26px 0 8px}.paper h3{font-size:13px;margin:16px 0 6px}.paper p,.paper li,.paper td{font-size:11px;line-height:1.5}.paper .report-meta{color:#506779;font-size:11px}.paper .report-tag{color:#186595;font-weight:800;text-transform:uppercase;letter-spacing:.12em;font-size:10px}.paper .report-muted{color:#68808e}.paper .summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:18px 0}.paper .metric{border:1px solid #cad6df;border-radius:7px;padding:8px}.paper .metric b{display:block;font-size:17px}.paper .metric span{font-size:10px;color:#586d79}.paper svg{width:100%;height:auto;border:1px solid #dce4ea;border-radius:8px;background:#f8fbfd}.paper table{border-collapse:collapse;width:100%;font-size:10px;table-layout:fixed}.paper th,.paper td{border:1px solid #cbd6df;padding:5px 6px;text-align:left;word-break:break-word}.paper th{background:#eaf1f6}.paper .report-footer{font-size:10px;color:#6c7c87;margin-top:30px}
 @media(max-width:1040px){.editor{grid-template-columns:1fr}.preview-panel{position:static}}@media(max-width:680px){.shell{padding:0 12px 40px}.nav,.intro{align-items:flex-start;flex-direction:column}.fields,.device-fields{grid-template-columns:1fr}.paper{padding:19px}.status{white-space:normal}}
 @media print{body{background:#fff;color:#000}.shell{padding:0;max-width:none}.nav,.intro,.editor>.stack,.preview-panel>h2,.status{display:none!important}.editor{display:block}.preview-panel{border:0;padding:0}.paper{box-shadow:none;padding:0;min-height:0;overflow:visible}.paper h2,.paper table,.paper svg{break-inside:avoid}@page{size:A4;margin:15mm}}
@@ -20,20 +20,20 @@
 <body>
 <div class="shell">
   <nav class="nav"><div class="brand"><span class="mark">NC</span><span>Network Configurator<br><small style="font-weight:400;color:var(--muted)">Reporting and Inventory</small></span></div>
-    <div class="navlinks"><a class="button link subtle" href="/">← Home</a><button class="button" id="saveProject">Download project</button><label class="button" for="openProject" style="color:var(--text);font-size:14px">Open project<input type="file" accept=".json,application/json" id="openProject" hidden></label><button class="button primary" id="printReport">Print / Save PDF</button></div>
+    <div class="navlinks"><a class="button link subtle" href="/">← Home</a><button class="button" id="saveProject">Download project</button><label class="button" for="openProject" style="color:var(--text);font-size:14px">Open project<input type="file" accept=".json,application/json" id="openProject" hidden></label><button class="button" id="downloadWord">Download Word</button><button class="button primary" id="printReport">Print / Save PDF</button></div>
   </nav>
   <div class="intro"><div><div class="eyebrow">Independent workspace · Greenfield design</div><h1>Reporting and Inventory</h1><p>Start with the intended topology. Complete the inventory manually or verify it from devices when they are reachable.</p></div><span class="status" id="projectStatus">Draft · 6 devices</span></div>
   <div class="editor"><div class="stack">
     <section class="panel"><h2>1 · Project and technology</h2><p class="hint">Select the vendor first. Device records and suitable technology choices follow your selection.</p><div class="fields">
-      <label class="wide">Project name<input id="projectName" maxlength="120" value="New Data Center Design"></label>
+      <label class="wide">Project name<input id="projectName" maxlength="120" placeholder="Enter a project name" required></label>
       <label>Primary vendor / platform<select id="vendor"><option>Cisco NX-OS</option><option>Cisco IOS-XE</option><option>Arista EOS</option><option value="Huawei_CE_SW">Huawei CloudEngine</option></select></label>
       <label>Architecture<select id="architecture"><option value="spine-leaf">Spine–Leaf</option><option value="core-access">Core–Access</option></select></label>
-      <label>Technology<select id="technology"></select></label><label>Technology placement<select id="techPlacement"><option value="leaf">Leaf / Access tier</option><option value="spine">Spine / Core tier</option></select></label>
+      <label>Technology<select id="technology"></select></label><label>Technology placement<select id="techPlacement"><option value="lower">Leaf / Access tier</option><option value="upper">Spine / Core tier</option></select></label>
       <label><span id="upperLabel">Spine count</span><input id="upperCount" type="number" min="1" max="8" value="2"></label><label><span id="lowerLabel">Leaf count</span><input id="lowerCount" type="number" min="1" max="16" value="4"></label>
       <label class="wide">Design intent / project scope<textarea id="scope" maxlength="2000" placeholder="Purpose, locations, services, availability targets…"></textarea></label>
     </div></section>
-    <section class="panel"><h2>2 · Planned device inventory <span class="count" id="deviceCount">6</span></h2><p class="hint">Roles and rows come from the topology. Hardware details can be entered now and verified later.</p><div class="devices" id="devices"></div></section>
-    <section class="panel"><h2>3 · Planned links <span class="count" id="linkCount">8</span></h2><p class="hint">Initial design connects each lower-tier device to each upper-tier device. Uncheck or edit any link before export.</p><div class="links"><table><thead><tr><th>Use</th><th>Endpoints</th><th>Upper port</th><th>Lower port</th><th>Speed</th></tr></thead><tbody id="links"></tbody></table></div></section>
+    <section class="panel"><h2>2 · Planned device inventory</h2><p class="hint"><span id="deviceCount">2 Spine + 4 Leaf = 6 planned devices.</span> Enter hardware details now or verify them later.</p><div class="devices" id="devices"></div></section>
+    <section class="panel"><h2>3 · Planned links <span class="count" id="linkCount">8</span></h2><p class="hint">Initial design connects each lower-tier device to each upper-tier device. Enter the port used at each end; uncheck a link to remove it from the report.</p><div class="links"><table><thead><tr><th>Use</th><th>Upper device</th><th>Upper port</th><th>Lower device</th><th>Lower port</th><th>Speed</th></tr></thead><tbody id="links"></tbody></table></div></section>
     <section class="panel"><h2>4 · Optional device verification</h2><p class="hint">SSH reads inventory only. Enter credentials for the selected device when it is online; passwords stay in this page and are not saved in the project or report.</p>
       <div class="ssh-box" id="sshBox" hidden><h3 id="sshTitle">Read device inventory</h3><div class="fields"><label>SSH target<input id="sshTarget" placeholder="Public hostname or IP"></label><label>Port<input id="sshPort" type="number" min="1" max="65535" value="22"></label><label>Username<input id="sshUser" autocomplete="off"></label><label>Password<input id="sshPassword" type="password" autocomplete="new-password"></label><label class="wide">Enable secret, if needed<input id="sshSecret" type="password" autocomplete="new-password"></label></div><div class="ssh-actions"><button class="button primary" id="readDevice">Read inventory</button><button class="button subtle" id="cancelRead">Cancel</button><span class="ssh-result" id="sshResult" role="status"></span></div></div>
       <p class="note" id="sshHelp">Select “Read from device” on an inventory card.</p>
@@ -43,14 +43,14 @@
 <script>
 (()=>{
   const $=id=>document.getElementById(id);
-  const vendors=["Cisco NX-OS","Cisco IOS-XE","Arista EOS","Huawei_CE_SW","FortiGate"];
+  const vendors=["Cisco NX-OS","Cisco IOS-XE","Arista EOS","Huawei_CE_SW"];
   const vendorLabel=v=>v==="Huawei_CE_SW"?"Huawei CloudEngine":v;
   const technologyByVendor={"Cisco NX-OS":["vPC","STP","EVPN/VXLAN","None"],"Cisco IOS-XE":["STP","None"],"Arista EOS":["MLAG","STP","EVPN/VXLAN","None"],"Huawei_CE_SW":["M-LAG","STP","EVPN/VXLAN","None"],"FortiGate":["None"]};
   const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   const val=(id,fallback="")=>$(id)?.value??fallback;
   const count=(id,max)=>Math.max(1,Math.min(max,Number.parseInt(val(id),10)||1));
   const date=()=>new Date().toLocaleDateString(undefined,{year:"numeric",month:"long",day:"numeric"});
-  let state={schema:"network-configurator-report-v1",name:"New Data Center Design",vendor:"Cisco NX-OS",architecture:"spine-leaf",technology:"vPC",techPlacement:"leaf",upperCount:2,lowerCount:4,scope:"",devices:[],links:[]};
+  let state={schema:"network-configurator-report-v1",name:"",vendor:"Cisco NX-OS",architecture:"spine-leaf",technology:"vPC",techPlacement:"lower",upperCount:2,lowerCount:4,scope:"",devices:[],links:[]};
   let selectedDevice=null;
   const upper=()=>state.architecture==="core-access"?"Core":"Spine";
   const lower=()=>state.architecture==="core-access"?"Access":"Leaf";
@@ -73,7 +73,9 @@
     for(const [tier,total] of [["upper",state.upperCount],["lower",state.lowerCount]]){
       for(let index=1;index<=total;index++){
         const id=`${tier}-${index}`;
-        devices.push(previous.get(id)||{id,tier,index,hostname:`${tier==="upper"?upper():lower()}-${String(index).padStart(2,"0")}`,vendor:state.vendor,model:"",serial:"",target:"",modelSource:"",serialSource:"",observedAt:""});
+        const device=previous.get(id)||{id,tier,index,hostname:`${tier==="upper"?upper():lower()}-${String(index).padStart(2,"0")}`,model:"",serial:"",target:"",modelSource:"",serialSource:"",observedAt:""};
+        device.vendor=state.vendor;
+        devices.push(device);
       }
     }
     state.devices=devices;
@@ -88,9 +90,8 @@
   }
   function deviceCard(d){
     const source=[d.modelSource&&`Model: ${labelSource(d.modelSource)}`,d.serialSource&&`Serial: ${labelSource(d.serialSource)}`].filter(Boolean).join(" · ")||"Inventory pending";
-    return `<div class="device"><div class="device-top"><strong>${esc(roleName(d))} ${d.index}</strong><span>${esc(vendorLabel(d.vendor))}</span></div><div class="device-fields">
+    return `<div class="device"><div class="device-top"><strong>${esc(roleName(d))} ${d.index}</strong></div><div class="device-fields">
       <label>Hostname<input data-device="${d.id}" data-field="hostname" maxlength="100" value="${esc(d.hostname)}"></label>
-      <label>Vendor / platform<select data-device="${d.id}" data-field="vendor">${vendors.map(v=>`<option value="${v}" ${v===d.vendor?"selected":""}>${esc(vendorLabel(v))}</option>`).join("")}</select></label>
       <label>Product model<input data-device="${d.id}" data-field="model" maxlength="100" placeholder="Awaiting assignment" value="${esc(d.model)}"></label>
       <label>Serial number<input data-device="${d.id}" data-field="serial" maxlength="100" placeholder="Awaiting assignment" value="${esc(d.serial)}"></label>
       <label style="grid-column:1/-1">Management address for later SSH verification<input data-device="${d.id}" data-field="target" maxlength="255" placeholder="Optional public hostname or IP" value="${esc(d.target)}"></label></div>
@@ -98,29 +99,40 @@
   }
   function renderEditor(){
     syncOptions();
-    $("deviceCount").textContent=state.devices.length;
+    $("deviceCount").textContent=`${state.upperCount} ${upper()} + ${state.lowerCount} ${lower()} = ${state.devices.length} planned devices.`;
     $("linkCount").textContent=state.links.filter(l=>l.enabled).length;
     $("devices").innerHTML=state.devices.map(deviceCard).join("");
     $("links").innerHTML=state.links.map(l=>{
       const a=state.devices.find(d=>d.id===l.a),b=state.devices.find(d=>d.id===l.b);
-      return `<tr><td><input type="checkbox" data-link="${l.id}" data-field="enabled" aria-label="Include ${esc(deviceName(a))} to ${esc(deviceName(b))}" ${l.enabled?"checked":""}></td><td>${esc(deviceName(a))} → ${esc(deviceName(b))}</td><td><input data-link="${l.id}" data-field="upperPort" aria-label="Upper port ${l.id}" value="${esc(l.upperPort)}"></td><td><input data-link="${l.id}" data-field="lowerPort" aria-label="Lower port ${l.id}" value="${esc(l.lowerPort)}"></td><td><input data-link="${l.id}" data-field="speed" aria-label="Speed ${l.id}" placeholder="100G" value="${esc(l.speed)}"></td></tr>`;
+      return `<tr><td><input type="checkbox" data-link="${l.id}" data-field="enabled" aria-label="Include ${esc(deviceName(a))} to ${esc(deviceName(b))}" ${l.enabled?"checked":""}></td><td>${esc(deviceName(a))}</td><td><input data-link="${l.id}" data-field="upperPort" aria-label="${esc(deviceName(a))} port to ${esc(deviceName(b))}" placeholder="e.g. Eth1/1" value="${esc(l.upperPort)}"></td><td>${esc(deviceName(b))}</td><td><input data-link="${l.id}" data-field="lowerPort" aria-label="${esc(deviceName(b))} port to ${esc(deviceName(a))}" placeholder="e.g. Eth1/49" value="${esc(l.lowerPort)}"></td><td><input data-link="${l.id}" data-field="speed" aria-label="Speed ${l.id}" placeholder="100G" value="${esc(l.speed)}"></td></tr>`;
     }).join("");
     renderReport();
   }
   function diagram(){
     const up=state.devices.filter(d=>d.tier==="upper"),down=state.devices.filter(d=>d.tier==="lower");
-    const width=720,height=245,nodeW=Math.min(140,Math.max(66,600/Math.max(up.length,down.length)-12));
+    const width=720,height=260,nodeW=Math.min(140,Math.max(66,600/Math.max(up.length,down.length)-12));
     const point=(tier,index,total)=>({x:Math.round(width*(index+1)/(total+1)),y:tier==="upper"?57:188});
     let svg=`<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Planned ${esc(upper())} and ${esc(lower())} topology"><text x="20" y="22" fill="#4e697c" font-size="12">${esc(upper().toUpperCase())} TIER</text><text x="20" y="146" fill="#4e697c" font-size="12">${esc(lower().toUpperCase())} TIER</text>`;
-    for(const l of state.links.filter(l=>l.enabled)){
+    const active=state.links.filter(l=>l.enabled),labelPorts=active.length<=8;
+    let labels="";
+    for(const l of active){
       const a=up.findIndex(d=>d.id===l.a),b=down.findIndex(d=>d.id===l.b);if(a<0||b<0)continue;
       const p=point("upper",a,up.length),q=point("lower",b,down.length);
-      svg+=`<line x1="${p.x}" y1="${p.y+18}" x2="${q.x}" y2="${q.y-18}" stroke="#98b3c6" stroke-width="1.4"/>`;
+      const x1=p.x+((b+1)/(down.length+1)-.5)*nodeW*.84;
+      const x2=q.x+((a+1)/(up.length+1)-.5)*nodeW*.84;
+      const detail=`${deviceName(up[a])} ${l.upperPort||"TBD"} → ${deviceName(down[b])} ${l.lowerPort||"TBD"}${l.speed?` · ${l.speed}`:""}`;
+      svg+=`<line x1="${x1}" y1="${p.y+18}" x2="${x2}" y2="${q.y-18}" stroke="#98b3c6" stroke-width="1.4"><title>${esc(detail)}</title></line>`;
+      if(labelPorts){
+        const portText=(x,y,value)=>value?`<text x="${x}" y="${y}" text-anchor="middle" fill="#244b64" stroke="#f8fbfd" stroke-width="4" paint-order="stroke" font-size="9" font-weight="700">${esc(value.slice(0,12))}</text>`:"";
+        labels+=portText(x1,p.y+34,l.upperPort)+portText(x2,q.y-30,l.lowerPort);
+      }
     }
+    svg+=labels;
     for(const [tier,arr] of [["upper",up],["lower",down]])arr.forEach((d,i)=>{
       const p=point(tier,i,arr.length),x=p.x-nodeW/2;
       svg+=`<rect x="${x}" y="${p.y-18}" width="${nodeW}" height="36" rx="7" fill="${tier==="upper"?"#17496b":"#216d75"}"/><text x="${p.x}" y="${p.y+4}" text-anchor="middle" fill="white" font-size="${nodeW<85?9:11}">${esc(deviceName(d).slice(0,nodeW<85?10:17))}</text>`;
     });
+    svg+=`<text x="20" y="245" fill="#587489" font-size="10">${labelPorts?"Assigned ports appear beside each link endpoint.":"Hover over a link for its ports; all ports appear in the schedule."}</text>`;
     return svg+"</svg>";
   }
   function techText(){
@@ -135,30 +147,31 @@
     };
     return `${descriptions[state.technology]} ${state.technology==="None"?"":`Planned placement: ${placement} tier.`}`;
   }
-  function reportRow(d){return `<tr><td>${esc(deviceName(d))}</td><td>${esc(roleName(d))}</td><td>${esc(vendorLabel(d.vendor))}</td><td>${esc(d.model||"Awaiting assignment")}</td><td>${esc(d.serial||"Awaiting assignment")}</td><td>${esc(d.modelSource||d.serialSource?`${labelSource(d.modelSource)} / ${labelSource(d.serialSource)}`:"Planned")}</td></tr>`;}
+  function reportRow(d){return `<tr><td>${esc(deviceName(d))}</td><td>${esc(roleName(d))}</td><td>${esc(d.model||"Awaiting assignment")}</td><td>${esc(d.serial||"Awaiting assignment")}</td><td>${esc(d.modelSource||d.serialSource?`${labelSource(d.modelSource)} / ${labelSource(d.serialSource)}`:"Planned")}</td></tr>`;}
   function renderReport(){
     const active=state.links.filter(l=>l.enabled);
     const incomplete=state.devices.filter(d=>!d.model||!d.serial);
+    const missingPorts=active.filter(l=>!l.upperPort||!l.lowerPort).length;
     $("projectStatus").textContent=`Draft · ${state.devices.length} devices · ${active.length} links`;
     $("linkCount").textContent=active.length;
-    $("reportPreview").innerHTML=`<div class="report-tag">Network design · Draft report</div><h1>${esc(state.name||"Untitled Network Project")}</h1><div class="report-meta">Reporting and Inventory · ${esc(date())} · ${esc(vendorLabel(state.vendor))}</div>
+    $("reportPreview").innerHTML=`<div class="report-tag">Network design · Draft report</div><h1>${esc(String(state.name||"").trim()||"Enter project name")}</h1><div class="report-meta">Reporting and Inventory · ${esc(date())} · ${esc(vendorLabel(state.vendor))}</div>
       <div class="summary-grid"><div class="metric"><b>${state.upperCount}</b><span>${esc(upper())} devices</span></div><div class="metric"><b>${state.lowerCount}</b><span>${esc(lower())} devices</span></div><div class="metric"><b>${active.length}</b><span>Planned links</span></div></div>
       <h2>1 · Project overview</h2><p><strong>Architecture:</strong> ${esc(state.architecture==="spine-leaf"?"Spine–Leaf":"Core–Access")} · <strong>Platform:</strong> ${esc(vendorLabel(state.vendor))} · <strong>Technology:</strong> ${esc(state.technology)}</p><p>${esc(state.scope.trim()||"Project scope and design intent await engineer input.")}</p>
-      <h2>2 · Planned topology</h2>${diagram()}<h3>Connection schedule</h3><table><thead><tr><th>Upper device / port</th><th>Lower device / port</th><th>Speed</th></tr></thead><tbody>${active.map(l=>{const a=state.devices.find(d=>d.id===l.a),b=state.devices.find(d=>d.id===l.b);return `<tr><td>${esc(deviceName(a))} · ${esc(l.upperPort||"TBD")}</td><td>${esc(deviceName(b))} · ${esc(l.lowerPort||"TBD")}</td><td>${esc(l.speed||"TBD")}</td></tr>`;}).join("")||'<tr><td colspan="3">No links selected</td></tr>'}</tbody></table>
+      <h2>2 · Planned topology</h2>${diagram()}<h3>Connection schedule</h3><table><thead><tr><th>Upper device</th><th>Port</th><th>Lower device</th><th>Port</th><th>Speed</th></tr></thead><tbody>${active.map(l=>{const a=state.devices.find(d=>d.id===l.a),b=state.devices.find(d=>d.id===l.b);return `<tr><td>${esc(deviceName(a))}</td><td>${esc(l.upperPort||"TBD")}</td><td>${esc(deviceName(b))}</td><td>${esc(l.lowerPort||"TBD")}</td><td>${esc(l.speed||"TBD")}</td></tr>`;}).join("")||'<tr><td colspan="5">No links selected</td></tr>'}</tbody></table>
       <h2>3 · Technology approach</h2><p>${esc(techText())}</p><p class="report-muted">Design intent only; operational state has not been verified.</p>
-      <h2>4 · Device inventory</h2><table><thead><tr><th>Device</th><th>Role</th><th>Vendor</th><th>Model</th><th>Serial</th><th>Source</th></tr></thead><tbody>${state.devices.map(reportRow).join("")}</tbody></table>
-      <h2>5 · Items to confirm</h2><p>${incomplete.length?`${incomplete.length} device(s) still need a product model or serial number. `:"All device models and serial numbers are populated. "}Connection ports marked TBD require assignment. Device-sourced inventory should be compared with the intended bill of materials before closeout.</p>
+      <h2>4 · Device inventory</h2><table><thead><tr><th>Device</th><th>Role</th><th>Model</th><th>Serial</th><th>Source</th></tr></thead><tbody>${state.devices.map(reportRow).join("")}</tbody></table>
+      <h2>5 · Items to confirm</h2><p>${incomplete.length?`${incomplete.length} device(s) still need a product model or serial number. `:"All device models and serial numbers are populated. "}${missingPorts?`${missingPorts} active link(s) need a port at one or both ends. `:"All active link endpoint ports are assigned. "}Device-sourced inventory should be compared with the intended bill of materials before closeout.</p>
       <div class="report-footer">Generated from the planned project topology. Device passwords and enable secrets are excluded. Status: Draft.</div>`;
   }
   function closeRead(){selectedDevice=null;$("sshBox").hidden=true;$("sshHelp").hidden=false;$("sshPassword").value="";$("sshSecret").value="";$("sshResult").textContent="";}
   for(const id of ["projectName","scope"]){$(id).addEventListener("input",e=>{state[id==="projectName"?"name":"scope"]=e.target.value;renderReport();});}
-  $("vendor").addEventListener("change",e=>{const old=state.vendor;state.vendor=e.target.value;for(const d of state.devices)if(d.vendor===old)d.vendor=state.vendor;renderEditor();});
+  $("vendor").addEventListener("change",e=>{state.vendor=e.target.value;for(const d of state.devices)d.vendor=state.vendor;renderEditor();});
   $("architecture").addEventListener("change",e=>{state.architecture=e.target.value;for(const d of state.devices)if(d.hostname.match(/^(?:Spine|Leaf|Core|Access)-\d+$/))d.hostname=`${roleName(d)}-${String(d.index).padStart(2,"0")}`;renderEditor();});
   $("technology").addEventListener("change",e=>{state.technology=e.target.value;renderReport();});
   $("techPlacement").addEventListener("change",e=>{state.techPlacement=e.target.value;renderReport();});
   for(const [id,key,max] of [["upperCount","upperCount",8],["lowerCount","lowerCount",16]])$(id).addEventListener("input",e=>{state[key]=count(id,max);syncTopology();renderEditor();});
-  $("devices").addEventListener("input",e=>{const field=e.target.dataset.field,id=e.target.dataset.device;if(!field||!id||field==="vendor")return;const d=state.devices.find(x=>x.id===id);if(!d)return;d[field]=e.target.value;if(field==="model"||field==="serial")d[`${field}Source`]=d[field]?"manual":"";renderReport();});
-  $("devices").addEventListener("change",e=>{if(e.target.dataset.field==="vendor"){const d=state.devices.find(x=>x.id===e.target.dataset.device);if(d){d.vendor=e.target.value;renderEditor();}}else if(e.target.dataset.field==="hostname")renderEditor();else if(["model","serial"].includes(e.target.dataset.field)){renderEditor();}});
+  $("devices").addEventListener("input",e=>{const field=e.target.dataset.field,id=e.target.dataset.device;if(!field||!id)return;const d=state.devices.find(x=>x.id===id);if(!d)return;d[field]=e.target.value;if(field==="model"||field==="serial")d[`${field}Source`]=d[field]?"manual":"";renderReport();});
+  $("devices").addEventListener("change",e=>{if(["hostname","model","serial"].includes(e.target.dataset.field))renderEditor();});
   $("devices").addEventListener("click",e=>{const id=e.target.closest("[data-read]")?.dataset.read;if(!id)return;selectedDevice=id;const d=state.devices.find(x=>x.id===id);$("sshTitle").textContent=`Read inventory · ${deviceName(d)} · ${vendorLabel(d.vendor)}`;$("sshTarget").value=d.target;$("sshBox").hidden=false;$("sshHelp").hidden=true;$("sshResult").textContent="";$("sshTarget").focus();});
   $("links").addEventListener("input",e=>{const l=state.links.find(x=>x.id===e.target.dataset.link),field=e.target.dataset.field;if(!l||!field)return;l[field]=field==="enabled"?e.target.checked:e.target.value;renderReport();});
   $("links").addEventListener("change",e=>{if(e.target.dataset.field==="enabled")renderEditor();});
@@ -176,9 +189,22 @@
     }catch(err){$("sshResult").className="ssh-result error";$("sshResult").textContent=err.message;}
     finally{btn.disabled=false;$("sshPassword").value="";$("sshSecret").value="";}
   });
-  $("printReport").addEventListener("click",()=>window.print());
-  $("saveProject").addEventListener("click",()=>{const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=(state.name||"network-report").replace(/[^a-z0-9_-]+/gi,"_")+".json";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
-  $("openProject").addEventListener("change",async e=>{const file=e.target.files[0];if(!file)return;try{const p=JSON.parse(await file.text());if(p.schema!=="network-configurator-report-v1"||!vendors.includes(p.vendor)||!Array.isArray(p.devices)||!Array.isArray(p.links))throw Error("Unsupported project format");state={...p,upperCount:Math.min(8,Math.max(1,+p.upperCount||1)),lowerCount:Math.min(16,Math.max(1,+p.lowerCount||1))};$("projectName").value=state.name||"";$("vendor").value=state.vendor;$("architecture").value=state.architecture;$("upperCount").value=state.upperCount;$("lowerCount").value=state.lowerCount;$("scope").value=state.scope||"";$("techPlacement").value=state.techPlacement;syncTopology();renderEditor();}catch(err){alert("Could not open project: "+err.message);}finally{e.target.value="";}});
+  const projectName=()=>{if(!$("projectName").value.trim()){$("projectName").focus();$("projectName").reportValidity();return "";}return $("projectName").value.trim();};
+  const filename=name=>name.replace(/[^\p{L}\p{N}_-]+/gu,"_").replace(/^_+|_+$/g,"").slice(0,70)||"network-report";
+  const download=(blob,name)=>{const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+  $("printReport").addEventListener("click",()=>{if(projectName())window.print();});
+  $("saveProject").addEventListener("click",()=>{const name=projectName();if(name)download(new Blob([JSON.stringify({...state,name},null,2)],{type:"application/json"}),filename(name)+".json");});
+  $("downloadWord").addEventListener("click",async()=>{
+    const name=projectName();if(!name)return;
+    const btn=$("downloadWord");btn.disabled=true;btn.textContent="Preparing Word…";
+    try{
+      const payload={name,vendor:state.vendor,architecture:state.architecture,technology:state.technology,techPlacement:state.techPlacement,upperCount:state.upperCount,lowerCount:state.lowerCount,scope:state.scope,devices:state.devices.map(({id,tier,index,hostname,model,serial,modelSource,serialSource})=>({id,tier,index,hostname,model,serial,modelSource,serialSource})),links:state.links.map(({a,b,enabled,upperPort,lowerPort,speed})=>({a,b,enabled,upperPort,lowerPort,speed}))};
+      const response=await fetch("/api/reporting/word",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+      if(!response.ok){const err=await response.json().catch(()=>({}));throw Error(typeof err.detail==="string"?err.detail:"Could not create Word report.");}
+      download(await response.blob(),filename(name)+".docx");
+    }catch(error){alert(error.message);}finally{btn.disabled=false;btn.textContent="Download Word";}
+  });
+  $("openProject").addEventListener("change",async e=>{const file=e.target.files[0];if(!file)return;try{const p=JSON.parse(await file.text());if(p.schema!=="network-configurator-report-v1"||!vendors.includes(p.vendor)||!Array.isArray(p.devices)||!Array.isArray(p.links))throw Error("Unsupported project format");state={...p,name:String(p.name||""),scope:String(p.scope||""),techPlacement:p.techPlacement==="spine"?"upper":p.techPlacement==="leaf"?"lower":p.techPlacement==="upper"?"upper":"lower",upperCount:Math.min(8,Math.max(1,+p.upperCount||1)),lowerCount:Math.min(16,Math.max(1,+p.lowerCount||1))};$("projectName").value=state.name;$("vendor").value=state.vendor;$("architecture").value=state.architecture;$("upperCount").value=state.upperCount;$("lowerCount").value=state.lowerCount;$("scope").value=state.scope;$("techPlacement").value=state.techPlacement;syncTopology();renderEditor();}catch(err){alert("Could not open project: "+err.message);}finally{e.target.value="";}});
   syncTopology();renderEditor();
 })();
 </script>

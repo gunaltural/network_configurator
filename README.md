@@ -7,9 +7,9 @@ topology and configuration output contain one device block.
 
 ## Reporting and Inventory (first version)
 Open **Reporting and Inventory** from the home page or `/reporting`. It is a separate
-greenfield design workspace. Select the primary vendor/platform first, then the topology
-(Spine–Leaf or Core–Access), device counts, and planned technology. Device cards and an
-editable connection schedule follow the topology. Each card has a per-device vendor,
+greenfield design workspace. Enter a project name and select the primary vendor/platform
+once, then the topology (Spine–Leaf or Core–Access), device counts, and planned technology.
+Device cards and an editable connection schedule follow the topology. Each card has a
 hostname, optional management address, product model and serial number. Model and serial
 can be entered manually before deployment, or read from a reachable device afterward.
 
@@ -18,9 +18,10 @@ hardware source. It never changes device configuration and never saves SSH passw
 or enable secrets in the project or report. The target must be reachable from Render
 and satisfy the same address policy as Live CLI. A device with an unassigned model or
 serial remains explicitly marked **Awaiting assignment**; modules are not mistaken for
-the chassis. The report preview contains the planned topology, connection table,
-technology summary, inventory and outstanding items. Use **Print / Save PDF** in the
-browser to export the report; **Download project** / **Open project** save and restore
+the chassis. The report preview contains the planned topology with port labels on smaller
+topologies, a device-to-port connection schedule, technology summary, inventory and
+outstanding items. Use **Print / Save PDF** in the browser or **Download Word** for an
+editable DOCX report. **Download project** / **Open project** save and restore
 the editable design as JSON. This first version documents design intent and optional
 inventory verification; it does not crawl neighbors or claim operational validation.
 

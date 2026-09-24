@@ -17,12 +17,13 @@ import re
 import socket
 from pathlib import Path
 from datetime import datetime, timezone
-from typing import List
+from typing import List, Literal
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse
-from pydantic import BaseModel
+from fastapi.responses import HTMLResponse, StreamingResponse
+from pydantic import BaseModel, Field
 import uvicorn
+from report_docx import build_report_docx
 
 VERSION = "5.10.0"
 BASE_DIR = Path(__file__).resolve().parent
@@ -146,6 +147,39 @@ class DeviceRequest(BaseModel):
 
 class LiveCommandRequest(DeviceRequest):
     command: str = ""
+
+
+class ReportDevice(BaseModel):
+    id: str = Field(max_length=32)
+    tier: Literal["upper", "lower"]
+    index: int = Field(ge=1, le=16)
+    hostname: str = Field(max_length=100)
+    model: str = Field(max_length=100)
+    serial: str = Field(max_length=100)
+    modelSource: str = Field(max_length=30)
+    serialSource: str = Field(max_length=30)
+
+
+class ReportLink(BaseModel):
+    a: str = Field(max_length=32)
+    b: str = Field(max_length=32)
+    enabled: bool
+    upperPort: str = Field(max_length=100)
+    lowerPort: str = Field(max_length=100)
+    speed: str = Field(max_length=100)
+
+
+class ReportWordRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    vendor: Literal["Cisco NX-OS", "Cisco IOS-XE", "Arista EOS", "Huawei_CE_SW"]
+    architecture: Literal["spine-leaf", "core-access"]
+    technology: str = Field(max_length=32)
+    techPlacement: Literal["upper", "lower"]
+    upperCount: int = Field(ge=1, le=8)
+    lowerCount: int = Field(ge=1, le=16)
+    scope: str = Field(max_length=2000)
+    devices: List[ReportDevice]
+    links: List[ReportLink]
 
 
 def parse_inventory(platform: str, outputs: dict) -> dict:
@@ -664,6 +698,27 @@ def reporting_inventory(p: DeviceRequest):
                 conn.disconnect()
             except Exception:
                 pass
+
+
+@app.post("/api/reporting/word")
+def reporting_word(p: ReportWordRequest):
+    expected = {f"upper-{i}" for i in range(1, p.upperCount + 1)} | {
+        f"lower-{i}" for i in range(1, p.lowerCount + 1)
+    }
+    actual = {d.id for d in p.devices}
+    if (not p.name.strip() or len(p.devices) != len(expected) or actual != expected
+            or any(d.id != f"{d.tier}-{d.index}" for d in p.devices)
+            or len(p.links) > 128
+            or any(l.a not in actual or l.b not in actual
+                   or not l.a.startswith("upper-") or not l.b.startswith("lower-") for l in p.links)):
+        raise HTTPException(status_code=400, detail="Invalid project topology or project name.")
+    data = p.model_dump() if hasattr(p, "model_dump") else p.dict()
+    return StreamingResponse(
+        build_report_docx(data),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": 'attachment; filename="network-report.docx"',
+                 "Cache-Control": "no-store"},
+    )
 
 
 @app.post("/api/device/show")
