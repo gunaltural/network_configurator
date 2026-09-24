@@ -2,6 +2,8 @@
 
 from datetime import datetime, timezone
 from io import BytesIO
+import base64
+import binascii
 
 from docx import Document
 from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT
@@ -153,6 +155,18 @@ def build_report_docx(project):
     doc.add_paragraph(
         f"{lower} tier: " + ", ".join(device_name(d) for d in project["devices"] if d["tier"] == "lower")
     )
+    topology_png = project.get("topologyPng", "")
+    if topology_png:
+        prefix = "data:image/png;base64,"
+        if not topology_png.startswith(prefix):
+            raise ValueError("Invalid topology image format")
+        try:
+            picture = base64.b64decode(topology_png[len(prefix):], validate=True)
+        except binascii.Error as exc:
+            raise ValueError("Invalid topology image encoding") from exc
+        if len(picture) > 2250000 or not picture.startswith(b"\x89PNG\r\n\x1a\n"):
+            raise ValueError("Invalid topology PNG")
+        doc.add_picture(BytesIO(picture), width=Inches(6.9))
     doc.add_heading("Connection schedule", level=1)
     _table(
         doc,

@@ -224,6 +224,7 @@ pre{
 .v3-tech-grid{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:12px}.v3-card{border:1px solid #2b4b63;border-radius:13px;background:#0b1d2b;padding:18px;cursor:pointer;min-height:132px;transition:.16s ease}.v3-card:hover{transform:translateY(-2px);border-color:#69a8d1;background:#10283a}.v3-card .icon{font-size:25px;color:#90d0f6}.v3-card h3{font-size:19px;line-height:1.25;color:#f1f8ff;margin:10px 0 7px}.v3-card p{font-size:12px;color:#acc2d0;margin:0;line-height:1.45}.v3-card .tag{display:inline-block;margin-top:12px;padding:4px 8px;border-radius:999px;border:1px solid #365c76;color:#b4dafa;font-size:10px}
 .v3-tech-grid .v3-card{width:100%;text-align:left;font:inherit}.v3-tech-grid .v3-card:focus-visible{outline:2px solid #7ac4f3;outline-offset:3px}
 .v3-report-card{display:block;min-height:0;margin-bottom:14px;text-decoration:none;color:inherit}.v3-report-card h3{margin:8px 0 6px}.v3-report-card:focus-visible{outline:2px solid #7ac4f3;outline-offset:3px}
+.v3-workspace-report-action{display:block;width:100%;margin-top:18px;padding:12px 14px;border:1px solid #5586a8;border-radius:9px;background:#12334b;color:#e8f7ff;font-weight:800;text-align:center;cursor:pointer}.v3-workspace-report-action:hover{background:#194760}.v3-workspace-report-action[hidden]{display:none}
 .v3-workspace-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:4px 0 12px}.v3-breadcrumb{font-size:11px;color:#8098aa}.v3-breadcrumb strong{color:#e1f0f7}.v3-health{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:0 0 12px}.v3-health-card{border:1px solid #20384c;border-radius:10px;background:#081621;padding:10px 12px}.v3-health-card b{font-size:15px}.v3-health-card span{display:block;color:#7891a3;font-size:9px;margin-top:2px}
 @media(max-width:1000px){.v3-tech-grid{grid-template-columns:repeat(2,1fr)}.v3-health{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:650px){.v3-topbar{align-items:flex-start;flex-direction:column}.v3-tech-grid{grid-template-columns:1fr}.v3-actions{width:100%}.v3-project{flex:1}.v3-section-head{align-items:flex-start;flex-direction:column;gap:2px}}
@@ -408,6 +409,7 @@ pre{
       <section class="card">
         <h3>01 · Parameters</h3>
         <div id="params"></div>
+        <button type="button" id="v3WorkspaceReportBtn" class="v3-workspace-report-action" hidden>Reporting and Inventory’ye geç →</button>
       </section>
 
       <section class="card">
@@ -5220,6 +5222,7 @@ renderModule();
    b.click();
    dashboard.classList.remove("show"); workspace.style.display="flex"; health.style.display="grid";
    $("v3CurrentTech").textContent=normalized==="VPC"?"vPC / MLAG":(b.querySelector("strong")?.textContent||normalized);
+   $("v3WorkspaceReportBtn").hidden=normalized!=="VPC"&&normalized!=="STP";
    updateHealth();
    window.scrollTo({top:0,behavior:"smooth"});
  }
@@ -5472,18 +5475,70 @@ renderModule();
      scope:"",devices,links,specialLinks,parameters:params,configurations,
      source:{module:tech,projectId:project.project.id||"active",generatedAt:new Date().toISOString()}};
  }
- $("v3Dashboard").querySelector(".v3-report-card").addEventListener("click",event=>{
+ // Preserve the exact workspace diagram, including vendor-specific links and labels.
+ // CSS used by the workspace lives outside the SVG, so embed its computed paint styles.
+ function workspaceTopologySvg(){
+   const original=document.querySelector("#topologyArea svg");
+   if(!original)throw Error("The workspace topology is not ready. Reopen the technology workspace and try again.");
+   const copy=original.cloneNode(true);
+   const view=original.viewBox.baseVal;
+   if(!view.width||!view.height)throw Error("The workspace topology has no drawing dimensions.");
+   copy.setAttribute("xmlns","http://www.w3.org/2000/svg");
+   copy.setAttribute("width",String(view.width));copy.setAttribute("height",String(view.height));
+   const properties=["fill","stroke","stroke-width","stroke-dasharray","stroke-linecap","stroke-linejoin","font-family","font-size","font-weight","opacity","stop-color","stop-opacity"];
+   const originals=[original,...original.querySelectorAll("*")],clones=[copy,...copy.querySelectorAll("*")];
+   originals.forEach((el,i)=>{
+     const style=getComputedStyle(el);
+     properties.forEach(property=>{
+       const value=style.getPropertyValue(property);
+       if(value)clones[i].style.setProperty(property,value);
+     });
+   });
+   const background=document.createElementNS("http://www.w3.org/2000/svg","rect");
+   background.setAttribute("x",String(view.x));background.setAttribute("y",String(view.y));
+   background.setAttribute("width",String(view.width));background.setAttribute("height",String(view.height));
+   background.setAttribute("fill","#071827");copy.insertBefore(background,copy.firstChild);
+   return new XMLSerializer().serializeToString(copy);
+ }
+ function workspaceTopologyPng(svg){
+   return new Promise((resolve,reject)=>{
+     const image=new Image(),url=URL.createObjectURL(new Blob([svg],{type:"image/svg+xml;charset=utf-8"}));
+     image.onload=()=>{
+       URL.revokeObjectURL(url);
+       try{
+         const canvas=document.createElement("canvas");
+         canvas.width=1600;canvas.height=Math.round(1600*image.naturalHeight/image.naturalWidth);
+         const ctx=canvas.getContext("2d");if(!ctx)throw Error("Canvas is unavailable.");
+         ctx.drawImage(image,0,0,canvas.width,canvas.height);
+         resolve(canvas.toDataURL("image/png"));
+       }catch(err){reject(err);}
+     };
+     image.onerror=()=>{URL.revokeObjectURL(url);reject(Error("Could not render the workspace topology for Word."));};
+     image.src=url;
+   });
+ }
+ async function openReporting(event){
+   if(event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
+   event.preventDefault();
    try{
      const payload=reportingDesign();
-     if(payload)sessionStorage.setItem("networkConfigurator.report.import",JSON.stringify(payload));
+     if(payload){
+       syncTopology();
+       payload.topologySvg=workspaceTopologySvg();
+       payload.topologyPng=await workspaceTopologyPng(payload.topologySvg);
+       sessionStorage.setItem("networkConfigurator.report.import",JSON.stringify(payload));
+     }
      else{
        sessionStorage.removeItem("networkConfigurator.report.import");
        sessionStorage.removeItem("networkConfigurator.report.current");
      }
+     window.location.assign("/reporting");
    }catch(err){
-     event.preventDefault();toast("Report import failed: "+err.message);
+     toast("Report import failed: "+err.message);
    }
- });
+ }
+ $("v3Dashboard").querySelector(".v3-report-card").addEventListener("click",openReporting);
+ $("v3WorkspaceReportBtn").addEventListener("click",openReporting);
  function renderRecent(){
    const box=$("v3RecentProjects");if(!box)return;
    const arr=Object.values(store()).sort((a,b)=>{

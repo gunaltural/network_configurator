@@ -11,6 +11,11 @@ vPC / MLAG / M-LAG / StackWise Virtual or STP design is open in Technology Works
 the home-page card imports its current topology, device names, physical uplinks,
 special links and control paths, selected parameters, and generated configuration
 for each device. The report marks the design as planned, not operationally verified.
+The topology drawing itself is captured from the active Technology Workspace, so its
+device labels and technology-specific paths appear in the report preview, printed PDF,
+and Word download. Use **Reporting and Inventory’ye geç** beneath workspace parameters
+to open the report directly after designing vPC / MLAG or STP; the home-page card remains
+available. Reopen the report from the workspace after changing the drawing.
 In a StackWise Virtual pair the chassis share one logical configuration; both inventory
 records say so explicitly. Huawei M-LAG leaf physical uplink ports remain unassigned
 until the engineer identifies them.

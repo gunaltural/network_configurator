@@ -24,6 +24,7 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel, Field
 import uvicorn
 from report_docx import build_report_docx
+from docx.image.exceptions import UnrecognizedImageError
 
 VERSION = "5.10.1"
 BASE_DIR = Path(__file__).resolve().parent
@@ -205,6 +206,7 @@ class ReportWordRequest(BaseModel):
     specialLinks: List[ReportSpecialLink] = Field(default_factory=list)
     parameters: List[ReportParameter] = Field(default_factory=list)
     configurations: List[ReportConfiguration] = Field(default_factory=list)
+    topologyPng: str = Field(default="", max_length=3000000)
 
 
 def parse_inventory(platform: str, outputs: dict) -> dict:
@@ -742,8 +744,12 @@ def reporting_word(p: ReportWordRequest):
             or any(c.deviceId not in actual for c in p.configurations)):
         raise HTTPException(status_code=400, detail="Invalid project topology or project name.")
     data = p.model_dump() if hasattr(p, "model_dump") else p.dict()
+    try:
+        report = build_report_docx(data)
+    except (ValueError, UnrecognizedImageError) as exc:
+        raise HTTPException(status_code=400, detail="Invalid topology image.") from exc
     return StreamingResponse(
-        build_report_docx(data),
+        report,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         headers={"Content-Disposition": 'attachment; filename="network-report.docx"',
                  "Cache-Control": "no-store"},
