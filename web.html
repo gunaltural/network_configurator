@@ -5476,7 +5476,10 @@ renderModule();
    try{
      const payload=reportingDesign();
      if(payload)sessionStorage.setItem("networkConfigurator.report.import",JSON.stringify(payload));
-     else sessionStorage.removeItem("networkConfigurator.report.import");
+     else{
+       sessionStorage.removeItem("networkConfigurator.report.import");
+       sessionStorage.removeItem("networkConfigurator.report.current");
+     }
    }catch(err){
      event.preventDefault();toast("Report import failed: "+err.message);
    }

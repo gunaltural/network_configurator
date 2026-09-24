@@ -186,7 +186,12 @@
       <h2>5 · Items to confirm</h2><p>${incomplete.length?`${incomplete.length} device(s) still need a product model or serial number. `:"All device models and serial numbers are populated. "}${missingPorts?`${missingPorts} active link(s) need a port at one or both ends. `:"All active link endpoint ports are assigned. "}Device-sourced inventory should be compared with the intended bill of materials before closeout.</p>
       ${configs.length?`<div class="config-section"><h2>Appendix · Planned device configurations</h2><p class="design-note">Generated configuration reflects design inputs and has not been validated on a device. Review it against the target model and software release before use.</p>${state.devices.map(d=>{const cfg=configs.find(c=>c.deviceId===d.id);return `<h3>${esc(deviceName(d))} · ${esc(cfg?.source||"Configuration unavailable")}</h3><pre>${esc(cfg?.text||"No device configuration was generated.")}</pre>`;}).join("")}</div>`:""}
       <div class="report-footer">Generated from the planned project topology. Credentials are excluded from the report. Status: Draft.</div>`;
-    if(state.source){try{sessionStorage.setItem(`networkConfigurator.report.edit.${state.source.projectId}.${state.source.module}.${state.vendor}`,JSON.stringify(state));}catch(e){console.warn("Report could not be cached",e);}}
+    try{
+      if(state.source){
+        sessionStorage.setItem(`networkConfigurator.report.edit.${state.source.projectId}.${state.source.module}.${state.vendor}`,JSON.stringify(state));
+        sessionStorage.setItem("networkConfigurator.report.current",JSON.stringify(state));
+      }else sessionStorage.removeItem("networkConfigurator.report.current");
+    }catch(e){console.warn("Report could not be cached",e);}
   }
   function closeRead(){selectedDevice=null;$("sshBox").hidden=true;$("sshHelp").hidden=false;$("sshPassword").value="";$("sshSecret").value="";$("sshResult").textContent="";}
   for(const id of ["projectName","scope"]){$(id).addEventListener("input",e=>{state[id==="projectName"?"name":"scope"]=e.target.value;renderReport();});}
@@ -247,7 +252,15 @@
     $("projectName").value=state.name;$("vendor").value=state.vendor;$("architecture").value=state.architecture;$("upperCount").value=state.upperCount;$("lowerCount").value=state.lowerCount;$("scope").value=state.scope;$("techPlacement").value=state.techPlacement;syncTopology();renderEditor();
   }
   $("openProject").addEventListener("change",async e=>{const file=e.target.files[0];if(!file)return;try{openReport(JSON.parse(await file.text()));}catch(err){alert("Could not open project: "+err.message);}finally{e.target.value="";}});
-  try{const source=sessionStorage.getItem("networkConfigurator.report.import");if(source){sessionStorage.removeItem("networkConfigurator.report.import");openReport(JSON.parse(source),true);}else{syncTopology();renderEditor();}}catch(err){console.error("Workspace report import failed",err);syncTopology();renderEditor();}
+  try{
+    const source=sessionStorage.getItem("networkConfigurator.report.import");
+    if(source){sessionStorage.removeItem("networkConfigurator.report.import");openReport(JSON.parse(source),true);}
+    else{
+      const current=sessionStorage.getItem("networkConfigurator.report.current");
+      if(current)openReport(JSON.parse(current));
+      else{syncTopology();renderEditor();}
+    }
+  }catch(err){console.error("Workspace report import failed",err);sessionStorage.removeItem("networkConfigurator.report.current");syncTopology();renderEditor();}
 })();
 </script>
 </body>
