@@ -88,7 +88,7 @@
   }
   function deviceCard(d){
     const source=[d.modelSource&&`Model: ${labelSource(d.modelSource)}`,d.serialSource&&`Serial: ${labelSource(d.serialSource)}`].filter(Boolean).join(" · ")||"Inventory pending";
-    return `<div class="device"><div class="device-top"><strong>${esc(roleName(d))} ${d.index}</strong><span>${esc(d.vendor)}</span></div><div class="device-fields">
+    return `<div class="device"><div class="device-top"><strong>${esc(roleName(d))} ${d.index}</strong><span>${esc(vendorLabel(d.vendor))}</span></div><div class="device-fields">
       <label>Hostname<input data-device="${d.id}" data-field="hostname" maxlength="100" value="${esc(d.hostname)}"></label>
       <label>Vendor / platform<select data-device="${d.id}" data-field="vendor">${vendors.map(v=>`<option value="${v}" ${v===d.vendor?"selected":""}>${esc(vendorLabel(v))}</option>`).join("")}</select></label>
       <label>Product model<input data-device="${d.id}" data-field="model" maxlength="100" placeholder="Awaiting assignment" value="${esc(d.model)}"></label>
