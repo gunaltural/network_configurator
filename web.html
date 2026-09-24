@@ -219,13 +219,13 @@ pre{
 .v3-topbar{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:14px 22px;margin:0 0 14px;border:1px solid #21384d;border-radius:14px;background:linear-gradient(180deg,#0b1825,#08131e);box-shadow:0 10px 30px rgba(0,0,0,.18)}
 .v3-brand{display:flex;align-items:center;gap:12px}.v3-mark{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;border:1px solid #2d5877;background:#0e2435;font-weight:900;color:#8bd4ff}.v3-brand-title{font-size:15px;font-weight:900;letter-spacing:.2px}.v3-brand-sub{font-size:11px;color:#7890a4;margin-top:2px}
 .v3-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.v3-project{min-width:190px}.v3-btn{border:1px solid #29465e;background:#0b1b29;color:#cfe3ef;border-radius:9px;padding:8px 11px;font-size:11px;font-weight:800;cursor:pointer}.v3-btn:hover{border-color:#4b7898;background:#102638}.v3-btn.primary{background:#12334b;border-color:#3f769c;color:#e8f7ff}
-.v3-dashboard{display:none;margin:0 0 18px}.v3-dashboard.show{display:block}.v3-hero{padding:24px;border:1px solid #21384d;border-radius:16px;background:radial-gradient(circle at 85% 15%,rgba(31,117,164,.18),transparent 34%),linear-gradient(180deg,#0a1825,#07121c)}
-.v3-hero h2{margin:0;font-size:25px}.v3-hero p{margin:7px 0 0;color:#8ea6b8;font-size:12px}.v3-section-head{display:flex;justify-content:space-between;align-items:end;margin:18px 2px 10px}.v3-section-head b{font-size:12px;letter-spacing:.7px;text-transform:uppercase}.v3-section-head span{font-size:10px;color:#6f8799}
-.v3-tech-grid{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:10px}.v3-card{border:1px solid #21384d;border-radius:13px;background:#091722;padding:15px;cursor:pointer;min-height:92px;transition:.16s ease}.v3-card:hover{transform:translateY(-2px);border-color:#3b6b8d;background:#0d1d2b}.v3-card .icon{font-size:18px}.v3-card h3{font-size:13px;margin:10px 0 4px}.v3-card p{font-size:10px;color:#7890a4;margin:0;line-height:1.45}.v3-card .tag{display:inline-block;margin-top:9px;padding:3px 7px;border-radius:999px;border:1px solid #28465e;color:#8eb8d2;font-size:9px}
-.v3-workflow{display:grid;grid-template-columns:repeat(6,1fr);gap:7px;margin-top:12px}.v3-step{padding:9px 7px;text-align:center;border:1px solid #20394e;border-radius:9px;background:#081621;font-size:9px;color:#8099aa}.v3-step b{display:block;color:#d7e9f3;font-size:10px;margin-bottom:2px}
+.v3-dashboard{display:none;margin:0 0 18px}.v3-dashboard.show{display:block}
+.v3-section-head{display:flex;justify-content:space-between;align-items:end;margin:24px 2px 12px}.v3-section-head b{font-size:18px;letter-spacing:.2px;color:#eaf6ff}.v3-section-head span{font-size:12px;color:#91aabd}
+.v3-tech-grid{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:12px}.v3-card{border:1px solid #2b4b63;border-radius:13px;background:#0b1d2b;padding:18px;cursor:pointer;min-height:132px;transition:.16s ease}.v3-card:hover{transform:translateY(-2px);border-color:#69a8d1;background:#10283a}.v3-card .icon{font-size:25px;color:#90d0f6}.v3-card h3{font-size:19px;line-height:1.25;color:#f1f8ff;margin:10px 0 7px}.v3-card p{font-size:12px;color:#acc2d0;margin:0;line-height:1.45}.v3-card .tag{display:inline-block;margin-top:12px;padding:4px 8px;border-radius:999px;border:1px solid #365c76;color:#b4dafa;font-size:10px}
+.v3-tech-grid .v3-card{width:100%;text-align:left;font:inherit}.v3-tech-grid .v3-card:focus-visible{outline:2px solid #7ac4f3;outline-offset:3px}
 .v3-workspace-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:4px 0 12px}.v3-breadcrumb{font-size:11px;color:#8098aa}.v3-breadcrumb strong{color:#e1f0f7}.v3-health{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:0 0 12px}.v3-health-card{border:1px solid #20384c;border-radius:10px;background:#081621;padding:10px 12px}.v3-health-card b{font-size:15px}.v3-health-card span{display:block;color:#7891a3;font-size:9px;margin-top:2px}
-@media(max-width:1000px){.v3-tech-grid{grid-template-columns:repeat(2,1fr)}.v3-workflow{grid-template-columns:repeat(3,1fr)}.v3-health{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:650px){.v3-topbar{align-items:flex-start;flex-direction:column}.v3-tech-grid{grid-template-columns:1fr}.v3-actions{width:100%}.v3-project{flex:1}.v3-workflow{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:1000px){.v3-tech-grid{grid-template-columns:repeat(2,1fr)}.v3-health{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:650px){.v3-topbar{align-items:flex-start;flex-direction:column}.v3-tech-grid{grid-template-columns:1fr}.v3-actions{width:100%}.v3-project{flex:1}.v3-section-head{align-items:flex-start;flex-direction:column;gap:2px}}
 
 
 .v3-recent{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.v3-recent-card{border:1px solid #20394e;border-radius:12px;background:#081621;padding:13px;cursor:pointer}.v3-recent-card:hover{border-color:#3c6c8d}.v3-recent-card b{font-size:12px}.v3-recent-card span{display:block;color:#7891a3;font-size:9px;margin-top:5px}.v3-empty{color:#71899b;font-size:11px;padding:14px;border:1px dashed #29445b;border-radius:10px}
@@ -340,18 +340,6 @@ pre{
   <div class="v3-card" style="min-height:0;padding:18px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:14px">
     <div><span class="tag">Independent workspace</span><h3 style="margin:6px 0 3px">Reporting and Inventory</h3><p>Plan a greenfield topology, build the device inventory and prepare a design report.</p></div>
     <a class="v3-btn primary" href="/reporting" style="text-decoration:none">Open reporting →</a>
-  </div>
-  <div class="v3-hero">
-    <h2>Build network designs from intent to device configuration.</h2>
-    <p>Choose a technology workspace. Full engineering parameters are available by default; optional advanced features can be enabled individually when required.</p>
-    <div class="v3-workflow">
-      <div class="v3-step"><b>01 · Design</b>Topology & intent</div>
-      <div class="v3-step"><b>02 · Parameters</b>Quick → Expert</div>
-      <div class="v3-step"><b>03 · Validate</b>Design checks</div>
-      <div class="v3-step"><b>04 · Generate</b>Vendor CLI</div>
-      <div class="v3-step"><b>05 · Verify</b>Post-deploy</div>
-      <div class="v3-step"><b>06 · Troubleshoot</b>Runbooks</div>
-    </div>
   </div>
   <div class="v3-section-head"><b>Technology Workspaces</b><span>Open an existing module</span></div>
   <div class="v3-tech-grid" id="v3TechGrid"></div>
@@ -5238,7 +5226,7 @@ renderModule();
  }
  const grid=$("v3TechGrid");
  cards.forEach(([key,icon,tag,desc])=>{
-   const d=document.createElement("div"); d.className="v3-card";
+   const d=document.createElement("button"); d.type="button"; d.className="v3-card";
    const label=key==="VPC"?"vPC / MLAG":key==="BASIC"?"System and Management":key;
    d.innerHTML=`<div class="icon">${icon}</div><h3>${label}</h3><p>${desc}</p><span class="tag">${tag}</span>`;
    d.onclick=()=>openTech(key); grid.appendChild(d);
