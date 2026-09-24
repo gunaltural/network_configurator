@@ -1,9 +1,28 @@
-# Network Configurator v5.9.13 — Multi-Vendor Read-Only Live CLI
+# Network Configurator v5.10.0 — Multi-Vendor Read-Only Live CLI and Reporting
 
 Render Web Service deployment using the repository's Dockerfile.
 
 System and Management generates a baseline for one managed device. Its parameters,
 topology and configuration output contain one device block.
+
+## Reporting and Documentation (first version)
+Open **Reporting and Documentation** from the home page or `/reporting`. It is a separate
+greenfield design workspace. Select the primary vendor/platform first, then the topology
+(Spine–Leaf or Core–Access), device counts, and planned technology. Device cards and an
+editable connection schedule follow the topology. Each card has a per-device vendor,
+hostname, optional management address, product model and serial number. Model and serial
+can be entered manually before deployment, or read from a reachable device afterward.
+
+**Read from device** runs platform-specific read-only SSH commands and records the
+hardware source. It never changes device configuration and never saves SSH passwords
+or enable secrets in the project or report. The target must be reachable from Render
+and satisfy the same address policy as Live CLI. A device with an unassigned model or
+serial remains explicitly marked **Awaiting assignment**; modules are not mistaken for
+the chassis. The report preview contains the planned topology, connection table,
+technology summary, inventory and outstanding items. Use **Print / Save PDF** in the
+browser to export the report; **Download project** / **Open project** save and restore
+the editable design as JSON. This first version documents design intent and optional
+inventory verification; it does not crawl neighbors or claim operational validation.
 
 ## Browser user experience
 No local installation is required. Users open the Render service URL and use:

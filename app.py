@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Network Configurator v5.9.13 — Hosted multi-vendor Live CLI
+Network Configurator v5.10.0 — Hosted multi-vendor Live CLI and reporting
 
 Designed for Render / hosted web use:
 - Browser-only client experience
@@ -16,6 +16,7 @@ import os
 import re
 import socket
 from pathlib import Path
+from datetime import datetime, timezone
 from typing import List
 
 from fastapi import FastAPI, HTTPException
@@ -23,9 +24,10 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 import uvicorn
 
-VERSION = "5.9.13"
+VERSION = "5.10.0"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
+REPORTING_HTML = (BASE_DIR / "reporting.html").read_text(encoding="utf-8")
 
 REAL_DEPLOY = os.getenv("ENABLE_REAL_DEPLOY", "0").strip().lower() in {"1", "true", "yes", "on"}
 MOCK_SSH = os.getenv("MOCK_SSH", "0").strip().lower() in {"1", "true", "yes", "on"}
@@ -48,6 +50,14 @@ PLATFORM_MAP = {
 }
 LIVE_PLATFORM_MAP = {**PLATFORM_MAP, "FortiGate": "fortinet"}
 LIVE_PLATFORM_ALIASES = {"Cisco_StackWise": "Cisco IOS-XE", "Huawei": "Huawei_CE_SW"}
+
+INVENTORY_COMMANDS = {
+    "Cisco NX-OS": ("show inventory", "show version"),
+    "Cisco IOS-XE": ("show inventory", "show version"),
+    "Arista EOS": ("show version", "show inventory"),
+    "Huawei_CE_SW": ("display version", "display device", "display esn", "display device esn"),
+    "FortiGate": ("get system status",),
+}
 
 RUNNING_COMMAND = {
     "cisco_nxos": "show running-config",
@@ -136,6 +146,56 @@ class DeviceRequest(BaseModel):
 
 class LiveCommandRequest(DeviceRequest):
     command: str = ""
+
+
+def parse_inventory(platform: str, outputs: dict) -> dict:
+    """Extract chassis identity, never a module or FEX serial in its place."""
+    model = serial = version = ""
+    joined = "\n".join(outputs.values())
+    if platform in {"Cisco NX-OS", "Cisco IOS-XE"}:
+        inventory = outputs.get("show inventory", "")
+        blocks = re.split(r"(?=\bNAME\s*:\s*['\"])", inventory, flags=re.I)
+        chassis = next((b for b in blocks if re.search(r"\bNAME\s*:\s*['\"](?:Chassis|Switch|Router)\b[^'\"]*['\"]", b, re.I)), "")
+        # A modular inventory can list module serials before the chassis. Do not guess.
+        match = re.search(r"\bPID\s*:\s*([^,\r\n]+)\s*,\s*VID\s*:\s*[^,\r\n]*,\s*SN\s*:\s*([^,\r\n]+)", chassis, re.I)
+        if match:
+            model, serial = match.group(1).strip(), match.group(2).strip()
+        if not model:
+            m = re.search(r"(?im)^(?:Model Number|Model|Platform)\s*:\s*(\S+)", outputs.get("show version", ""))
+            if m: model = m.group(1)
+        m = re.search(r"(?im)^(?:Cisco (?:IOS XE|NX-OS) Software|system: version|NXOS: version).*?([0-9]+\.[0-9]+[^\s,]*)", outputs.get("show version", ""))
+        if m: version = m.group(1)
+    elif platform == "Arista EOS":
+        output = outputs.get("show version", "")
+        m = re.search(r"(?im)^\s*Arista\s+(\S+)", output)
+        if m: model = m.group(1)
+        m = re.search(r"(?im)^\s*Serial number\s*:\s*(\S+)", output)
+        if m: serial = m.group(1)
+        m = re.search(r"(?im)^\s*Software image version\s*:\s*(\S+)", output)
+        if m: version = m.group(1)
+    elif platform == "Huawei_CE_SW":
+        for command in ("display esn", "display device esn"):
+            m = re.search(r"(?im)^\s*(?:ESN(?: of chassis\s+\d+)?|Equipment Serial Number)\s*:\s*(\S+)", outputs.get(command, ""))
+            if m:
+                serial = m.group(1)
+                break
+        m = re.search(r"(?im)^\s*(?:Device Type|Product Model|Device model)\s*:\s*(\S+)", outputs.get("display device", ""))
+        if m: model = m.group(1)
+        if not model:
+            m = re.search(r"(?im)^\s*(?:Huawei|HUAWEI)\s+(\S+)\s+(?:Routing Switch|Switch|uptime)", outputs.get("display version", ""))
+            if m: model = m.group(1)
+        m = re.search(r"\bV\d{3}R\d{3}[^\s,]*", outputs.get("display version", ""))
+        if m: version = m.group(0)
+    elif platform == "FortiGate":
+        m = re.search(r"(?im)^\s*Version\s*:\s*Forti(?:Gate|WiFi)[-_ ]?(\S+)", joined)
+        if m: model = "FortiGate " + m.group(1).split(" v")[0]
+        m = re.search(r"(?im)^\s*Serial(?:-Number| number)\s*:\s*(\S+)", joined)
+        if m: serial = m.group(1)
+        m = re.search(r"(?im)^\s*Version\s*:\s*[^\r\n]*?\b(v\d+\.\d+[^\s,]*)", joined)
+        if m: version = m.group(1)
+    if serial.upper() in {"N/A", "NA", "UNKNOWN", "NONE", "-"}:
+        serial = ""
+    return {"model": model, "serial": serial, "software_version": version}
 
 
 def sha256(text: str) -> str:
@@ -342,6 +402,11 @@ app = FastAPI(
 @app.get("/", response_class=HTMLResponse)
 def root():
     return HTMLResponse(HTML, headers={"Cache-Control": "no-store"})
+
+
+@app.get("/reporting", response_class=HTMLResponse)
+def reporting():
+    return HTMLResponse(REPORTING_HTML, headers={"Cache-Control": "no-store"})
 
 
 @app.get("/api/health")
@@ -558,6 +623,47 @@ def precheck(p: DeviceRequest):
 @app.get("/api/device/commands")
 def live_commands():
     return {"ok": True, "platforms": LIVE_COMMANDS}
+
+
+@app.post("/api/reporting/inventory")
+def reporting_inventory(p: DeviceRequest):
+    platform = LIVE_PLATFORM_ALIASES.get(p.platform, p.platform)
+    if platform not in INVENTORY_COMMANDS:
+        raise HTTPException(status_code=400, detail="Unsupported inventory platform.")
+    items = checks(p, include_config=False, live=True)
+    if not ok(items):
+        raise HTTPException(status_code=400, detail={"error": "Device address, platform and SSH credentials are required.", "checks": items})
+    if MOCK_SSH:
+        raise HTTPException(status_code=503, detail="Inventory cannot be verified in MOCK mode.")
+    conn = None
+    try:
+        conn, _ = connect(p, live=True)
+        outputs, warnings = {}, []
+        for command in INVENTORY_COMMANDS[platform]:
+            try:
+                result = conn.send_command(command, read_timeout=40)
+                if LIVE_CLI_ERROR_RE.search(result):
+                    warnings.append(f"{command}: command unavailable on this device")
+                else:
+                    outputs[command] = result[:100_000]
+            except Exception:
+                warnings.append(f"{command}: could not read output")
+        identity = parse_inventory(platform, outputs)
+        if not identity["model"] and not identity["serial"]:
+            raise HTTPException(status_code=502, detail="SSH connected, but the device did not return a recognizable chassis model or serial. Enter them manually.")
+        return {"ok": True, "platform": platform, **identity,
+                "observed_at": datetime.now(timezone.utc).isoformat(),
+                "commands": list(outputs), "warnings": warnings}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Inventory read failed: {exc}") from exc
+    finally:
+        if conn:
+            try:
+                conn.disconnect()
+            except Exception:
+                pass
 
 
 @app.post("/api/device/show")
