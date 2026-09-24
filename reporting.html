@@ -132,7 +132,7 @@
       if(physical)svg+=`<line x1="${a.x+nodeW/2}" y1="87" x2="${b.x-nodeW/2}" y2="87" stroke="#255a88" stroke-width="3"><title>${esc(physical.kind+" · "+physical.detail)}</title></line><text x="${(a.x+b.x)/2}" y="103" text-anchor="middle" fill="#255a88" font-size="10">${esc(physical.kind)}</text>`;
       if(logical)svg+=`<line x1="${a.x+nodeW/2}" y1="36" x2="${b.x-nodeW/2}" y2="36" stroke="#b06828" stroke-width="2" stroke-dasharray="5 4"><title>${esc(logical.kind+" · "+logical.detail)}</title></line><text x="${(a.x+b.x)/2}" y="29" text-anchor="middle" fill="#904d16" font-size="10">${esc(logical.kind)}</text>`;
     }
-    const active=state.links.filter(l=>l.enabled),labelPorts=active.length<=8;
+    const active=state.links.filter(l=>l.enabled),labelPorts=active.length<=4;
     let labels="";
     for(const l of active){
       const a=up.findIndex(d=>d.id===l.a),b=down.findIndex(d=>d.id===l.b);if(a<0||b<0)continue;
