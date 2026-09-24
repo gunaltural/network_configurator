@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Reporting and Documentation · Network Configurator</title>
+<title>Reporting and Inventory · Network Configurator</title>
 <style>
 :root{--bg:#0d1117;--surface:#161b22;--surface2:#1f2630;--line:#2b3440;--text:#e6edf3;--muted:#9da7b3;--accent:#58a6ff;--good:#7ee787;--warn:#f2cc60}
 *{box-sizing:border-box}[hidden]{display:none!important}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.55 Inter,Segoe UI,Arial,sans-serif}a{color:var(--accent)}button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{opacity:.5;cursor:wait}
@@ -19,10 +19,10 @@
 </head>
 <body>
 <div class="shell">
-  <nav class="nav"><div class="brand"><span class="mark">NC</span><span>Network Configurator<br><small style="font-weight:400;color:var(--muted)">Reporting and Documentation</small></span></div>
+  <nav class="nav"><div class="brand"><span class="mark">NC</span><span>Network Configurator<br><small style="font-weight:400;color:var(--muted)">Reporting and Inventory</small></span></div>
     <div class="navlinks"><a class="button link subtle" href="/">← Home</a><button class="button" id="saveProject">Download project</button><label class="button" for="openProject" style="color:var(--text);font-size:14px">Open project<input type="file" accept=".json,application/json" id="openProject" hidden></label><button class="button primary" id="printReport">Print / Save PDF</button></div>
   </nav>
-  <div class="intro"><div><div class="eyebrow">Independent workspace · Greenfield design</div><h1>Reporting and Documentation</h1><p>Start with the intended topology. Complete the inventory manually or verify it from devices when they are reachable.</p></div><span class="status" id="projectStatus">Draft · 6 devices</span></div>
+  <div class="intro"><div><div class="eyebrow">Independent workspace · Greenfield design</div><h1>Reporting and Inventory</h1><p>Start with the intended topology. Complete the inventory manually or verify it from devices when they are reachable.</p></div><span class="status" id="projectStatus">Draft · 6 devices</span></div>
   <div class="editor"><div class="stack">
     <section class="panel"><h2>1 · Project and technology</h2><p class="hint">Select the vendor first. Device records and suitable technology choices follow your selection.</p><div class="fields">
       <label class="wide">Project name<input id="projectName" maxlength="120" value="New Data Center Design"></label>
@@ -141,7 +141,7 @@
     const incomplete=state.devices.filter(d=>!d.model||!d.serial);
     $("projectStatus").textContent=`Draft · ${state.devices.length} devices · ${active.length} links`;
     $("linkCount").textContent=active.length;
-    $("reportPreview").innerHTML=`<div class="report-tag">Network design · Draft report</div><h1>${esc(state.name||"Untitled Network Project")}</h1><div class="report-meta">Reporting and Documentation · ${esc(date())} · ${esc(vendorLabel(state.vendor))}</div>
+    $("reportPreview").innerHTML=`<div class="report-tag">Network design · Draft report</div><h1>${esc(state.name||"Untitled Network Project")}</h1><div class="report-meta">Reporting and Inventory · ${esc(date())} · ${esc(vendorLabel(state.vendor))}</div>
       <div class="summary-grid"><div class="metric"><b>${state.upperCount}</b><span>${esc(upper())} devices</span></div><div class="metric"><b>${state.lowerCount}</b><span>${esc(lower())} devices</span></div><div class="metric"><b>${active.length}</b><span>Planned links</span></div></div>
       <h2>1 · Project overview</h2><p><strong>Architecture:</strong> ${esc(state.architecture==="spine-leaf"?"Spine–Leaf":"Core–Access")} · <strong>Platform:</strong> ${esc(vendorLabel(state.vendor))} · <strong>Technology:</strong> ${esc(state.technology)}</p><p>${esc(state.scope.trim()||"Project scope and design intent await engineer input.")}</p>
       <h2>2 · Planned topology</h2>${diagram()}<h3>Connection schedule</h3><table><thead><tr><th>Upper device / port</th><th>Lower device / port</th><th>Speed</th></tr></thead><tbody>${active.map(l=>{const a=state.devices.find(d=>d.id===l.a),b=state.devices.find(d=>d.id===l.b);return `<tr><td>${esc(deviceName(a))} · ${esc(l.upperPort||"TBD")}</td><td>${esc(deviceName(b))} · ${esc(l.lowerPort||"TBD")}</td><td>${esc(l.speed||"TBD")}</td></tr>`;}).join("")||'<tr><td colspan="3">No links selected</td></tr>'}</tbody></table>
@@ -156,7 +156,7 @@
   $("architecture").addEventListener("change",e=>{state.architecture=e.target.value;for(const d of state.devices)if(d.hostname.match(/^(?:Spine|Leaf|Core|Access)-\d+$/))d.hostname=`${roleName(d)}-${String(d.index).padStart(2,"0")}`;renderEditor();});
   $("technology").addEventListener("change",e=>{state.technology=e.target.value;renderReport();});
   $("techPlacement").addEventListener("change",e=>{state.techPlacement=e.target.value;renderReport();});
-  for(const [id,key,max] of [["upperCount","upperCount",8],["lowerCount","lowerCount",16]])$(id).addEventListener("change",e=>{state[key]=count(id,max);e.target.value=state[key];syncTopology();renderEditor();});
+  for(const [id,key,max] of [["upperCount","upperCount",8],["lowerCount","lowerCount",16]])$(id).addEventListener("input",e=>{state[key]=count(id,max);syncTopology();renderEditor();});
   $("devices").addEventListener("input",e=>{const field=e.target.dataset.field,id=e.target.dataset.device;if(!field||!id||field==="vendor")return;const d=state.devices.find(x=>x.id===id);if(!d)return;d[field]=e.target.value;if(field==="model"||field==="serial")d[`${field}Source`]=d[field]?"manual":"";renderReport();});
   $("devices").addEventListener("change",e=>{if(e.target.dataset.field==="vendor"){const d=state.devices.find(x=>x.id===e.target.dataset.device);if(d){d.vendor=e.target.value;renderEditor();}}else if(e.target.dataset.field==="hostname")renderEditor();else if(["model","serial"].includes(e.target.dataset.field)){renderEditor();}});
   $("devices").addEventListener("click",e=>{const id=e.target.closest("[data-read]")?.dataset.read;if(!id)return;selectedDevice=id;const d=state.devices.find(x=>x.id===id);$("sshTitle").textContent=`Read inventory · ${deviceName(d)} · ${vendorLabel(d.vendor)}`;$("sshTarget").value=d.target;$("sshBox").hidden=false;$("sshHelp").hidden=true;$("sshResult").textContent="";$("sshTarget").focus();});

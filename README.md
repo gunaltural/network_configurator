@@ -5,8 +5,8 @@ Render Web Service deployment using the repository's Dockerfile.
 System and Management generates a baseline for one managed device. Its parameters,
 topology and configuration output contain one device block.
 
-## Reporting and Documentation (first version)
-Open **Reporting and Documentation** from the home page or `/reporting`. It is a separate
+## Reporting and Inventory (first version)
+Open **Reporting and Inventory** from the home page or `/reporting`. It is a separate
 greenfield design workspace. Select the primary vendor/platform first, then the topology
 (Spine–Leaf or Core–Access), device counts, and planned technology. Device cards and an
 editable connection schedule follow the topology. Each card has a per-device vendor,
