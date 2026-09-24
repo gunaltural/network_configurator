@@ -5,10 +5,23 @@ Render Web Service deployment using the repository's Dockerfile.
 System and Management generates a baseline for one managed device. Its parameters,
 topology and configuration output contain one device block.
 
-## Reporting and Inventory (first version)
-Open **Reporting and Inventory** from the home page or `/reporting`. It is a separate
-greenfield design workspace. Enter a project name and select the primary vendor/platform
-once, then the topology (Spine–Leaf or Core–Access), device counts, and planned technology.
+## Reporting and Inventory
+Open **Reporting and Inventory** from the home page or `/reporting`. When an active
+vPC / MLAG / M-LAG / StackWise Virtual or STP design is open in Technology Workspaces,
+the home-page card imports its current topology, device names, physical uplinks,
+special links and control paths, selected parameters, and generated configuration
+for each device. The report marks the design as planned, not operationally verified.
+In a StackWise Virtual pair the chassis share one logical configuration; both inventory
+records say so explicitly. Huawei M-LAG leaf physical uplink ports remain unassigned
+until the engineer identifies them.
+
+The imported topology and platform are read-only in the report; edit them in
+Technology Workspaces and reopen Reporting and Inventory to refresh. Existing
+inventory, scope and documentation-only link details are retained for the same project
+in the browser session. This import currently covers vPC / MLAG / M-LAG /
+StackWise Virtual and STP; other technology modules can still use the standalone
+reporting workflow. Standalone reports start with a project name, primary vendor,
+architecture, device counts and planned technology.
 Device cards and an editable connection schedule follow the topology. Each card has a
 hostname, optional management address, product model and serial number. Model and serial
 can be entered manually before deployment, or read from a reachable device afterward.
@@ -19,10 +32,11 @@ or enable secrets in the project or report. The target must be reachable from Re
 and satisfy the same address policy as Live CLI. A device with an unassigned model or
 serial remains explicitly marked **Awaiting assignment**; modules are not mistaken for
 the chassis. The report preview contains the planned topology with port labels on smaller
-topologies, a device-to-port connection schedule, technology summary, inventory and
-outstanding items. Use **Print / Save PDF** in the browser or **Download Word** for an
+topologies, a device-to-port connection schedule, technology parameters, inventory,
+special connections, per-device configuration appendices, and outstanding items. Use
+**Print / Save PDF** in the browser or **Download Word** for an
 editable DOCX report. **Download project** / **Open project** save and restore
-the editable design as JSON. This first version documents design intent and optional
+the editable design as JSON. The report documents design intent and optional
 inventory verification; it does not crawl neighbors or claim operational validation.
 
 ## Browser user experience

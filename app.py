@@ -167,6 +167,28 @@ class ReportLink(BaseModel):
     upperPort: str = Field(max_length=100)
     lowerPort: str = Field(max_length=100)
     speed: str = Field(max_length=100)
+    detail: str = Field(default="", max_length=200)
+
+
+class ReportSpecialLink(BaseModel):
+    kind: str = Field(max_length=100)
+    a: str = Field(max_length=32)
+    b: str = Field(max_length=32)
+    aPort: str = Field(max_length=200)
+    bPort: str = Field(max_length=200)
+    detail: str = Field(max_length=500)
+    logical: bool = False
+
+
+class ReportParameter(BaseModel):
+    label: str = Field(max_length=100)
+    value: str = Field(max_length=500)
+
+
+class ReportConfiguration(BaseModel):
+    deviceId: str = Field(max_length=32)
+    text: str = Field(max_length=100000)
+    source: str = Field(max_length=100)
 
 
 class ReportWordRequest(BaseModel):
@@ -180,6 +202,9 @@ class ReportWordRequest(BaseModel):
     scope: str = Field(max_length=2000)
     devices: List[ReportDevice]
     links: List[ReportLink]
+    specialLinks: List[ReportSpecialLink] = Field(default_factory=list)
+    parameters: List[ReportParameter] = Field(default_factory=list)
+    configurations: List[ReportConfiguration] = Field(default_factory=list)
 
 
 def parse_inventory(platform: str, outputs: dict) -> dict:
@@ -708,9 +733,13 @@ def reporting_word(p: ReportWordRequest):
     actual = {d.id for d in p.devices}
     if (not p.name.strip() or len(p.devices) != len(expected) or actual != expected
             or any(d.id != f"{d.tier}-{d.index}" for d in p.devices)
-            or len(p.links) > 128
+            or len(p.links) > 128 or len(p.specialLinks) > 32
+            or len(p.parameters) > 250 or len(p.configurations) > len(p.devices)
             or any(l.a not in actual or l.b not in actual
-                   or not l.a.startswith("upper-") or not l.b.startswith("lower-") for l in p.links)):
+                   or not l.a.startswith("upper-") or not l.b.startswith("lower-") for l in p.links)
+            or any(l.a not in actual or l.b not in actual for l in p.specialLinks)
+            or len({c.deviceId for c in p.configurations}) != len(p.configurations)
+            or any(c.deviceId not in actual for c in p.configurations)):
         raise HTTPException(status_code=400, detail="Invalid project topology or project name.")
     data = p.model_dump() if hasattr(p, "model_dump") else p.dict()
     return StreamingResponse(

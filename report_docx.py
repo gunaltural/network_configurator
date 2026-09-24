@@ -93,7 +93,7 @@ def _technology_text(project, placement):
 
 
 def build_report_docx(project):
-    """Return a Word file in memory; only planning data is accepted by the API."""
+    """Return a Word file in memory with planned topology and configuration."""
     doc = Document()
     section = doc.sections[0]
     section.page_width, section.page_height = Inches(8.5), Inches(11)
@@ -156,16 +156,35 @@ def build_report_docx(project):
     doc.add_heading("Connection schedule", level=1)
     _table(
         doc,
-        [f"{upper} device", "Port", f"{lower} device", "Port", "Speed"],
-        [1.85, 1.15, 1.85, 1.15, 1.1],
-        [[device_name(devices[l["a"]]), l["upperPort"] or "TBD", device_name(devices[l["b"]]), l["lowerPort"] or "TBD", l["speed"] or "TBD"] for l in active]
+        [f"{upper} device", "Port", f"{lower} device", "Port", "Connection / speed"],
+        [1.55, 1.1, 1.55, 1.1, 1.65],
+        [[device_name(devices[l["a"]]), l["upperPort"] or "TBD", device_name(devices[l["b"]]), l["lowerPort"] or "TBD", " · ".join(filter(None, [l.get("detail"), l["speed"]])) or "TBD"] for l in active]
         or [["No links selected", "", "", "", ""]],
     )
+    if project.get("specialLinks"):
+        doc.add_heading("Special connections and control paths", level=2)
+        _table(
+            doc,
+            ["Type", "Endpoint A / port", "Endpoint B / port", "Details"],
+            [1.25, 1.8, 1.8, 2.1],
+            [[link["kind"] + (" (logical)" if link["logical"] else ""),
+              device_name(devices[link["a"]]) + " · " + (link["aPort"] or "TBD"),
+              device_name(devices[link["b"]]) + " · " + (link["bPort"] or "TBD"), link["detail"]]
+             for link in project["specialLinks"]],
+        )
+        doc.add_paragraph("Logical control paths identify endpoints; they do not imply a direct physical cable.")
 
     doc.add_heading("Technology approach", level=1)
     placement = upper if project["techPlacement"] == "upper" else lower
-    doc.add_paragraph(_technology_text(project, placement))
+    doc.add_paragraph(
+        f"{project['technology']} parameters and device configurations were imported from Technology Workspaces for {vendor}."
+        if project.get("configurations") else _technology_text(project, placement)
+    )
     doc.add_paragraph("Design intent only; operational state has not been verified.")
+    if project.get("parameters"):
+        doc.add_heading("Selected technology parameters", level=2)
+        _table(doc, ["Parameter", "Selected value"], [2.7, 4.25],
+               [[item["label"], item["value"]] for item in project["parameters"]])
 
     doc.add_page_break()
     doc.add_heading("Device inventory", level=1)
@@ -189,6 +208,29 @@ def build_report_docx(project):
            else "All active link endpoint ports are assigned. ")
         + "Compare device-sourced inventory with the intended bill of materials before closeout."
     )
+    if project.get("configurations"):
+        doc.add_page_break()
+        doc.add_heading("Appendix · Planned device configurations", level=1)
+        doc.add_paragraph(
+            "Generated configurations reflect design inputs and have not been validated on a device. "
+            "Review against the target model and software release before use."
+        )
+        configurations = {config["deviceId"]: config for config in project["configurations"]}
+        for device in project["devices"]:
+            config = configurations.get(device["id"])
+            if not config:
+                continue
+            doc.add_heading(device_name(device), level=2)
+            doc.add_paragraph(config["source"])
+            for line in config["text"].splitlines():
+                paragraph = doc.add_paragraph(style="Normal")
+                paragraph.paragraph_format.space_after = Pt(0)
+                paragraph.paragraph_format.line_spacing = 1.0
+                run = paragraph.add_run(line or " ")
+                run.font.name = "Consolas"
+                run.font.size = Pt(8)
+            if device != project["devices"][-1]:
+                doc.add_page_break()
     doc.core_properties.title = name
     doc.core_properties.author = "Network Configurator"
     output = BytesIO()

@@ -338,7 +338,7 @@ pre{
 </div>
 <section class="v3-dashboard show" id="v3Dashboard">
   <a class="v3-card v3-report-card" href="/reporting">
-    <span class="tag">Independent workspace</span><h3>Reporting and Inventory</h3><p>Plan a greenfield topology, build the device inventory and prepare a design report.</p>
+    <span class="tag">Design documentation</span><h3>Reporting and Inventory</h3><p>Document your technology design, device configurations and planned inventory. You can also start a standalone report.</p>
   </a>
   <div class="v3-section-head"><b>Technology Workspaces</b><span>Open an existing module</span></div>
   <div class="v3-tech-grid" id="v3TechGrid"></div>
@@ -5333,15 +5333,27 @@ renderModule();
    const meta=data.project&&typeof data.project==="object"?data.project:null;
    $("v3ProjectName").value=meta?.name||data.project||"Untitled Network Project";
    currentProjectId=meta?.id||data.id||null;
-   Object.entries(data.fields||{}).forEach(([id,val])=>{
-     const el=$(id);if(!el||el.type==="file")return;
-     if(el.type==="checkbox")el.checked=!!val;else el.value=val;
-     el.dispatchEvent(new Event("change",{bubbles:true}));
-   });
+   // The target module must exist before restoring its dynamic controls.
    const tech=data.workspace?.technology||data.activeTech;
    if(tech)openTech(String(tech).toUpperCase());
-   if(typeof render==="function")render();
-   updateHealth();
+   const ps=$("platform");
+   if(ps&&data.workspace?.platform&&[...ps.options].some(o=>o.value===data.workspace.platform)){
+     ps.value=data.workspace.platform;
+     ps.dispatchEvent(new Event("change",{bubbles:true}));
+   }
+   setTimeout(()=>{
+     const fields=data.fields||{};
+     for(const id of ["bgpCeCount","bgpIspCount","bgpConnectivity","bgpInternal"]){
+       const el=$(id);if(el&&fields[id]!==undefined)el.value=fields[id];
+     }
+     if(String(tech).toUpperCase()==="BGP")renderBgpDynamicCards();
+     Object.entries(fields).forEach(([id,val])=>{
+       const el=$(id);if(!el||el.type==="file")return;
+       if(el.type==="checkbox")el.checked=!!val;else el.value=val;
+     });
+     if(typeof render==="function")render();
+     syncTopology();renderOutput();updateHealth();
+   },0);
  }
  function saveAs(forceName){
    let name=forceName||prompt("Project name", $("v3ProjectName").value||"Untitled Network Project");
@@ -5364,6 +5376,111 @@ renderModule();
    downloadProject(data,"json");
    toast("JSON project saved to your PC");
  }
+ // Export a typed design from the active workspace. Do not derive links from SVG;
+ // use device selection for VPC and the STP generator's explicit device sections.
+ function reportingDesign(){
+   if(!["VPC","STP"].includes(tech))return null;
+   const get=id=>document.getElementById(id)?.value||"";
+   const list=id=>get(id).split(",").map(x=>x.trim()).filter(Boolean);
+   const n=id=>Math.max(2,Math.min(8,Number(get(id))||4));
+   const pl=platform(), isVpc=tech==="VPC";
+   if(!["Cisco NX-OS","Cisco IOS-XE","Arista EOS","Huawei_CE_SW"].includes(pl))return null;
+   const swv=isVpc&&pl==="Cisco IOS-XE";
+   const kind=isVpc?(pl==="Cisco NX-OS"?"vPC":pl==="Arista EOS"?"MLAG":pl==="Huawei_CE_SW"?"M-LAG":"StackWise Virtual"):"STP";
+   const project=snapshot();
+   const devices=[],links=[],specialLinks=[],configurations=[];
+   const addDevice=(tier,index,hostname)=>devices.push({id:`${tier}-${index}`,tier,index,hostname,model:"",serial:"",target:"",modelSource:"",serialSource:"",observedAt:"",vendor:pl});
+   const addLink=(side,index,aPort,bPort,detail="")=>links.push({id:`upper-${side}--lower-${index}`,a:`upper-${side}`,b:`lower-${index}`,enabled:true,upperPort:aPort||"",lowerPort:bPort||"",speed:"",detail});
+   const special=(kind,a,b,aPort,bPort,detail,logical=false)=>specialLinks.push({kind,a,b,aPort:aPort||"",bPort:bPort||"",detail:detail||"",logical});
+   const params=[];
+   document.querySelectorAll("#params input[id],#params select[id]").forEach(el=>{
+     if(/(?:Output|^sdExcel|^sdSiteSelect|^sdRouterSelect)/i.test(el.id))return;
+     if(el.closest("[data-vpc-leaf],[data-ar-leaf],[data-hw-leaf],[data-swv-leaf]")?.style.display==="none")return;
+     const label=el.closest("label")?.textContent?.trim()||el.previousElementSibling?.textContent?.trim()||el.id;
+     if(/password|secret|credential|community\s*string|shared\s*key/i.test(label))return;
+     const value=el.type==="checkbox"?(el.checked?"Enabled":"Disabled"):el.value;
+     if(value)params.push({label:label.slice(0,100),value:String(value).slice(0,500)});
+   });
+   // Configuration generators select one device via their existing output control.
+   const outputId=isVpc?(pl==="Cisco NX-OS"?"vpcOutputDevice":pl==="Arista EOS"?"arOutput":pl==="Huawei_CE_SW"?"hwOutput":"swvOutput"):null;
+   const selector=outputId&&document.getElementById(outputId), selected=selector?.value;
+   const redact=s=>String(s||"").replace(/^(\s*(?:username\b.*?\b(?:password|secret)\b|enable\s+secret\b|(?:snmp-server\s+community|(?:tacacs|radius)(?:-server)?\b.*?\bkey|neighbor\s+\S+\s+password)\b)).*$/gim,"$1 [REDACTED]");
+   const config=(id,choice)=>{
+     if(selector)selector.value=choice;
+     const text=redact(modules[tech].generate("config"));
+     configurations.push({deviceId:id,text,source:"Technology Workspaces"});
+   };
+   try{
+     if(isVpc){
+       const ar=pl==="Arista EOS",hw=pl==="Huawei_CE_SW";
+       const count=n(hw?"hwLeafCount":ar?"arLeafCount":swv?"swvLeafCount":"vpcLeafCount");
+       addDevice("upper",1,swv?`${get("swvHost")||"CORE-SWV"}-SW1`:(get(hw?"hwHost1":ar?"arH1":"d1host")||"Core-1"));
+       addDevice("upper",2,swv?`${get("swvHost")||"CORE-SWV"}-SW2`:(get(hw?"hwHost2":ar?"arH2":"d2host")||"Core-2"));
+       for(let i=1;i<=count;i++){
+         const leafName=get(hw?`hwLeaf${i}`:ar?`arLeaf${i}`:swv?`swvLeaf${i}`:`vpcLeaf${i}`)||`Leaf-${i}`;
+         addDevice("lower",i,leafName);
+         if(hw){
+           addLink(1,i,get(`hwLeafIf1_${i}`),"",`Eth-Trunk ${get(`hwLeafPo${i}`)} · leaf uplink to be assigned`);
+           addLink(2,i,get(`hwLeafIf2_${i}`),"",`Eth-Trunk ${get(`hwLeafPo${i}`)} · leaf uplink to be assigned`);
+         }else if(ar){
+           addLink(1,i,get(`arIf1_${i}`),get(`arUp1_${i}`),`MLAG ${get(`arMid${i}`)} · Po${get(`arPo${i}`)}`);
+           addLink(2,i,get(`arIf2_${i}`),get(`arUp2_${i}`),`MLAG ${get(`arMid${i}`)} · Po${get(`arPo${i}`)}`);
+         }else if(swv){
+           addLink(1,i,get(`swvLeafCoreIf1_${i}`),get(`swvLeafUp1_${i}`),`MEC Po${get(`swvLeafPo${i}`)}`);
+           addLink(2,i,get(`swvLeafCoreIf2_${i}`),get(`swvLeafUp2_${i}`),`MEC Po${get(`swvLeafPo${i}`)}`);
+         }else{
+           addLink(1,i,list("vpcSp1LeafIfs")[i-1],get("vpcLeafUp1"),`vPC ${get(`vpcLeafPo${i}`)}`);
+           addLink(2,i,list("vpcSp2LeafIfs")[i-1],get("vpcLeafUp2"),`vPC ${get(`vpcLeafPo${i}`)}`);
+         }
+         config(`lower-${i}`,`LEAF${i}`);
+       }
+       if(swv){
+         special("SVL members","upper-1","upper-2",get("swvLink1"),get("swvLink2"),`Link ID ${get("swvLinkId")}`);
+         special("DAD","upper-1","upper-2",get("swvDad1"),get("swvDad2"),"StackWise Virtual dual-active detection",true);
+         config("upper-1","CORE");
+         configurations.push({deviceId:"upper-2",text:configurations.find(c=>c.deviceId==="upper-1").text,source:"Shared StackWise Virtual logical configuration"});
+         params.push({label:"Core configuration scope",value:"SW1 and SW2 form one StackWise Virtual logical switch. Both chassis share the generated logical configuration; it is not two independent device configurations."});
+       }else{
+         const a=hw?list("hwPeerIf1"):ar?list("arPif1"):list("vpcPeerIf1");
+         const b=hw?list("hwPeerIf2"):ar?list("arPif2"):list("vpcPeerIf2");
+         const bundle=hw?`Eth-Trunk ${get("hwPeerPo")}`:`Po${get(ar?"arPpo":"vpcPeerPo")}`;
+         for(let i=0;i<Math.max(a.length,b.length);i++)special("Peer-link","upper-1","upper-2",a[i],b[i],bundle);
+         if(hw)special("DAD / DFS","upper-1","upper-2",get("hwDadIf1"),get("hwDadIf2"),`${get("hwDadIp1")} ↔ ${get("hwDadIp2")} · DFS ${get("hwDfs")}`,true);
+         else if(ar)special("MLAG peer control","upper-1","upper-2",`Vlan${get("arPv")}`,`Vlan${get("arPv")}`,`${get("arIp1")} ↔ ${get("arIp2")}`,true);
+         else special("vPC keepalive","upper-1","upper-2",get("vpcKaIf1"),get("vpcKaIf2"),`${get("vpcKa1")} ↔ ${get("vpcKa2")} · VRF ${get("vpcKaVrf")}`,true);
+         config("upper-1",hw?"MASTER":ar?"C1":"SPINE1");
+         config("upper-2",hw?"BACKUP":ar?"C2":"SPINE2");
+       }
+       if(hw)params.push({label:"Leaf uplink configuration",value:"Physical leaf ports are deployment-specific in the generated Huawei configuration; assign and validate them before deployment."});
+     }else{
+       const count=n("stpLeafCount"),names=list("stpLeafNames"),start=Number(get("stpCoreLeafStart"))||1;
+       addDevice("upper",1,get("d1host")||"CORE-1");addDevice("upper",2,get("d2host")||"CORE-2");
+       for(let i=1;i<=count;i++){
+         addDevice("lower",i,names[i-1]||`LEAF-${String(i).padStart(2,"0")}`);
+         for(let side=1;side<=2;side++)addLink(side,i,`${get("stpCoreLeafPrefix")||"Ethernet1/"}${start+i-1}`,get(side===1?"stpLeafUp1":"stpLeafUp2"),"STP dual-homed uplink");
+       }
+       const generated=redact(modules[tech].generate("config"));
+       const blocks=generated.split(/^########\s+.*?\s+########\s*$/m).map(x=>x.trim()).filter(Boolean);
+       if(blocks.length!==devices.length)throw Error("STP configuration sections do not match the planned devices.");
+       devices.forEach((d,i)=>configurations.push({deviceId:d.id,text:blocks[i],source:"Technology Workspaces"}));
+       special("Core interconnect","upper-1","upper-2",get("stpCoreLinkIf"),get("stpCoreLinkIf"),"Core-to-core trunk");
+     }
+   }finally{if(selector)selector.value=selected;}
+   return {schema:"network-configurator-report-v1",name:project.project.name==="Untitled Network Project"?"":project.project.name,
+     vendor:pl,architecture:swv?"core-access":"spine-leaf",technology:kind,techPlacement:"upper",
+     upperCount:devices.filter(d=>d.tier==="upper").length,lowerCount:devices.filter(d=>d.tier==="lower").length,
+     scope:"",devices,links,specialLinks,parameters:params,configurations,
+     source:{module:tech,projectId:project.project.id||"active",generatedAt:new Date().toISOString()}};
+ }
+ $("v3Dashboard").querySelector(".v3-report-card").addEventListener("click",event=>{
+   try{
+     const payload=reportingDesign();
+     if(payload)sessionStorage.setItem("networkConfigurator.report.import",JSON.stringify(payload));
+     else sessionStorage.removeItem("networkConfigurator.report.import");
+   }catch(err){
+     event.preventDefault();toast("Report import failed: "+err.message);
+   }
+ });
  function renderRecent(){
    const box=$("v3RecentProjects");if(!box)return;
    const arr=Object.values(store()).sort((a,b)=>{
