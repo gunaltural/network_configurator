@@ -123,7 +123,7 @@
       const detail=`${deviceName(up[a])} ${l.upperPort||"TBD"} → ${deviceName(down[b])} ${l.lowerPort||"TBD"}${l.speed?` · ${l.speed}`:""}`;
       svg+=`<line x1="${x1}" y1="${p.y+18}" x2="${x2}" y2="${q.y-18}" stroke="#98b3c6" stroke-width="1.4"><title>${esc(detail)}</title></line>`;
       if(labelPorts){
-        const portText=(x,y,value)=>value?`<text x="${x}" y="${y}" text-anchor="middle" fill="#244b64" stroke="#f8fbfd" stroke-width="4" paint-order="stroke" font-size="9" font-weight="700">${esc(value.slice(0,12))}</text>`:"";
+        const portText=(x,y,value)=>{const short=value.replace(/^GigabitEthernet/i,"Gi").replace(/^TenGigabitEthernet/i,"Te").replace(/^Ethernet/i,"Eth");return value?`<text x="${x}" y="${y}" text-anchor="middle" fill="#163c58" stroke="#f8fbfd" stroke-width="4" paint-order="stroke" font-size="12" font-weight="700">${esc(short.slice(0,12))}</text>`:"";};
         labels+=portText(x1,p.y+34,l.upperPort)+portText(x2,q.y-30,l.lowerPort);
       }
     }
