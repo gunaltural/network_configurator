@@ -23,7 +23,7 @@
   <nav class="nav"><div class="brand"><span class="mark">NC</span><span>Network Configurator<br><small style="font-weight:400;color:var(--muted)">Reporting and Inventory</small></span></div>
     <div class="navlinks"><a class="button link subtle" href="/">← Home</a><button class="button" id="saveProject">Download project</button><label class="button" for="openProject" style="color:var(--text);font-size:14px">Open project<input type="file" accept=".json,application/json" id="openProject" hidden></label><button class="button" id="downloadWord">Download Word</button><button class="button primary" id="printReport">Print / Save PDF</button></div>
   </nav>
-  <div class="intro"><div><div class="eyebrow">Design documentation · Greenfield planning</div><h1>Reporting and Inventory</h1><p>Import a Technology Workspace design or start a standalone report. Complete the inventory manually or verify it from devices.</p></div><span class="status" id="projectStatus">Draft · 6 devices</span></div>
+  <div class="intro"><div><div class="eyebrow">Design documentation · Workspace import v1</div><h1>Reporting and Inventory</h1><p>Use a Technology Workspace design for topology, special connections and device configurations, or create a standalone report.</p></div><span class="status" id="projectStatus">Draft · 6 devices</span></div>
   <div class="editor"><div class="stack">
     <div class="source-banner" id="sourceBanner" hidden></div>
     <section class="panel"><h2>1 · Project and technology</h2><p class="hint">Select the vendor first. Device records and suitable technology choices follow your selection.</p><div class="fields">
@@ -107,8 +107,9 @@
   function renderEditor(){
     syncOptions();
     const imported=!!state.source;
-    $("sourceBanner").hidden=!imported;
-    if(imported)$("sourceBanner").innerHTML=`Design imported from ${esc(state.source.module)} · ${esc(state.source.generatedAt||"")}. Topology, vendor and technology follow Technology Workspaces; edit them there and reopen this report to refresh. <a href="/">Open Technology Workspaces</a>`;
+    $("sourceBanner").hidden=false;
+    $("sourceBanner").innerHTML=imported?`<strong>Technology Workspace design imported.</strong> ${esc(state.source.module)} · ${esc(state.source.generatedAt||"")}. Topology, vendor and technology follow the workspace; edit them there and reopen this report to refresh. <a href="/">Technology Workspaces</a>`:
+      `<strong>Standalone report.</strong> To include generated topology and device configurations, select a vPC / MLAG / M-LAG / StackWise Virtual or STP design in <a href="/">Technology Workspaces</a>, then choose Home → Reporting and Inventory.`;
     $("linkHelp").textContent=imported?"Links and ports come from Technology Workspaces. Missing physical ports can be entered here for the document; update the workspace separately before deployment.":"Initial design connects each lower-tier device to each upper-tier device. Enter the port used at each end; uncheck a link to remove it from the report.";
     for(const id of ["vendor","architecture","technology","techPlacement","upperCount","lowerCount"])$(id).disabled=imported;
     $("deviceCount").textContent=`${state.upperCount} ${upper()} + ${state.lowerCount} ${lower()} = ${state.devices.length} planned devices.`;

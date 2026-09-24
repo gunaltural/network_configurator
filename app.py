@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Network Configurator v5.10.0 — Hosted multi-vendor Live CLI and reporting
+Network Configurator v5.10.1 — Hosted multi-vendor Live CLI and reporting
 
 Designed for Render / hosted web use:
 - Browser-only client experience
@@ -25,7 +25,7 @@ from pydantic import BaseModel, Field
 import uvicorn
 from report_docx import build_report_docx
 
-VERSION = "5.10.0"
+VERSION = "5.10.1"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
 REPORTING_HTML = (BASE_DIR / "reporting.html").read_text(encoding="utf-8")
