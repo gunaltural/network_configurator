@@ -5465,6 +5465,7 @@ renderModule();
    if(kind==="OSPF"){
      const map={d1rid:"Router ID distinguishes Device-1 within the OSPF domain; a duplicate ID can disrupt adjacency and LSA ownership.",d2rid:"Router ID distinguishes Device-2 within the OSPF domain; it must be unique for reliable LSA processing.",ospfPid:"Process ID is a local instance identifier on each router; peers do not need matching process IDs for an adjacency.",ospfArea:`Area ${v} places both interfaces in the same OSPF flooding domain. Area mismatch blocks adjacency; backbone area 0 is required for an ABR's backbone connectivity.`,ospfNet:v==="point-to-point"?"Point-to-point network type avoids DR/BDR election on a two-router link; both ends should use compatible OSPF network types.":"Broadcast network type elects DR/BDR on a multiaccess segment; ensure both ends see the same subnet and hello/dead timers.",ospfCost:`Cost ${v} influences SPF path selection: lower accumulated cost is preferred. With only one modeled adjacency it documents intent; alternative paths are needed for a meaningful preference.`};
      if(map[id])return map[id];
+
    }
    if(kind==="STP"){
      const map={stpLeafCount:`${v} access switches are dual-homed to the two cores in the planned topology. A redundant path may be blocked by STP according to root and port-cost decisions.`,stpLeafNames:`The ordered hostnames ${v} map to the active leaf count; each name must match its device and generated configuration section.`,stpVlans:`The VLAN scope ${v} determines which Layer 2 domains take part in the trunk and root design. Both ends must permit the intended VLANs.`,stpMode:`${v} determines the spanning-tree variant. Use compatible per-VLAN or MST region settings on adjacent switches to avoid unintended root or inconsistent operation.`,stpRoot:`Core-${v} is the planned root for this topology. Its bridge priority should be lower than the secondary core's for the applicable VLAN or MST instance.`,stpRootPri:`Priority ${v} makes the nominated core the preferred STP root when it is lower than peer bridge priorities; bridge ID also contains a MAC address.`,stpSecPri:`Secondary priority ${v} reserves the other core as the fallback root if the primary disappears, provided the bridge IDs elect as intended.`,stpCoreLinkIf:`Core interlink ${v} carries the selected VLANs; losing it can change STP paths or partition L2 reachability. Confirm the physical endpoint on each core.`,stpCoreLeafPrefix:`The prefix ${v} forms per-leaf core interface names; the first port and index select distinct uplinks. Confirm the resulting numbering does not collide with the core interlink.`,stpCoreLeafStart:`Port index ${v} is the first core-to-leaf uplink; subsequent leaves consume consecutive interface numbers. Compare this mapping with the cabling schedule.`,portfast:outcome("Edge/PortFast transitions access ports quickly to forwarding; enable only on intended host-facing ports and pair it with BPDU protection."),bpduguard:outcome("BPDU Guard protects edge ports by disabling or isolating a port on unexpected BPDUs, limiting accidental switch attachment."),rootguard:outcome("Root Guard prevents a downstream bridge from becoming STP root on protected core-to-leaf links; a superior BPDU can temporarily block the port."),loopguard:outcome("Loop Guard prevents a non-designated port from silently moving to forwarding when expected BPDUs disappear, reducing loop risk."),udld:outcome("Aggressive UDLD checks for unidirectional fiber/link faults where both endpoints support it; a detected fault can disable the affected uplink.")};
@@ -5500,25 +5501,114 @@ renderModule();
    if(kind==="BASIC"){
      const map={d1oobif:`Management interface ${v} separates OOB access from the data path; physical connectivity to the OOB network must be validated.`,d1oobip:`Management IP ${v} identifies the device for SSH, SNMP and monitoring; its subnet and gateway must be routable from trusted management hosts.`,d1mask:`Mask ${v} defines the local OOB subnet boundary; it must be consistent with the management IP, default gateway and allowed management sources.`,gw:`Default gateway ${v} provides off-subnet OOB reachability to AAA, NTP, syslog and operator access; verify that it is reachable in the management VRF.`,mgmtSubnet:`Trusted management subnet ${v} defines the ACL source scope. Restricting it reduces exposed access but can lock out operators if wrong.`,domain:`Domain ${v} forms management FQDNs and name resolution context where supported; verify DNS records before using named destinations.`,timezone:`Timezone ${v} affects local log display; NTP time synchronization is still required for accurate cross-system event correlation.`,adminuser:`Local user ${v} is the planned break-glass identity when central AAA is unavailable. Authorization, secret storage and OOB recovery must be designed separately.`,nmsServer:`NMS ${v} is the planned SNMP collector; it must reach the management interface and use matching SNMPv3 identity and cryptographic settings.`,aaaType:`${v} is the selected authentication source. Central AAA offers common policy/audit when reachable; local fallback must be tested for outages.`,secAAA:outcome("Central AAA with a local break-glass path keeps administrative access available during AAA server failure; validate authorization carefully."),secSnmpv3:outcome("SNMPv3 AuthPriv protects telemetry with authentication and encryption; management systems must use matching algorithms and credentials."),secMgmtAcl:outcome("Management ACL limits administrative sources to trusted networks; verify OOB and rollback access before activation."),secDisableTelnet:outcome("Telnet and plain HTTP administration are removed where supported; ensure SSH/OOB access remains functional."),secLogging:outcome("Two syslog destinations provide redundant log collection; source reachability and server ingestion are required for useful events."),secLoginAudit:outcome("Login success/failure events are logged for accountability, subject to retention and central collection policy."),secArchive:outcome("Configuration change/archive records aid audit and rollback; configure durable external retention separately."),secSnmpTraps:outcome("Selected SNMP traps push event notifications to the NMS when the receiver and transport are reachable."),secDns:outcome("DNS name resolution permits FQDN-based management services; specify reachable DNS servers in the OOB path."),secCdp:outcome("CDP discovers neighboring Cisco devices; enable only where exposing topology data is appropriate."),secLldp:outcome("LLDP discovers adjacent devices for port inventory and troubleshooting; validate policy on sensitive ports.")};
      if(map[id])return map[id];
+     const security={
+       secAAAAccounting:"AAA accounting records administrator actions and session events in the selected backend; audit usefulness requires reachable collectors and retained records.",
+       secAAAEnable:"Privileged-mode authentication is bound to the selected AAA/local method, preventing an unauthenticated escalation path when supported by the target NOS.",
+       secDisableHttps:"HTTPS management is disabled to reduce the exposed web administration surface; retain SSH or OOB console recovery.",
+       secBanner:"The selected legal notice is displayed before interactive login; it informs authorized-access policy but is not an authentication control.",
+       secTimestamps:"High-resolution timestamps help correlate AAA, syslog and configuration events across devices when NTP is synchronized.",
+       secLoggingBuffer:"Local buffer and console logs retain recent events when the syslog receiver is unavailable; their capacity and severity determine what remains on the box.",
+       secTcpKeepalive:"TCP keepalives help clear abandoned management sessions after transport failure; they do not replace idle timeouts.",
+       secDisableBootp:"BOOTP server behavior is removed from the management baseline, reducing unnecessary legacy network services.",
+       secDisablePad:"PAD/X.25 access is disabled when supported, closing an unused administrative service.",
+       secDisableDhcp:"The device DHCP server is disabled; only do this when the platform is not expected to supply address leases.",
+       secIpSourceRoute:"Source-routed IP forwarding is disabled, preventing a sender from specifying transit path hops through this device.",
+       secAuxNoExec:"Interactive EXEC on the auxiliary line is disabled to prevent an unintended administrative path; console/OOB recovery remains separate."
+     };
+     if(security[id])return outcome(security[id]);
+     const management={
+       mgmtSource:`${v} is the selected source interface for management-originated flows. OOB routing and server ACLs must permit its source address.`,
+       snmpUser:`SNMPv3 user ${v} is the authenticated telemetry identity. The NMS must use matching credentials and privacy parameters.`,
+       snmpGroup:`SNMP group ${v} controls the user's monitoring view and authorization; use the minimum read/write privileges required.`,
+       snmpAuth:`Authentication algorithm ${v} protects SNMPv3 message integrity; match it with the NMS configuration.`,
+       snmpPriv:`Privacy algorithm ${v} encrypts SNMPv3 payloads; match it with the NMS and avoid saving secrets in the report.`,
+       sysSeverity:`Syslog severity ${v} is the lowest-priority category forwarded or retained by the selected filter. More verbose settings increase event volume.`,
+       logConsoleSeverity:`Console severity ${v} limits messages printed during interactive recovery; avoid overwhelming the operator while retaining important faults.`,
+       logBuffer:`Local log buffer ${v} bytes holds recent events during syslog transport outages; size limits the retained history.`,
+       loginBanner:`Banner ${v} is shown at login as the selected authorized-access notice; it does not enforce credentials.`,
+       ntpSource:`NTP traffic uses ${v} as source where supported; servers and OOB routing must accept that address.`
+     };
+     if(management[id])return management[id];
      if(/^sec/.test(id))return outcome(`${label} changes the management-plane security baseline where emitted by the selected platform. Check both device support and OOB rollback access before activation.`);
-     if(/^aaa[12]$/.test(id))return `This AAA server is a central authentication endpoint. The pair provides redundancy only if both are reachable and the device's failover and local fallback policy are configured.`;
-     if(/^syslog/.test(id))return `This syslog destination collects device events; use two independent receivers and verify timestamps, chosen severity and OOB reachability.`;
-     if(/^ntp/.test(id))return `This NTP setting establishes time synchronization or source selection. Accurate time is required to correlate syslog, AAA records and troubleshooting events.`;
+     if(/^aaa[12]$/.test(id))return `AAA server ${v} is a central authentication endpoint. The pair provides redundancy only if both are reachable and the device's failover and local fallback policy are configured.`;
+     if(/^syslog/.test(id))return `Syslog destination ${v} collects device events; use independent receivers and verify timestamps, severity and OOB reachability.`;
+     if(/^ntp/.test(id))return `NTP server ${v} provides a time reference. Accurate time is required to correlate syslog, AAA records and troubleshooting events.`;
      if(/^snmp/.test(id))return `This SNMPv3 identity or cryptographic choice defines authenticated/encrypted telemetry access. NMS settings must match; do not include authentication secrets in the report.`;
      if(/^(?:keysize|sshIdle|sshRetries|consoleTimeout|auxTimeout)$/.test(id))return `This administrative-session limit sets key strength or idle/retry behavior. Coordinate it with operator workflows to reduce brute-force and unattended-session exposure without blocking recovery.`;
-     if(/^dns/.test(id))return `This DNS resolver supports name-based management destinations such as NTP or controllers; reachability through the management VRF must be verified.`;
+     if(/^dns/.test(id))return `DNS resolver ${v} supports name-based management destinations such as NTP or controllers; reachability through the management VRF must be verified.`;
      if(/^log|^sysSeverity/.test(id))return `This logging setting controls event level, buffering or console noise. Ensure central collection captures operationally relevant messages without overwhelming storage.`;
    }
    if(kind==="VPC"){
      const map={vpcDomain:`Domain ${v} identifies the paired NX-OS peers; both must share the domain and have working peer-link plus separate keepalive before downstream vPCs are trusted.`,vpcKaVrf:`Keepalive VRF ${v} separates peer liveness from the data peer-link. Independent routing reduces dual-active ambiguity during peer-link failure.`,vpcPeerPo:`Port-channel ${v} is the physical vPC peer-link carrying synchronization and required VLANs; both ends must agree on membership, LACP and trunk policy.`,vpcSysPri:`System priority ${v} contributes to the shared LACP identity/election. Align the peer pair and check downstream compatibility.`,vpcRole1:`Peer-1 role priority ${v} participates in primary/secondary vPC role election; compare it with Peer-2 and validate the elected operational role.`,vpcRole2:`Peer-2 role priority ${v} participates in role election. A lower numeric priority is normally favored when the pair elects the primary, subject to current role and platform behavior.`,vpcLeafCount:`${v} active leaf switches are planned as dual-attached access devices. Each consumes an uplink toward each core and a corresponding member port-channel.`,vpcChannelMode:`LACP ${v} controls aggregation negotiation. With passive/passive, links cannot form; static 'on' requires explicit end-to-end agreement.`,vpcTrunkMode:v==="all"?"Full trunk allows all eligible VLANs on the modeled uplinks; check VLAN containment and peer consistency before deployment.":"Created-VLAN-only trunk restricts carried VLANs to the selected list; missing VLANs will not traverse the uplinks.",vpcStpMode:`STP mode ${v} must be compatible across the pair and attached L2 domain. A type-1 consistency mismatch can affect vPC member forwarding.`,vpcPeerSwitch:outcome("Peer-switch presents aligned STP root behavior across the vPC pair; verify common STP settings and priority."),vpcPeerGateway:outcome("Peer-gateway lets a vPC peer locally handle certain traffic sent to the other peer's gateway MAC; verify L3 gateway design."),vpcArpSync:outcome("ARP entries are synchronized between the peers, improving neighbor continuity after failover."),vpcNdSync:outcome("IPv6 ND state is synchronized across peers where supported, improving neighbor continuity."),vpcAutoRecovery:outcome("Auto-recovery may restore vPC service after the configured reload delay if a peer remains absent; validate dual-active safeguards and timer intent."),vpcDelayRestoreEnable:outcome("Delay restore holds member vPCs down until the pair has had time to synchronize after recovery."),vpcBridgeAssurance:outcome("Bridge Assurance expects continuous BPDUs on network ports and can block a port when they stop; verify peer support."),vpcGracefulConsistency:outcome("Graceful consistency-check uses the platform's mismatch handling rather than abruptly interrupting all vPC members; verify NX-OS version behavior."),vpcBpduGuardEdge:outcome("BPDU Guard protects designated edge ports against accidental switch attachment; do not enable on intentional switch links."),vpcRootGuardDownstream:outcome("Root Guard prevents downstream devices from taking the STP root role on protected links."),vpcSviDelayRestoreEnable:outcome("SVI restore is delayed after vPC recovery to avoid advertising a gateway before synchronization completes."),vpcL3PeerRouter:outcome("Layer3 peer-router allows routing adjacency scenarios over the vPC pair where the NX-OS release supports it; verify topology constraints.")};
      if(map[id])return map[id];
+     const vendorSettings={
+       arDomain:`MLAG domain ${v} identifies the two Arista cores as one downstream aggregation pair; the domain value must match between peers.`,
+       arPv:`Peer VLAN ${v} carries MLAG peer control reachability. Reserve it for the peer-link, keep it off ordinary downstream trunks and confirm its interface IPs.`,
+       arTg:`Trunk group ${v} scopes the MLAG peer VLAN to the peer-link. An incorrect trunk group can leak control traffic or break peer reachability.`,
+       arIp1:`Core-1 peer address ${v} forms the Arista MLAG control adjacency with Core-2. The peer VLAN must carry both addresses in the same subnet.`,
+       arIp2:`Core-2 peer address ${v} completes the MLAG control adjacency; verify Core-1 addressing and bidirectional reachability.`,
+       arPpo:`Port-channel ${v} bundles the Arista peer-link members and carries peer VLAN/state synchronization. It must be up before downstream MLAG ports are trusted.`,
+       arStp:`STP mode ${v} defines loop prevention on the Arista pair and downstream trunks; match the attached L2 region.`,
+       arScope:`STP scope ${v} defines the VLAN/instance range covered by root priorities; check it against created and allowed VLANs.`,
+       arCp:`Core STP priority ${v} is intended to make the MLAG pair the preferred root relative to the leaf priority ${r("arLp")}; compare bridge IDs to verify election.`,
+       arLp:`Leaf STP priority ${v} should remain less preferred than core priority ${r("arCp")} for the selected L2 scope.`,
+       arBpdu:outcome("BPDU Guard protects host-facing edge ports from an unexpected switching device; do not apply it to intentional core/leaf trunks."),
+       arNoStp:outcome("STP is disabled on the private MLAG peer VLAN as designed; keep that VLAN isolated from ordinary user trunks."),
+       arRg:outcome("Root Guard prevents downstream ports from accepting a leaf as spanning-tree root."),
+       arVlans:`VLAN list ${v} defines the Arista data segments created for downstream service; check the trunk policy on both peers and leaves.`,
+       arTp:v==="all"?"Full trunk mode carries all eligible VLANs on downstream links; audit VLAN containment before deployment.":"Created-VLAN-only trunk mode carries the selected service VLANs; a missing VLAN will not traverse the MLAG member.",
+       arLacp:`LACP ${v} controls the MLAG member-channel handshake; peers and leaves must use compatible active/passive settings.`,
+       arLeafCount:`${v} leaves are dual-homed to both Arista cores, creating one MLAG membership and two physical uplinks per leaf.`,
+       hwDfs:`DFS group ${v} binds the two Huawei peers for M-LAG state and master/backup coordination; both nodes must share the group.`,
+       hwPri1:`Master priority ${v} is compared with backup priority ${r("hwPri2")} during DFS role election; verify the resulting active role on both switches.`,
+       hwPri2:`Backup priority ${v} is intended to make this peer secondary to master priority ${r("hwPri1")}; validate actual election and failover.`,
+       hwMlagId:`M-LAG ID ${v} identifies downstream multi-chassis membership; both peers must agree on each shared service.`,
+       hwStpMode:`STP mode ${v} sets the Huawei L2 loop prevention behavior; peers and downstream links need compatible root/V-STP behavior.`,
+       hwVstp:`V-STP ${v} controls the shared virtual spanning-tree identity for Huawei M-LAG. Check version support and bridge MAC alignment.`,
+       hwBridgeMac:`Virtual bridge MAC ${v} presents a common STP identity where supported; both peers must use the same planned identity.`,
+       hwBpdu:`BPDU protection ${v} controls handling of unexpected BPDUs on eligible edge ports; keep intentional peer and leaf trunks outside edge policy.`,
+       hwDadIf1:`Master DAD interface ${v} carries dual-active detection separately from the peer-link; avoid a common fate with the data bundle.`,
+       hwDadIf2:`Backup DAD interface ${v} provides the remote endpoint of the same dual-active detection path.`,
+       hwDadIp1:`Master DAD address ${v} identifies this peer on the independent heartbeat path; it must reach the backup endpoint.`,
+       hwDadIp2:`Backup DAD address ${v} identifies the second peer; it must belong to the planned heartbeat subnet.`,
+       hwDadMask:`DAD mask ${v} sets the heartbeat subnet boundary; mismatched masks can make peer detection fail.`,
+       hwPeerPo:`Eth-Trunk ${v} is the Huawei M-LAG peer-link bundle. Both peers must agree on its members and service VLANs to synchronize downstream forwarding state.`,
+       hwPeerLinkId:`Peer-link ID ${v} associates the Huawei peer Eth-Trunk with the DFS group; it must agree across both peers.`,
+       hwVlans:`Service VLANs ${v} are created for the Huawei downstream domain. Allow the intended VLANs consistently over peer and leaf trunks.`,
+       hwTrunkPolicy:v==="all"?"Full Huawei trunk policy permits the modeled VLAN range; limit it if downstream VLAN containment is required.":"Created-VLAN-only policy limits Huawei Eth-Trunks to the selected service VLANs; excluded VLANs cannot cross the trunk.",
+       hwLeafCount:`${v} downstream Huawei leaves are planned. Each has two core-side links mapped to an Eth-Trunk/M-LAG service.`,
+       swvHost:`Logical hostname ${v} identifies the single StackWise Virtual switch formed by two physical chassis; its configuration is shared, not two independent routing identities.`,
+       swvDomain:`StackWise Virtual domain ${v} identifies the chassis pair; both members must agree to form one logical switch.`,
+       swvLink1:`SW1 SVL interfaces ${v} carry inter-chassis state and data; a redundant, compatible SVL is required for resilient logical operation.`,
+       swvLink2:`SW2 SVL interfaces ${v} are the matching inter-chassis members; verify speed, cabling and SVL link-ID alignment.`,
+       swvLinkId:`SVL link ID ${v} associates the chassis interconnect members in the same logical virtual link.`,
+       swvDad1:`SW1 DAD interface ${v} forms an independent dual-active-detection path when the SVL fails.`,
+       swvDad2:`SW2 DAD interface ${v} completes that protection path; avoid common fate with the SVL cabling.`,
+       swvStpMode:`STP mode ${v} is used by the logical core and leaves; maintain compatible root and VLAN scope.`,
+       swvStpVlans:`Root VLAN scope ${v} selects the Layer 2 instances whose root role is assigned to the logical core.`,
+       swvStpPri:`Core STP priority ${v} aims to elect the logical core ahead of leaves with priority ${r("swvLeafStpPri")}.`,
+       swvLeafStpPri:`Leaf STP priority ${v} should remain less preferred than core priority ${r("swvStpPri")}.`,
+       swvBpdu:outcome("BPDU Guard protects designated edge ports from unexpected bridging, without replacing loop prevention on switch trunks."),
+       swvLoop:outcome("Loop Guard protects eligible non-designated ports when expected BPDUs disappear."),
+       swvRootGuard:outcome("Root Guard prevents attached leaves from replacing the StackWise Virtual core as STP root."),
+       swvVlans:`Service VLANs ${v} are created on the logical core and active leaf templates; verify end-to-end trunk consistency.`,
+       swvTrunkPolicy:v==="all"?"Full trunk policy permits all eligible service VLANs on MEC links; restrict it where segmentation requires.":"Created-VLAN-only trunk policy permits only the VLANs explicitly planned for this StackWise Virtual fabric.",
+       swvLacp:`LACP/EtherChannel ${v} sets aggregation behavior for the dual-chassis MEC. Both leaf uplinks must use compatible negotiation.`,
+       swvLeafCount:`${v} leaf switches are planned; each has two uplinks into one logical StackWise Virtual core.`,
+       huaweiUpDelay:`Huawei M-LAG up-delay ${v} seconds defers member service restoration after recovery so the peers can synchronize before forwarding resumes.`,
+       huaweiAutoRecovery:`Auto-recovery interval ${v} seconds controls recovery behavior when the Huawei peer relationship is unavailable; verify dual-active safeguards.`,
+       huaweiDadDelay:`DAD delay ${v} seconds affects when dual-active detection can act during recovery; coordinate with peer and reboot timing.`,
+       aristaHeartbeat:`MLAG heartbeat interval ${v} ms sets peer-liveness signaling frequency; tune alongside control-plane stability and false-failure risk.`,
+       aristaReloadMlag:`Arista MLAG reload delay ${v} seconds holds MLAG service until peer/control state stabilizes after a reboot.`,
+       aristaReloadNonMlag:`Non-MLAG reload delay ${v} seconds postpones other links during Arista recovery; compare with MLAG delay to avoid asymmetric forwarding.`
+     };
+     if(vendorSettings[id])return vendorSettings[id];
      if(/^vpcKa/.test(id))return `This dedicated keepalive ${/If/.test(id)?"interface":"IP address"} supports peer liveness independent of the peer-link. Keep both endpoints reachable without sharing the failed data path.`;
      if(/^vpcPeerIf|^arPif|^hwPeerIf/.test(id))return `These physical members build the inter-peer bundle. Validate cabling, speed, LACP and VLAN compatibility on both peers; missing members reduce redundancy.`;
      if(/^vpcLeafPo|^arMid|^arPo|^hwLeafPo|^swvLeafPo/.test(id))return `This leaf bundle/MLAG identifier associates the two upstream attachments as one logical service. The values must agree across the pair and match the leaf configuration.`;
      if(/^vpcLeaf\d+$|^arLeaf\d+$|^hwLeaf\d+$|^swvLeaf\d+$/.test(id))return `Leaf ${v} is the named downstream device attached to both members of the resilient pair. Its uplinks and bundle identifiers must match the per-device generated configuration and cable plan.`;
      if(/^arUp[12]_\d+$|^swvLeafUp[12]_\d+$|^hwLeafIf[12]_\d+$|^vpcLeafUp[12]$/.test(id))return `Uplink ${v} connects this leaf to the intended core side. Confirm that it joins the correct leaf bundle and matches the paired core interface in the connection schedule.`;
      if(/^swvLeafLocalPo\d+$/.test(id))return `Leaf port-channel ${v} combines the two MEC uplinks toward the logical StackWise Virtual core; the leaf's EtherChannel mode must match both members.`;
-     if(id==="hwPeerPo")return `Eth-Trunk ${v} is the Huawei M-LAG peer-link bundle. Both peers must agree on its members and service VLANs to synchronize downstream forwarding state.`;
      if(/(?:Leaf|Core).*If|(?:Leaf|Core).*Up|^vpcSp[12]LeafIfs/.test(id))return `This assigned physical uplink maps a leaf to the appropriate spine/core port in the connection schedule. Confirm cable direction, channel membership and interface compatibility before use.`;
      if(/^vpcFeature/.test(id))return outcome(`${label} enables the NX-OS feature needed by the corresponding vPC, LACP or discovery configuration; confirm support on the selected image.`);
      if(/^ar(?:Domain|Pv|Tg|Ip|Ppo|LeafCount|Stp|Scope|Cp|Lp|Bpdu|NoStp|Rg|Tp|Lacp)/.test(id))return `This Arista MLAG setting defines peer identity, control VLAN/link, STP role or downstream policy. Both cores must agree on MLAG peer and VLAN configuration; role or VLAN differences can disrupt active/active forwarding.`;
@@ -5548,6 +5638,11 @@ renderModule();
      if(["qosPoliceRate","qosPoliceBurst"].includes(el.id)&&!active("qosPolicing"))return false;
      if(el.id==="qosShapeRate"&&!active("qosShaping"))return false;
      if(/^qosWred(?:Min|Max|Prob)$/.test(el.id)&&!active("qosWred"))return false;
+   }
+   if(kind==="VPC"){
+     if(el.id==="vpcAutoDelay"&&!active("vpcAutoRecovery"))return false;
+     if(el.id==="vpcDelayRestore"&&!active("vpcDelayRestoreEnable"))return false;
+     if(el.id==="vpcSviDelayRestore"&&!active("vpcSviDelayRestoreEnable"))return false;
    }
    return true;
  }
