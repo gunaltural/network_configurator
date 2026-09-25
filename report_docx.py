@@ -139,8 +139,10 @@ def build_report_docx(project):
     doc.add_heading("Project overview", level=1)
     architecture = ("Module topology" if project["architecture"] == "module" else
                     "Core Access" if project["architecture"] == "core-access" else "Spine Leaf")
-    overview = (f"The planned {architecture} has {project['upperCount']} {upper.lower()} device(s)"
-                + (f" and {project['lowerCount']} {lower.lower()} device(s)" if project["lowerCount"] else "")
+    overview = (f"The planned {architecture} has {project['upperCount']} {upper.lower()} "
+                + ("device" if project["upperCount"] == 1 else "devices")
+                + (f" and {project['lowerCount']} {lower.lower()} "
+                   + ("device" if project["lowerCount"] == 1 else "devices") if project["lowerCount"] else "")
                 + f" and uses {project['technology']}.")
     doc.add_paragraph(overview)
     doc.add_paragraph(project["scope"].strip() or "Project scope and design intent await engineer input.")
@@ -218,9 +220,9 @@ def build_report_docx(project):
     incomplete = sum(not d.get("external") and (not d["model"] or not d["serial"]) for d in project["devices"])
     missing_ports = sum(not l["upperPort"] or not l["lowerPort"] for l in active)
     doc.add_paragraph(
-        (f"{incomplete} device(s) still need a model or serial number. " if incomplete
+        (f"{incomplete} {'device still needs' if incomplete == 1 else 'devices still need'} a model or serial number. " if incomplete
          else "All device models and serial numbers are populated. ")
-        + (f"{missing_ports} active link(s) still need a port at one or both ends. " if missing_ports
+        + (f"{missing_ports} active {'link still needs' if missing_ports == 1 else 'links still need'} a port at one or both ends. " if missing_ports
            else "All active link endpoint ports are assigned. ")
         + "Compare device-sourced inventory with the intended bill of materials before closeout."
     )

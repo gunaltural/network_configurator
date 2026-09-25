@@ -5432,22 +5432,27 @@ renderModule();
      link(a,b,get(tech==="QOS"?"qosIf1":"d1if"),get(tech==="QOS"?"qosIf2":"d2if"),tech==="QOS"?"QoS / MTU path":"OSPF adjacency");
      configs([a,b]);
    }else if(tech==="EVPN"){
-     roles.upper="DC-1 node";roles.lower="DC-2 node";
      const model=get("evFabricModel")||"dual-dc";
+     const single=model==="single-dc";
+     roles.upper=single?"Fabric VTEP":"DC-1 node";roles.lower="DC-2 node";
      const upper=[add("upper",get("evR1")||"R1"),add("upper",get("evR2")||"R2")];
-     const lower=[add("lower",get("evR3")||"R3"),add("lower",get("evR4")||"R4")];
+     const lower=single?[add("upper",get("evR3")||"R3"),add("upper",get("evR4")||"R4")]:[add("lower",get("evR3")||"R3"),add("lower",get("evR4")||"R4")];
      if(model==="multisite"){
        const bgw1=add("upper",get("evBgw1")||"BGW-1"),bgw2=add("lower",get("evBgw2")||"BGW-2");
        upper.forEach(id=>special("Site-local EVPN",id,bgw1));lower.forEach(id=>special("Site-local EVPN",id,bgw2));
        link(bgw1,bgw2,get("evBgwDciIf1"),get("evBgwDciIf2"),"Multi-site DCI / eBGP EVPN");
        upper.push(bgw1);lower.push(bgw2);
-     }else{
+     }else if(!single){
        special("EVPN overlay",upper[0],lower[0],"","","BGP EVPN adjacency over routed underlay.");
        special("EVPN overlay",upper[1],lower[1],"","","BGP EVPN adjacency over routed underlay.");
      }
      configs([...upper.slice(0,2),...lower.slice(0,2),...upper.slice(2),...lower.slice(2)],"evOutputDevice");
      parameters.push({label:"Underlay scope",value:"EVPN adjacencies are logical; physical underlay interfaces are not inferred from the topology diagram."});
+     if(single)parameters.push({label:"Single DC configuration review",value:"The workspace displays one four-VTEP fabric, but its current configuration generator still uses DC-1/DC-2 ASNs and cross-DC peer settings. Review and adapt the generated configurations before deployment."});
+     if(model==="dual-dc-rr")parameters.push({label:"Route reflector scope",value:"The RR shown in the topology is illustrative. This workspace does not generate RR device configuration or model its inventory details."});
    }else if(tech==="SDWAN"){
+     const validation=sdValidate(true);
+     if(!validation.ok)throw Error("Complete the selected SD-WAN router details before reporting: "+validation.errors.slice(0,3).join("; "));
      roles.upper="Edge router";roles.lower="External endpoint";
      const id=add("upper",get("sdHostname")||"EDGE-A1");
      configurations.push({deviceId:id,text:allConfig(),source:"Technology Workspaces · selected Cisco cEdge"});
@@ -5630,7 +5635,9 @@ renderModule();
    paint(".vpc-ka-dot","fill","#9743ad");
    if(!copy.querySelector("#vpcDev"))paint(".vpc-device, .vpc-leaf","fill","#244b69");
    if(["BASIC","BGP","OSPF","STP","EVPN","QOS"].includes(tech))paint("g .vpc-small","fill","#eaf5fb");
+   if(tech==="BASIC")copy.querySelectorAll("text.vpc-device-name").forEach(el=>{if(el.textContent?.trim()==="OOB Network")el.style.setProperty("fill","#173f5d");});
    if(tech==="EVPN")copy.querySelectorAll("text.vpc-small").forEach(el=>{if(el.textContent?.trim()==="Border GW")el.style.setProperty("fill","#eaf5fb");});
+   if(tech==="EVPN")copy.querySelectorAll("text.vpc-device-name").forEach(el=>{if(el.textContent?.trim()==="EVPN RR")el.style.setProperty("fill","#173f5d");});
    if(tech==="VPC" && !["Arista EOS","Cisco IOS-XE"].includes(platform()))paint(".vpc-device-name","fill","#183f59");
    const background=document.createElementNS("http://www.w3.org/2000/svg","rect");
    background.setAttribute("x",String(view.x));background.setAttribute("y",String(view.y));

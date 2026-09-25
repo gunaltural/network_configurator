@@ -171,7 +171,7 @@
     const active=state.links.filter(l=>l.enabled);
     const incomplete=state.devices.filter(d=>!d.external&&(!d.model||!d.serial));
     const missingPorts=active.filter(l=>!l.upperPort||!l.lowerPort).length;
-    $("projectStatus").textContent=`${state.source?"Workspace design":"Draft"} · ${state.devices.length} devices · ${active.length} links`;
+    $("projectStatus").textContent=`${state.source?"Workspace design":"Draft"} · ${state.devices.length} ${state.devices.length===1?"device":"devices"} · ${active.length} ${active.length===1?"link":"links"}`;
     $("linkCount").textContent=active.length;
     const special=state.specialLinks||[],parameters=state.parameters||[],configs=state.configurations||[];
     const name=id=>deviceName(state.devices.find(d=>d.id===id)||{tier:"upper",index:1,hostname:id});
@@ -183,7 +183,7 @@
       <h2>3 · Technology approach</h2><p>${esc(state.source?`${state.technology} design imported from Technology Workspaces. Parameters and generated device configurations follow the selected ${vendorLabel(state.vendor)} platform.`:techText())}</p><p class="report-muted">Design intent only; operational state has not been verified.</p>
       ${parameters.length?`<h3>Selected technology parameters</h3><table><thead><tr><th>Parameter</th><th>Selected value</th></tr></thead><tbody>${parameters.map(p=>`<tr><td>${esc(p.label)}</td><td>${esc(p.value)}</td></tr>`).join("")}</tbody></table>`:""}
       <h2>4 · Device inventory</h2><table><thead><tr><th>Device</th><th>Role</th><th>Model</th><th>Serial</th><th>Source</th></tr></thead><tbody>${state.devices.map(reportRow).join("")}</tbody></table>
-      <h2>5 · Items to confirm</h2><p>${incomplete.length?`${incomplete.length} device(s) still need a product model or serial number. `:"All device models and serial numbers are populated. "}${missingPorts?`${missingPorts} active link(s) need a port at one or both ends. `:"All active link endpoint ports are assigned. "}Device-sourced inventory should be compared with the intended bill of materials before closeout.</p>
+      <h2>5 · Items to confirm</h2><p>${incomplete.length?`${incomplete.length} ${incomplete.length===1?"device still needs":"devices still need"} a product model or serial number. `:"All device models and serial numbers are populated. "}${missingPorts?`${missingPorts} active ${missingPorts===1?"link needs":"links need"} a port at one or both ends. `:"All active link endpoint ports are assigned. "}Device-sourced inventory should be compared with the intended bill of materials before closeout.</p>
       ${configs.length?`<div class="config-section"><h2>Appendix · Planned device configurations</h2><p class="design-note">Generated configuration reflects design inputs and has not been validated on a device. Review it against the target model and software release before use.</p>${state.devices.filter(d=>configs.some(c=>c.deviceId===d.id)).map(d=>{const cfg=configs.find(c=>c.deviceId===d.id);return `<h3>${esc(deviceName(d))} · ${esc(cfg.source)}</h3><pre>${esc(cfg.text)}</pre>`;}).join("")}</div>`:""}
       <div class="report-footer">Generated from the planned project topology. Credentials are excluded from the report. Status: Draft.</div>`;
     try{
