@@ -2834,6 +2834,7 @@ function bgpGenerate(tab){
   const ibIf=ci===0?(v("bgpIbgpCe1If")||"Ethernet1/47"):(v("bgpIbgpCe2If")||"Ethernet1/47");
   const ibIp=ci===0?(v("bgpIbgpCe1Ip")||"10.255.254.1/30"):(v("bgpIbgpCe2Ip")||"10.255.254.2/30");
   const ibPeer=ci===0?ip(v("bgpIbgpCe2Ip")||"10.255.254.2/30"):ip(v("bgpIbgpCe1Ip")||"10.255.254.1/30");
+  const ibForti=dualIbgp?`  edit "${ibPeer}"\n   set remote-as ${asn}`+(window.c("bgpNextHop")?`\n   set next-hop-self enable`:"")+`\n  next`:"";
 
   if(p==="Huawei_CE_SW"){
    let ints=es.map(([c,i])=>{const l=bgpLink(c,i);return `interface ${l.ceIf}\n undo portswitch\n ip address ${ip(l.ceIp)} ${mask(l.ceIp)}\n undo shutdown`}).join("\n\n");
@@ -2854,7 +2855,6 @@ function bgpGenerate(tab){
     if(inOn&&(window.c("bgpTePrepend")||window.c("bgpTeMed")||window.c("bgpTeCommunity")))x+=`\n peer ${peer} route-policy RP-${tag}-EXPORT export`;
     return x;
    }).join("\n");
-   const ibForti=dualIbgp?`  edit "${ibPeer}"\n   set remote-as ${asn}`+(window.c("bgpNextHop")?`\n   set next-hop-self enable`:"")+`\n  next`:"";
    const ib=dualIbgp?` peer ${ibPeer} as-number ${asn}`+(window.c("bgpNextHop")?`\n peer ${ibPeer} next-hop-local`:""):internal==="ibgp"?ces.filter((_,j)=>j!==ci).map(x=>` peer ${ip(x.loop)} as-number ${asn}\n peer ${ip(x.loop)} connect-interface LoopBack0`+(window.c("bgpNextHop")?`\n peer ${ip(x.loop)} next-hop-local`:"")).join("\n"):"";
    return `sysname ${ce.name}\n# Huawei_CE_SW BGP baseline\n${policies.length?policies.join("\n\n")+"\n\n":""}interface LoopBack0\n ip address ${ip(ce.loop)} 255.255.255.255\n\n${ints}\n\nbgp ${asn}\n router-id ${ce.rid}\n${peers}\n${ib}\n ipv4-family unicast\n${es.map(([c,i])=>window.c("bgpMaxPrefix")?`  peer ${ip(bgpLink(c,i).ispIp)} route-limit ${maxp}`:"").filter(Boolean).join("\n")}${window.c("bgpMaxPrefix")?"\n":""}  network ${ip(ce.prefix)} ${mask(ce.prefix)}${outOn&&window.c("bgpTeEcmp")?`\n  maximum load-balancing ${v("bgpTeMaxPaths")||"4"}`:""}`;
   }
