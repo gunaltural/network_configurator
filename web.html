@@ -5498,10 +5498,30 @@ renderModule();
        if(value)clones[i].style.setProperty(property,value);
      });
    });
+   // The report has a white paper surface. Apply a lighter drawing palette to
+   // the cloned SVG only; the interactive workspace keeps its original colors.
+   const paint=(selector,property,value)=>copy.querySelectorAll(selector).forEach(el=>el.style.setProperty(property,value));
+   paint(".vpc-domain-box","fill","#e3eef6");
+   paint(".vpc-domain-box","stroke","#7bb5d4");
+   paint(".vpc-domain-title","fill","#155b83");
+   paint(".vpc-ka-title","fill","#762d96");
+   paint(".vpc-small, .vpc-legend","fill","#435d70");
+   paint(".vpc-peer-title","fill","#24475d");
+   paint(".vpc-peer-label-bg, .vpc-po-badge","fill","#ffffff");
+   paint(".vpc-peer-label-bg, .vpc-po-badge","stroke","#83b7d3");
+   paint(".vpc-po-title","fill","#173f5d");
+   paint(".vpc-po-sub","fill","#4b6577");
+   paint(".vpc-member-line","stroke","#287bb5");
+   paint(".vpc-peer-line","stroke","#16835f");
+   paint(".vpc-ka-line","stroke","#9743ad");
+   paint(".vpc-ka-dot","fill","#9743ad");
+   if(!copy.querySelector("#vpcDev"))paint(".vpc-device, .vpc-leaf","fill","#244b69");
+   if(tech==="STP")paint("g .vpc-small","fill","#eaf5fb");
+   if(tech==="VPC" && !["Arista EOS","Cisco IOS-XE"].includes(platform()))paint(".vpc-device-name","fill","#183f59");
    const background=document.createElementNS("http://www.w3.org/2000/svg","rect");
    background.setAttribute("x",String(view.x));background.setAttribute("y",String(view.y));
    background.setAttribute("width",String(view.width));background.setAttribute("height",String(view.height));
-   background.setAttribute("fill","#071827");copy.insertBefore(background,copy.firstChild);
+   background.setAttribute("fill","#edf5fa");copy.insertBefore(background,copy.firstChild);
    return new XMLSerializer().serializeToString(copy);
  }
  function workspaceTopologyPng(svg){

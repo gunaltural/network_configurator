@@ -13,7 +13,9 @@ special links and control paths, selected parameters, and generated configuratio
 for each device. The report marks the design as planned, not operationally verified.
 The topology drawing itself is captured from the active Technology Workspace, so its
 device labels and technology-specific paths appear in the report preview, printed PDF,
-and Word download. Use the prominent **Reporting and Inventory** action in the workspace
+and Word download. The imported drawing uses a light report palette for readability on
+white paper; the interactive workspace retains its original colors. Use the prominent
+**Reporting and Inventory** action in the workspace
 header or at the end of the parameters to open the report after designing
 vPC / MLAG or STP; the home-page card remains
 available. Reopen the report from the workspace after changing the drawing.
