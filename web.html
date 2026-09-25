@@ -5452,11 +5452,13 @@ renderModule();
      if(model==="dual-dc-rr")parameters.push({label:"Route reflector scope",value:"The RR shown in the topology is illustrative. This workspace does not generate RR device configuration or model its inventory details."});
    }else if(tech==="SDWAN"){
      const validation=sdValidate(true);
-     if(!validation.ok)throw Error("Complete the selected SD-WAN router details before reporting: "+validation.errors.slice(0,3).join("; "));
      roles.upper="Edge router";roles.lower="External endpoint";
-     const id=add("upper",get("sdHostname")||"EDGE-A1");
-     configurations.push({deviceId:id,text:allConfig(),source:"Technology Workspaces · selected Cisco cEdge"});
+     const hostname=get("sdHostname").trim();
+     const id=add("upper",hostname||"Edge router (unassigned)");
+     if(hostname)configurations.push({deviceId:id,text:allConfig(),source:"Technology Workspaces · selected Cisco cEdge"});
      parameters.push({label:"SD-WAN scope",value:"Only the selected edge router has generated configuration. Controllers, transports and other sites are external illustrative endpoints, not inventory devices."});
+     if(!validation.ok)parameters.push({label:"SD-WAN validation pending",value:("Workspace validation reported: "+validation.errors.join("; ")+". Complete and validate the router details before deploying generated configuration.").slice(0,500)});
+     if(!hostname)parameters.push({label:"Configuration pending",value:"Select a router from the Excel plan or enter its hostname and details in Technology Workspaces, then reopen this report to include its configuration."});
    }
    document.querySelectorAll("#params input[id],#params select[id]").forEach(el=>{
      if(el.type==="file"||/(?:Output|^sdExcel|^sdSiteSelect|^sdRouterSelect)/i.test(el.id))return;
@@ -5575,7 +5577,7 @@ renderModule();
  function sdwanReportSvg(){
    const get=id=>document.getElementById(id)?.value||"";
    const esc=s=>String(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&apos;"}[c]));
-   const host=esc(get("sdHostname")||"EDGE-A1"),site=esc(get("sdLocation")||"SITE-A"),sys=esc(get("sdSystemIp"));
+   const host=esc(get("sdHostname")||"Edge router (unassigned)"),site=esc(get("sdLocation")||"Site pending"),sys=esc(get("sdSystemIp")||"Pending");
    const w1=esc(get("sdWan1If")),w2=esc(get("sdWan2If")),c1=esc(get("sdWan1Color")),c2=esc(get("sdWan2Color"));
    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 950 370" width="950" height="370" role="img" aria-label="Selected SD-WAN edge topology">
      <rect width="950" height="370" fill="#edf5fa"/>

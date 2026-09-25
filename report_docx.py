@@ -86,6 +86,7 @@ def _technology_text(project, placement):
         "M-LAG": "The design plans Huawei M-LAG redundancy using DFS and Eth-Trunk. Assign device pairs, peer links and heartbeat paths before deployment.",
         "STP": "The design uses spanning tree for loop prevention. Engineer root placement, link roles and edge-port protection before deployment.",
         "EVPN/VXLAN": "The design plans an EVPN/VXLAN fabric. Engineer underlay reachability, VTEPs, VNI mappings and BGP EVPN adjacencies separately.",
+        "SD-WAN": "The SD-WAN edge design does not yet include a selected router configuration. Complete the router details in Technology Workspaces and reopen the report.",
         "None": "A redundancy or overlay technology has not yet been selected.",
     }
     text = descriptions.get(project["technology"], "The selected technology requires detailed engineering before deployment.")
