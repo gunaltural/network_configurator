@@ -224,10 +224,12 @@ pre{
 .v3-tech-grid{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:12px}.v3-card{border:1px solid #2b4b63;border-radius:13px;background:#0b1d2b;padding:18px;cursor:pointer;min-height:132px;transition:.16s ease}.v3-card:hover{transform:translateY(-2px);border-color:#69a8d1;background:#10283a}.v3-card .icon{font-size:25px;color:#90d0f6}.v3-card h3{font-size:19px;line-height:1.25;color:#f1f8ff;margin:10px 0 7px}.v3-card p{font-size:12px;color:#acc2d0;margin:0;line-height:1.45}.v3-card .tag{display:inline-block;margin-top:12px;padding:4px 8px;border-radius:999px;border:1px solid #365c76;color:#b4dafa;font-size:10px}
 .v3-tech-grid .v3-card{width:100%;text-align:left;font:inherit}.v3-tech-grid .v3-card:focus-visible{outline:2px solid #7ac4f3;outline-offset:3px}
 .v3-report-card{display:block;min-height:0;margin-bottom:14px;text-decoration:none;color:inherit}.v3-report-card h3{margin:8px 0 6px}.v3-report-card:focus-visible{outline:2px solid #7ac4f3;outline-offset:3px}
-.v3-workspace-report-action{display:block;width:100%;margin-top:18px;padding:12px 14px;border:1px solid #5586a8;border-radius:9px;background:#12334b;color:#e8f7ff;font-weight:800;text-align:center;cursor:pointer}.v3-workspace-report-action:hover{background:#194760}.v3-workspace-report-action[hidden]{display:none}
-.v3-workspace-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:4px 0 12px}.v3-breadcrumb{font-size:11px;color:#8098aa}.v3-breadcrumb strong{color:#e1f0f7}.v3-health{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:0 0 12px}.v3-health-card{border:1px solid #20384c;border-radius:10px;background:#081621;padding:10px 12px}.v3-health-card b{font-size:15px}.v3-health-card span{display:block;color:#7891a3;font-size:9px;margin-top:2px}
+.v3-workspace-report-action{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:44px;padding:10px 17px;border:1px solid #62b7e7;border-radius:10px;background:linear-gradient(135deg,#176397,#124773);box-shadow:0 5px 20px #13558755;color:#fff;font-size:13px;font-weight:800;text-align:center;cursor:pointer;transition:background .16s,box-shadow .16s,transform .16s}.v3-workspace-report-action:hover{background:linear-gradient(135deg,#217daf,#185b8a);box-shadow:0 7px 26px #2581be66;transform:translateY(-1px)}.v3-workspace-report-action:focus-visible{outline:3px solid #a4e1ff;outline-offset:3px}.v3-workspace-report-action[hidden],.v3-report-next[hidden]{display:none}
+.v3-workspace-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:4px 0 12px;padding:10px 14px;border:1px solid #244258;border-radius:12px;background:#0b1b29}.v3-breadcrumb{font-size:11px;color:#8098aa}.v3-breadcrumb strong{color:#e1f0f7}.v3-head-report{display:flex;align-items:center;gap:16px}.v3-head-report .v3-next-caption{color:#9ecde8;font-size:11px;font-weight:700}.v3-health{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:0 0 12px}.v3-health-card{border:1px solid #20384c;border-radius:10px;background:#081621;padding:10px 12px}.v3-health-card b{font-size:15px}.v3-health-card span{display:block;color:#7891a3;font-size:9px;margin-top:2px}
+.v3-report-next{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-top:22px;padding:16px;border:1px solid #397ca5;border-radius:12px;background:linear-gradient(100deg,#0e3048,#102334)}.v3-report-next strong{display:block;color:#edfaff;font-size:14px}.v3-report-next p{margin:3px 0 0;color:#b1d0e1;font-size:12px}.v3-report-next .v3-workspace-report-action{flex:none}
+.v3-head-report[hidden]{display:none}
 @media(max-width:1000px){.v3-tech-grid{grid-template-columns:repeat(2,1fr)}.v3-health{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:650px){.v3-topbar{align-items:flex-start;flex-direction:column}.v3-tech-grid{grid-template-columns:1fr}.v3-actions{width:100%}.v3-project{flex:1}.v3-section-head{align-items:flex-start;flex-direction:column;gap:2px}}
+@media(max-width:650px){.v3-topbar{align-items:flex-start;flex-direction:column}.v3-tech-grid{grid-template-columns:1fr}.v3-actions{width:100%}.v3-project{flex:1}.v3-section-head{align-items:flex-start;flex-direction:column;gap:2px}.v3-workspace-head,.v3-report-next{align-items:stretch;flex-direction:column}.v3-head-report{align-items:stretch;flex-direction:column;gap:7px}.v3-report-next .v3-workspace-report-action{width:100%}}
 
 
 .v3-recent{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.v3-recent-card{border:1px solid #20394e;border-radius:12px;background:#081621;padding:13px;cursor:pointer}.v3-recent-card:hover{border-color:#3c6c8d}.v3-recent-card b{font-size:12px}.v3-recent-card span{display:block;color:#7891a3;font-size:9px;margin-top:5px}.v3-empty{color:#71899b;font-size:11px;padding:14px;border:1px dashed #29445b;border-radius:10px}
@@ -350,6 +352,7 @@ pre{
 
 <div class="v3-workspace-head" id="v3WorkspaceHead" style="display:none">
   <div class="v3-breadcrumb">Project / <strong id="v3CurrentTech">Technology</strong></div>
+  <div class="v3-head-report" id="v3HeadReport" hidden><span class="v3-next-caption">NEXT STEP · DOCUMENTATION</span><button type="button" id="v3WorkspaceReportTopBtn" class="v3-workspace-report-action">Reporting and Inventory <span aria-hidden="true">→</span></button></div>
 </div>
 <div class="v3-health" id="v3Health" style="display:none">
   <div class="v3-health-card"><b id="v3DeviceCount">—</b><span>DEVICES</span></div>
@@ -409,7 +412,7 @@ pre{
       <section class="card">
         <h3>01 · Parameters</h3>
         <div id="params"></div>
-        <button type="button" id="v3WorkspaceReportBtn" class="v3-workspace-report-action" hidden>Reporting and Inventory’ye geç →</button>
+        <div id="v3ReportNext" class="v3-report-next" hidden><div><strong>Design ready?</strong><p>Carry this topology, connections and device configurations into the report.</p></div><button type="button" id="v3WorkspaceReportBtn" class="v3-workspace-report-action">Reporting and Inventory <span aria-hidden="true">→</span></button></div>
       </section>
 
       <section class="card">
@@ -5222,7 +5225,8 @@ renderModule();
    b.click();
    dashboard.classList.remove("show"); workspace.style.display="flex"; health.style.display="grid";
    $("v3CurrentTech").textContent=normalized==="VPC"?"vPC / MLAG":(b.querySelector("strong")?.textContent||normalized);
-   $("v3WorkspaceReportBtn").hidden=normalized!=="VPC"&&normalized!=="STP";
+   $("v3HeadReport").hidden=normalized!=="VPC"&&normalized!=="STP";
+   $("v3ReportNext").hidden=normalized!=="VPC"&&normalized!=="STP";
    updateHealth();
    window.scrollTo({top:0,behavior:"smooth"});
  }
@@ -5538,6 +5542,7 @@ renderModule();
    }
  }
  $("v3Dashboard").querySelector(".v3-report-card").addEventListener("click",openReporting);
+ $("v3WorkspaceReportTopBtn").addEventListener("click",openReporting);
  $("v3WorkspaceReportBtn").addEventListener("click",openReporting);
  function renderRecent(){
    const box=$("v3RecentProjects");if(!box)return;
