@@ -196,18 +196,27 @@ def build_report_docx(project):
     doc.add_heading("Technology approach", level=1)
     placement = upper if project["techPlacement"] == "upper" else lower
     doc.add_paragraph(
-        f"{project['technology']} parameters and device configurations were imported from Technology Workspaces for {vendor}."
+        f"The planned {project['technology']} design uses {vendor}. Device configuration proposals are included in the appendix."
         if project.get("configurations") else _technology_text(project, placement)
     )
     doc.add_paragraph("Design intent only; operational state has not been verified.")
-    if project.get("parameters"):
-        doc.add_heading("Engineering decisions and expected outcomes", level=2)
-        doc.add_paragraph("These explanations describe design intent and generated syntax; actual behavior depends on device configuration, peer policy and operational state.")
-        for item in project["parameters"]:
+    decisions = [item for item in project.get("parameters", []) if item["value"] != "Design boundary"]
+    design_notes = [item for item in project.get("parameters", []) if item["value"] == "Design boundary"]
+    if decisions:
+        doc.add_heading("Technology decisions and network impact", level=2)
+        doc.add_paragraph("Architecture and operational behavior reflect the selected design. Actual forwarding depends on peer configuration and device state.")
+        for item in decisions:
             paragraph = doc.add_paragraph()
             paragraph.paragraph_format.keep_together = True
             paragraph.add_run(f"{item['label']} · {item['value']}\n").bold = True
             paragraph.add_run(item.get("impact") or "This saved project predates design explanations; reopen the Technology Workspace to regenerate this decision.")
+    if design_notes:
+        doc.add_heading("Design assumptions and implementation notes", level=2)
+        for item in design_notes:
+            paragraph = doc.add_paragraph()
+            paragraph.paragraph_format.keep_together = True
+            paragraph.add_run(f"{item['label']}\n").bold = True
+            paragraph.add_run(item.get("impact") or "")
 
     doc.add_page_break()
     doc.add_heading("Device inventory", level=1)
