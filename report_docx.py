@@ -234,10 +234,9 @@ def build_report_docx(project):
             "Review against the target model and software release before use."
         )
         configurations = {config["deviceId"]: config for config in project["configurations"]}
-        for device in project["devices"]:
-            config = configurations.get(device["id"])
-            if not config:
-                continue
+        configured_devices = [device for device in project["devices"] if device["id"] in configurations]
+        for index, device in enumerate(configured_devices):
+            config = configurations[device["id"]]
             doc.add_heading(device_name(device), level=2)
             doc.add_paragraph(config["source"])
             for line in config["text"].splitlines():
@@ -247,7 +246,7 @@ def build_report_docx(project):
                 run = paragraph.add_run(line or " ")
                 run.font.name = "Consolas"
                 run.font.size = Pt(8)
-            if device != project["devices"][-1]:
+            if index < len(configured_devices) - 1:
                 doc.add_page_break()
     doc.core_properties.title = name
     doc.core_properties.author = "Network Configurator"
