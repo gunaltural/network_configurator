@@ -5225,8 +5225,9 @@ renderModule();
    b.click();
    dashboard.classList.remove("show"); workspace.style.display="flex"; health.style.display="grid";
    $("v3CurrentTech").textContent=normalized==="VPC"?"vPC / MLAG":(b.querySelector("strong")?.textContent||normalized);
-   $("v3HeadReport").hidden=normalized!=="VPC"&&normalized!=="STP";
-   $("v3ReportNext").hidden=normalized!=="VPC"&&normalized!=="STP";
+   const reportable=["BASIC","BGP","OSPF","STP","VPC","EVPN","QOS","SDWAN"].includes(normalized);
+   $("v3HeadReport").hidden=!reportable;
+   $("v3ReportNext").hidden=!reportable;
    updateHealth();
    window.scrollTo({top:0,behavior:"smooth"});
  }
@@ -5383,10 +5384,95 @@ renderModule();
    downloadProject(data,"json");
    toast("JSON project saved to your PC");
  }
+ // Capture selected device identities and connection fields, never infer ports
+ // from graphical line positions. Only module-specific configuration is attached.
+ function moduleReportingDesign(){
+   if(!["BASIC","BGP","OSPF","EVPN","QOS","SDWAN"].includes(tech))return null;
+   const get=id=>document.getElementById(id)?.value||"";
+   const pl=platform();
+   if(tech==="SDWAN"&&pl!=="Cisco IOS-XE")throw Error("SD-WAN reporting requires the Cisco IOS-XE cEdge platform.");
+   if(tech==="EVPN"&&!(["Cisco NX-OS","Arista EOS","Huawei_CE_SW"].includes(pl)))throw Error("Select a supported EVPN platform before creating the report.");
+   const project=snapshot(),devices=[],links=[],specialLinks=[],configurations=[],parameters=[];
+   const add=(tier,name)=>{const index=devices.filter(d=>d.tier===tier).length+1,id=`${tier}-${index}`;devices.push({id,tier,index,hostname:name,model:"",serial:"",target:"",modelSource:"",serialSource:"",observedAt:"",vendor:pl});return id;};
+   const link=(a,b,upperPort,lowerPort,detail)=>links.push({id:`${a}--${b}`,a,b,enabled:true,upperPort:upperPort||"",lowerPort:lowerPort||"",speed:"",detail});
+   const special=(kind,a,b,aPort="",bPort="",detail="")=>specialLinks.push({kind,a,b,aPort,bPort,detail,logical:true});
+   const redact=s=>String(s||"").replace(/^(\s*(?:username\b.*?\b(?:password|secret)\b|enable\s+secret\b|(?:snmp-server\s+community|(?:tacacs|radius)(?:-server)?\b.*?\bkey|neighbor\s+\S+\s+password)\b|set\s+(?:password|psksecret|secret|key)\b)).*$/gim,"$1 [REDACTED]");
+   const allConfig=selectorId=>{
+     const selector=document.getElementById(selectorId),previous=selector?.value;
+     try{if(selector)selector.value="all";return redact(modules[tech].generate("config"));}
+     finally{if(selector)selector.value=previous;}
+   };
+   const sections=s=>{
+     const parts=[...s.matchAll(/^########[^\r\n]*########\s*$/gm)];
+     return parts.map((match,i)=>s.slice(match.index+match[0].length,parts[i+1]?.index??s.length).trim());
+   };
+   const configs=(ids,selector)=>{
+     const blocks=sections(allConfig(selector));
+     if(blocks.length<ids.length)throw Error(`${tech} generated ${blocks.length} configuration sections for ${ids.length} devices.`);
+     ids.forEach((id,i)=>configurations.push({deviceId:id,text:blocks[i],source:"Technology Workspaces"}));
+   };
+   const roles={upper:"Device",lower:"Peer"};
+   if(tech==="BASIC"){
+     const id=add("upper",get("d1host")||"SW-01");
+     configurations.push({deviceId:id,text:allConfig(),source:"Technology Workspaces"});
+     parameters.push({label:"Management topology scope",value:"OOB network and management services are shown as external endpoints; only the configured device is in the inventory."});
+   }else if(tech==="BGP"){
+     roles.upper="CE router";roles.lower="ISP router";
+     const ceN=Math.max(1,Math.min(4,+get("bgpCeCount")||2)),ispN=Math.max(1,Math.min(2,+get("bgpIspCount")||2));
+     const ces=Array.from({length:ceN},(_,i)=>add("upper",bgpCe(i).name));
+     const isps=Array.from({length:ispN},(_,i)=>add("lower",bgpIsp(i).name));
+     devices.filter(d=>isps.includes(d.id)).forEach(d=>d.external=true);
+     bgpEdges().forEach(([c,i])=>{const p=bgpLink(c,i);link(ces[c],isps[i],p.ceIf,p.ispIf,`eBGP · ${p.ceIp} ↔ ${p.ispIp}`);});
+     if(get("bgpInternal")==="ibgp")for(let i=0;i<ceN;i++)for(let j=i+1;j<ceN;j++)special("iBGP",ces[i],ces[j],"","","Logical CE peering; no physical cable inferred.");
+     configs(ces,"bgpOutputDevice");
+     parameters.push({label:"ISP configuration scope",value:"ISP routers are external peers; this workspace generates configuration only for CE routers."});
+   }else if(tech==="OSPF"||tech==="QOS"){
+     roles.upper=tech==="OSPF"?"Router":"Device";roles.lower=roles.upper;
+     const a=add("upper",get("d1host")||"Device-1"),b=add("lower",get("d2host")||"Device-2");
+     link(a,b,get(tech==="QOS"?"qosIf1":"d1if"),get(tech==="QOS"?"qosIf2":"d2if"),tech==="QOS"?"QoS / MTU path":"OSPF adjacency");
+     configs([a,b]);
+   }else if(tech==="EVPN"){
+     roles.upper="DC-1 node";roles.lower="DC-2 node";
+     const model=get("evFabricModel")||"dual-dc";
+     const upper=[add("upper",get("evR1")||"R1"),add("upper",get("evR2")||"R2")];
+     const lower=[add("lower",get("evR3")||"R3"),add("lower",get("evR4")||"R4")];
+     if(model==="multisite"){
+       const bgw1=add("upper",get("evBgw1")||"BGW-1"),bgw2=add("lower",get("evBgw2")||"BGW-2");
+       upper.forEach(id=>special("Site-local EVPN",id,bgw1));lower.forEach(id=>special("Site-local EVPN",id,bgw2));
+       link(bgw1,bgw2,get("evBgwDciIf1"),get("evBgwDciIf2"),"Multi-site DCI / eBGP EVPN");
+       upper.push(bgw1);lower.push(bgw2);
+     }else{
+       special("EVPN overlay",upper[0],lower[0],"","","BGP EVPN adjacency over routed underlay.");
+       special("EVPN overlay",upper[1],lower[1],"","","BGP EVPN adjacency over routed underlay.");
+     }
+     configs([...upper.slice(0,2),...lower.slice(0,2),...upper.slice(2),...lower.slice(2)],"evOutputDevice");
+     parameters.push({label:"Underlay scope",value:"EVPN adjacencies are logical; physical underlay interfaces are not inferred from the topology diagram."});
+   }else if(tech==="SDWAN"){
+     roles.upper="Edge router";roles.lower="External endpoint";
+     const id=add("upper",get("sdHostname")||"EDGE-A1");
+     configurations.push({deviceId:id,text:allConfig(),source:"Technology Workspaces · selected Cisco cEdge"});
+     parameters.push({label:"SD-WAN scope",value:"Only the selected edge router has generated configuration. Controllers, transports and other sites are external illustrative endpoints, not inventory devices."});
+   }
+   document.querySelectorAll("#params input[id],#params select[id]").forEach(el=>{
+     if(el.type==="file"||/(?:Output|^sdExcel|^sdSiteSelect|^sdRouterSelect)/i.test(el.id))return;
+     if(el.closest("[data-evpn-vrf],#evBgwParams")?.style.display==="none")return;
+     if(el.closest("[style*='display:none'],[style*='display: none']")&&!el.closest(".param-grid"))return;
+     const label=el.closest("label")?.textContent?.trim()||el.previousElementSibling?.textContent?.trim()||el.id;
+     if(/password|secret|credential|community\s*string|shared\s*key/i.test(label))return;
+     const value=el.type==="checkbox"?(el.checked?"Enabled":"Disabled"):el.value;
+     if(value)parameters.push({label:label.slice(0,100),value:String(value).slice(0,500)});
+   });
+   const technology={BASIC:"System and Management",BGP:"BGP",OSPF:"OSPF",EVPN:"EVPN/VXLAN",QOS:"QoS",SDWAN:"SD-WAN"}[tech];
+   return {schema:"network-configurator-report-v1",name:project.project.name==="Untitled Network Project"?"":project.project.name,
+     vendor:pl,architecture:"module",technology,techPlacement:"upper",roles,
+     upperCount:devices.filter(d=>d.tier==="upper").length,lowerCount:devices.filter(d=>d.tier==="lower").length,
+     scope:"",devices,links,specialLinks,parameters,configurations,
+     source:{module:tech,projectId:project.project.id||"active",generatedAt:new Date().toISOString()}};
+ }
  // Export a typed design from the active workspace. Do not derive links from SVG;
  // use device selection for VPC and the STP generator's explicit device sections.
  function reportingDesign(){
-   if(!["VPC","STP"].includes(tech))return null;
+   if(!["VPC","STP"].includes(tech))return moduleReportingDesign();
    const get=id=>document.getElementById(id)?.value||"";
    const list=id=>get(id).split(",").map(x=>x.trim()).filter(Boolean);
    const n=id=>Math.max(2,Math.min(8,Number(get(id))||4));
@@ -5479,10 +5565,37 @@ renderModule();
      scope:"",devices,links,specialLinks,parameters:params,configurations,
      source:{module:tech,projectId:project.project.id||"active",generatedAt:new Date().toISOString()}};
  }
- // Preserve the exact workspace diagram, including vendor-specific links and labels.
+ // SD-WAN's interactive topology uses HTML. Summarize only the selected edge's
+ // real parameters in an exportable SVG; external endpoints stay illustrative.
+ function sdwanReportSvg(){
+   const get=id=>document.getElementById(id)?.value||"";
+   const esc=s=>String(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&apos;"}[c]));
+   const host=esc(get("sdHostname")||"EDGE-A1"),site=esc(get("sdLocation")||"SITE-A"),sys=esc(get("sdSystemIp"));
+   const w1=esc(get("sdWan1If")),w2=esc(get("sdWan2If")),c1=esc(get("sdWan1Color")),c2=esc(get("sdWan2Color"));
+   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 950 370" width="950" height="370" role="img" aria-label="Selected SD-WAN edge topology">
+     <rect width="950" height="370" fill="#edf5fa"/>
+     <text x="475" y="35" text-anchor="middle" fill="#155b83" font-family="Arial" font-weight="bold" font-size="18">${site} · SELECTED CISCO EDGE DESIGN</text>
+     <rect x="360" y="70" width="230" height="60" rx="12" fill="#e3eef6" stroke="#7bb5d4" stroke-width="2"/>
+     <text x="475" y="96" text-anchor="middle" fill="#173f5d" font-family="Arial" font-weight="bold" font-size="14">SD-WAN CONTROLLERS</text>
+     <text x="475" y="114" text-anchor="middle" fill="#435d70" font-family="Arial" font-size="11">Control plane · external endpoints</text>
+     <path d="M475 130 V174" fill="none" stroke="#287bb5" stroke-width="3" stroke-dasharray="6 5"/>
+     <rect x="350" y="174" width="250" height="74" rx="13" fill="#244b69" stroke="#5b93b6" stroke-width="2"/>
+     <text x="475" y="205" text-anchor="middle" fill="#fff" font-family="Arial" font-weight="bold" font-size="16">${host}</text>
+     <text x="475" y="226" text-anchor="middle" fill="#d4e7f2" font-family="Arial" font-size="12">System IP ${sys}</text>
+     <path d="M405 248 L270 290 M545 248 L680 290" fill="none" stroke="#287bb5" stroke-width="3"/>
+     <rect x="115" y="290" width="300" height="55" rx="11" fill="#fff" stroke="#83b7d3"/>
+     <rect x="535" y="290" width="300" height="55" rx="11" fill="#fff" stroke="#83b7d3"/>
+     <text x="265" y="313" text-anchor="middle" fill="#173f5d" font-family="Arial" font-size="13" font-weight="bold">WAN-1 · ${w1}</text>
+     <text x="265" y="331" text-anchor="middle" fill="#435d70" font-family="Arial" font-size="11">Transport color: ${c1}</text>
+     <text x="685" y="313" text-anchor="middle" fill="#173f5d" font-family="Arial" font-size="13" font-weight="bold">WAN-2 · ${w2}</text>
+     <text x="685" y="331" text-anchor="middle" fill="#435d70" font-family="Arial" font-size="11">Transport color: ${c2}</text>
+   </svg>`;
+ }
+ // Preserve the workspace SVG, including vendor-specific links and labels.
  // CSS used by the workspace lives outside the SVG, so embed its computed paint styles.
  function workspaceTopologySvg(){
    const original=document.querySelector("#topologyArea svg");
+   if(!original&&tech==="SDWAN")return sdwanReportSvg();
    if(!original)throw Error("The workspace topology is not ready. Reopen the technology workspace and try again.");
    const copy=original.cloneNode(true);
    const view=original.viewBox.baseVal;
@@ -5516,7 +5629,8 @@ renderModule();
    paint(".vpc-ka-line","stroke","#9743ad");
    paint(".vpc-ka-dot","fill","#9743ad");
    if(!copy.querySelector("#vpcDev"))paint(".vpc-device, .vpc-leaf","fill","#244b69");
-   if(tech==="STP")paint("g .vpc-small","fill","#eaf5fb");
+   if(["BASIC","BGP","OSPF","STP","EVPN","QOS"].includes(tech))paint("g .vpc-small","fill","#eaf5fb");
+   if(tech==="EVPN")copy.querySelectorAll("text.vpc-small").forEach(el=>{if(el.textContent?.trim()==="Border GW")el.style.setProperty("fill","#eaf5fb");});
    if(tech==="VPC" && !["Arista EOS","Cisco IOS-XE"].includes(platform()))paint(".vpc-device-name","fill","#183f59");
    const background=document.createElementNS("http://www.w3.org/2000/svg","rect");
    background.setAttribute("x",String(view.x));background.setAttribute("y",String(view.y));

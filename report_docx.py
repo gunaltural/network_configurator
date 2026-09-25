@@ -128,20 +128,21 @@ def build_report_docx(project):
     title = doc.add_paragraph(name, style="Title")
     title.paragraph_format.keep_with_next = True
     doc.add_paragraph("Network design and device inventory", style="Subtitle")
-    upper = "Core" if project["architecture"] == "core-access" else "Spine"
-    lower = "Access" if project["architecture"] == "core-access" else "Leaf"
+    roles = project.get("roles") or {}
+    upper = roles.get("upper") or ("Core" if project["architecture"] == "core-access" else "Spine")
+    lower = roles.get("lower") or ("Access" if project["architecture"] == "core-access" else "Leaf")
     vendor = "Huawei CloudEngine" if project["vendor"] == "Huawei_CE_SW" else project["vendor"]
     doc.add_paragraph(
         f"Draft report  |  {datetime.now(timezone.utc).strftime('%d %B %Y')}  |  {vendor}"
     )
 
     doc.add_heading("Project overview", level=1)
-    architecture = "Core Access" if project["architecture"] == "core-access" else "Spine Leaf"
-    doc.add_paragraph(
-        f"The planned {architecture} topology has {project['upperCount']} {upper.lower()} devices, "
-        f"{project['lowerCount']} {lower.lower()} devices and uses {project['technology']} "
-        f"on the {upper.lower() if project['techPlacement'] == 'upper' else lower.lower()} tier."
-    )
+    architecture = ("Module topology" if project["architecture"] == "module" else
+                    "Core Access" if project["architecture"] == "core-access" else "Spine Leaf")
+    overview = (f"The planned {architecture} has {project['upperCount']} {upper.lower()} device(s)"
+                + (f" and {project['lowerCount']} {lower.lower()} device(s)" if project["lowerCount"] else "")
+                + f" and uses {project['technology']}.")
+    doc.add_paragraph(overview)
     doc.add_paragraph(project["scope"].strip() or "Project scope and design intent await engineer input.")
 
     devices = {device["id"]: device for device in project["devices"]}
@@ -152,9 +153,10 @@ def build_report_docx(project):
     doc.add_paragraph(
         f"{upper} tier: " + ", ".join(device_name(d) for d in project["devices"] if d["tier"] == "upper")
     )
-    doc.add_paragraph(
-        f"{lower} tier: " + ", ".join(device_name(d) for d in project["devices"] if d["tier"] == "lower")
-    )
+    if project["lowerCount"]:
+        doc.add_paragraph(
+            f"{lower} tier: " + ", ".join(device_name(d) for d in project["devices"] if d["tier"] == "lower")
+        )
     topology_png = project.get("topologyPng", "")
     if topology_png:
         prefix = "data:image/png;base64,"
@@ -173,7 +175,7 @@ def build_report_docx(project):
         [f"{upper} device", "Port", f"{lower} device", "Port", "Connection / speed"],
         [1.55, 1.1, 1.55, 1.1, 1.65],
         [[device_name(devices[l["a"]]), l["upperPort"] or "TBD", device_name(devices[l["b"]]), l["lowerPort"] or "TBD", " · ".join(filter(None, [l.get("detail"), l["speed"]])) or "TBD"] for l in active]
-        or [["No links selected", "", "", "", ""]],
+        or [["No physical links modeled", "", "", "", ""]],
     )
     if project.get("specialLinks"):
         doc.add_heading("Special connections and control paths", level=2)
@@ -207,13 +209,13 @@ def build_report_docx(project):
         doc,
         ["Device", "Role", "Model", "Serial", "Source"],
         [1.6, .9, 1.5, 1.4, 1.7],
-        [[device_name(d), upper if d["tier"] == "upper" else lower, d["model"] or "Awaiting assignment", d["serial"] or "Awaiting assignment",
-          f"{source(d['modelSource'])} / {source(d['serialSource'])}" if d["modelSource"] or d["serialSource"] else "Planned"]
+        [[device_name(d), upper if d["tier"] == "upper" else lower, d["model"] or ("External" if d.get("external") else "Awaiting assignment"), d["serial"] or ("External" if d.get("external") else "Awaiting assignment"),
+          "External peer" if d.get("external") else f"{source(d['modelSource'])} / {source(d['serialSource'])}" if d["modelSource"] or d["serialSource"] else "Planned"]
          for d in project["devices"]],
     )
 
     doc.add_heading("Items to confirm", level=1)
-    incomplete = sum(not d["model"] or not d["serial"] for d in project["devices"])
+    incomplete = sum(not d.get("external") and (not d["model"] or not d["serial"]) for d in project["devices"])
     missing_ports = sum(not l["upperPort"] or not l["lowerPort"] for l in active)
     doc.add_paragraph(
         (f"{incomplete} device(s) still need a model or serial number. " if incomplete

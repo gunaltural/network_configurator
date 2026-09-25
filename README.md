@@ -6,18 +6,22 @@ System and Management generates a baseline for one managed device. Its parameter
 topology and configuration output contain one device block.
 
 ## Reporting and Inventory
-Open **Reporting and Inventory** from the home page or `/reporting`. When an active
-vPC / MLAG / M-LAG / StackWise Virtual or STP design is open in Technology Workspaces,
-the home-page card imports its current topology, device names, physical uplinks,
-special links and control paths, selected parameters, and generated configuration
-for each device. The report marks the design as planned, not operationally verified.
-The topology drawing itself is captured from the active Technology Workspace, so its
+Open **Reporting and Inventory** from the home page or `/reporting`. The workspace
+action imports designs from System and Management, BGP, OSPF, STP, vPC / MLAG /
+M-LAG / StackWise Virtual, EVPN / VXLAN, QoS and Cisco cEdge SD-WAN. It carries
+the active topology, real device names and configured ports, selected parameters,
+and each configuration the module actually generates. BGP ISP peers appear as
+external endpoints without generated ISP configurations. A single-device module
+reports one device; the other sites drawn in SD-WAN are illustrative, so only
+the selected cEdge is inventoried. The report describes a planned design.
+SVG topology drawings are captured from the active Technology Workspace, so their
 device labels and technology-specific paths appear in the report preview, printed PDF,
-and Word download. The imported drawing uses a light report palette for readability on
+and Word download. SD-WAN's HTML topology is represented by a report SVG of the
+selected edge, controllers and two WAN transports. The drawings use a light palette for readability on
 white paper; the interactive workspace retains its original colors. Use the prominent
 **Reporting and Inventory** action in the workspace
 header or at the end of the parameters to open the report after designing
-vPC / MLAG or STP; the home-page card remains
+any supported module; the home-page card remains
 available. Reopen the report from the workspace after changing the drawing.
 In a StackWise Virtual pair the chassis share one logical configuration; both inventory
 records say so explicitly. Huawei M-LAG leaf physical uplink ports remain unassigned
@@ -26,9 +30,8 @@ until the engineer identifies them.
 The imported topology and platform are read-only in the report; edit them in
 Technology Workspaces and reopen Reporting and Inventory to refresh. Existing
 inventory, scope and documentation-only link details are retained for the same project
-in the browser session. This import currently covers vPC / MLAG / M-LAG /
-StackWise Virtual and STP; other technology modules can still use the standalone
-reporting workflow. Standalone reports start with a project name, primary vendor,
+in the browser session. MPLS and Multicast modules are placeholders and have no
+generated device configuration to document. Standalone reports start with a project name, primary vendor,
 architecture, device counts and planned technology.
 Device cards and an editable connection schedule follow the topology. Each card has a
 hostname, optional management address, product model and serial number. Model and serial

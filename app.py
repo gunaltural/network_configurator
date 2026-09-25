@@ -159,6 +159,7 @@ class ReportDevice(BaseModel):
     serial: str = Field(max_length=100)
     modelSource: str = Field(max_length=30)
     serialSource: str = Field(max_length=30)
+    external: bool = False
 
 
 class ReportLink(BaseModel):
@@ -192,14 +193,20 @@ class ReportConfiguration(BaseModel):
     source: str = Field(max_length=100)
 
 
+class ReportTierLabels(BaseModel):
+    upper: str = Field(max_length=40)
+    lower: str = Field(max_length=40)
+
+
 class ReportWordRequest(BaseModel):
     name: str = Field(min_length=1, max_length=120)
-    vendor: Literal["Cisco NX-OS", "Cisco IOS-XE", "Arista EOS", "Huawei_CE_SW"]
-    architecture: Literal["spine-leaf", "core-access"]
+    vendor: Literal["Cisco NX-OS", "Cisco IOS-XE", "Arista EOS", "Huawei_CE_SW", "FortiGate"]
+    architecture: Literal["spine-leaf", "core-access", "module"]
     technology: str = Field(max_length=32)
     techPlacement: Literal["upper", "lower"]
     upperCount: int = Field(ge=1, le=8)
-    lowerCount: int = Field(ge=1, le=16)
+    lowerCount: int = Field(ge=0, le=16)
+    roles: ReportTierLabels | None = None
     scope: str = Field(max_length=2000)
     devices: List[ReportDevice]
     links: List[ReportLink]
