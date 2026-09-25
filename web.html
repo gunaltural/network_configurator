@@ -1222,8 +1222,8 @@ modules["SDWAN"]={
 
  <div class="section-title">3 · Auto-Filled Quick Config</div>
  <p class="note" style="margin-top:0">
-   Router seçildiğinde aşağıdaki değerler Excel'den otomatik doldurulur. Gateway değerleri IP/prefix bilgisinden
-   <b>ilk kullanılabilir adres</b> olarak türetilir ve validation sırasında kontrol edilir.
+   Router seçildiğinde aşağıdaki değerler Excel'den otomatik doldurulur. Gateway adresleri IP/prefix bilgisinden
+   <b>önerilir</b>; gerçek gateway adreslerini sağlayıcı/ağ planıyla doğrulayın.
  </p>
  <div class="param-grid">
    <div><label>1 · Site / Location</label><input id="sdLocation" value="" placeholder="Excel'den gelir"></div>
@@ -3509,6 +3509,14 @@ function sdFirstUsable(cidr){
  if(c.prefix>=31) return sdIntToIpv4(c.network);
  return sdIntToIpv4((c.network+1)>>>0);
 }
+function sdSuggestedGateway(cidr){
+ const c=sdParseCidr(cidr);
+ if(!c||c.prefix===32)return "";
+ const first=c.prefix===31?c.network:(c.network+1)>>>0;
+ if(first!==c.ipInt)return sdIntToIpv4(first);
+ const next=(first+1)>>>0;
+ return next<=c.broadcast && (c.prefix===31||next<c.broadcast)?sdIntToIpv4(next):"";
+}
 function sdSameSubnet(ip,cidr){
  const c=sdParseCidr(cidr), n=sdIpv4ToInt(ip);
  if(!c||n===null) return false;
@@ -3556,9 +3564,9 @@ function sdApplyRouterSelection(site,index){
  const mgmt=sdCell(row,["VPN512-ROUTER"]);
 
  sdSet("sdLocation",location); sdSet("sdHostname",hostname); sdSet("sdSystemIp",sysip); sdSet("sdSiteId",siteid);
- sdSet("sdWan1Cidr",wan1); sdSet("sdWan1Gw",sdFirstUsable(wan1));
- sdSet("sdWan2Cidr",wan2); sdSet("sdWan2Gw",sdFirstUsable(wan2));
- sdSet("sdMgmtCidr",mgmt); sdSet("sdMgmtGw",sdFirstUsable(mgmt));
+ sdSet("sdWan1Cidr",wan1); sdSet("sdWan1Gw",sdSuggestedGateway(wan1));
+ sdSet("sdWan2Cidr",wan2); sdSet("sdWan2Gw",sdSuggestedGateway(wan2));
+ sdSet("sdMgmtCidr",mgmt); sdSet("sdMgmtGw",sdSuggestedGateway(mgmt));
  if(org) sdSet("sdOrg",org);
  if(vbond) sdSet("sdVbond",vbond);
  if(dns){sdSet("sdDns",dns);sdSet("sdNtp",dns);}
@@ -3591,7 +3599,7 @@ function sdValidate(silent){
      if(sdIpv4ToInt(g)===null) errors.push(`${n}: gateway geçerli IPv4 değil.`);
      else if(!sdSameSubnet(g,c)) errors.push(`${n}: gateway aynı subnet içinde değil.`);
      else if(g===parsed.ip) errors.push(`${n}: gateway interface IP ile aynı olamaz.`);
-     const expected=sdFirstUsable(c);
+     const expected=sdSuggestedGateway(c);
      if(expected && g!==expected) warnings.push(`${n}: gateway ${g}; otomatik öneri ${expected}.`);
    }
  });
