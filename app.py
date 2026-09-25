@@ -185,6 +185,7 @@ class ReportSpecialLink(BaseModel):
 class ReportParameter(BaseModel):
     label: str = Field(max_length=100)
     value: str = Field(max_length=500)
+    impact: str = Field(default="", max_length=1200)
 
 
 class ReportConfiguration(BaseModel):

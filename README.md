@@ -9,7 +9,7 @@ topology and configuration output contain one device block.
 Open **Reporting and Inventory** from the home page or `/reporting`. The workspace
 action imports designs from System and Management, BGP, OSPF, STP, vPC / MLAG /
 M-LAG / StackWise Virtual, EVPN / VXLAN, QoS and Cisco cEdge SD-WAN. It carries
-the active topology, real device names and configured ports, selected parameters,
+the active topology, real device names and configured ports, engineering explanations for selected parameters,
 and each configuration the module actually generates. BGP ISP peers appear as
 external endpoints without generated ISP configurations. A single-device module
 reports one device; the other sites drawn in SD-WAN are illustrative, so only
@@ -43,7 +43,7 @@ or enable secrets in the project or report. The target must be reachable from Re
 and satisfy the same address policy as Live CLI. A device with an unassigned model or
 serial remains explicitly marked **Awaiting assignment**; modules are not mistaken for
 the chassis. The report preview contains the planned topology with port labels on smaller
-topologies, a device-to-port connection schedule, technology parameters, inventory,
+topologies, a device-to-port connection schedule, technology-specific decisions and expected effects, inventory,
 special connections, per-device configuration appendices, and outstanding items. Use
 **Print / Save PDF** in the browser or **Download Word** for an
 editable DOCX report. **Download project** / **Open project** save and restore

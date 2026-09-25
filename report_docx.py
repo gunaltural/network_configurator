@@ -201,9 +201,13 @@ def build_report_docx(project):
     )
     doc.add_paragraph("Design intent only; operational state has not been verified.")
     if project.get("parameters"):
-        doc.add_heading("Selected technology parameters", level=2)
-        _table(doc, ["Parameter", "Selected value"], [2.7, 4.25],
-               [[item["label"], item["value"]] for item in project["parameters"]])
+        doc.add_heading("Engineering decisions and expected outcomes", level=2)
+        doc.add_paragraph("These explanations describe design intent and generated syntax; actual behavior depends on device configuration, peer policy and operational state.")
+        for item in project["parameters"]:
+            paragraph = doc.add_paragraph()
+            paragraph.paragraph_format.keep_together = True
+            paragraph.add_run(f"{item['label']} · {item['value']}\n").bold = True
+            paragraph.add_run(item.get("impact") or "This saved project predates design explanations; reopen the Technology Workspace to regenerate this decision.")
 
     doc.add_page_break()
     doc.add_heading("Device inventory", level=1)
