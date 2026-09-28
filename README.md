@@ -1,4 +1,4 @@
-# Network Configurator v5.10.1 — Multi-Vendor Read-Only Live CLI and Reporting
+# Network Configurator v5.11.0 — Selective Verification, Live CLI, and Reporting
 
 Render Web Service deployment using the repository's Dockerfile.
 
@@ -73,6 +73,15 @@ by model, feature set, and operating system release.
 Live CLI uses the same SSH details entered in Deploy Config. Passwords are used for the
 request and are not saved in a project. `GET /api/device/commands` supplies the catalog;
 `POST /api/device/show` executes the validated command list against the address entered by the user.
+
+The **Verification** tab uses the same read-only Live CLI engine. It combines the active
+Technology Workspace's context-aware post-checks with the selected vendor's wider command
+catalog, removes duplicates, and groups checks by purpose (system health, physical links,
+Layer 2, protocol adjacencies, routing/forwarding, overlay, redundancy, QoS, and configuration
+evidence). Engineers can select recommended checks, an entire category, all commands, or any
+individual commands. Only checked commands are sent, in order, over one SSH session. Results
+can be copied or downloaded as a text evidence file; a command error does not stop the remaining
+selected read-only checks.
 
 ## Default safety
 - Default mode is READ-ONLY (`ENABLE_REAL_DEPLOY=0`).

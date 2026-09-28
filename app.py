@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Network Configurator v5.10.1 — Hosted multi-vendor Live CLI and reporting
+Network Configurator v5.11.0 — Hosted multi-vendor Live CLI and reporting
 
 Designed for Render / hosted web use:
 - Browser-only client experience
@@ -26,7 +26,7 @@ import uvicorn
 from report_docx import build_report_docx
 from docx.image.exceptions import UnrecognizedImageError
 
-VERSION = "5.10.1"
+VERSION = "5.11.0"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
 REPORTING_HTML = (BASE_DIR / "reporting.html").read_text(encoding="utf-8")
@@ -74,34 +74,50 @@ LIVE_COMMANDS = {
         "System": ["show version", "show clock", "show inventory", "show environment", "show logging", "show processes cpu sorted", "show memory statistics", "show users", "show ntp status", "show ntp associations"],
         "Interfaces & L2": ["show ip interface brief", "show ipv6 interface brief", "show interfaces status", "show interfaces description", "show interfaces counters errors", "show interfaces trunk", "show etherchannel summary", "show vlan brief", "show mac address-table", "show spanning-tree summary", "show spanning-tree root", "show arp", "show cdp neighbors", "show cdp neighbors detail", "show lldp neighbors", "show lldp neighbors detail"],
         "Routing": ["show ip route", "show ipv6 route", "show ip protocols", "show ip vrf", "show ip ospf neighbor", "show ip ospf interface brief", "show bgp summary", "show ip bgp summary", "show bgp ipv4 unicast", "show bgp neighbors", "show standby brief"],
+        "Routing detail": ["show ip route summary", "show ip cef summary", "show ip ospf", "show ip ospf database", "show ip ospf border-routers", "show ip bgp", "show ip bgp rib-failure", "show ip bgp regexp _", "show bfd neighbors details", "show track"],
+        "STP & EtherChannel": ["show spanning-tree detail", "show spanning-tree inconsistentports", "show spanning-tree blockedports", "show etherchannel detail", "show etherchannel load-balance", "show lacp neighbor", "show lacp counters", "show interfaces switchport", "show interfaces counters errors"],
+        "QoS & forwarding": ["show policy-map", "show policy-map interface", "show class-map", "show mls qos", "show platform hardware fed active qos queue stats", "show platform hardware fed active drop status", "show ip traffic", "show controllers ethernet-controller"],
+        "Management & security": ["show ip ssh", "show aaa servers", "show login", "show access-lists", "show snmp user", "show snmp group", "show snmp host", "show archive log config all"],
         "Configuration": ["show running-config | include hostname", "show running-config | section router bgp"],
     },
     "Cisco NX-OS": {
         "System": ["show version", "show clock", "show inventory", "show module", "show environment", "show system resources", "show logging last 100", "show feature"],
         "Interfaces & L2": ["show interface brief", "show interface status", "show interface description", "show interface counters errors", "show interface trunk", "show port-channel summary", "show lacp neighbor", "show vlan brief", "show mac address-table", "show ip arp", "show spanning-tree root", "show lldp neighbors", "show cdp neighbors"],
         "Routing": ["show ip interface brief", "show ip route", "show ipv6 route", "show vrf", "show ip ospf neighbors", "show bgp ipv4 unicast summary", "show bgp l2vpn evpn summary", "show bgp l2vpn evpn"],
-        "EVPN / vPC": ["show nve peers", "show nve vni", "show nve interface nve1", "show vpc brief", "show vpc consistency-parameters global", "show vpc peer-keepalive"],
+        "Routing detail": ["show ip route summary", "show forwarding route summary", "show ip ospf", "show ip ospf database", "show ip ospf interface brief", "show bgp ipv4 unicast", "show bgp ipv4 unicast neighbors", "show bgp l2vpn evpn route-type 2", "show bgp l2vpn evpn route-type 3", "show bgp l2vpn evpn route-type 5", "show bfd neighbors details"],
+        "EVPN / vPC": ["show nve peers", "show nve peers detail", "show nve vni", "show nve vni ingress-replication", "show nve interface nve1", "show l2route evpn mac all", "show l2route evpn mac-ip all", "show vpc", "show vpc brief", "show vpc role", "show vpc consistency-parameters global", "show vpc consistency-parameters", "show vpc peer-keepalive", "show vpc statistics peer-link"],
+        "STP & Port-Channel": ["show spanning-tree summary", "show spanning-tree detail", "show spanning-tree root", "show spanning-tree inconsistentports", "show port-channel summary", "show port-channel database", "show lacp counters", "show interface switchport", "show interface counters errors"],
+        "QoS & management": ["show policy-map", "show policy-map interface", "show queuing interface", "show system internal qos", "show ssh server", "show aaa authentication", "show snmp user", "show ntp peer-status"],
         "Configuration": ["show running-config | include hostname"],
     },
     "Arista EOS": {
         "System": ["show version", "show clock", "show inventory", "show logging last 100", "show ntp status"],
         "Interfaces & L2": ["show interfaces status", "show interfaces description", "show interfaces counters errors", "show interfaces transceiver", "show interfaces trunk", "show port-channel summary", "show lacp peer", "show vlan", "show mac address-table", "show arp", "show lldp neighbors", "show spanning-tree root"],
         "Routing": ["show ip interface brief", "show ip route", "show ipv6 route", "show vrf", "show ip ospf neighbor", "show ip bgp summary", "show bgp evpn summary", "show bgp evpn"],
-        "EVPN / MLAG": ["show interfaces Vxlan1", "show vxlan vni", "show vxlan address-table", "show vxlan flood vtep", "show vxlan config-sanity detail", "show bgp evpn route-type imet", "show mlag", "show mlag detail", "show mlag interfaces", "show mlag interfaces detail", "show mlag config-sanity"],
+        "Routing detail": ["show ip route summary", "show ip hardware fib summary", "show ip ospf", "show ip ospf database", "show ip ospf interface brief", "show ip bgp", "show ip bgp neighbors", "show bgp evpn route-type mac-ip", "show bgp evpn route-type imet", "show bgp evpn route-type ip-prefix", "show bfd peers detail"],
+        "EVPN / MLAG": ["show interfaces Vxlan1", "show vxlan vni", "show vxlan address-table", "show vxlan flood vtep", "show vxlan config-sanity detail", "show bgp evpn route-type imet", "show mlag", "show mlag detail", "show mlag interfaces", "show mlag interfaces detail", "show mlag config-sanity", "show mlag config-sanity detail", "show mlag counters"],
+        "STP & Port-Channel": ["show spanning-tree", "show spanning-tree detail", "show spanning-tree root", "show spanning-tree blockedports", "show port-channel summary", "show port-channel dense", "show lacp counters all-ports", "show interfaces switchport", "show interfaces counters errors"],
+        "QoS & management": ["show qos interfaces", "show policy-map", "show policy-map interface", "show queue-monitor length", "show management ssh", "show aaa methods", "show snmp v3 users", "show ntp associations"],
         "Configuration": ["show running-config | include hostname"],
     },
     "Huawei_CE_SW": {
         "System": ["display version", "display device", "display clock", "display logbuffer", "display alarm active", "display cpu-usage", "display memory-usage", "display ntp-service status"],
         "Interfaces & L2": ["display interface brief", "display interface description", "display ip interface brief", "display ipv6 interface brief", "display vlan", "display port vlan", "display mac-address", "display arp all", "display eth-trunk", "display stp brief", "display lldp neighbor brief"],
         "Routing": ["display ip routing-table", "display ipv6 routing-table", "display ip vpn-instance", "display ospf peer brief", "display bgp peer", "display bgp routing-table", "display bgp evpn peer", "display bgp evpn all routing-table"],
+        "Routing detail": ["display ip routing-table statistics", "display fib", "display ospf brief", "display ospf interface", "display ospf lsdb", "display bgp peer verbose", "display bgp routing-table statistics", "display bgp routing-table community", "display bfd session all verbose"],
         "EVPN / VXLAN": ["display vxlan tunnel", "display vxlan vni", "display vxlan peer", "display evpn vpn-instance", "display bgp evpn all routing-table mac-route", "display bgp evpn all routing-table prefix-route"],
-        "M-LAG / DFS": ["display dfs-group", "display dfs-group 1 peer-link", "display dfs-group 1 node 1 m-lag brief", "display dfs-group 1 node 2 m-lag brief"],
+        "M-LAG / DFS": ["display dfs-group", "display dfs-group 1", "display dfs-group 1 peer-link", "display dfs-group 1 node 1 m-lag brief", "display dfs-group 1 node 2 m-lag brief", "display dfs-group 1 heartbeat", "display eth-trunk", "display lacp statistics eth-trunk"],
+        "STP & forwarding": ["display stp", "display stp brief", "display stp abnormal-interface", "display stp topology-change", "display mac-address summary", "display arp statistics all", "display interface counters errors", "display interface transceiver verbose"],
+        "QoS & management": ["display qos configuration", "display traffic policy user-defined", "display traffic-policy applied-record", "display ssh server status", "display aaa configuration", "display snmp-agent sys-info", "display ntp-service sessions"],
         "Configuration": ["display current-configuration | include sysname"],
     },
     "FortiGate": {
         "System": ["get system status", "get system performance status", "get system interface", "get system ha status", "get system session status", "get system arp", "get system dns", "get system ntp"],
         "Routing": ["get router info routing-table all", "get router info routing-table details", "get router info routing-table bgp", "get router info routing-table connected", "get router info routing-table static", "get router info bgp summary", "get router info bgp neighbors", "get router info bgp network", "get router info6 bgp summary", "get router info ospf neighbor all"],
-        "SD-WAN / VPN": ["diagnose vpn tunnel list", "diagnose sys sdwan health-check", "diagnose sys sdwan service", "diagnose sys sdwan member", "get vpn ipsec tunnel summary"],
+        "Routing detail": ["get router info bgp neighbors routes", "get router info bgp neighbors received-routes", "get router info bgp neighbors advertised-routes", "get router info ospf status", "get router info ospf interface", "get router info ospf database brief", "diagnose ip route list"],
+        "SD-WAN / VPN": ["diagnose vpn tunnel list", "diagnose vpn ike gateway list", "diagnose sys sdwan health-check", "diagnose sys sdwan service", "diagnose sys sdwan member", "diagnose sys sdwan sla-log", "get vpn ipsec tunnel summary", "get system sdwan status", "get system link-monitor"],
+        "Interfaces & sessions": ["diagnose netlink interface list", "diagnose netlink aggregate name", "diagnose hardware deviceinfo nic", "diagnose sys session stat", "diagnose sys session list", "diagnose firewall iprope list"],
+        "HA & management": ["get system ha status", "diagnose sys ha status", "diagnose sys ntp status", "diagnose debug crashlog read", "get system performance top"],
         "Configuration view": ["show system interface", "show router bgp", "show router static", "show system sdwan", "show vpn ipsec phase1-interface"],
     },
 }

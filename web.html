@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Network Configurator v5.10.1</title>
+<title>Network Configurator v5.11.0</title>
 <style>
 :root{
   --bg:#0d1117;--panel:#161b22;--panel2:#1f2630;--line:#2b3440;
@@ -77,6 +77,21 @@ pre{
 .live-cli .sd-result{min-height:auto}
 .live-cli #liveCustomRow[hidden]{display:none!important}
 .live-cli .live-help{display:block;margin-top:7px;color:#95adbd;font-size:12px;line-height:1.5}
+.verification-cli[hidden]{display:none!important}
+.verification-cli{display:grid;gap:12px}
+.verify-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.verify-toolbar .verify-count{margin-left:auto;color:#77d9ff;font-size:11px;font-weight:800}
+.verify-groups{display:grid;gap:10px}
+.verify-group{border:1px solid #263d50;border-radius:11px;background:#07121a;overflow:hidden}
+.verify-group-head{display:flex;align-items:center;gap:9px;padding:10px 12px;background:#0d1c27;border-bottom:1px solid #213848}
+.verify-group-head label{margin:0;color:#d9edf8;font-size:10px;flex:1}
+.verify-group-head span{color:#7793a5;font-size:9px}
+.verify-command-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:#162a38}
+.verify-command{display:flex;gap:8px;align-items:flex-start;margin:0;padding:9px 11px;background:#08141d;color:#a9c0cf;font:10px/1.45 'JetBrains Mono','Fira Code','Roboto Mono','Consolas','Courier New',monospace;text-transform:none;letter-spacing:0;overflow-wrap:anywhere}
+.verify-command:hover{background:#0b1b27;color:#dcebf4}
+.verify-command input,.verify-group-head input{width:auto;margin-top:2px;accent-color:#38bdf8}
+.verification-cli .sd-cli{white-space:pre;min-height:300px;max-height:650px;overflow:auto}
+.verification-cli .live-help{display:block;margin-top:7px;color:#95adbd;font-size:12px;line-height:1.5}
 .simple-deploy{display:grid;gap:12px}
 .simple-deploy-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:1px solid #25445c;border-radius:12px;background:#0a1823}
 .simple-deploy-head b{display:block;color:#e5f5ff;font-size:13px;letter-spacing:.05em}
@@ -113,6 +128,7 @@ pre{
 .sd-footnote{font-size:9px;line-height:1.45;color:#6f8796;padding:0 4px}
 @media(max-width:900px){
   .sd-grid{grid-template-columns:1fr}
+  .verify-command-list{grid-template-columns:1fr}
   .simple-deploy-head{align-items:flex-start;flex-direction:column}
   .sd-actions{justify-content:stretch}
   .sd-actions .btn{flex:1 1 100%}
@@ -366,7 +382,7 @@ pre{
     <div class="logo">NC</div>
     <div><h1>Network Configurator</h1><small>Configure · Validate · Troubleshoot</small></div>
   </div>
-  <div class="badge">Version 5.10.1 · Multi-Vendor Read-Only Live CLI</div>
+  <div class="badge">Version 5.11.0 · Selective Verification via Live CLI</div>
 </header>
 
 <div class="layout">
@@ -524,6 +540,33 @@ pre{
           <div class="sd-actions"><button class="btn primary" id="liveRun" type="button">Run Command</button><button class="btn" id="liveCopy" type="button" disabled>Copy Output</button><button class="btn" id="liveDownload" type="button" disabled>Download TXT</button></div>
           <div id="liveStatus" class="sd-result neutral" role="status" aria-live="polite">Select a command and run it against your device.</div>
           <pre id="liveOutput" class="sd-cli" aria-label="CLI output">Output will appear here.</pre>
+        </div>
+        <div id="verificationPanel" class="verification-cli" hidden>
+          <div class="simple-deploy-head"><div><b>SELECTIVE VERIFICATION · <span id="verifyPlatformTitle">CISCO IOS-XE</span></b><span>Choose checks by category, then run only the selected read-only commands</span></div><span id="verifyModuleBadge" class="sd-badge neutral">MODULE</span></div>
+          <div class="sd-card">
+            <h4>Live CLI connection</h4>
+            <div class="sd-grid">
+              <div><label for="verifyTarget">Device IP / Host</label><input id="verifyTarget" placeholder="Device IP or hostname" autocomplete="off"></div>
+              <div><label for="verifyPort">SSH Port</label><input id="verifyPort" type="number" min="1" max="65535" value="22"></div>
+              <div><label for="verifyPlatform">Device platform</label><select id="verifyPlatform"><option>Cisco IOS-XE</option><option>Cisco NX-OS</option><option>Arista EOS</option><option>Huawei_CE_SW</option><option>FortiGate</option></select></div>
+              <div><label for="verifyUsername">Username</label><input id="verifyUsername" autocomplete="username"></div>
+              <div><label for="verifyPassword">Password</label><input id="verifyPassword" type="password" autocomplete="current-password"></div>
+              <div><label for="verifySecret">Enable Secret (optional)</label><input id="verifySecret" type="password" autocomplete="off"></div>
+            </div>
+            <small class="live-help">The same read-only security rules and target policy as Live CLI apply. Configuration mode and write commands remain blocked.</small>
+          </div>
+          <div class="sd-card">
+            <div class="verify-toolbar">
+              <button class="btn" id="verifySelectRecommended" type="button">Select Recommended</button>
+              <button class="btn" id="verifySelectAll" type="button">Select All</button>
+              <button class="btn" id="verifyClearAll" type="button">Clear</button>
+              <span id="verifySelectedCount" class="verify-count">0 selected</span>
+            </div>
+            <div id="verifyGroups" class="verify-groups"></div>
+          </div>
+          <div class="sd-actions"><button class="btn primary" id="verifyRun" type="button">Run Selected Checks</button><button class="btn" id="verifyCopy" type="button" disabled>Copy Output</button><button class="btn" id="verifyDownload" type="button" disabled>Download TXT</button></div>
+          <div id="verifyStatus" class="sd-result neutral" role="status" aria-live="polite">Select the checks required for this validation window.</div>
+          <pre id="verifyOutput" class="sd-cli" aria-label="Verification output">Selected command output will appear here.</pre>
         </div>
         <pre id="output"></pre>
         <div class="actions" id="outputActions">
@@ -2824,7 +2867,15 @@ function bgpGenerate(tab){
  const pmed=v("bgpTePreferredMed")||"50",bmed=v("bgpTeBackupMed")||"200",comm=v("bgpTeCommunityValue")||`${asn}:100`;
  const pc=Math.max(1,+v("bgpTePrependCount")||3),prepend=Array(pc).fill(asn).join(" ");
  const safe=s=>String(s||"CE").replace(/[^A-Za-z0-9_-]/g,"_");
- if(tab==="verify")return p==="Huawei_CE_SW"?"display bgp peer\ndisplay bgp routing-table\ndisplay bgp routing-table peer received-routes\ndisplay bgp routing-table peer advertised-routes":p==="FortiGate"?"get router info bgp summary\nget router info bgp neighbors\nget router info bgp network\nget router info routing-table bgp":"show bgp summary\nshow bgp neighbors\nshow bgp ipv4 unicast\nshow ip route bgp";
+ if(tab==="verify"){
+   const ebgpPeers=[...new Set(edges.map(([c,i])=>ip(bgpLink(c,i).ispIp)).filter(Boolean))];
+   const ibgpPeers=internal==="ibgp"?[...new Set(ces.map(x=>ip(x.loop)).filter(Boolean))]:[];
+   if(p==="Huawei_CE_SW")return ["display bgp peer","display bgp routing-table","display ip routing-table protocol bgp","display bfd session all",...ebgpPeers.flatMap(peer=>[`display bgp peer ${peer} verbose`,`display bgp routing-table peer ${peer} received-routes`,`display bgp routing-table peer ${peer} advertised-routes`]),...ibgpPeers.map(peer=>`display bgp peer ${peer} verbose`)].join("\n");
+   if(p==="FortiGate")return ["get router info bgp summary","get router info bgp neighbors","get router info bgp network","get router info routing-table bgp",...ebgpPeers.flatMap(peer=>[`get router info bgp neighbors ${peer}`,`get router info bgp neighbors ${peer} received-routes`,`get router info bgp neighbors ${peer} advertised-routes`])].join("\n");
+   if(p==="Cisco NX-OS")return ["show bgp ipv4 unicast summary","show bgp ipv4 unicast","show ip route bgp","show forwarding route summary","show bfd neighbors details",...ebgpPeers.flatMap(peer=>[`show bgp ipv4 unicast neighbors ${peer}`,`show bgp ipv4 unicast neighbors ${peer} routes`,`show bgp ipv4 unicast neighbors ${peer} advertised-routes`]),...ibgpPeers.map(peer=>`show bgp ipv4 unicast neighbors ${peer}`)].join("\n");
+   if(p==="Arista EOS")return ["show ip bgp summary","show ip bgp","show ip route bgp","show bfd peers detail",...ebgpPeers.flatMap(peer=>[`show ip bgp neighbors ${peer}`,`show ip bgp neighbors ${peer} received-routes`,`show ip bgp neighbors ${peer} advertised-routes`]),...ibgpPeers.map(peer=>`show ip bgp neighbors ${peer}`)].join("\n");
+   return ["show ip bgp summary","show ip bgp","show ip route bgp","show bfd neighbors details",...ebgpPeers.flatMap(peer=>[`show ip bgp neighbors ${peer}`,`show ip bgp neighbors ${peer} received-routes`,`show ip bgp neighbors ${peer} advertised-routes`]),...ibgpPeers.map(peer=>`show ip bgp neighbors ${peer}`)].join("\n");
+ }
  if(tab==="trouble")return `1. Verify interface state and IP reachability on all ${edges.length} CE-to-ISP links.\n2. Verify TCP/179 and local/remote ASN.\n3. Confirm received and advertised prefixes per ISP.\n4. Outbound TE: verify inbound policy and Local Preference on learned routes.\n5. Inbound TE: verify advertised AS_PATH, MED and communities toward each ISP.\n6. Remember that inbound MED/community behavior depends on the upstream ISP policy.\n7. For iBGP, verify loopback reachability, update-source and next-hop reachability.`;
  if(tab==="notes")return `Dynamic BGP Design\n- CE routers: ${ceN}; ISP routers: ${ispN}; eBGP adjacencies: ${edges.length}.\n- Connectivity: ${v("bgpConnectivity")}.\n- Outbound TE: ${outOn?"enabled":"disabled"}; preferred ISP: ISP-${outPref+1}; LocalPref: ${window.c("bgpTeLocalPref")?"enabled":"disabled"}.\n- Inbound TE: ${inOn?"enabled":"disabled"}; preferred ISP: ISP-${inPref+1}; AS-Path Prepend: ${window.c("bgpTePrepend")?"enabled":"disabled"}; MED: ${window.c("bgpTeMed")?"enabled":"disabled"}; Community: ${window.c("bgpTeCommunity")?"enabled":"disabled"}.\n- Outbound and inbound preferred ISPs are independent and may intentionally be asymmetric.\n- ISP acceptance of MED and communities must be confirmed with the provider.`;
 
@@ -5136,9 +5187,117 @@ const LiveCliEngine=(()=>{
      link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
    });
  }
- return {bind,activate};
+return {bind,activate};
 })();
 LiveCliEngine.bind();
+
+const VerificationEngine=(()=>{
+ const el=id=>document.getElementById(id);
+ let catalog=null,loading=null,lastSignature="",lastOutput="",lastCommands=[];
+ const canonical=p=>p==="Cisco_StackWise"?"Cisco IOS-XE":p==="Huawei"?"Huawei_CE_SW":p;
+ const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+ function status(message,kind="neutral"){const box=el("verifyStatus");box.textContent=message;box.className=`sd-result ${kind}`;}
+ function moduleCommands(){
+   const m=modules[tech],workspace=canonical(platform()),selected=canonical(el("verifyPlatform").value);
+   if(!m||typeof m.generate!=="function"||workspace!==selected)return [];
+   return String(m.generate("verify")||"").split(/\r?\n/).map(x=>x.trim()).filter(x=>x&&!/^(?:#|!|[-=]{3,})/.test(x)&&/^(?:show|display|get|diagnose)\s/i.test(x));
+ }
+ function category(command){
+   const c=command.toLowerCase();
+   if(/running-config|current-configuration|configuration|config-sanity/.test(c))return "Configuration & Consistency Evidence";
+   if(/\b(?:vpc|mlag|m-lag|dfs-group|stackwise|peer-keepalive|ha status)\b/.test(c))return "Redundancy & Multi-Chassis State";
+   if(/\b(?:nve|vxlan|evpn|l2route|l2vpn|omp|sdwan|app-route|vpn tunnel|ipsec tunnel)\b/.test(c))return "Overlay, Tunnels & Data Plane";
+   if(/\b(?:qos|policy-map|class-map|queuing|queue|wred|mtu)\b/.test(c))return "QoS, Policy & MTU";
+   if(/\b(?:bgp|ospf)\b/.test(c)&&/\b(?:summary|neighbor|neighbors|peer|peers|interface)\b/.test(c))return "Protocol Adjacencies & Sessions";
+   if(/\bbgp\b/.test(c))return "BGP Routes, Attributes & Policy";
+   if(/\bospf\b/.test(c))return "OSPF Topology & LSDB";
+   if(/\b(?:route|routing-table|forwarding|fib|rib|arp|mac address-table)\b/.test(c))return "Routes, Neighbors & Forwarding";
+   if(/\b(?:spanning-tree|\bstp\b|vlan|trunk|etherchannel|port-channel|eth-trunk|lacp)\b/.test(c))return "Layer 2, VLAN & Loop Prevention";
+   if(/\b(?:interface|interfaces|lldp|cdp|transceiver)\b/.test(c))return "Physical Links & Interfaces";
+   return "System Health, Time & Logging";
+ }
+ function relevant(command){
+   const c=command.toLowerCase();
+   const common=/version|clock|logging|interface brief|interface status|interface description|counters errors|lldp|cdp|route|routing-table/;
+   const rules={
+     BASIC:/ssh|aaa|tacacs|radius|snmp|ntp|logging|clock|users|login|archive|access-list|management|mgmt|version|inventory/,
+     BGP:/\bbgp\b|route|routing-table|interface|bfd|vrf|arp|forwarding|prefix|community/,
+     OSPF:/ospf|route|routing-table|interface|bfd|vrf|arp/,
+     STP:/spanning-tree|\bstp\b|vlan|trunk|port-channel|etherchannel|eth-trunk|lacp|udld|interface|lldp/,
+     VPC:/\bvpc\b|mlag|m-lag|dfs-group|stackwise|peer-link|peer-keepalive|port-channel|eth-trunk|lacp|vlan|trunk|spanning-tree|\bstp\b|interface|lldp/,
+     EVPN:/evpn|vxlan|\bnve\b|vni|l2route|l2vpn|\bbgp\b|vrf|route|routing-table|mac|arp|interface|mlag|vpc|dfs/,
+     QOS:/qos|policy-map|class-map|queu|wred|mtu|interface|counters|drop|shape|polic|dscp/,
+     SDWAN:/sdwan|omp|bfd|tunnel|app-route|vpn|route|routing-table|interface|control|system status/
+   };
+   return (rules[tech]||common).test(c)||common.test(c);
+ }
+ function commands(){
+   const vendor=canonical(el("verifyPlatform").value),items=[],seen=new Set();
+   for(const command of moduleCommands()){
+     const key=command.toLowerCase();if(!seen.has(key)){seen.add(key);items.push({command,recommended:true,source:"Workspace"});}
+   }
+   for(const list of Object.values(catalog?.[vendor]||{}))for(const command of list){
+     const key=command.toLowerCase();if(!seen.has(key)){seen.add(key);items.push({command,recommended:relevant(command),source:"Platform"});}
+   }
+   return items;
+ }
+ function updateCount(){
+   const all=[...document.querySelectorAll("#verifyGroups .verify-command input")],checked=all.filter(x=>x.checked);
+   el("verifySelectedCount").textContent=`${checked.length} of ${all.length} selected`;
+   document.querySelectorAll("#verifyGroups .verify-group").forEach(group=>{
+     const boxes=[...group.querySelectorAll(".verify-command input")],master=group.querySelector(".verify-group-head input");
+     master.checked=boxes.length>0&&boxes.every(x=>x.checked);master.indeterminate=boxes.some(x=>x.checked)&&!master.checked;
+   });
+   el("verifyRun").disabled=!checked.length;
+ }
+ function render(){
+   const vendor=canonical(el("verifyPlatform").value),groups=new Map();
+   for(const item of commands()){const name=category(item.command);if(!groups.has(name))groups.set(name,[]);groups.get(name).push(item);}
+   const root=el("verifyGroups");root.replaceChildren();
+   for(const [name,items] of groups){
+     const section=document.createElement("section");section.className="verify-group";
+     const head=document.createElement("div");head.className="verify-group-head";
+     const master=document.createElement("input");master.type="checkbox";master.setAttribute("aria-label",`Select ${name}`);
+     const label=document.createElement("label");label.textContent=name;const count=document.createElement("span");count.textContent=`${items.length} commands`;
+     head.append(master,label,count);const list=document.createElement("div");list.className="verify-command-list";
+     for(const item of items){const row=document.createElement("label");row.className="verify-command";const box=document.createElement("input");box.type="checkbox";box.value=item.command;box.checked=item.recommended;box.dataset.recommended=item.recommended?"1":"0";const text=document.createElement("span");text.textContent=item.command;row.append(box,text);list.append(row);box.addEventListener("change",updateCount);}
+     master.addEventListener("change",()=>{list.querySelectorAll("input").forEach(x=>x.checked=master.checked);updateCount();});
+     section.append(head,list);root.append(section);
+   }
+   el("verifyPlatformTitle").textContent=vendor.toUpperCase();el("verifyModuleBadge").textContent=modules[tech]?.title||tech;
+   lastSignature=`${tech}|${vendor}|${moduleCommands().join("|")}`;updateCount();clearOutput(false);
+ }
+ function clearOutput(resetStatus=true){lastOutput="";lastCommands=[];el("verifyOutput").textContent="Selected command output will appear here.";el("verifyCopy").disabled=true;el("verifyDownload").disabled=true;if(resetStatus)status("Select the checks required for this validation window.");}
+ function setSelection(mode){document.querySelectorAll("#verifyGroups .verify-command input").forEach(box=>box.checked=mode==="all"||(mode==="recommended"&&box.dataset.recommended==="1"));updateCount();}
+ function syncConnection(){
+   const pairs=[["sdTarget","liveTarget","verifyTarget"],["sdPort","livePort","verifyPort"],["sdUsername","liveUsername","verifyUsername"],["sdPassword","livePassword","verifyPassword"],["sdSecret","liveSecret","verifySecret"]];
+   for(const ids of pairs){const value=ids.map(id=>el(id)?.value).find(Boolean)||"";ids.forEach(id=>{if(el(id))el(id).value=value;});}
+ }
+ async function activate(){
+   syncConnection();const workspace=canonical(platform());if([...el("verifyPlatform").options].some(x=>x.value===workspace))el("verifyPlatform").value=workspace;
+   if(!catalog){
+     if(loading)return loading;status("Loading verification command catalog…","busy");el("verifyRun").disabled=true;
+     loading=(async()=>{try{const response=await fetch("/api/device/commands");if(!response.ok)throw new Error(`HTTP ${response.status}`);const data=await response.json();catalog=data.platforms;render();}catch(error){status(`Verification catalog unavailable: ${error.message}`,"fail");}finally{loading=null;}})();return loading;
+   }
+   const signature=`${tech}|${workspace}|${moduleCommands().join("|")}`;if(signature!==lastSignature)render();
+ }
+ async function run(){
+   const selected=[...document.querySelectorAll("#verifyGroups .verify-command input:checked")].map(x=>x.value);if(!selected.length){status("Select at least one verification command.","fail");return;}
+   const p={target:el("verifyTarget").value.trim(),port:Number(el("verifyPort").value),platform:el("verifyPlatform").value,username:el("verifyUsername").value.trim(),password:el("verifyPassword").value,secret:el("verifySecret").value,command:selected.join("\n")};
+   const button=el("verifyRun");button.disabled=true;button.textContent="Running Selected Checks…";clearOutput(false);status(`Connecting to ${p.target} and running ${selected.length} selected checks…`,`busy`);
+   try{const response=await fetch("/api/device/show",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(p)});let data;try{data=await response.json()}catch{throw new Error(`Invalid server response (HTTP ${response.status}).`)}if(!response.ok)throw new Error(data.detail?.error||data.error||`HTTP ${response.status}`);lastOutput=data.output||"";lastCommands=selected;el("verifyOutput").textContent=lastOutput||"(Selected commands returned no output.)";el("verifyCopy").disabled=!lastOutput;el("verifyDownload").disabled=!lastOutput;const failed=(data.results||[]).filter(x=>!x.ok).length;status(`${data.mock?"MOCK output":"Device verification"} · ${data.device} · ${selected.length} checks · ${selected.length-failed} passed${failed?` · ${failed} command errors`:""}${data.truncated?" · output truncated at 1 MB":""}`,failed||data.truncated?"warn":"pass");}
+   catch(error){el("verifyOutput").textContent="No verification output received.";status(`Verification failed: ${error.message}`,"fail");}
+   finally{button.disabled=false;button.textContent="Run Selected Checks";}
+ }
+ function bind(){
+   el("verifyPlatform").addEventListener("change",render);el("verifySelectRecommended").addEventListener("click",()=>setSelection("recommended"));el("verifySelectAll").addEventListener("click",()=>setSelection("all"));el("verifyClearAll").addEventListener("click",()=>setSelection("none"));el("verifyRun").addEventListener("click",run);
+   [["sdTarget","liveTarget","verifyTarget"],["sdPort","livePort","verifyPort"],["sdUsername","liveUsername","verifyUsername"],["sdPassword","livePassword","verifyPassword"],["sdSecret","liveSecret","verifySecret"]].forEach(ids=>ids.forEach(id=>el(id)?.addEventListener("input",()=>{const value=el(id).value;ids.forEach(other=>{if(other!==id&&el(other))el(other).value=value;});clearOutput();})));
+   el("verifyCopy").addEventListener("click",async()=>{if(lastOutput)try{await navigator.clipboard.writeText(lastOutput);status(`Copied ${lastCommands.length} verification results.`,`pass`);}catch{status("Copy failed. Select the output text manually.","fail");}});
+   el("verifyDownload").addEventListener("click",()=>{if(!lastOutput)return;const blob=new Blob([`Module: ${tech}\nPlatform: ${el("verifyPlatform").value}\nCommands: ${lastCommands.length}\n\n${lastOutput}\n`],{type:"text/plain;charset=utf-8"});const url=URL.createObjectURL(blob),link=document.createElement("a");link.href=url;link.download=`${tech}_${el("verifyPlatform").value.replace(/[^a-z0-9]+/gi,"_")}_verification.txt`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
+ }
+ return {bind,activate};
+})();
+VerificationEngine.bind();
 
 function renderOutput(){
  if(tech==="BGP")bgpV39ContextUI();
@@ -5146,6 +5305,7 @@ function renderOutput(){
  const out=document.getElementById("output");
  const deploy=document.getElementById("deployPanel");
  const live=document.getElementById("livePanel");
+ const verification=document.getElementById("verificationPanel");
  const actions=document.getElementById("outputActions");
  try{
    const m=modules[tech];
@@ -5156,6 +5316,7 @@ function renderOutput(){
      if(actions)actions.hidden=true;
      if(deploy)deploy.hidden=false;
      if(live)live.hidden=true;
+     if(verification)verification.hidden=true;
      SimpleDeployEngine.refresh();
      return;
    }
@@ -5164,13 +5325,24 @@ function renderOutput(){
      if(actions)actions.hidden=true;
      if(deploy)deploy.hidden=true;
      if(live)live.hidden=false;
+     if(verification)verification.hidden=true;
      LiveCliEngine.activate();
+     return;
+   }
+   if(tab==="verify"){
+     if(out)out.hidden=true;
+     if(actions)actions.hidden=true;
+     if(deploy)deploy.hidden=true;
+     if(live)live.hidden=true;
+     if(verification)verification.hidden=false;
+     VerificationEngine.activate();
      return;
    }
    if(out)out.hidden=false;
    if(actions)actions.hidden=false;
    if(deploy)deploy.hidden=true;
    if(live)live.hidden=true;
+   if(verification)verification.hidden=true;
    const result=(typeof m.generate==="function") ? m.generate(tab) : "";
    out.textContent=(result && String(result).trim()) ? result : "# No configuration output generated.";
  }catch(err){
@@ -5178,6 +5350,7 @@ function renderOutput(){
    if(out){out.hidden=false;out.textContent="# CONFIGURATOR ERROR\n# "+err.message+"\n# Module: "+tech+"\n# Platform: "+platform();}
    if(deploy)deploy.hidden=true;
    if(live)live.hidden=true;
+   if(verification)verification.hidden=true;
  }
 }
 
