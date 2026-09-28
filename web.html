@@ -5265,7 +5265,7 @@ const VerificationEngine=(()=>{
      section.append(head,list);root.append(section);
    }
    el("verifyPlatformTitle").textContent=vendor.toUpperCase();el("verifyModuleBadge").textContent=modules[tech]?.title||tech;
-   lastSignature=`${tech}|${vendor}|${moduleCommands().join("|")}`;updateCount();clearOutput(false);
+   lastSignature=`${tech}|${vendor}|${moduleCommands().join("|")}`;updateCount();clearOutput(false);status("Select the checks required for this validation window.");
  }
  function clearOutput(resetStatus=true){lastOutput="";lastCommands=[];el("verifyOutput").textContent="Selected command output will appear here.";el("verifyCopy").disabled=true;el("verifyDownload").disabled=true;if(resetStatus)status("Select the checks required for this validation window.");}
  function setSelection(mode){document.querySelectorAll("#verifyGroups .verify-command input").forEach(box=>box.checked=mode==="all"||(mode==="recommended"&&box.dataset.recommended==="1"));updateCount();}
