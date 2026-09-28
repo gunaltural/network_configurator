@@ -104,9 +104,9 @@ pre{
 .verification-cli .sd-cli{white-space:pre;min-height:300px;max-height:650px;overflow:auto}
 .verification-cli .verify-selected-preview{min-height:105px;max-height:240px;margin-top:8px}
 .verification-cli .live-help{display:block;margin-top:7px;color:#95adbd;font-size:12px;line-height:1.5}
-.troubleshooting-cli[hidden]{display:none!important}.troubleshooting-cli{display:grid;gap:12px}
+.troubleshooting-cli[hidden]{display:none!important}.troubleshooting-cli{display:grid;gap:12px;min-width:0;max-width:100%}.troubleshooting-cli>*{min-width:0;max-width:100%}
 .trouble-context{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.trouble-context div{padding:10px 12px;border:1px solid #263d50;border-radius:9px;background:#07121a}.trouble-context small{display:block;color:#7793a5;font-size:9px;text-transform:uppercase}.trouble-context strong{display:block;margin-top:4px;color:#dcebf4;font-size:11px;overflow-wrap:anywhere}
-.trouble-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.trouble-grid .full{grid-column:1/-1}.troubleshooting-cli textarea{min-height:92px;resize:vertical}.troubleshooting-cli .sd-cli{white-space:pre;min-height:150px;max-height:420px;overflow:auto}.troubleshooting-cli .trouble-evidence{max-height:260px}.trouble-command-groups{max-height:430px}
+.trouble-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}.trouble-grid .full{grid-column:1/-1}.troubleshooting-cli textarea{min-height:92px;resize:vertical}.troubleshooting-cli .sd-cli{width:100%;max-width:100%;box-sizing:border-box;white-space:pre;min-height:150px;max-height:420px;overflow:auto}.troubleshooting-cli .trouble-evidence{max-height:260px}.trouble-command-groups{max-height:430px;min-width:0;max-width:100%}
 @media(max-width:800px){.trouble-context,.trouble-grid{grid-template-columns:1fr}.trouble-grid .full{grid-column:auto}}
 .simple-deploy{display:grid;gap:12px}
 .simple-deploy-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:1px solid #25445c;border-radius:12px;background:#0a1823}
