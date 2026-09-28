@@ -104,6 +104,10 @@ pre{
 .verification-cli .sd-cli{white-space:pre;min-height:300px;max-height:650px;overflow:auto}
 .verification-cli .verify-selected-preview{min-height:105px;max-height:240px;margin-top:8px}
 .verification-cli .live-help{display:block;margin-top:7px;color:#95adbd;font-size:12px;line-height:1.5}
+.troubleshooting-cli[hidden]{display:none!important}.troubleshooting-cli{display:grid;gap:12px}
+.trouble-context{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.trouble-context div{padding:10px 12px;border:1px solid #263d50;border-radius:9px;background:#07121a}.trouble-context small{display:block;color:#7793a5;font-size:9px;text-transform:uppercase}.trouble-context strong{display:block;margin-top:4px;color:#dcebf4;font-size:11px;overflow-wrap:anywhere}
+.trouble-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.trouble-grid .full{grid-column:1/-1}.troubleshooting-cli textarea{min-height:92px;resize:vertical}.troubleshooting-cli .sd-cli{white-space:pre;min-height:150px;max-height:420px;overflow:auto}.troubleshooting-cli .trouble-evidence{max-height:260px}.trouble-command-groups{max-height:430px}
+@media(max-width:800px){.trouble-context,.trouble-grid{grid-template-columns:1fr}.trouble-grid .full{grid-column:auto}}
 .simple-deploy{display:grid;gap:12px}
 .simple-deploy-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:1px solid #25445c;border-radius:12px;background:#0a1823}
 .simple-deploy-head b{display:block;color:#e5f5ff;font-size:13px;letter-spacing:.05em}
@@ -564,6 +568,29 @@ pre{
           <div class="sd-actions"><button class="btn" id="verifyTest" type="button">Test Connection</button><button class="btn primary" id="verifyRun" type="button">Run Selected Commands</button><button class="btn" id="verifyCopy" type="button" disabled>Copy Output</button><button class="btn" id="verifyDownload" type="button" disabled>Download TXT</button></div>
           <div id="verifyStatus" class="sd-result neutral" role="status" aria-live="polite">Select the checks required for this validation window.</div>
           <pre id="verifyOutput" class="sd-cli" aria-label="Verification output">Selected command output will appear here.</pre>
+        </div>
+        <div id="troubleshootingPanel" class="troubleshooting-cli" hidden>
+          <div class="simple-deploy-head"><div><b>GUIDED TROUBLESHOOTING · <span id="troublePlatformTitle">CISCO IOS-XE</span></b><span>Turn verification evidence into focused diagnostic actions</span></div><span id="troubleModuleBadge" class="sd-badge neutral">MODULE</span></div>
+          <div class="sd-card">
+            <h4>Incident context</h4>
+            <div class="trouble-context"><div><small>Device</small><strong id="troubleDevice">Not connected</strong></div><div><small>Verification evidence</small><strong id="troubleEvidenceState">No live result imported</strong></div><div><small>Selected symptom</small><strong id="troubleSymptomState">Not selected</strong></div></div>
+            <label for="troubleSymptom">Observed symptom</label><select id="troubleSymptom"></select>
+            <small id="troubleGuidance" class="live-help"></small>
+          </div>
+          <div class="sd-card">
+            <h4>Verification evidence</h4>
+            <pre id="troubleEvidence" class="sd-cli trouble-evidence" aria-label="Imported verification evidence">Run Verification commands first, or continue with symptom-based diagnostics.</pre>
+          </div>
+          <div class="sd-card">
+            <h4>Recommended diagnostic commands</h4>
+            <div class="verify-toolbar"><button class="btn" id="troubleSelectAll" type="button">Select All</button><button class="btn" id="troubleClearAll" type="button">Clear</button><span id="troubleSelectedCount" class="verify-count">0 selected</span></div>
+            <div id="troubleCommandGroups" class="verify-groups trouble-command-groups"></div>
+            <label for="troubleSelectedPreview">Selected Commands</label><pre id="troubleSelectedPreview" class="sd-cli verify-selected-preview" aria-label="Selected troubleshooting commands">No commands selected.</pre>
+          </div>
+          <div class="sd-actions"><button class="btn" id="troubleTest" type="button">Test Connection</button><button class="btn primary" id="troubleRun" type="button">Run Selected Commands</button><button class="btn" id="troubleCopy" type="button" disabled>Copy Output</button><button class="btn" id="troubleDownload" type="button" disabled>Download TXT</button></div>
+          <div id="troubleStatus" class="sd-result neutral" role="status" aria-live="polite">Select an observed symptom to begin guided diagnostics.</div>
+          <pre id="troubleOutput" class="sd-cli" aria-label="Troubleshooting command output">Diagnostic command output will appear here.</pre>
+          <div class="sd-card"><h4>Engineering findings</h4><div class="trouble-grid"><div><label for="troubleProbableCause">Probable cause</label><textarea id="troubleProbableCause" placeholder="Working hypothesis based on the evidence"></textarea></div><div><label for="troubleRootCause">Confirmed root cause</label><textarea id="troubleRootCause" placeholder="Confirmed technical cause"></textarea></div><div><label for="troubleCorrectiveAction">Corrective action</label><textarea id="troubleCorrectiveAction" placeholder="Change or remediation performed"></textarea></div><div><label for="troublePostCheck">Post-change verification</label><textarea id="troublePostCheck" placeholder="Commands and expected/observed result"></textarea></div><div class="full"><label for="troubleNotes">Engineer notes</label><textarea id="troubleNotes" placeholder="Timeline, impact, escalation or follow-up notes"></textarea></div></div></div>
         </div>
         <pre id="output"></pre>
         <div class="actions" id="outputActions">
@@ -5080,7 +5107,7 @@ window.SimpleDeployEngine=SimpleDeployEngine;
 
 const VerificationEngine=(()=>{
  const el=id=>document.getElementById(id);
- let catalog=null,loading=null,lastSignature="",lastOutput="",lastCommands=[];
+ let catalog=null,loading=null,lastSignature="",lastOutput="",lastCommands=[],lastRun=null;
  const canonical=p=>p==="Cisco_StackWise"?"Cisco IOS-XE":p==="Huawei"?"Huawei_CE_SW":p;
  const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
  function status(message,kind="neutral"){const box=el("verifyStatus");box.textContent=message;box.className=`sd-result ${kind}`;}
@@ -5188,7 +5215,7 @@ const VerificationEngine=(()=>{
    const selected=selectedCommands();if(!selected.length){status("Select at least one verification command.","fail");return;}
    const p={target:el("verifyTarget").value.trim(),port:Number(el("verifyPort").value),platform:el("verifyPlatform").value,username:el("verifyUsername").value.trim(),password:el("verifyPassword").value,secret:el("verifySecret").value,command:selected.join("\n")};
    const button=el("verifyRun");button.disabled=true;button.textContent="Running Selected Commands…";clearOutput(false);status(`Connecting to ${p.target} and running ${selected.length} selected commands…`,`busy`);
-   try{const response=await fetch("/api/device/show",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(p)});let data;try{data=await response.json()}catch{throw new Error(`Invalid server response (HTTP ${response.status}).`)}if(!response.ok)throw new Error(data.detail?.error||data.error||`HTTP ${response.status}`);lastOutput=data.output||"";lastCommands=selected;el("verifyOutput").textContent=lastOutput||"(Selected commands returned no output.)";el("verifyCopy").disabled=!lastOutput;el("verifyDownload").disabled=!lastOutput;const failed=(data.results||[]).filter(x=>!x.ok).length;status(`${data.mock?"MOCK output":"Device verification"} · ${data.device} · ${selected.length} checks · ${selected.length-failed} passed${failed?` · ${failed} command errors`:""}${data.truncated?" · output truncated at 1 MB":""}`,failed||data.truncated?"warn":"pass");}
+   try{const response=await fetch("/api/device/show",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(p)});let data;try{data=await response.json()}catch{throw new Error(`Invalid server response (HTTP ${response.status}).`)}if(!response.ok)throw new Error(data.detail?.error||data.error||`HTTP ${response.status}`);lastOutput=data.output||"";lastCommands=selected;lastRun={module:tech,platform:p.platform,target:p.target,commands:[...selected],results:data.results||[],output:lastOutput,truncated:!!data.truncated,observedAt:new Date().toISOString()};el("verifyOutput").textContent=lastOutput||"(Selected commands returned no output.)";el("verifyCopy").disabled=!lastOutput;el("verifyDownload").disabled=!lastOutput;const failed=(data.results||[]).filter(x=>!x.ok).length;status(`${data.mock?"MOCK output":"Device verification"} · ${data.device} · ${selected.length} checks · ${selected.length-failed} passed${failed?` · ${failed} command errors`:""}${data.truncated?" · output truncated at 1 MB":""}`,failed||data.truncated?"warn":"pass");}
    catch(error){el("verifyOutput").textContent="No verification output received.";status(`Verification failed: ${error.message}`,"fail");}
    finally{button.disabled=false;button.textContent="Run Selected Commands";}
  }
@@ -5202,9 +5229,51 @@ const VerificationEngine=(()=>{
    el("verifyCopy").addEventListener("click",async()=>{if(lastOutput)try{await navigator.clipboard.writeText(lastOutput);status(`Copied ${lastCommands.length} verification results.`,`pass`);}catch{status("Copy failed. Select the output text manually.","fail");}});
    el("verifyDownload").addEventListener("click",()=>{if(!lastOutput)return;const blob=new Blob([`Module: ${tech}\nPlatform: ${el("verifyPlatform").value}\nCommands: ${lastCommands.length}\n\n${lastOutput}\n`],{type:"text/plain;charset=utf-8"});const url=URL.createObjectURL(blob),link=document.createElement("a");link.href=url;link.download=`${tech}_${el("verifyPlatform").value.replace(/[^a-z0-9]+/gi,"_")}_verification.txt`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
  }
- return {bind,activate};
+ return {bind,activate,snapshot:()=>lastRun?{...lastRun,commands:[...lastRun.commands],results:lastRun.results.map(x=>({...x}))}:null};
 })();
 VerificationEngine.bind();
+
+const TroubleshootingEngine=(()=>{
+ const el=id=>document.getElementById(id),canonical=p=>p==="Cisco_StackWise"?"Cisco IOS-XE":p==="Huawei"?"Huawei_CE_SW":p;
+ let catalog=null,loading=null,lastOutput="",lastCommands=[],signature="";
+ const symptomCatalog={
+   BGP:[
+    ["session_down","Neighbor Down / Active","Validate interface state, peer reachability, TCP/179, local/remote ASN, update-source and authentication before examining policy."],
+    ["no_received","Prefixes are not received","Prove session state first, then compare received routes, inbound policy, maximum-prefix state and address-family activation."],
+    ["no_advertised","Prefixes are not advertised","Confirm the prefix exists in the local RIB and BGP table, then inspect network/redistribution conditions and outbound policy."],
+    ["wrong_exit","Wrong outbound path selected","Compare Weight and Local Preference first, then AS_PATH, Origin and MED. Confirm the policy is applied in the correct direction."],
+    ["inbound_te","Inbound traffic engineering ineffective","Inspect the attributes actually advertised to each ISP. Upstream acceptance of prepend, MED and communities must be confirmed."],
+    ["bfd_down","BFD session down","Validate routing adjacency independently, then compare BFD enablement, timers, source addressing and forwarding reachability."],
+    ["rib_fib","Route exists but traffic does not forward","Compare BGP best path, RIB installation, recursive next-hop resolution and hardware FIB/adjacency state."],
+    ["flap","Session or routes are flapping","Correlate neighbor uptime, interface counters, BFD events, logs, hold timers and control-plane resource conditions."]],
+   OSPF:[["adjacency","Adjacency not Full","Validate interface, area, timers, network type, MTU, authentication and passive-interface state."],["route","OSPF route missing","Inspect LSDB presence, SPF result, filtering, summarization and RIB preference."],["flap","Adjacency flapping","Correlate physical errors, timers, MTU, BFD and logs."]],
+   VPC:[["peer","Peer-link or keepalive failure","Separate peer-link forwarding state from keepalive reachability and validate consistency parameters."],["suspended","Member port suspended","Inspect Type-1 consistency mismatches, LACP state, VLAN/trunk policy and peer-side membership."],["split","Split-brain suspicion","Validate peer-link, keepalive/DAD path and operational primary/secondary roles before making changes."],["vlan","VLAN or forwarding mismatch","Compare VLAN presence, trunk allowance, STP state and MAC learning across both peers."]],
+   STP:[["root","Unexpected root bridge","Inspect bridge priority, root path cost and received superior BPDUs."],["blocked","Unexpected blocked port","Trace the root path, port roles, cost and loop-protection features."],["guard","Guard inconsistency","Identify the triggering BPDU or unidirectional-link condition before clearing the state."]],
+   EVPN:[["peer","EVPN/BGP peer down","Validate underlay loopback reachability, BGP session parameters and update-source."],["vni","VNI not operational","Inspect NVE/VXLAN interface, VNI mapping, source loopback and remote VTEP discovery."],["mac","MAC/IP route missing","Trace local learning, Type-2 advertisement, route-target import and remote installation."],["type5","Type-5 route missing","Validate VRF AF, L3VNI, route-target policy and route redistribution."],["forwarding","Overlay route exists but traffic fails","Compare control-plane routes with ARP/ND, MAC, adjacency and hardware forwarding state."]],
+   SDWAN:[["control","Control connection down","Validate transport reachability, system identity, certificates, time, DNS and firewall/NAT behavior."],["bfd","BFD tunnel down","Inspect tunnel establishment, color, NAT mapping, MTU and loss/latency."],["omp","OMP route missing","Validate OMP peers, route advertisement, policy and VPN membership."],["sla","Application SLA failure","Compare loss, latency, jitter, path selection and data-policy counters."]],
+   QOS:[["classification","Traffic not classified","Validate match criteria, policy attachment direction and counters."],["drops","Unexpected drops","Inspect queue depth, policer, shaper, WRED and interface congestion counters."],["marking","DSCP marking incorrect","Trace classification and remarking at each ingress/egress policy point."]],
+   BASIC:[["ssh","SSH or management access failure","Validate management interface, route/VRF, ACL, AAA reachability and SSH service state."],["aaa","AAA authentication failure","Compare server reachability, shared key, method list and local fallback."],["ntp","NTP not synchronized","Inspect reachability, source interface/VRF, clock offset and server state."],["logging","Logs or SNMP missing","Validate source interface, VRF, destination reachability, severity and security parameters."]]
+ };
+ const genericSymptoms=[["physical","Physical or interface problem","Start with interface state, counters, optics and neighbor discovery."],["reachability","IP reachability problem","Validate addressing, ARP/ND, routing and forwarding in order."],["policy","Policy or filtering problem","Confirm the object exists, matches traffic and is applied in the intended direction."]];
+ const patterns={session_down:/summary|neighbor|peer|interface|route.*peer|tcp|bfd|logging/,no_received:/received|neighbor|peer|route-map|policy|prefix|maximum|bgp.*route/,no_advertised:/advertised|network|route-map|policy|prefix|running-config|bgp.*route/,wrong_exit:/bgp|route|local.preference|weight|as.path|med|community|route-map|forwarding/,inbound_te:/advertised|as.path|med|community|route-map|policy|bgp/,bfd_down:/bfd|interface|route|neighbor|logging/,rib_fib:/bgp|route|forwarding|fib|cef|arp|adjacency/,flap:/neighbor|peer|interface|counter|bfd|logging|clock/,adjacency:/ospf|interface|bfd|logging/,route:/ospf|route|database|policy|prefix|forwarding/,peer:/vpc|mlag|m-lag|dfs|peer|keepalive|interface|lacp|logging/,suspended:/consistency|interface|port-channel|eth-trunk|lacp|vlan|trunk/,split:/vpc|mlag|m-lag|dfs|peer|keepalive|role|logging/,vlan:/vlan|trunk|spanning|mac|interface/,root:/spanning|stp|root|bridge|interface/,blocked:/spanning|stp|interface|cost|role/,guard:/spanning|stp|guard|udld|logging/,vni:/nve|vxlan|vni|interface|route/,mac:/evpn|l2route|mac|arp|route-type 2/,type5:/evpn|vrf|route-type 5|bgp|route/,forwarding:/route|forwarding|fib|cef|arp|mac|interface/,control:/sdwan|control|system|certificate|ntp|dns|interface|route/,bfd:/bfd|tunnel|interface|route/,omp:/omp|route|policy|vpn/,sla:/app-route|sla|bfd|loss|latency|jitter|policy/,classification:/qos|class-map|policy-map|dscp|counter/,drops:/qos|queue|drop|wred|polic|shap|counter|interface/,marking:/qos|class-map|policy-map|dscp|mark|remark/,ssh:/ssh|management|mgmt|interface|route|access-list|aaa/,aaa:/aaa|tacacs|radius|user|login|management/,ntp:/ntp|clock|route|management/,logging:/logging|snmp|management|route|clock/,physical:/interface|transceiver|counter|lldp|cdp/,reachability:/route|arp|interface|forwarding/,policy:/policy|route-map|prefix|access-list|filter/};
+ function status(message,kind="neutral"){const box=el("troubleStatus");box.textContent=message;box.className=`sd-result ${kind}`;}
+ function moduleVerify(){const m=modules[tech];return String(m?.generate?.("verify")||"").split(/\r?\n/).map(x=>x.trim()).filter(x=>/^(?:show|display|get|diagnose)\s/i.test(x));}
+ function allPlatformCommands(){const vendor=canonical(platform());return Object.values(catalog?.[vendor]||{}).flat();}
+ function selected(){return [...document.querySelectorAll("#troubleCommandGroups .verify-command")].filter(row=>row.querySelector(".verify-select")?.checked).map(row=>row.querySelector(".verify-command-editor")?.value.trim()).filter(Boolean);}
+ function updateSelection(){const cmds=selected(),all=[...document.querySelectorAll("#troubleCommandGroups .verify-select")].filter(x=>!x.disabled);el("troubleSelectedCount").textContent=`${cmds.length} of ${all.length} selected`;el("troubleSelectedPreview").textContent=cmds.length?cmds.join("\n"):"No commands selected.";el("troubleRun").disabled=!cmds.length;}
+ function commandRow(command,recommended=true,custom=false){const row=document.createElement("div");row.className="verify-command";const editor=document.createElement("input");editor.type="text";editor.className="verify-command-editor";editor.value=command;editor.placeholder=custom?"Enter a read-only show / display / get command":"";editor.setAttribute("aria-label",custom?"User-defined troubleshooting command":`Edit diagnostic command: ${command}`);const box=document.createElement("input");box.type="checkbox";box.className="verify-select";box.checked=!!command&&recommended;box.disabled=custom&&!command;box.setAttribute("aria-label",custom?"Select user-defined troubleshooting command":`Select diagnostic command: ${command}`);editor.addEventListener("input",()=>{if(custom){box.disabled=!editor.value.trim();box.checked=!!editor.value.trim();}updateSelection();});box.addEventListener("change",updateSelection);row.append(editor,box);return row;}
+ function addGroup(root,name,commands,recommended=true,custom=false){const section=document.createElement("section");section.className=`verify-group${custom?" verify-custom-group":""}`;const head=document.createElement("div");head.className="verify-group-head";const label=document.createElement("label");label.textContent=name;const count=document.createElement("span");count.textContent=custom?"editable":`${commands.length} commands`;head.append(label,count);const list=document.createElement("div");list.className="verify-command-list";(custom?[""]:commands).forEach(command=>list.append(commandRow(command,recommended,custom)));section.append(head,list);root.append(section);}
+ function renderCommands(){const key=el("troubleSymptom").value,match=patterns[key]||/.*/,base=moduleVerify(),extra=allPlatformCommands().filter(command=>match.test(command.toLowerCase())).slice(0,35),seen=new Set(),unique=list=>list.filter(command=>{const k=command.toLowerCase();if(seen.has(k))return false;seen.add(k);return true;}),root=el("troubleCommandGroups");root.replaceChildren();addGroup(root,"User-defined command",[],false,true);const topology=unique(base);if(topology.length)addGroup(root,"Topology-aware baseline",topology,true);const diagnostic=unique(extra);if(diagnostic.length)addGroup(root,"Symptom-focused diagnostics",diagnostic,true);updateSelection();}
+ function renderEvidence(){const snap=VerificationEngine.snapshot(),runbook=String(modules[tech]?.generate?.("trouble")||"").trim();if(snap&&snap.module===tech){const failed=snap.results.filter(x=>!x.ok).map(x=>`✗ ${x.command}`),passed=snap.results.filter(x=>x.ok).length;el("troubleDevice").textContent=snap.target||"Unknown device";el("troubleEvidenceState").textContent=`${passed} passed · ${failed.length} command errors`;el("troubleEvidence").textContent=[`Device: ${snap.target}\nPlatform: ${snap.platform}\nObserved: ${snap.observedAt}`,failed.length?`\nFailed commands:\n${failed.join("\n")}`:"\nNo command-level errors reported.",snap.truncated?"\nOutput was truncated.":"",`\nVerification output:\n${snap.output||"No output returned."}`].join("\n");}else{el("troubleDevice").textContent=el("verifyTarget")?.value.trim()||"Not connected";el("troubleEvidenceState").textContent="No live result imported";el("troubleEvidence").textContent=`No live Verification result is available for this module.\n\nModule runbook:\n${runbook||"Start with physical, reachability, control-plane, policy and data-plane checks."}`;}}
+ function renderSymptom(){const list=symptomCatalog[tech]||genericSymptoms,select=el("troubleSymptom"),old=select.value;select.innerHTML=list.map(([value,label])=>`<option value="${value}">${label}</option>`).join("");if(list.some(x=>x[0]===old))select.value=old;const item=list.find(x=>x[0]===select.value)||list[0];el("troubleGuidance").textContent=item?.[2]||"";el("troubleSymptomState").textContent=item?.[1]||"Not selected";}
+ async function activate(){const vendor=canonical(platform()),nextSignature=`${tech}|${vendor}`;if([...el("verifyPlatform").options].some(x=>x.value===vendor))el("verifyPlatform").value=vendor;[["sdTarget","verifyTarget"],["sdPort","verifyPort"],["sdUsername","verifyUsername"],["sdPassword","verifyPassword"],["sdSecret","verifySecret"]].forEach(([source,target])=>{if(el(source)?.value&&!el(target)?.value)el(target).value=el(source).value;});el("troublePlatformTitle").textContent=vendor.toUpperCase();el("troubleModuleBadge").textContent=modules[tech]?.title||tech;renderEvidence();renderSymptom();if(!catalog){if(loading)return loading;status("Loading diagnostic command catalog…","busy");loading=(async()=>{try{const response=await fetch("/api/device/commands");if(!response.ok)throw new Error(`HTTP ${response.status}`);catalog=(await response.json()).platforms;signature=nextSignature;renderCommands();status("Select the commands required for this diagnostic step.");}catch(error){status(`Diagnostic catalog unavailable: ${error.message}`,"fail");}finally{loading=null;}})();return loading;}if(signature!==nextSignature){signature=nextSignature;renderCommands();}else renderCommands();status("Select the commands required for this diagnostic step.");}
+ function connectionPayload(){return {target:el("verifyTarget").value.trim(),port:Number(el("verifyPort").value),platform:el("verifyPlatform").value,username:el("verifyUsername").value.trim(),password:el("verifyPassword").value,secret:el("verifySecret").value};}
+ async function testConnection(){const button=el("troubleTest"),p=connectionPayload();button.disabled=true;button.textContent="Testing…";status(`Connecting to ${p.target||"device"}…`,"busy");try{const response=await fetch("/api/device/test",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(p)});const data=await response.json();if(!response.ok)throw new Error(data.detail?.error||data.error||`HTTP ${response.status}`);const lines=(data.steps||[]).map(x=>`${x.status==="PASS"?"✓":x.status==="WARN"?"!":"✗"} ${x.name}${x.detail?`: ${x.detail}`:""}`);status(lines.join("\n")||"Connection test successful.","pass");}catch(error){status(`✗ Connection failed\n${error.message}`,"fail");}finally{button.disabled=false;button.textContent="Test Connection";}}
+ async function run(){const commands=selected();if(!commands.length)return;const p={...connectionPayload(),command:commands.join("\n")},button=el("troubleRun");button.disabled=true;button.textContent="Running Diagnostics…";status(`Running ${commands.length} diagnostic commands on ${p.target}…`,"busy");try{const response=await fetch("/api/device/show",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(p)});const data=await response.json();if(!response.ok)throw new Error(data.detail?.error||data.error||`HTTP ${response.status}`);lastOutput=data.output||"";lastCommands=commands;el("troubleOutput").textContent=lastOutput||"(Commands returned no output.)";el("troubleCopy").disabled=!lastOutput;el("troubleDownload").disabled=!lastOutput;const failed=(data.results||[]).filter(x=>!x.ok).length;status(`${data.device} · ${commands.length} diagnostics · ${commands.length-failed} completed${failed?` · ${failed} command errors`:""}`,failed?"warn":"pass");}catch(error){el("troubleOutput").textContent="No diagnostic output received.";status(`Troubleshooting failed: ${error.message}`,"fail");}finally{button.disabled=false;button.textContent="Run Selected Commands";}}
+ function bind(){el("troubleSymptom").addEventListener("change",()=>{const list=symptomCatalog[tech]||genericSymptoms,item=list.find(x=>x[0]===el("troubleSymptom").value);el("troubleGuidance").textContent=item?.[2]||"";el("troubleSymptomState").textContent=item?.[1]||"Not selected";renderCommands();});el("troubleSelectAll").addEventListener("click",()=>{document.querySelectorAll("#troubleCommandGroups .verify-select:not(:disabled)").forEach(x=>x.checked=true);updateSelection();});el("troubleClearAll").addEventListener("click",()=>{document.querySelectorAll("#troubleCommandGroups .verify-select").forEach(x=>x.checked=false);updateSelection();});el("troubleTest").addEventListener("click",testConnection);el("troubleRun").addEventListener("click",run);el("troubleCopy").addEventListener("click",async()=>{if(lastOutput)try{await navigator.clipboard.writeText(lastOutput);status("Diagnostic output copied.","pass");}catch{status("Copy failed.","fail");}});el("troubleDownload").addEventListener("click",()=>{if(!lastOutput)return;const notes=`Probable cause: ${el("troubleProbableCause").value}\nRoot cause: ${el("troubleRootCause").value}\nCorrective action: ${el("troubleCorrectiveAction").value}\nPost-check: ${el("troublePostCheck").value}\nNotes: ${el("troubleNotes").value}`;const blob=new Blob([`${notes}\n\nCommands:\n${lastCommands.join("\n")}\n\nOutput:\n${lastOutput}\n`],{type:"text/plain;charset=utf-8"}),url=URL.createObjectURL(blob),link=document.createElement("a");link.href=url;link.download=`${tech}_${canonical(platform()).replace(/[^a-z0-9]+/gi,"_")}_troubleshooting.txt`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});}
+ return {bind,activate};
+})();
+TroubleshootingEngine.bind();
 
 function renderOutput(){
  if(tech==="BGP")bgpV39ContextUI();
@@ -5212,6 +5281,7 @@ function renderOutput(){
  const out=document.getElementById("output");
  const deploy=document.getElementById("deployPanel");
  const verification=document.getElementById("verificationPanel");
+ const troubleshooting=document.getElementById("troubleshootingPanel");
  const actions=document.getElementById("outputActions");
  try{
    const m=modules[tech];
@@ -5222,6 +5292,7 @@ function renderOutput(){
      if(actions)actions.hidden=true;
      if(deploy)deploy.hidden=false;
      if(verification)verification.hidden=true;
+     if(troubleshooting)troubleshooting.hidden=true;
      SimpleDeployEngine.refresh();
      return;
    }
@@ -5230,13 +5301,24 @@ function renderOutput(){
      if(actions)actions.hidden=true;
      if(deploy)deploy.hidden=true;
      if(verification)verification.hidden=false;
+     if(troubleshooting)troubleshooting.hidden=true;
      VerificationEngine.activate();
+     return;
+   }
+   if(tab==="trouble"){
+     if(out)out.hidden=true;
+     if(actions)actions.hidden=true;
+     if(deploy)deploy.hidden=true;
+     if(verification)verification.hidden=true;
+     if(troubleshooting)troubleshooting.hidden=false;
+     TroubleshootingEngine.activate();
      return;
    }
    if(out)out.hidden=false;
    if(actions)actions.hidden=false;
    if(deploy)deploy.hidden=true;
    if(verification)verification.hidden=true;
+   if(troubleshooting)troubleshooting.hidden=true;
    const result=(typeof m.generate==="function") ? m.generate(tab) : "";
    out.textContent=(result && String(result).trim()) ? result : "# No configuration output generated.";
  }catch(err){
@@ -5244,6 +5326,7 @@ function renderOutput(){
    if(out){out.hidden=false;out.textContent="# CONFIGURATOR ERROR\n# "+err.message+"\n# Module: "+tech+"\n# Platform: "+platform();}
    if(deploy)deploy.hidden=true;
    if(verification)verification.hidden=true;
+   if(troubleshooting)troubleshooting.hidden=true;
  }
 }
 
