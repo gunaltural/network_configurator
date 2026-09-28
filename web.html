@@ -5269,6 +5269,7 @@ const VerificationEngine=(()=>{
    el("verifyPickerSummary").textContent=checked.length?`${checked.length} of ${all.length} commands selected`:`Choose from ${all.length} commands`;
    document.querySelectorAll("#verifyGroups .verify-group").forEach(group=>{
      const boxes=[...group.querySelectorAll(".verify-command .verify-select")],master=group.querySelector(".verify-group-head input");
+     if(!master)return;
      master.checked=boxes.length>0&&boxes.every(x=>x.checked);master.indeterminate=boxes.some(x=>x.checked)&&!master.checked;
    });
    el("verifyRun").disabled=!checked.length;
