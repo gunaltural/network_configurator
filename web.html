@@ -98,7 +98,9 @@ pre{
 .sd-card .verify-command:hover{background:#0b1b27;color:#7ddcff}
 .verify-command-editor{flex:1;min-width:0;width:100%;margin:0;padding:4px 6px;border:1px solid transparent;border-radius:5px;background:transparent;color:inherit;font-family:'JetBrains Mono','Fira Code','Roboto Mono','Consolas','Courier New',monospace;font-size:15px;line-height:1.55;font-weight:400;text-transform:none!important;letter-spacing:.1px;white-space:nowrap;overflow-x:auto}
 .verify-command-editor:hover{border-color:#25445c;background:#07111a}.verify-command-editor:focus{outline:none;border-color:#38bdf8;background:#050e15;box-shadow:0 0 0 2px rgba(56,189,248,.12)}
+.verify-command-editor::placeholder{color:#38bdf8;opacity:.58}
 .verify-select,.verify-group-head input{flex:0 0 auto;width:18px!important;height:18px;margin:0!important;accent-color:#38bdf8;order:2}
+.verify-custom-group .verify-group-head{background:#102433}.verify-custom-group .verify-command{background:#091923}
 .verification-cli .sd-cli{white-space:pre;min-height:300px;max-height:650px;overflow:auto}
 .verification-cli .live-help{display:block;margin-top:7px;color:#95adbd;font-size:12px;line-height:1.5}
 .simple-deploy{display:grid;gap:12px}
@@ -5270,6 +5272,10 @@ const VerificationEngine=(()=>{
    const vendor=canonical(el("verifyPlatform").value),groups=new Map();
    for(const item of commands()){const name=category(item.command);if(!groups.has(name))groups.set(name,[]);groups.get(name).push(item);}
    const root=el("verifyGroups");root.replaceChildren();
+   const customSection=document.createElement("section");customSection.className="verify-group verify-custom-group";
+   const customHead=document.createElement("div");customHead.className="verify-group-head";const customLabel=document.createElement("label");customLabel.textContent="User-defined command";const customHint=document.createElement("span");customHint.textContent="editable";customHead.append(customLabel,customHint);
+   const customList=document.createElement("div");customList.className="verify-command-list";const customRow=document.createElement("div");customRow.className="verify-command";const customEditor=document.createElement("input");customEditor.type="text";customEditor.className="verify-command-editor";customEditor.placeholder="Enter a read-only show / display / get command";customEditor.setAttribute("aria-label","User-defined verification command");const customBox=document.createElement("input");customBox.type="checkbox";customBox.className="verify-select";customBox.disabled=true;customBox.dataset.recommended="0";customBox.setAttribute("aria-label","Select user-defined command");customRow.append(customEditor,customBox);customList.append(customRow);customSection.append(customHead,customList);root.append(customSection);
+   customEditor.addEventListener("input",()=>{const hasCommand=Boolean(customEditor.value.trim());customBox.disabled=!hasCommand;if(hasCommand)customBox.checked=true;else customBox.checked=false;clearOutput();updateCount();});customBox.addEventListener("change",updateCount);
    for(const [name,items] of groups){
      const section=document.createElement("section");section.className="verify-group";
      const head=document.createElement("div");head.className="verify-group-head";
@@ -5284,7 +5290,7 @@ const VerificationEngine=(()=>{
    lastSignature=`${tech}|${vendor}|${moduleCommands().join("|")}`;updateCount();clearOutput(false);status("Select the checks required for this validation window.");
  }
  function clearOutput(resetStatus=true){lastOutput="";lastCommands=[];el("verifyOutput").textContent="Selected command output will appear here.";el("verifyCopy").disabled=true;el("verifyDownload").disabled=true;if(resetStatus)status("Select the checks required for this validation window.");}
- function setSelection(mode){document.querySelectorAll("#verifyGroups .verify-command .verify-select").forEach(box=>box.checked=mode==="all"||(mode==="recommended"&&box.dataset.recommended==="1"));updateCount();}
+ function setSelection(mode){document.querySelectorAll("#verifyGroups .verify-command .verify-select").forEach(box=>box.checked=!box.disabled&&(mode==="all"||(mode==="recommended"&&box.dataset.recommended==="1")));updateCount();}
  function syncConnection(){
    const pairs=[["sdTarget","liveTarget","verifyTarget"],["sdPort","livePort","verifyPort"],["sdUsername","liveUsername","verifyUsername"],["sdPassword","livePassword","verifyPassword"],["sdSecret","liveSecret","verifySecret"]];
    for(const ids of pairs){const value=ids.map(id=>el(id)?.value).find(Boolean)||"";ids.forEach(id=>{if(el(id))el(id).value=value;});}
