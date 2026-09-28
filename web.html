@@ -79,6 +79,12 @@ pre{
 .live-cli .live-help{display:block;margin-top:7px;color:#95adbd;font-size:12px;line-height:1.5}
 .verification-cli[hidden]{display:none!important}
 .verification-cli{display:grid;gap:12px}
+.verify-picker{position:relative;margin-bottom:10px}
+.verify-picker-trigger{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 13px;border:1px solid #315b77;border-radius:9px;background:#07111a;color:#dcebf4;text-align:left;font:11px/1.35 'JetBrains Mono','Fira Code','Roboto Mono','Consolas','Courier New',monospace;cursor:pointer}
+.verify-picker-trigger:hover,.verify-picker-trigger[aria-expanded="true"]{border-color:#58a6ff;background:#0a1b28}.verify-picker-trigger:after{content:"⌄";font-size:16px;color:#72d9ff;transition:transform .15s}.verify-picker-trigger[aria-expanded="true"]:after{transform:rotate(180deg)}
+.verify-picker-label{display:block;color:#829cad;font:800 9px/1.2 Inter,Segoe UI,Arial,sans-serif;text-transform:uppercase;letter-spacing:.05em}.verify-picker-summary{display:block;margin-top:3px;color:#dcebf4}
+.verify-picker-panel{position:absolute;z-index:20;left:0;right:0;top:calc(100% + 6px);padding:10px;border:1px solid #315b77;border-radius:12px;background:#07111a;box-shadow:0 18px 45px rgba(0,0,0,.55)}
+.verify-picker-panel[hidden]{display:none!important}
 .verify-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .verify-toolbar .verify-count{margin-left:auto;color:#77d9ff;font-size:11px;font-weight:800}
 .verify-groups{display:grid;gap:10px;max-height:min(58vh,560px);overflow-y:auto;overscroll-behavior:contain;padding:10px;border:1px solid #263d50;border-radius:12px;background:#050e15;scrollbar-gutter:stable}
@@ -558,13 +564,18 @@ pre{
             <small class="live-help">The same read-only security rules and target policy as Live CLI apply. Configuration mode and write commands remain blocked.</small>
           </div>
           <div class="sd-card">
-            <div class="verify-toolbar">
-              <button class="btn" id="verifySelectRecommended" type="button">Select Recommended</button>
-              <button class="btn" id="verifySelectAll" type="button">Select All</button>
-              <button class="btn" id="verifyClearAll" type="button">Clear</button>
-              <span id="verifySelectedCount" class="verify-count">0 selected</span>
+            <div class="verify-picker" id="verifyPicker">
+              <button class="verify-picker-trigger" id="verifyPickerTrigger" type="button" aria-expanded="false" aria-controls="verifyPickerPanel"><span><span class="verify-picker-label">Verification commands</span><span class="verify-picker-summary" id="verifyPickerSummary">Choose commands</span></span></button>
+              <div class="verify-picker-panel" id="verifyPickerPanel" hidden>
+                <div class="verify-toolbar">
+                  <button class="btn" id="verifySelectRecommended" type="button">Select Recommended</button>
+                  <button class="btn" id="verifySelectAll" type="button">Select All</button>
+                  <button class="btn" id="verifyClearAll" type="button">Clear</button>
+                  <span id="verifySelectedCount" class="verify-count">0 selected</span>
+                </div>
+                <div id="verifyGroups" class="verify-groups"></div>
+              </div>
             </div>
-            <div id="verifyGroups" class="verify-groups"></div>
           </div>
           <div class="sd-actions"><button class="btn primary" id="verifyRun" type="button">Run Selected Checks</button><button class="btn" id="verifyCopy" type="button" disabled>Copy Output</button><button class="btn" id="verifyDownload" type="button" disabled>Download TXT</button></div>
           <div id="verifyStatus" class="sd-result neutral" role="status" aria-live="polite">Select the checks required for this validation window.</div>
@@ -5246,6 +5257,7 @@ const VerificationEngine=(()=>{
  function updateCount(){
    const all=[...document.querySelectorAll("#verifyGroups .verify-command input")],checked=all.filter(x=>x.checked);
    el("verifySelectedCount").textContent=`${checked.length} of ${all.length} selected`;
+   el("verifyPickerSummary").textContent=checked.length?`${checked.length} of ${all.length} commands selected`:`Choose from ${all.length} commands`;
    document.querySelectorAll("#verifyGroups .verify-group").forEach(group=>{
      const boxes=[...group.querySelectorAll(".verify-command input")],master=group.querySelector(".verify-group-head input");
      master.checked=boxes.length>0&&boxes.every(x=>x.checked);master.indeterminate=boxes.some(x=>x.checked)&&!master.checked;
@@ -5292,6 +5304,10 @@ const VerificationEngine=(()=>{
    finally{button.disabled=false;button.textContent="Run Selected Checks";}
  }
  function bind(){
+   const closePicker=()=>{el("verifyPickerPanel").hidden=true;el("verifyPickerTrigger").setAttribute("aria-expanded","false");};
+   el("verifyPickerTrigger").addEventListener("click",()=>{const open=el("verifyPickerPanel").hidden;el("verifyPickerPanel").hidden=!open;el("verifyPickerTrigger").setAttribute("aria-expanded",String(open));});
+   document.addEventListener("click",event=>{if(!el("verifyPicker").contains(event.target))closePicker();});
+   document.addEventListener("keydown",event=>{if(event.key==="Escape")closePicker();});
    el("verifyPlatform").addEventListener("change",render);el("verifySelectRecommended").addEventListener("click",()=>setSelection("recommended"));el("verifySelectAll").addEventListener("click",()=>setSelection("all"));el("verifyClearAll").addEventListener("click",()=>setSelection("none"));el("verifyRun").addEventListener("click",run);
    [["sdTarget","liveTarget","verifyTarget"],["sdPort","livePort","verifyPort"],["sdUsername","liveUsername","verifyUsername"],["sdPassword","livePassword","verifyPassword"],["sdSecret","liveSecret","verifySecret"]].forEach(ids=>ids.forEach(id=>el(id)?.addEventListener("input",()=>{const value=el(id).value;ids.forEach(other=>{if(other!==id&&el(other))el(other).value=value;});clearOutput();})));
    el("verifyCopy").addEventListener("click",async()=>{if(lastOutput)try{await navigator.clipboard.writeText(lastOutput);status(`Copied ${lastCommands.length} verification results.`,`pass`);}catch{status("Copy failed. Select the output text manually.","fail");}});
