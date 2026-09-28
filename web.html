@@ -395,7 +395,7 @@ pre{
     <div class="logo">NC</div>
     <div><h1>Network Configurator</h1><small>Configure · Validate · Troubleshoot</small></div>
   </div>
-  <div class="badge">Version 5.11.0 · Selective Verification via Live CLI</div>
+  <div class="badge">Version 5.11.0 · Selective Device Verification</div>
 </header>
 
 <div class="layout">
@@ -449,7 +449,6 @@ pre{
         <div class="tabs">
           <button class="tab active" data-tab="config">Configuration</button>
           <button class="tab" data-tab="deploy">Deploy Config</button>
-          <button class="tab" data-tab="live">Live CLI</button>
           <button class="tab" data-tab="verify">Verification</button>
           <button class="tab" data-tab="trouble">Troubleshooting</button>
           <button class="tab" data-tab="notes">Design Notes</button>
@@ -532,32 +531,10 @@ pre{
             <span id="sdServerHint"></span>
           </div>
         </div>
-        <div id="livePanel" class="live-cli" hidden>
-          <div class="simple-deploy-head"><div><b>LIVE CLI · <span id="livePlatformTitle">CISCO IOS-XE</span></b><span>Read-only commands, one per line</span></div></div>
-          <div class="sd-card">
-            <div class="sd-grid">
-              <div><label for="liveTarget">Device IP / Host</label><input id="liveTarget" placeholder="Device IP or hostname" autocomplete="off"></div>
-              <div><label for="livePort">SSH Port</label><input id="livePort" type="number" min="1" max="65535" value="22"></div>
-              <div><label for="livePlatform">Device platform</label><select id="livePlatform"><option>Cisco IOS-XE</option><option>Cisco NX-OS</option><option>Arista EOS</option><option>Huawei_CE_SW</option><option>FortiGate</option></select><small class="live-help">Follows the workspace platform; choose another vendor here when needed.</small></div>
-              <div><label for="liveUsername">Username</label><input id="liveUsername" autocomplete="username"></div>
-              <div><label for="livePassword">Password</label><input id="livePassword" type="password" autocomplete="current-password"></div>
-              <div><label for="liveSecret">Enable Secret (optional)</label><input id="liveSecret" type="password" autocomplete="off"></div>
-            </div>
-            <small class="live-help">Enter any publicly reachable device address. Private network addresses require an explicit server exception and a network path from Render.</small>
-          </div>
-          <div class="sd-card">
-            <label for="liveCommand">Command</label>
-            <select id="liveCommand"><option value="__custom__">User-defined command</option></select>
-            <div id="liveCustomRow"><label for="liveCustomCommand">Your read-only commands, one per line</label><textarea id="liveCustomCommand" maxlength="131072" autocomplete="off" spellcheck="false" placeholder="show ip route 10.0.0.0/8"></textarea><small class="live-help">Add as many show / display / get commands as needed, one per line. Common display filters such as | include and | grep work. Configuration commands, redirects and command chaining are blocked.</small></div>
-          </div>
-          <div class="sd-actions"><button class="btn primary" id="liveRun" type="button">Run Command</button><button class="btn" id="liveCopy" type="button" disabled>Copy Output</button><button class="btn" id="liveDownload" type="button" disabled>Download TXT</button></div>
-          <div id="liveStatus" class="sd-result neutral" role="status" aria-live="polite">Select a command and run it against your device.</div>
-          <pre id="liveOutput" class="sd-cli" aria-label="CLI output">Output will appear here.</pre>
-        </div>
         <div id="verificationPanel" class="verification-cli" hidden>
           <div class="simple-deploy-head"><div><b>SELECTIVE VERIFICATION · <span id="verifyPlatformTitle">CISCO IOS-XE</span></b><span>Choose checks by category, then run only the selected read-only commands</span></div><span id="verifyModuleBadge" class="sd-badge neutral">MODULE</span></div>
           <div class="sd-card">
-            <h4>Live CLI connection</h4>
+            <h4>Device connection</h4>
             <div class="sd-grid">
               <div><label for="verifyTarget">Device IP / Host</label><input id="verifyTarget" placeholder="Device IP or hostname" autocomplete="off"></div>
               <div><label for="verifyPort">SSH Port</label><input id="verifyPort" type="number" min="1" max="65535" value="22"></div>
@@ -566,7 +543,7 @@ pre{
               <div><label for="verifyPassword">Password</label><input id="verifyPassword" type="password" autocomplete="current-password"></div>
               <div><label for="verifySecret">Enable Secret (optional)</label><input id="verifySecret" type="password" autocomplete="off"></div>
             </div>
-            <small class="live-help">The same read-only security rules and target policy as Live CLI apply. Configuration mode and write commands remain blocked.</small>
+            <small class="live-help">Read-only security rules and target policy apply. Configuration mode and write commands remain blocked.</small>
           </div>
           <div class="sd-card">
             <div class="verify-picker" id="verifyPicker">
@@ -5101,116 +5078,6 @@ const SimpleDeployEngine=(()=>{
 })();
 window.SimpleDeployEngine=SimpleDeployEngine;
 
-const LiveCliEngine=(()=>{
- const el=id=>document.getElementById(id);
- const fields=[["sdTarget","liveTarget"],["sdPort","livePort"],["sdUsername","liveUsername"],["sdPassword","livePassword"],["sdSecret","liveSecret"]];
- let lastOutput="", lastCommand="", lastDevice="", catalog=null, loading=null, requestId=0, lastWorkspacePlatform="";
- function status(message,kind="neutral"){
-   const box=el("liveStatus");box.textContent=message;box.className=`sd-result ${kind}`;
- }
- function clear(){
-   requestId++;
-   lastOutput="";el("liveOutput").textContent="Output will appear here.";
-   el("liveCopy").disabled=true;el("liveDownload").disabled=true;
-   status("Select a command and run it against the device.");
- }
- function renderCommands(){
-   const select=el("liveCommand"), vendor=el("livePlatform").value;
-   const examples={"Cisco IOS-XE":"show ip route 10.0.0.0/8","Cisco NX-OS":"show nve peers detail","Arista EOS":"show bgp evpn summary","Huawei_CE_SW":"display dfs-group 1 m-lag","FortiGate":"get router info bgp neighbors 10.0.0.1"};
-   select.replaceChildren(new Option("User-defined command","__custom__"));
-   for(const [group,commands] of Object.entries(catalog?.[vendor]||{})){
-     const optgroup=document.createElement("optgroup");optgroup.label=group;
-     for(const command of commands)optgroup.append(new Option(command,command));
-     select.append(optgroup);
-   }
-   el("livePlatformTitle").textContent=vendor.toUpperCase();
-   el("liveCustomRow").hidden=false;
-   el("liveCustomCommand").value="";
-   el("liveCustomCommand").placeholder=examples[vendor]||"Enter a read-only command";
-   clear();
- }
- function syncWorkspacePlatform(){
-   const selected=el("platform")?.value;
-   if(!selected||selected===lastWorkspacePlatform)return;
-   lastWorkspacePlatform=selected;
-   if([...el("livePlatform").options].some(option=>option.value===selected)&&el("livePlatform").value!==selected){
-     el("livePlatform").value=selected;
-     if(catalog)renderCommands();
-   }
- }
- async function activate(){
-   syncWorkspacePlatform();
-   if(catalog)return;
-   if(loading)return loading;
-   el("liveRun").disabled=true;
-   status("Loading read-only command catalog…","busy");
-   loading=(async()=>{
-     try{
-       const response=await fetch("/api/device/commands");
-       if(!response.ok)throw new Error(`HTTP ${response.status}`);
-       const data=await response.json();
-       if(!data.ok||!data.platforms)throw new Error("Invalid command catalog.");
-       catalog=data.platforms;renderCommands();el("liveRun").disabled=false;
-     }catch(error){status(`Command catalog unavailable: ${error.message}`,"fail");}
-     finally{loading=null;}
-   })();
-   return loading;
- }
- async function run(){
-   const button=el("liveRun");
-   const selected=el("liveCommand").value;
-   const p={target:el("liveTarget").value.trim(),port:Number(el("livePort").value),
-     platform:el("livePlatform").value,username:el("liveUsername").value.trim(),
-     password:el("livePassword").value,secret:el("liveSecret").value,
-     command:selected==="__custom__"?el("liveCustomCommand").value.trim():selected};
-   if(!p.command){status("Enter one or more read-only commands.","fail");el("liveCustomCommand").focus();return;}
-   clear();const currentRequest=requestId;button.disabled=true;button.textContent="Running…";
-   status(`Connecting to ${p.target} and running ${p.command.split(/\r?\n/).filter(Boolean).length} command(s)…`,"busy");
-   try{
-     const response=await fetch("/api/device/show",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(p)});
-     let data;
-     try{data=await response.json()}catch{throw new Error(`Invalid server response (HTTP ${response.status}).`)}
-     if(!response.ok)throw new Error(data.detail?.error||data.error||`HTTP ${response.status}`);
-     if(currentRequest!==requestId)return;
-     lastOutput=data.output;lastCommand=data.command;lastDevice=data.device;
-     el("liveOutput").textContent=lastOutput||"(Command returned no output.)";
-     el("liveCopy").disabled=!lastOutput;el("liveDownload").disabled=!lastOutput;
-     status(`${data.mock?"MOCK output":"Device output"} · ${p.platform} · ${data.device} · ${data.command_count} command(s)${data.truncated?" · Output truncated at 1 MB":""}${!data.ok?" · One or more commands reported an error":""}`,data.truncated||!data.ok?"warn":"pass");
-   }catch(error){
-     if(currentRequest!==requestId)return;
-     el("liveOutput").textContent="No CLI output received.";
-     status(`Command failed: ${error.message}`,"fail");
-   }finally{button.disabled=false;button.textContent="Run Command";}
- }
- function bind(){
-   for(const [deployId,liveId] of fields){
-     const deploy=el(deployId),live=el(liveId);
-     for(const [source,destination] of [[deploy,live],[live,deploy]]){
-       source.addEventListener("input",()=>{destination.value=source.value;clear();});
-     }
-   }
-   el("livePlatform").addEventListener("change",renderCommands);
-   el("liveCommand").addEventListener("change",()=>{el("liveCustomRow").hidden=el("liveCommand").value!=="__custom__";clear();});
-   el("liveCustomCommand").addEventListener("input",clear);
-   el("liveCustomCommand").addEventListener("keydown",event=>{if(event.key==="Enter"&&(event.ctrlKey||event.metaKey)){event.preventDefault();run();}});
-   el("liveRun").addEventListener("click",run);
-   el("liveCopy").addEventListener("click",async()=>{
-     if(!lastOutput)return;
-     try{await navigator.clipboard.writeText(lastOutput);status(`Copied output · ${lastDevice}`,"pass")}
-     catch{status("Copy failed. Select the text in the output panel instead.","fail")}
-   });
-   el("liveDownload").addEventListener("click",()=>{
-     if(!lastOutput)return;
-     const blob=new Blob([`Device: ${lastDevice}\nCommand: ${lastCommand}\n\n${lastOutput}\n`],{type:"text/plain;charset=utf-8"});
-     const url=URL.createObjectURL(blob),link=document.createElement("a");
-     link.href=url;link.download=lastCommand.includes("\n")?"live_cli_commands.txt":`${lastCommand.replace(/[^a-z0-9]+/gi,"_").slice(0,80)}.txt`;
-     link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
-   });
- }
-return {bind,activate};
-})();
-LiveCliEngine.bind();
-
 const VerificationEngine=(()=>{
  const el=id=>document.getElementById(id);
  let catalog=null,loading=null,lastSignature="",lastOutput="",lastCommands=[];
@@ -5299,7 +5166,7 @@ const VerificationEngine=(()=>{
  function clearOutput(resetStatus=true){lastOutput="";lastCommands=[];el("verifyOutput").textContent="Selected command output will appear here.";el("verifyCopy").disabled=true;el("verifyDownload").disabled=true;if(resetStatus)status("Select the checks required for this validation window.");}
  function setSelection(mode){document.querySelectorAll("#verifyGroups .verify-command .verify-select").forEach(box=>box.checked=!box.disabled&&(mode==="all"||(mode==="recommended"&&box.dataset.recommended==="1")));updateCount();}
  function syncConnection(){
-   const pairs=[["sdTarget","liveTarget","verifyTarget"],["sdPort","livePort","verifyPort"],["sdUsername","liveUsername","verifyUsername"],["sdPassword","livePassword","verifyPassword"],["sdSecret","liveSecret","verifySecret"]];
+   const pairs=[["sdTarget","verifyTarget"],["sdPort","verifyPort"],["sdUsername","verifyUsername"],["sdPassword","verifyPassword"],["sdSecret","verifySecret"]];
    for(const ids of pairs){const value=ids.map(id=>el(id)?.value).find(Boolean)||"";ids.forEach(id=>{if(el(id))el(id).value=value;});}
  }
  async function activate(){
@@ -5331,7 +5198,7 @@ const VerificationEngine=(()=>{
    document.addEventListener("click",event=>{if(!el("verifyPicker").contains(event.target))closePicker();});
    document.addEventListener("keydown",event=>{if(event.key==="Escape")closePicker();});
    el("verifyPlatform").addEventListener("change",render);el("verifySelectRecommended").addEventListener("click",()=>setSelection("recommended"));el("verifySelectAll").addEventListener("click",()=>setSelection("all"));el("verifyClearAll").addEventListener("click",()=>setSelection("none"));el("verifyTest").addEventListener("click",testConnection);el("verifyRun").addEventListener("click",run);
-   [["sdTarget","liveTarget","verifyTarget"],["sdPort","livePort","verifyPort"],["sdUsername","liveUsername","verifyUsername"],["sdPassword","livePassword","verifyPassword"],["sdSecret","liveSecret","verifySecret"]].forEach(ids=>ids.forEach(id=>el(id)?.addEventListener("input",()=>{const value=el(id).value;ids.forEach(other=>{if(other!==id&&el(other))el(other).value=value;});clearOutput();})));
+   [["sdTarget","verifyTarget"],["sdPort","verifyPort"],["sdUsername","verifyUsername"],["sdPassword","verifyPassword"],["sdSecret","verifySecret"]].forEach(ids=>ids.forEach(id=>el(id)?.addEventListener("input",()=>{const value=el(id).value;ids.forEach(other=>{if(other!==id&&el(other))el(other).value=value;});clearOutput();})));
    el("verifyCopy").addEventListener("click",async()=>{if(lastOutput)try{await navigator.clipboard.writeText(lastOutput);status(`Copied ${lastCommands.length} verification results.`,`pass`);}catch{status("Copy failed. Select the output text manually.","fail");}});
    el("verifyDownload").addEventListener("click",()=>{if(!lastOutput)return;const blob=new Blob([`Module: ${tech}\nPlatform: ${el("verifyPlatform").value}\nCommands: ${lastCommands.length}\n\n${lastOutput}\n`],{type:"text/plain;charset=utf-8"});const url=URL.createObjectURL(blob),link=document.createElement("a");link.href=url;link.download=`${tech}_${el("verifyPlatform").value.replace(/[^a-z0-9]+/gi,"_")}_verification.txt`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
  }
@@ -5344,7 +5211,6 @@ function renderOutput(){
  if(tech==="VPC"){vpcLeafUi();vpcV42ContextUI();} if(tech==="EVPN")evpnV431Ui();
  const out=document.getElementById("output");
  const deploy=document.getElementById("deployPanel");
- const live=document.getElementById("livePanel");
  const verification=document.getElementById("verificationPanel");
  const actions=document.getElementById("outputActions");
  try{
@@ -5355,25 +5221,14 @@ function renderOutput(){
      if(out)out.hidden=true;
      if(actions)actions.hidden=true;
      if(deploy)deploy.hidden=false;
-     if(live)live.hidden=true;
      if(verification)verification.hidden=true;
      SimpleDeployEngine.refresh();
-     return;
-   }
-   if(tab==="live"){
-     if(out)out.hidden=true;
-     if(actions)actions.hidden=true;
-     if(deploy)deploy.hidden=true;
-     if(live)live.hidden=false;
-     if(verification)verification.hidden=true;
-     LiveCliEngine.activate();
      return;
    }
    if(tab==="verify"){
      if(out)out.hidden=true;
      if(actions)actions.hidden=true;
      if(deploy)deploy.hidden=true;
-     if(live)live.hidden=true;
      if(verification)verification.hidden=false;
      VerificationEngine.activate();
      return;
@@ -5381,7 +5236,6 @@ function renderOutput(){
    if(out)out.hidden=false;
    if(actions)actions.hidden=false;
    if(deploy)deploy.hidden=true;
-   if(live)live.hidden=true;
    if(verification)verification.hidden=true;
    const result=(typeof m.generate==="function") ? m.generate(tab) : "";
    out.textContent=(result && String(result).trim()) ? result : "# No configuration output generated.";
@@ -5389,7 +5243,6 @@ function renderOutput(){
    console.error("Configurator render error:",err);
    if(out){out.hidden=false;out.textContent="# CONFIGURATOR ERROR\n# "+err.message+"\n# Module: "+tech+"\n# Platform: "+platform();}
    if(deploy)deploy.hidden=true;
-   if(live)live.hidden=true;
    if(verification)verification.hidden=true;
  }
 }
