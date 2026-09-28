@@ -94,9 +94,11 @@ pre{
 .verify-group-head label{margin:0;color:#d9edf8;font-size:10px;flex:1}
 .verify-group-head span{color:#7793a5;font-size:9px}
 .verify-command-list{display:grid;grid-template-columns:minmax(0,1fr);gap:1px;background:#162a38}
-.sd-card label.verify-command{display:flex;gap:8px;align-items:flex-start;margin:0;padding:9px 11px;background:#08141d;color:#38bdf8;font-family:'JetBrains Mono','Fira Code','Roboto Mono','Consolas','Courier New',monospace;font-size:15px;line-height:1.55;font-weight:400;text-transform:none!important;letter-spacing:.1px;overflow-wrap:anywhere}
-.sd-card label.verify-command:hover{background:#0b1b27;color:#7ddcff}
-.verify-command input,.verify-group-head input{width:auto;margin-top:2px;accent-color:#38bdf8}
+.sd-card .verify-command{display:flex;gap:12px;align-items:center;margin:0;padding:7px 11px;background:#08141d;color:#38bdf8}
+.sd-card .verify-command:hover{background:#0b1b27;color:#7ddcff}
+.verify-command-editor{flex:1;min-width:0;width:100%;margin:0;padding:4px 6px;border:1px solid transparent;border-radius:5px;background:transparent;color:inherit;font-family:'JetBrains Mono','Fira Code','Roboto Mono','Consolas','Courier New',monospace;font-size:15px;line-height:1.55;font-weight:400;text-transform:none!important;letter-spacing:.1px;white-space:nowrap;overflow-x:auto}
+.verify-command-editor:hover{border-color:#25445c;background:#07111a}.verify-command-editor:focus{outline:none;border-color:#38bdf8;background:#050e15;box-shadow:0 0 0 2px rgba(56,189,248,.12)}
+.verify-select,.verify-group-head input{flex:0 0 auto;width:18px!important;height:18px;margin:0!important;accent-color:#38bdf8;order:2}
 .verification-cli .sd-cli{white-space:pre;min-height:300px;max-height:650px;overflow:auto}
 .verification-cli .live-help{display:block;margin-top:7px;color:#95adbd;font-size:12px;line-height:1.5}
 .simple-deploy{display:grid;gap:12px}
@@ -5255,11 +5257,11 @@ const VerificationEngine=(()=>{
    return items;
  }
  function updateCount(){
-   const all=[...document.querySelectorAll("#verifyGroups .verify-command input")],checked=all.filter(x=>x.checked);
+   const all=[...document.querySelectorAll("#verifyGroups .verify-command .verify-select")],checked=all.filter(x=>x.checked);
    el("verifySelectedCount").textContent=`${checked.length} of ${all.length} selected`;
    el("verifyPickerSummary").textContent=checked.length?`${checked.length} of ${all.length} commands selected`:`Choose from ${all.length} commands`;
    document.querySelectorAll("#verifyGroups .verify-group").forEach(group=>{
-     const boxes=[...group.querySelectorAll(".verify-command input")],master=group.querySelector(".verify-group-head input");
+     const boxes=[...group.querySelectorAll(".verify-command .verify-select")],master=group.querySelector(".verify-group-head input");
      master.checked=boxes.length>0&&boxes.every(x=>x.checked);master.indeterminate=boxes.some(x=>x.checked)&&!master.checked;
    });
    el("verifyRun").disabled=!checked.length;
@@ -5274,15 +5276,15 @@ const VerificationEngine=(()=>{
      const master=document.createElement("input");master.type="checkbox";master.setAttribute("aria-label",`Select ${name}`);
      const label=document.createElement("label");label.textContent=name;const count=document.createElement("span");count.textContent=`${items.length} commands`;
      head.append(master,label,count);const list=document.createElement("div");list.className="verify-command-list";
-     for(const item of items){const row=document.createElement("label");row.className="verify-command";const box=document.createElement("input");box.type="checkbox";box.value=item.command;box.checked=item.recommended;box.dataset.recommended=item.recommended?"1":"0";const text=document.createElement("span");text.textContent=item.command;row.append(box,text);list.append(row);box.addEventListener("change",updateCount);}
-     master.addEventListener("change",()=>{list.querySelectorAll("input").forEach(x=>x.checked=master.checked);updateCount();});
+     for(const item of items){const row=document.createElement("div");row.className="verify-command";const editor=document.createElement("input");editor.type="text";editor.className="verify-command-editor";editor.value=item.command;editor.setAttribute("aria-label",`Edit command: ${item.command}`);editor.title="Edit command parameters before running";const box=document.createElement("input");box.type="checkbox";box.className="verify-select";box.checked=item.recommended;box.dataset.recommended=item.recommended?"1":"0";box.setAttribute("aria-label",`Select command: ${item.command}`);row.append(editor,box);list.append(row);box.addEventListener("change",updateCount);editor.addEventListener("input",()=>{box.setAttribute("aria-label",`Select command: ${editor.value}`);clearOutput();});}
+     master.addEventListener("change",()=>{list.querySelectorAll(".verify-select").forEach(x=>x.checked=master.checked);updateCount();});
      section.append(head,list);root.append(section);
    }
    el("verifyPlatformTitle").textContent=vendor.toUpperCase();el("verifyModuleBadge").textContent=modules[tech]?.title||tech;
    lastSignature=`${tech}|${vendor}|${moduleCommands().join("|")}`;updateCount();clearOutput(false);status("Select the checks required for this validation window.");
  }
  function clearOutput(resetStatus=true){lastOutput="";lastCommands=[];el("verifyOutput").textContent="Selected command output will appear here.";el("verifyCopy").disabled=true;el("verifyDownload").disabled=true;if(resetStatus)status("Select the checks required for this validation window.");}
- function setSelection(mode){document.querySelectorAll("#verifyGroups .verify-command input").forEach(box=>box.checked=mode==="all"||(mode==="recommended"&&box.dataset.recommended==="1"));updateCount();}
+ function setSelection(mode){document.querySelectorAll("#verifyGroups .verify-command .verify-select").forEach(box=>box.checked=mode==="all"||(mode==="recommended"&&box.dataset.recommended==="1"));updateCount();}
  function syncConnection(){
    const pairs=[["sdTarget","liveTarget","verifyTarget"],["sdPort","livePort","verifyPort"],["sdUsername","liveUsername","verifyUsername"],["sdPassword","livePassword","verifyPassword"],["sdSecret","liveSecret","verifySecret"]];
    for(const ids of pairs){const value=ids.map(id=>el(id)?.value).find(Boolean)||"";ids.forEach(id=>{if(el(id))el(id).value=value;});}
@@ -5296,7 +5298,7 @@ const VerificationEngine=(()=>{
    const signature=`${tech}|${workspace}|${moduleCommands().join("|")}`;if(signature!==lastSignature)render();
  }
  async function run(){
-   const selected=[...document.querySelectorAll("#verifyGroups .verify-command input:checked")].map(x=>x.value);if(!selected.length){status("Select at least one verification command.","fail");return;}
+   const selected=[...document.querySelectorAll("#verifyGroups .verify-command")].filter(row=>row.querySelector(".verify-select")?.checked).map(row=>row.querySelector(".verify-command-editor")?.value.trim()).filter(Boolean);if(!selected.length){status("Select at least one verification command.","fail");return;}
    const p={target:el("verifyTarget").value.trim(),port:Number(el("verifyPort").value),platform:el("verifyPlatform").value,username:el("verifyUsername").value.trim(),password:el("verifyPassword").value,secret:el("verifySecret").value,command:selected.join("\n")};
    const button=el("verifyRun");button.disabled=true;button.textContent="Running Selected Checks…";clearOutput(false);status(`Connecting to ${p.target} and running ${selected.length} selected checks…`,`busy`);
    try{const response=await fetch("/api/device/show",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(p)});let data;try{data=await response.json()}catch{throw new Error(`Invalid server response (HTTP ${response.status}).`)}if(!response.ok)throw new Error(data.detail?.error||data.error||`HTTP ${response.status}`);lastOutput=data.output||"";lastCommands=selected;el("verifyOutput").textContent=lastOutput||"(Selected commands returned no output.)";el("verifyCopy").disabled=!lastOutput;el("verifyDownload").disabled=!lastOutput;const failed=(data.results||[]).filter(x=>!x.ok).length;status(`${data.mock?"MOCK output":"Device verification"} · ${data.device} · ${selected.length} checks · ${selected.length-failed} passed${failed?` · ${failed} command errors`:""}${data.truncated?" · output truncated at 1 MB":""}`,failed||data.truncated?"warn":"pass");}
