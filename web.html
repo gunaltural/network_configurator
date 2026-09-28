@@ -584,7 +584,7 @@ pre{
             <label for="verifySelectedPreview">Selected Commands</label>
             <pre id="verifySelectedPreview" class="sd-cli verify-selected-preview" aria-label="Selected verification commands">No commands selected.</pre>
           </div>
-          <div class="sd-actions"><button class="btn primary" id="verifyRun" type="button">Run Selected Checks</button><button class="btn" id="verifyCopy" type="button" disabled>Copy Output</button><button class="btn" id="verifyDownload" type="button" disabled>Download TXT</button></div>
+          <div class="sd-actions"><button class="btn" id="verifyTest" type="button">Test Connection</button><button class="btn primary" id="verifyRun" type="button">Run Selected Commands</button><button class="btn" id="verifyCopy" type="button" disabled>Copy Output</button><button class="btn" id="verifyDownload" type="button" disabled>Download TXT</button></div>
           <div id="verifyStatus" class="sd-result neutral" role="status" aria-live="polite">Select the checks required for this validation window.</div>
           <pre id="verifyOutput" class="sd-cli" aria-label="Verification output">Selected command output will appear here.</pre>
         </div>
@@ -5310,20 +5310,27 @@ const VerificationEngine=(()=>{
    }
    const signature=`${tech}|${workspace}|${moduleCommands().join("|")}`;if(signature!==lastSignature)render();
  }
+ async function testConnection(){
+   const button=el("verifyTest"),p={target:el("verifyTarget").value.trim(),port:Number(el("verifyPort").value),platform:el("verifyPlatform").value,username:el("verifyUsername").value.trim(),password:el("verifyPassword").value,secret:el("verifySecret").value};
+   button.disabled=true;button.textContent="Testing…";status(`Connecting to ${p.target||"device"}…`,"busy");
+   try{const response=await fetch("/api/device/test",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(p)});let data;try{data=await response.json()}catch{throw new Error(`Invalid server response (HTTP ${response.status}).`)}if(!response.ok)throw new Error(data.detail?.error||data.error||`HTTP ${response.status}`);const lines=(data.steps||[]).map(step=>`${step.status==="PASS"?"✓":step.status==="WARN"?"!":"✗"} ${step.name}${step.detail?`: ${step.detail}`:""}`);if(data.message)lines.push("",data.message);status(lines.join("\n")||"Connection test successful.",data.ok?"pass":"fail");}
+   catch(error){status(`✗ Connection failed\n${error.message}`,"fail");}
+   finally{button.disabled=false;button.textContent="Test Connection";}
+ }
  async function run(){
    const selected=selectedCommands();if(!selected.length){status("Select at least one verification command.","fail");return;}
    const p={target:el("verifyTarget").value.trim(),port:Number(el("verifyPort").value),platform:el("verifyPlatform").value,username:el("verifyUsername").value.trim(),password:el("verifyPassword").value,secret:el("verifySecret").value,command:selected.join("\n")};
-   const button=el("verifyRun");button.disabled=true;button.textContent="Running Selected Checks…";clearOutput(false);status(`Connecting to ${p.target} and running ${selected.length} selected checks…`,`busy`);
+   const button=el("verifyRun");button.disabled=true;button.textContent="Running Selected Commands…";clearOutput(false);status(`Connecting to ${p.target} and running ${selected.length} selected commands…`,`busy`);
    try{const response=await fetch("/api/device/show",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(p)});let data;try{data=await response.json()}catch{throw new Error(`Invalid server response (HTTP ${response.status}).`)}if(!response.ok)throw new Error(data.detail?.error||data.error||`HTTP ${response.status}`);lastOutput=data.output||"";lastCommands=selected;el("verifyOutput").textContent=lastOutput||"(Selected commands returned no output.)";el("verifyCopy").disabled=!lastOutput;el("verifyDownload").disabled=!lastOutput;const failed=(data.results||[]).filter(x=>!x.ok).length;status(`${data.mock?"MOCK output":"Device verification"} · ${data.device} · ${selected.length} checks · ${selected.length-failed} passed${failed?` · ${failed} command errors`:""}${data.truncated?" · output truncated at 1 MB":""}`,failed||data.truncated?"warn":"pass");}
    catch(error){el("verifyOutput").textContent="No verification output received.";status(`Verification failed: ${error.message}`,"fail");}
-   finally{button.disabled=false;button.textContent="Run Selected Checks";}
+   finally{button.disabled=false;button.textContent="Run Selected Commands";}
  }
  function bind(){
    const closePicker=()=>{el("verifyPickerPanel").hidden=true;el("verifyPickerTrigger").setAttribute("aria-expanded","false");};
    el("verifyPickerTrigger").addEventListener("click",()=>{const open=el("verifyPickerPanel").hidden;el("verifyPickerPanel").hidden=!open;el("verifyPickerTrigger").setAttribute("aria-expanded",String(open));});
    document.addEventListener("click",event=>{if(!el("verifyPicker").contains(event.target))closePicker();});
    document.addEventListener("keydown",event=>{if(event.key==="Escape")closePicker();});
-   el("verifyPlatform").addEventListener("change",render);el("verifySelectRecommended").addEventListener("click",()=>setSelection("recommended"));el("verifySelectAll").addEventListener("click",()=>setSelection("all"));el("verifyClearAll").addEventListener("click",()=>setSelection("none"));el("verifyRun").addEventListener("click",run);
+   el("verifyPlatform").addEventListener("change",render);el("verifySelectRecommended").addEventListener("click",()=>setSelection("recommended"));el("verifySelectAll").addEventListener("click",()=>setSelection("all"));el("verifyClearAll").addEventListener("click",()=>setSelection("none"));el("verifyTest").addEventListener("click",testConnection);el("verifyRun").addEventListener("click",run);
    [["sdTarget","liveTarget","verifyTarget"],["sdPort","livePort","verifyPort"],["sdUsername","liveUsername","verifyUsername"],["sdPassword","livePassword","verifyPassword"],["sdSecret","liveSecret","verifySecret"]].forEach(ids=>ids.forEach(id=>el(id)?.addEventListener("input",()=>{const value=el(id).value;ids.forEach(other=>{if(other!==id&&el(other))el(other).value=value;});clearOutput();})));
    el("verifyCopy").addEventListener("click",async()=>{if(lastOutput)try{await navigator.clipboard.writeText(lastOutput);status(`Copied ${lastCommands.length} verification results.`,`pass`);}catch{status("Copy failed. Select the output text manually.","fail");}});
    el("verifyDownload").addEventListener("click",()=>{if(!lastOutput)return;const blob=new Blob([`Module: ${tech}\nPlatform: ${el("verifyPlatform").value}\nCommands: ${lastCommands.length}\n\n${lastOutput}\n`],{type:"text/plain;charset=utf-8"});const url=URL.createObjectURL(blob),link=document.createElement("a");link.href=url;link.download=`${tech}_${el("verifyPlatform").value.replace(/[^a-z0-9]+/gi,"_")}_verification.txt`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
