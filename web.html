@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Network Configurator v5.11.0</title>
+<title>Network Configurator v5.12.0</title>
 <style>
 :root{
   --bg:#0d1117;--panel:#161b22;--panel2:#1f2630;--line:#2b3440;
@@ -399,7 +399,7 @@ pre{
     <div class="logo">NC</div>
     <div><h1>Network Configurator</h1><small>Configure · Validate · Troubleshoot</small></div>
   </div>
-  <div class="badge">Version 5.11.0 · Selective Device Verification</div>
+  <div class="badge">Version 5.12.0 · Multi-Vendor EVPN Engineering</div>
 </header>
 
 <div class="layout">
@@ -3816,6 +3816,34 @@ function evpnGenerate(tab){
  const evModel=v("evFabricModel")||"dual-dc";
  const ip=x=>(x||"").split("/")[0];
  const prefixLen=x=>(x||"").includes("/")?(x.split("/")[1]):"32";
+ const rtAdmin=String(rt||"65000:50000").split(":")[0]||"65000";
+ const l2Rt=vni=>`${rtAdmin}:${vni}`;
+ const nxosVrfs=()=>evVrfs.map(x=>`vrf context ${x.name}
+  vni ${x.vni}
+  rd auto
+  address-family ipv4 unicast
+    route-target both ${x.rt}
+    route-target both ${x.rt} evpn`).join("\n\n");
+ const nxosL3Members=()=>evVrfs.map(x=>`  member vni ${x.vni} associate-vrf`).join("\n");
+ const nxosBgpVrfs=localPrefix=>evVrfs.map((x,i)=>`  vrf ${x.name}
+    address-family ipv4 unicast${i===0?`\n      network ${localPrefix}${c("evType5")?"\n      advertise l2vpn evpn":""}`:""}`).join("\n");
+ const nxosEvpnVnis=()=>[vni10,vni20].map(x=>`  vni ${x} l2
+    rd auto
+    route-target import ${l2Rt(x)}
+    route-target export ${l2Rt(x)}`).join("\n");
+ const aristaVrfs=()=>evVrfs.map(x=>`vrf instance ${x.name}`).join("\n");
+ const aristaVxlanVrfs=()=>evVrfs.map(x=>`   vxlan vrf ${x.name} vni ${x.vni}`).join("\n");
+ const aristaBgpVrfs=nodeRid=>evVrfs.map((x,i)=>`   vrf ${x.name}
+      rd ${nodeRid}:${x.vni}
+      route-target import evpn ${x.rt}
+      route-target export evpn ${x.rt}${i===0?"\n      redistribute connected":""}`).join("\n\n");
+ const huaweiVrfs=nodeRid=>evVrfs.map(x=>`ip vpn-instance ${x.name}
+ ipv4-family
+  route-distinguisher ${nodeRid}:${x.vni}
+  vpn-target ${x.rt} export-extcommunity evpn
+  vpn-target ${x.rt} import-extcommunity evpn
+ vxlan vni ${x.vni}`).join("\n#\n");
+ const huaweiBgpVrfs=()=>evVrfs.map((x,i)=>` ipv4-family vpn-instance ${x.name}${i===0?`\n  import-route direct${c("evType5")?"\n  advertise l2vpn evpn valid-routes":""}`:""}`).join("\n #\n");
 
  if(tab==="verify"){
    const map={
@@ -3826,27 +3854,63 @@ show bgp l2vpn evpn route-type 3
 show bgp l2vpn evpn route-type 5
 show bgp l2vpn evpn ${pfx100}
 show bgp l2vpn evpn ${pfx200}
+show bgp l2vpn evpn neighbors
+show bgp l2vpn evpn neighbors ${ip(lo2)} advertised-routes
 show nve peers
+show nve peers detail
 show nve vni
+show nve vni ingress-replication
+show nve interface nve1
 show l2route evpn mac all
 show l2route evpn mac-ip all
+show l2route evpn imet all
+show mac address-table dynamic
+show ip arp suppression-cache detail
 show ip route vrf ${vrf}
 show forwarding route vrf ${vrf}
-show interface nve1`,
+show forwarding distribution evpn peer
+show interface nve1
+show interface counters errors
+show logging last 100`,
     "Arista EOS":`show bgp evpn summary
+show bgp evpn neighbors
+show bgp evpn
 show bgp evpn route-type mac-ip
 show bgp evpn route-type imet
 show bgp evpn route-type ip-prefix
+show bgp evpn instance
 show vxlan vni
 show vxlan address-table
+show vxlan flood vtep
+show vxlan config-sanity detail
 show interfaces Vxlan1
-show ip route vrf ${vrf}`,
+show interfaces Vxlan1 counters errors
+show ip route vrf ${vrf}
+show arp vrf ${vrf}
+show mac address-table dynamic
+show mlag
+show mlag detail
+show mlag config-sanity detail
+show logging last 100`,
     "Huawei_CE_SW":`display bgp evpn peer
 display bgp evpn all routing-table
+display bgp evpn all routing-table mac-route
+display bgp evpn all routing-table inclusive-route
 display bgp evpn routing-table prefix-route
+display bgp evpn vpn-instance
+display bgp evpn peer verbose
+display vxlan tunnel
 display vxlan vni
+display vxlan peer
 display evpn vpn-instance
-display ip routing-table vpn-instance ${vrf}`,
+display bridge-domain
+display interface Vbdif${vlan100}
+display mac-address dynamic
+display arp vpn-instance ${vrf}
+display ip routing-table vpn-instance ${vrf}
+display dfs-group
+display eth-trunk
+display logbuffer`,
     "Cisco IOS-XE":`show bgp l2vpn evpn summary
 show bgp l2vpn evpn
 show l2vpn evpn
@@ -3855,7 +3919,16 @@ show nve peers`,
    }; return map[p];
  }
 
- if(tab==="trouble") return `1. Underlay reachability: dört VTEP loopback adresi karşılıklı reachable mı kontrol et.
+ if(tab==="trouble"){
+  const vendorChecks={
+   "Cisco NX-OS":"Cisco NX-OS: NVE peer/VNI state, L2RIB MAC-IP installation, suppression cache, unique RD and NVE source-interface consistency must be checked together. For vPC or Multi-Site, test peer-link/fabric-tracking and DCI-tracking as separate failure domains.",
+   "Arista EOS":"Arista EOS: compare BGP EVPN RIB with Vxlan1 VNI/flood lists and hardware MAC installation. If MLAG is used, validate peer-link, peer-address, shared VTEP identity and reload state separately from native EVPN Ethernet-Segment behavior.",
+   "Huawei_CE_SW":"Huawei CloudEngine: trace the complete VPN-instance–BD–VBDIF–NVE binding, then compare EVPN routes with VXLAN tunnel/VNI and MAC/ARP installation. If M-LAG is used, isolate DFS, peer-link and DAD failures from overlay failures."
+  }[p]||"Validate the vendor-specific overlay implementation and release support.";
+  return `PLATFORM-SPECIFIC STARTING POINT
+${vendorChecks}
+
+1. Underlay reachability: dört VTEP loopback adresi karşılıklı reachable mı kontrol et.
 2. R1↔R2 ve R3↔R4 iBGP EVPN session'ları Established mı doğrula.
 3. R1↔R3 ve R2↔R4 eBGP EVPN session'ları Established mı; multihop/TTL ve update-source doğru mu kontrol et.
 4. Extended community / route-target propagation aktif mi doğrula.
@@ -3870,6 +3943,7 @@ show nve peers`,
 13. Route-target mismatch, missing advertise ipv4 unicast veya VRF/VNI association sorunlarını kontrol et.
 14. MTU: VXLAN overhead nedeniyle underlay path MTU'nun overlay MTU'dan yeterince büyük olduğunu doğrula.
 15. DCI linklerinden biri kapatıldığında diğer eBGP EVPN path üzerinden convergence/failover test et.`;
+ }
 
  if(tab==="notes"){
   const modelText={"single-dc":"a single EVPN fabric","dual-dc":"two EVPN domains joined through routed inter-site overlay peering","dual-dc-rr":"two EVPN domains using a route-reflector control-plane model","multisite":"a multi-site fabric with dedicated border gateways"}[evModel]||evModel;
@@ -3930,12 +4004,10 @@ vlan ${vlan20}
   vn-segment ${vni20}
 vlan ${localVlan}
 
-vrf context ${vrf}
-  vni ${l3vni}
-  rd auto
-  address-family ipv4 unicast
-    route-target both ${rt}
-    route-target both ${rt} evpn
+${nxosVrfs()}
+
+evpn
+${nxosEvpnVnis()}
 
 interface vlan${localVlan}
   no shutdown
@@ -3953,7 +4025,7 @@ ${c("evArpSuppress")?`    suppress-arp
 `:""}  member vni ${vni20}
     ingress-replication protocol bgp
 ${c("evArpSuppress")?`    suppress-arp
-`:""}  member vni ${l3vni} associate-vrf
+`:""}${nxosL3Members()}
 
 router bgp ${asn}
   router-id ${rid}
@@ -3971,11 +4043,7 @@ ${c("evSendCommunity")?`      send-community
     address-family l2vpn evpn
 ${c("evSendCommunity")?`      send-community
       send-community extended
-`:""}  vrf ${vrf}
-    address-family ipv4 unicast
-      network ${localPfx}
-${c("evType5")?`      advertise l2vpn evpn
-`:""}`;
+`:""}${nxosBgpVrfs(localPfx)}`;
  }
 
 
@@ -3999,12 +4067,10 @@ vlan ${vlan20}
   vn-segment ${vni20}
 vlan ${localVlan}
 
-vrf context ${vrf}
-  vni ${l3vni}
-  rd auto
-  address-family ipv4 unicast
-    route-target both ${rt}
-    route-target both ${rt} evpn
+${nxosVrfs()}
+
+evpn
+${nxosEvpnVnis()}
 
 interface vlan${localVlan}
   no shutdown
@@ -4021,7 +4087,7 @@ ${c("evArpSuppress")?`    suppress-arp
 `:""}  member vni ${vni20}
     ingress-replication protocol bgp
 ${c("evArpSuppress")?`    suppress-arp
-`:""}  member vni ${l3vni} associate-vrf
+`:""}${nxosL3Members()}
 
 router bgp ${asn}
   router-id ${rid}
@@ -4037,11 +4103,7 @@ router bgp ${asn}
     address-family l2vpn evpn
       send-community
       send-community extended
-  vrf ${vrf}
-    address-family ipv4 unicast
-      network ${localPfx}
-${c("evType5")?`      advertise l2vpn evpn
-`:""}
+${nxosBgpVrfs(localPfx)}
 # Multi-Site role: site-local VTEP only.
 # No direct EVPN peering to VTEPs in the remote site.`;
  }
@@ -4080,12 +4142,10 @@ vlan ${vlan10}
 vlan ${vlan20}
   vn-segment ${vni20}
 
-vrf context ${vrf}
-  vni ${l3vni}
-  rd auto
-  address-family ipv4 unicast
-    route-target both ${rt}
-    route-target both ${rt} evpn
+${nxosVrfs()}
+
+evpn
+${nxosEvpnVnis()}
 
 interface nve1
   no shutdown
@@ -4097,7 +4157,7 @@ interface nve1
   member vni ${vni20}
     ingress-replication protocol bgp
     multisite ingress-replication
-  member vni ${l3vni} associate-vrf
+${nxosL3Members()}
 
 router bgp ${asn}
   router-id ${rid}
@@ -4159,7 +4219,7 @@ ${configs.BGW2}
  }
 
  function aristaNode(h,rid,lo,asn,ibgp,ebgp,remoteAs,localVlan,localSvi,localPfx){
-   const rt10=`${asn}:${vni10}`, rt20=`${asn}:${vni20}`;
+   const rt10=l2Rt(vni10), rt20=l2Rt(vni20);
    return `hostname ${h}
 
 service routing protocols model multi-agent
@@ -4176,9 +4236,9 @@ vlan ${vlan20}
 vlan ${localVlan}
    name TYPE5_LOCAL_SERVICE
 
-vrf instance ${vrf}
+${aristaVrfs()}
 
-ip virtual-router mac-address 00:1c:73:00:00:99
+${c("evAnycastGw")?"ip virtual-router mac-address 00:1c:73:00:00:99":"! Anycast gateway is not selected"}
 
 interface Vlan${localVlan}
    description LOCAL_L3_SERVICE
@@ -4192,7 +4252,7 @@ interface Vxlan1
    vxlan udp-port 4789
    vxlan vlan ${vlan10} vni ${vni10}
    vxlan vlan ${vlan20} vni ${vni20}
-   vxlan vrf ${vrf} vni ${l3vni}
+${aristaVxlanVrfs()}
 
 router bgp ${asn}
    router-id ${rid}
@@ -4215,11 +4275,7 @@ router bgp ${asn}
       route-target both ${rt20}
       redistribute learned
 
-   vrf ${vrf}
-      rd ${rid}:${l3vni}
-      route-target import evpn ${rt}
-      route-target export evpn ${rt}
-      redistribute connected
+${aristaBgpVrfs(rid)}
 
    address-family evpn
       neighbor ${ip(ibgp)} activate
@@ -4239,7 +4295,7 @@ interface Loopback0
    description EVPN_BORDER_VTEP
    ip address ${lo}
 
-vrf instance ${vrf}
+${aristaVrfs()}
 
 interface Vxlan1
    description INTER_SITE_EVPN_VXLAN
@@ -4247,7 +4303,7 @@ interface Vxlan1
    vxlan udp-port 4789
    vxlan vlan ${vlan10} vni ${vni10}
    vxlan vlan ${vlan20} vni ${vni20}
-   vxlan vrf ${vrf} vni ${l3vni}
+${aristaVxlanVrfs()}
 
 router bgp ${asn}
    router-id ${rid}
@@ -4261,16 +4317,13 @@ ${sitePeers.map(x=>`   neighbor ${ip(x)} remote-as ${asn}
 
    vlan ${vlan10}
       rd ${rid}:${vni10}
-      route-target both ${asn}:${vni10}
+      route-target both ${l2Rt(vni10)}
       redistribute learned
    vlan ${vlan20}
       rd ${rid}:${vni20}
-      route-target both ${asn}:${vni20}
+      route-target both ${l2Rt(vni20)}
       redistribute learned
-   vrf ${vrf}
-      rd ${rid}:${l3vni}
-      route-target import evpn ${rt}
-      route-target export evpn ${rt}
+${aristaBgpVrfs(rid)}
    address-family evpn
 ${sitePeers.map(x=>`      neighbor ${ip(x)} activate`).join("\n")}
       neighbor ${ip(remoteBgp)} activate
@@ -4312,7 +4365,7 @@ ${configs.BGW2}
  }
 
  function huaweiNode(h,rid,lo,asn,ibgp,ebgp,remoteAs,localVlan,localSvi,localPfx){
-   const rt10=`${asn}:${vni10}`, rt20=`${asn}:${vni20}`;
+   const rt10=l2Rt(vni10), rt20=l2Rt(vni20);
    return `sysname ${h}
 #
 evpn-overlay enable
@@ -4320,12 +4373,7 @@ evpn-overlay enable
 interface LoopBack1
  ip address ${ip(lo)} 255.255.255.255
 #
-ip vpn-instance ${vrf}
- ipv4-family
-  route-distinguisher ${rid}:${l3vni}
-  vpn-target ${rt} export-extcommunity evpn
-  vpn-target ${rt} import-extcommunity evpn
- vxlan vni ${l3vni}
+${huaweiVrfs(rid)}
 #
 bridge-domain ${vlan10}
  vxlan vni ${vni10}
@@ -4346,7 +4394,7 @@ bridge-domain ${localVlan}
 interface Vbdif${localVlan}
  ip binding vpn-instance ${vrf}
  ip address ${ip(localSvi)} 255.255.255.0
- vxlan anycast-gateway enable
+${c("evAnycastGw")?" vxlan anycast-gateway enable":" # Distributed anycast gateway is not selected"}
  arp collect host enable
 #
 interface Nve1
@@ -4368,9 +4416,7 @@ bgp ${asn}
   peer ${ip(ebgp)} enable
   peer ${ip(ebgp)} advertise irb
  #
- ipv4-family vpn-instance ${vrf}
-  import-route direct
-  advertise l2vpn evpn valid-routes
+${huaweiBgpVrfs()}
 #
 commit
 
@@ -4386,26 +4432,21 @@ evpn-overlay enable
 interface LoopBack1
  ip address ${ip(lo)} 255.255.255.255
 #
-ip vpn-instance ${vrf}
- ipv4-family
-  route-distinguisher ${rid}:${l3vni}
-  vpn-target ${rt} export-extcommunity evpn
-  vpn-target ${rt} import-extcommunity evpn
- vxlan vni ${l3vni}
+${huaweiVrfs(rid)}
 #
 bridge-domain ${vlan10}
  vxlan vni ${vni10}
  evpn
   route-distinguisher ${rid}:${vni10}
-  vpn-target ${asn}:${vni10} export-extcommunity
-  vpn-target ${asn}:${vni10} import-extcommunity
+  vpn-target ${l2Rt(vni10)} export-extcommunity
+  vpn-target ${l2Rt(vni10)} import-extcommunity
 #
 bridge-domain ${vlan20}
  vxlan vni ${vni20}
  evpn
   route-distinguisher ${rid}:${vni20}
-  vpn-target ${asn}:${vni20} export-extcommunity
-  vpn-target ${asn}:${vni20} import-extcommunity
+  vpn-target ${l2Rt(vni20)} export-extcommunity
+  vpn-target ${l2Rt(vni20)} import-extcommunity
 #
 interface Nve1
  source ${ip(lo)}
