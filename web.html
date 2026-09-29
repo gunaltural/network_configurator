@@ -5295,7 +5295,7 @@ function workspaceDesignNoteParameters(kind=tech){
 }
 function enrichedDesignNotes(module){
  const read=id=>{const node=document.getElementById(id);return node?.type==="checkbox"?(node.checked?"Enabled":"Disabled"):(node?.value||"");};
- const decisions=reportEngineeringDecisions(tech,read,platform()),notes=workspaceDesignNoteParameters(tech),lines=[`${module.title||tech} · Design Decisions and Engineering Notes`,"",`Platform: ${platform()}`,"Generated from the current Technology Workspace selections.",""];
+ const decisions=window.reportEngineeringDecisions?.(tech,read,platform())||[],notes=workspaceDesignNoteParameters(tech),lines=[`${module.title||tech} · Design Decisions and Engineering Notes`,"",`Platform: ${platform()}`,"Generated from the current Technology Workspace selections.",""];
  if(decisions.length){lines.push("DESIGN DECISIONS AND NETWORK IMPACT","");decisions.forEach((item,index)=>lines.push(`${index+1}. ${item.label}`,`Selected design: ${item.value}`,`Network impact: ${item.impact}`,""));}
  if(notes.length){lines.push("IMPLEMENTATION ASSUMPTIONS, RISKS AND BOUNDARIES","");notes.forEach((item,index)=>lines.push(`${index+1}. ${item.impact}`));}
  lines.push("","These notes form part of the design record and are transferred to Reporting and Inventory. Validate platform and software-release behavior before production deployment.");
@@ -5696,10 +5696,11 @@ renderModule();
        add("Spanning-tree role and access scope",`${r("swvStpMode")} · core ${r("swvStpPri")} / leaf ${r("swvLeafStpPri")}`,
          `The selected priorities aim to keep the logical core as the STP root for VLANs ${r("swvStpVlans")}. ${Number(r("swvStpPri"))<Number(r("swvLeafStpPri"))?"The core's lower numeric priority supports that role.":"The priorities do not favor the core numerically; verify root election."} Leaf port channels provide resilient attachments only when member links and LACP settings are compatible.`);
      }
-     return decisions;
-   }
    return decisions;
  }
+ return decisions;
+}
+ window.reportEngineeringDecisions=reportEngineeringDecisions;
  // Capture selected device identities and connection fields, never infer ports
  // from graphical line positions. Only module-specific configuration is attached.
  function moduleReportingDesign(){
