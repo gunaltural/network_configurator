@@ -5287,6 +5287,21 @@ const TroubleshootingEngine=(()=>{
 })();
 TroubleshootingEngine.bind();
 
+function workspaceDesignNoteParameters(kind=tech){
+ const raw=String(modules[kind]?.generate?.("notes")||"").trim();
+ if(!raw)return [];
+ const title=modules[kind]?.title||kind,seen=new Set();
+ return raw.split(/\r?\n+/).map(line=>line.trim().replace(/^[-•]\s*/,"")).filter(line=>line&&!/^(?:design notes?|.+ design notes?|secure management baseline)$/i.test(line)).filter(line=>{const key=line.toLowerCase();if(seen.has(key))return false;seen.add(key);return true;}).slice(0,24).map((impact,index)=>({label:`${title} engineering note ${index+1}`,value:"Design boundary",impact:impact.slice(0,1200)}));
+}
+function enrichedDesignNotes(module){
+ const read=id=>{const node=document.getElementById(id);return node?.type==="checkbox"?(node.checked?"Enabled":"Disabled"):(node?.value||"");};
+ const decisions=reportEngineeringDecisions(tech,read,platform()),notes=workspaceDesignNoteParameters(tech),lines=[`${module.title||tech} · Design Decisions and Engineering Notes`,"",`Platform: ${platform()}`,"Generated from the current Technology Workspace selections.",""];
+ if(decisions.length){lines.push("DESIGN DECISIONS AND NETWORK IMPACT","");decisions.forEach((item,index)=>lines.push(`${index+1}. ${item.label}`,`Selected design: ${item.value}`,`Network impact: ${item.impact}`,""));}
+ if(notes.length){lines.push("IMPLEMENTATION ASSUMPTIONS, RISKS AND BOUNDARIES","");notes.forEach((item,index)=>lines.push(`${index+1}. ${item.impact}`));}
+ lines.push("","These notes form part of the design record and are transferred to Reporting and Inventory. Validate platform and software-release behavior before production deployment.");
+ return lines.join("\n");
+}
+
 function renderOutput(){
  if(tech==="BGP")bgpV39ContextUI();
  if(tech==="VPC"){vpcLeafUi();vpcV42ContextUI();} if(tech==="EVPN")evpnV431Ui();
@@ -5331,7 +5346,7 @@ function renderOutput(){
    if(deploy)deploy.hidden=true;
    if(verification)verification.hidden=true;
    if(troubleshooting)troubleshooting.hidden=true;
-   const result=(typeof m.generate==="function") ? m.generate(tab) : "";
+   const result=(typeof m.generate==="function") ? (tab==="notes"?enrichedDesignNotes(m):m.generate(tab)) : "";
    out.textContent=(result && String(result).trim()) ? result : "# No configuration output generated.";
  }catch(err){
    console.error("Configurator render error:",err);
@@ -5763,6 +5778,7 @@ renderModule();
      if(!hostname)parameters.push({label:"Configuration pending",value:"Select a router from the Excel plan or enter its hostname and details in Technology Workspaces, then reopen this report to include its configuration."});
    }
    parameters.push(...reportEngineeringDecisions(tech,read,pl));
+   parameters.push(...workspaceDesignNoteParameters(tech));
    const technology={BASIC:"System and Management",BGP:"BGP",OSPF:"OSPF",EVPN:"EVPN/VXLAN",QOS:"QoS",SDWAN:"SD-WAN"}[tech];
    return {schema:"network-configurator-report-v1",name:project.project.name==="Untitled Network Project"?"":project.project.name,
      vendor:pl,architecture:"module",technology,techPlacement:"upper",roles,
@@ -5789,6 +5805,7 @@ renderModule();
    const special=(kind,a,b,aPort,bPort,detail,logical=false)=>specialLinks.push({kind,a,b,aPort:aPort||"",bPort:bPort||"",detail:detail||"",logical});
    const params=[];
    params.push(...reportEngineeringDecisions(tech,read,pl));
+   params.push(...workspaceDesignNoteParameters(tech));
    // Configuration generators select one device via their existing output control.
    const outputId=isVpc?(pl==="Cisco NX-OS"?"vpcOutputDevice":pl==="Arista EOS"?"arOutput":pl==="Huawei_CE_SW"?"hwOutput":"swvOutput"):null;
    const selector=outputId&&document.getElementById(outputId), selected=selector?.value;
