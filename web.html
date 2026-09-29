@@ -5419,7 +5419,8 @@ function renderOutput(){
    if(deploy)deploy.hidden=true;
    if(verification)verification.hidden=true;
    if(troubleshooting)troubleshooting.hidden=true;
-   const result=(typeof m.generate==="function") ? (tab==="notes"?enrichedDesignNotes(m):m.generate(tab)) : "";
+   let result=(typeof m.generate==="function") ? (tab==="notes"?enrichedDesignNotes(m):m.generate(tab)) : "";
+   if(tab==="config"&&tech==="SDWAN"&&result&&!String(result).startsWith("########"))result=`######## ${v("sdHostname")||"SD-WAN-EDGE"} · SD-WAN EDGE · SITE ${v("sdSiteId")||"UNASSIGNED"} ########\n${result}`;
    out.textContent=(result && String(result).trim()) ? result : "# No configuration output generated.";
  }catch(err){
    console.error("Configurator render error:",err);
