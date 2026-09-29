@@ -3872,35 +3872,29 @@ show nve peers`,
 15. DCI linklerinden biri kapatıldığında diğer eBGP EVPN path üzerinden convergence/failover test et.`;
 
  if(tab==="notes"){
-  return `EVPN / VXLAN Vendor Parity — Version 4.5 Phase 1
-
-Cisco NX-OS
-- L2VNI / L3VNI: Implemented
-- BGP EVPN overlay: Implemented
-- Type-2 / Type-3: Implemented
-- Type-5 baseline: Implemented
-- Multi-Site BGW: Implemented baseline
-
-Arista EOS
-- Vxlan1 VLAN/VNI and VRF/VNI mapping: Implemented
-- MAC-VRF RD/RT + redistribute learned: Implemented
-- IP-VRF RD/RT + connected route origination: Implemented
-- EVPN AF + extended community: Implemented
-- MLAG peer VLAN / peer-link / heartbeat / reload-delay: Implemented
-- Multi-Site border role: Topology-driven baseline; DCI policy is design-specific
-
-Huawei_CE_SW
-- VPN-instance / L3VNI: Implemented
-- BD / L2VNI EVPN RD/RT: Implemented
-- VBDIF distributed gateway: Implemented
-- NVE BGP head-end discovery: Implemented
-- BGP EVPN + IRB advertisement: Implemented
-- Type-5 advertisement baseline: Implemented
-- M-LAG DFS / peer-link / DAD / V-STP: Implemented baseline
-- Border/DCI role: Topology-driven baseline; exact DCI policy is release/design-specific
-
-Phase 1 closes the largest EVPN and MLAG/M-LAG gaps.
-Next parity pass: BGP → Basic → OSPF/STP → QoS.`;
+  const common=`- Fabric model: ${model}.
+- VLAN ${vlan10} maps to L2VNI ${vni10}; VLAN ${vlan20} maps to L2VNI ${vni20}.
+- VRF ${vrf} uses L3VNI ${l3vni}; route-target symmetry controls tenant route import and export.
+- Type-2 carries endpoint MAC/IP reachability, Type-3 provides IMET/BUM membership, and Type-5 carries IP prefixes when enabled.
+- The routed underlay must provide stable VTEP loopback reachability and sufficient MTU before overlay validation.`;
+  if(p==="Cisco NX-OS")return `EVPN / VXLAN Design Notes · Cisco NX-OS
+${common}
+- NVE source-interface, member VNI state and BGP EVPN address-family activation must be consistent on every participating Nexus VTEP.
+- Anycast gateway MAC and SVI gateway addressing must match across VTEPs serving the same tenant segment.
+- Multi-Site border-gateway behavior, site IDs and DCI advertisement policy require validation against the deployed NX-OS release and chosen fabric model.`;
+  if(p==="Arista EOS")return `EVPN / VXLAN Design Notes · Arista EOS
+${common}
+- Vxlan1 VLAN/VNI and VRF/VNI mappings must agree with the MAC-VRF and IP-VRF RD/RT policy.
+- MLAG peer state, peer VLAN and reload-delay behavior must be validated independently from EVPN control-plane establishment.
+- Border role and DCI policy are topology-specific and must be confirmed against the deployed EOS release.`;
+  if(p==="Huawei_CE_SW")return `EVPN / VXLAN Design Notes · Huawei VRP
+${common}
+- VPN-instance, bridge-domain, VBDIF and NVE mappings must remain consistent with the selected L2VNI/L3VNI plan.
+- BGP EVPN advertisement, head-end replication and distributed-gateway behavior require validation on the exact VRP maintenance release.
+- M-LAG DFS, peer-link, DAD and V-STP failure behavior must be tested separately from EVPN overlay convergence.`;
+  return `EVPN / VXLAN Design Notes
+${common}
+- The selected platform is not a supported EVPN VTEP target in this workspace.`;
  }
 
  function nxosNode(h,rid,lo,asn,ibgp,ebgp,remoteAs,localVlan,localSvi,localPfx,isLeft){
