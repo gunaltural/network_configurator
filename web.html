@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Network Configurator v5.12.0</title>
+<title>Network Configurator v5.12.1</title>
 <style>
 :root{
   --bg:#0d1117;--panel:#161b22;--panel2:#1f2630;--line:#2b3440;
@@ -399,7 +399,7 @@ pre{
     <div class="logo">NC</div>
     <div><h1>Network Configurator</h1><small>Configure · Validate · Troubleshoot</small></div>
   </div>
-  <div class="badge">Version 5.12.0 · Multi-Vendor EVPN Engineering</div>
+  <div class="badge">Version 5.12.1 · Device-Based Configuration Output</div>
 </header>
 
 <div class="layout">
@@ -853,7 +853,9 @@ OSPF:{
    <div><label>Area</label><input id="ospfArea" value="0"></div>
    <div><label>Network Type</label><select id="ospfNet"><option>point-to-point</option><option>broadcast</option></select></div>
    <div><label>Cost</label><input id="ospfCost" value="10"></div>
- </div>`,
+ </div>
+ <div class="section-title">Configuration Output</div>
+ <div class="param-grid"><div><label>Device</label><select id="ospfOutputDevice"><option value="ALL">All OSPF Routers</option><option value="D1">Device-1</option><option value="D2">Device-2</option></select></div></div>`,
  generate: ospfGenerate
 },
 STP:{
@@ -891,6 +893,8 @@ STP:{
    <label class="check"><input type="checkbox" id="loopguard" checked> Loop Guard on Redundant Links</label>
    <label class="check"><input type="checkbox" id="udld" checked> UDLD Aggressive on Uplinks</label>
  </div>
+ <div class="section-title">Configuration Output</div>
+ <div class="param-grid"><div><label>Device</label><select id="stpOutputDevice"><option value="ALL">All STP Devices</option><option value="CORE1">Core-1</option><option value="CORE2">Core-2</option>${Array.from({length:8},(_,i)=>`<option value="LEAF${i+1}">Leaf-${i+1}</option>`).join("")}</select></div></div>
  <p class="note">All selected leaves are dual-homed to both cores. Leaf Count immediately updates the topology and generated device set.</p>`,
  generate: stpGenerate
 }
@@ -1094,6 +1098,9 @@ modules["QOS"]={
    <label class="check"><input type="checkbox" id="qosShaping"> Shaping</label>
    <label class="check"><input type="checkbox" id="qosWred"> WRED / Congestion Avoidance</label>
  </div>
+
+ <div class="section-title">Configuration Output</div>
+ <div class="param-grid"><div><label>Device</label><select id="qosOutputDevice"><option value="ALL">All QoS Devices</option><option value="D1">Device-1</option><option value="D2">Device-2</option></select></div></div>
 
  <p class="note">
  <b>MTU principle:</b> End-to-end path MTU tutarlı olmalıdır. System/Jumbo/Interface MTU değerleri platforma göre
@@ -2883,7 +2890,7 @@ end
    return forti(host,iface,ip,mask);
  }
 
- return `################ DEVICE ################
+ return `################ ${h1} · MANAGED DEVICE ################
 
 ${basicReadableCliBlocks(one(h1,if1,ip1,m1))}
 
@@ -3010,7 +3017,9 @@ function ospfGenerate(tab){
   if(p==="FortiGate") return `config system global\n set hostname "${h}"\nend\nconfig router ospf\n set router-id ${rid}\n config area\n  edit ${area}\n  next\n end\nend`;
   return `hostname ${h}\nrouter ospf ${pid}\n router-id ${rid}\ninterface ${intf}\n ip ospf ${pid} area ${area}\n ip ospf network ${v("ospfNet")}\n ip ospf cost ${cost}`;
  }
- return `######## ${h1} ########\n${one(h1,rid1,if1)}\n\n######## ${h2} ########\n${one(h2,rid2,if2)}`;
+ const configs={D1:`######## ${h1} · OSPF ROUTER ########\n${one(h1,rid1,if1)}`,D2:`######## ${h2} · OSPF ROUTER ########\n${one(h2,rid2,if2)}`};
+ const selected=v("ospfOutputDevice")||"ALL";
+ return selected==="D1"?configs.D1:selected==="D2"?configs.D2:`${configs.D1}\n\n${configs.D2}`;
 }
 
 function stpGenerate(tab){
@@ -3108,14 +3117,13 @@ interface ${leafUp2}
 interface ${access}
  switchport mode access${c("portfast")?`\n spanning-tree portfast`:""}${c("bpduguard")?`\n spanning-tree bpduguard enable`:""}`;
  }
- return `######## ${h1} ${root==="1"?"[ROOT]":"[SECONDARY]"} ########
-${core(h1,pri1,1)}
-
-######## ${h2} ${root==="2"?"[ROOT]":"[SECONDARY]"} ########
-${core(h2,pri2,2)}
-
-${leaves.map((h,i)=>`######## ${h} [LEAF ${i+1}] ########
-${leaf(h)}`).join("\n\n")}`;
+ const configs={
+  CORE1:`######## ${h1} · ${root==="1"?"ROOT":"SECONDARY"} CORE ########\n${core(h1,pri1,1)}`,
+  CORE2:`######## ${h2} · ${root==="2"?"ROOT":"SECONDARY"} CORE ########\n${core(h2,pri2,2)}`
+ };
+ leaves.forEach((h,i)=>configs[`LEAF${i+1}`]=`######## ${h} · LEAF-${i+1} ########\n${leaf(h)}`);
+ const selected=v("stpOutputDevice")||"ALL";
+ return selected!=="ALL"&&configs[selected]?configs[selected]:[configs.CORE1,configs.CORE2,...leaves.map((_,i)=>configs[`LEAF${i+1}`])].join("\n\n");
 }
 
 
@@ -4798,13 +4806,14 @@ end
    return forti(h,iface);
  }
 
- return `######## ${h1} ########
-${one(h1,if1)}
+ const configs={D1:`######## ${h1} · QoS DEVICE ########\n${one(h1,if1)}`,D2:`######## ${h2} · QoS DEVICE ########\n${one(h2,if2)}`};
+ const selected=v("qosOutputDevice")||"ALL";
+ if(selected==="D1"||selected==="D2")return configs[selected];
+ return `${configs.D1}
 
-######## ${h2} ########
-${one(h2,if2)}
+${configs.D2}
 
-######## ACTIVE QoS PARAMETERS ########
+######## SHARED DESIGN PARAMETERS · NOT DEVICE CLI ########
 Policy : ${policy}
 Class : ${cls}
 Police : ${c("qosPolicing")?policeMbps+" Mbps / "+policeBurstKb+" KB burst":"Disabled"}
@@ -5352,9 +5361,23 @@ function enrichedDesignNotes(module){
  return lines.join("\n");
 }
 
+function deviceOutputUi(){
+ const rename=(id,map)=>{const select=document.getElementById(id);if(!select)return;[...select.options].forEach(option=>{if(map[option.value])option.textContent=map[option.value];});};
+ const h1=v("d1host")||"Device-1",h2=v("d2host")||"Device-2";
+ rename("ospfOutputDevice",{D1:h1,D2:h2});
+ rename("qosOutputDevice",{D1:h1,D2:h2});
+ if(tech!=="STP")return;
+ const select=document.getElementById("stpOutputDevice");if(!select)return;
+ const count=Math.max(2,Math.min(8,parseInt(v("stpLeafCount")||"4",10))),names=(v("stpLeafNames")||"").split(",").map(x=>x.trim());
+ rename("stpOutputDevice",{CORE1:h1,CORE2:h2,...Object.fromEntries(Array.from({length:8},(_,i)=>[`LEAF${i+1}`,names[i]||`LEAF-${String(i+1).padStart(2,"0")}`]))});
+ [...select.options].forEach(option=>{if(option.value.startsWith("LEAF")){const index=Number(option.value.slice(4));option.hidden=index>count;option.disabled=index>count;}});
+ if(select.value.startsWith("LEAF")&&Number(select.value.slice(4))>count)select.value="ALL";
+}
+
 function renderOutput(){
  if(tech==="BGP")bgpV39ContextUI();
  if(tech==="VPC"){vpcLeafUi();vpcV42ContextUI();} if(tech==="EVPN")evpnV431Ui();
+ deviceOutputUi();
  const out=document.getElementById("output");
  const deploy=document.getElementById("deployPanel");
  const verification=document.getElementById("verificationPanel");
