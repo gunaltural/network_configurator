@@ -5393,6 +5393,14 @@ function workspaceDesignNoteParameters(kind=tech){
    if(/local preference|med|as-path|community|traffic engineering/.test(text))return "Routing policy effect";
    if(/mtu|fragment|pmtu/.test(text))return "MTU and encapsulation validation";
    if(/aaa|tacacs|radius|break-glass/.test(text))return "Administrative access resilience";
+   if(/copp|cppr|control-plane acl|control plane acl/.test(text))return "Control-plane protection";
+   if(/selected .*ce.*isp|ebgp adjacenc|circuits, provider paths|physical or operational failure domain/.test(text))return "Connectivity resilience";
+   if(/ibgp distributes|next-hop reachability|internal ce peering|learned by one ce/.test(text))return "Internal route propagation";
+   if(/asymmetric forwarding|stateful firewall|nat, urpf|return path/.test(text))return "Asymmetric forwarding risk";
+   if(/maximum-prefix|maximum prefix|route volume|prefix safeguard/.test(text))return "Route scale safeguard";
+   if(/oob management|management vrf|management plane/.test(text))return "Management-plane isolation";
+   if(/ssh|telnet|http\/https|certificate-based management/.test(text))return "Secure administration";
+   if(/dhcp service|bootp|source routing|service-hardening/.test(text))return "Service hardening boundary";
    if(/snmp|syslog|logging|telemetry/.test(text))return "Operational visibility";
    if(/ntp|time|timestamp/.test(text))return "Time and audit integrity";
    if(/acceptance|verify|validation|test/.test(text))return "Production acceptance criteria";
