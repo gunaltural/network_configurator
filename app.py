@@ -216,6 +216,7 @@ class ReportTierLabels(BaseModel):
 
 
 class ReportWordRequest(BaseModel):
+    language: Literal["tr", "en"] = "en"
     name: str = Field(min_length=1, max_length=120)
     vendor: Literal["Cisco NX-OS", "Cisco IOS-XE", "Arista EOS", "Huawei_CE_SW", "FortiGate"]
     architecture: Literal["spine-leaf", "core-access", "module"]
