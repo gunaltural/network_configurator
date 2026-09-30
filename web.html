@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Network Configurator v5.12.1</title>
+<title>Network Configurator v5.13.0</title>
 <style>
 :root{
   --bg:#0d1117;--panel:#161b22;--panel2:#1f2630;--line:#2b3440;
@@ -399,7 +399,7 @@ pre{
     <div class="logo">NC</div>
     <div><h1>Network Configurator</h1><small>Configure · Validate · Troubleshoot</small></div>
   </div>
-  <div class="badge">Version 5.12.1 · Device-Based Configuration Output</div>
+  <div class="badge">Version 5.13.0 · Engineering Design Notes and Reporting</div>
 </header>
 
 <div class="layout">
@@ -2920,7 +2920,7 @@ function bgpGenerate(tab){
    return ["show ip bgp summary","show ip bgp","show ip route bgp","show bfd neighbors details",...ebgpPeers.flatMap(peer=>[`show ip bgp neighbors ${peer}`,`show ip bgp neighbors ${peer} received-routes`,`show ip bgp neighbors ${peer} advertised-routes`]),...ibgpPeers.map(peer=>`show ip bgp neighbors ${peer}`)].join("\n");
  }
  if(tab==="trouble")return `1. Verify interface state and IP reachability on all ${edges.length} CE-to-ISP links.\n2. Verify TCP/179 and local/remote ASN.\n3. Confirm received and advertised prefixes per ISP.\n4. Outbound TE: verify inbound policy and Local Preference on learned routes.\n5. Inbound TE: verify advertised AS_PATH, MED and communities toward each ISP.\n6. Remember that inbound MED/community behavior depends on the upstream ISP policy.\n7. For iBGP, verify loopback reachability, update-source and next-hop reachability.`;
- if(tab==="notes")return `Dynamic BGP Design\n- CE routers: ${ceN}.\n- ISP routers: ${ispN}.\n- eBGP adjacencies: ${edges.length}.\n- Connectivity: ${v("bgpConnectivity")}.\n- Outbound TE: ${outOn?"enabled":"disabled"}; preferred ISP: ISP-${outPref+1}; LocalPref: ${window.c("bgpTeLocalPref")?"enabled":"disabled"}.\n- Inbound TE: ${inOn?"enabled":"disabled"}; preferred ISP: ISP-${inPref+1}; AS-Path Prepend: ${window.c("bgpTePrepend")?"enabled":"disabled"}; MED: ${window.c("bgpTeMed")?"enabled":"disabled"}; Community: ${window.c("bgpTeCommunity")?"enabled":"disabled"}.\n- Outbound and inbound preferred ISPs are independent and may intentionally be asymmetric.\n- ISP acceptance of MED and communities must be confirmed with the provider.`;
+ if(tab==="notes")return `BGP Engineering Notes\n- The selected ${ceN}-CE / ${ispN}-ISP model creates ${edges.length} eBGP adjacencies. Resilience exists only where circuits, provider paths and CE devices do not share a physical or operational failure domain.\n- ${internal==="ibgp"?"iBGP distributes externally learned reachability between CE routers; next-hop reachability and loopback transport must remain available during an edge failure.":"No internal CE peering is selected; a route learned by one CE is not automatically available through another CE."}\n- ${outOn&&window.c("bgpTeLocalPref")?`ISP-${outPref+1} is the intended outbound exit. Local Preference ${lp} is applied to the preferred path and ${blp} to the alternative; the preferred value must be numerically higher to influence comparable BGP routes.`:"No active Local Preference policy is selected, so outbound selection follows the remaining BGP best-path attributes."}\n- ${inOn?`ISP-${inPref+1} is the intended inbound path. ${window.c("bgpTePrepend")?`AS-path prepend is applied to the non-preferred advertisement ${pc} time(s); upstream policy can override the longer path.`:"No AS-path prepend is selected."} ${window.c("bgpTeMed")?`MED ${pmed}/${bmed} is a relative signal and is effective only where the receiving network compares it.`:""} ${window.c("bgpTeCommunity")?`Community ${comm} requires a documented ISP action.`:""}`:"Inbound traffic engineering is not enabled; external networks independently select their entry path."}\n- Outbound and inbound preferred ISPs may intentionally differ, but this creates asymmetric forwarding. Stateful firewalls, NAT, uRPF and troubleshooting procedures must support the resulting return path.\n- ${window.c("bgpBfd")?"BFD is selected for faster failure detection; compatible timers and support are required on both ends.":"BFD is not selected; convergence follows interface and BGP hold-time detection."} ${window.c("bgpMaxPrefix")?`Maximum-prefix ${maxp} limits unexpected route volume; confirm the platform action when the threshold is exceeded.`:"No maximum-prefix safeguard is selected."}\n- Acceptance must prove session establishment, received/advertised routes, policy counters, RIB/FIB installation and forwarding during each planned circuit or CE failure.`;
 
  function cfg(ci){
   const ce=ces[ci],es=edges.filter(e=>e[0]===ci);
@@ -3010,7 +3010,7 @@ function ospfGenerate(tab){
   const m={"Cisco IOS-XE":"show ip ospf neighbor\nshow ip ospf interface","Cisco NX-OS":"show ip ospf neighbors\nshow ip ospf interface","Arista EOS":"show ip ospf neighbor\nshow ip ospf interface","Huawei_CE_SW":"display ospf peer\ndisplay ospf interface","FortiGate":"get router info ospf neighbor\nget router info ospf interface"}; return m[p];
  }
  if(tab==="trouble") return `1. Interface/IP durumunu kontrol et.\n2. Area ID uyumunu kontrol et.\n3. Hello/Dead timer ve network-type uyumunu doğrula.\n4. MTU mismatch kontrol et.\n5. Authentication ve passive-interface durumunu kontrol et.`;
- if(tab==="notes") return `Design Notes\n- Area 0 backbone\n- Point-to-point tercihleri\n- Cost tuning\n- Stub/NSSA\n- Summarization`;
+ if(tab==="notes") return `OSPF Engineering Notes\n- ${h1} and ${h2} form the modeled adjacency in area ${area} using process ${pid}. Process IDs are locally significant; area ID, addressing, authentication, timers and network type must be compatible between neighbors.\n- Network type ${v("ospfNet")} ${v("ospfNet")==="point-to-point"?"fits a two-router transit link and avoids an unnecessary DR/BDR election":"uses multi-access behavior and may elect a DR/BDR; confirm that the segment is genuinely shared"}.\n- Interface cost ${cost} contributes to accumulated SPF path cost. In this two-node model it documents metric intent but cannot provide path diversity without another adjacency.\n- Router IDs ${rid1} and ${rid2} must remain unique and stable. Changing a router ID generally resets the process or adjacency and must be treated as a controlled change.\n- Area ${area} ${String(area)==="0"?"is the backbone area":"is non-backbone and requires valid area-0 connectivity through an ABR unless a supported exception is deliberately designed"}.\n- Stub/NSSA behavior and inter-area summarization are not generated here. If added later, document which external LSAs are suppressed or translated and verify reachability to default and external destinations.\n- Acceptance must verify Full adjacency, LSDB agreement, SPF/RIB installation, MTU compatibility and forwarding—not merely neighbor visibility.`;
  function one(h,rid,intf){
   if(p==="Cisco NX-OS") return `hostname ${h}\nfeature ospf\nrouter ospf ${pid}\n  router-id ${rid}\ninterface ${intf}\n  ip router ospf ${pid} area ${area}\n  ip ospf network ${v("ospfNet")}\n  ip ospf cost ${cost}`;
   if(p==="Huawei_CE_SW") return `sysname ${h}\nospf ${pid} router-id ${rid}\n area ${area}\nquit\ninterface ${intf}\n undo portswitch\n ospf enable ${pid} area ${area}\n ospf network-type p2p\n ospf cost ${cost}\n undo shutdown\nquit\ncommit`;
@@ -3043,11 +3043,13 @@ function stpGenerate(tab){
 7. For MST, verify region name, revision and VLAN-to-instance mapping across all switches.`;
  if(tab==="notes") return `Design Notes
 - Architecture: 2 cores + ${count} dual-homed leaves.
-- ${root==="1"?h1:h2} is the intended root bridge; ${root==="1"?h2:h1} is secondary.
-- Root Guard is intended on downward core-to-leaf links, not on leaf root ports.
-- PortFast/Edge + BPDU Guard is intended only for true endpoint-facing access ports.
-- Loop Guard is useful on redundant non-designated/root-capable links where supported.
-- STP still blocks redundant Layer-2 paths as required; this is not an MLAG/vPC topology.`;
+- ${root==="1"?h1:h2} is intended as root with priority ${rp}; ${root==="1"?h2:h1} is secondary with priority ${sp}. ${Number(rp)<Number(sp)?"The lower primary value supports the intended election.":"The selected values do not numerically prefer the intended root and must be corrected."}
+- VLAN scope ${vl} defines where this root policy and redundant topology apply. VLAN presence and trunk allowance must be consistent on both core-to-leaf paths.
+- Each leaf is physically dual-attached, but STP intentionally blocks a redundant Layer-2 path where required. This is standby capacity, not vPC/MLAG active-active forwarding.
+- ${c("rootguard")?"Root Guard is selected on downward core-facing links to prevent a leaf from becoming root; it must not be placed on a leaf root port.":"Root Guard is not selected, so an unexpected superior BPDU can alter the root role."}
+- ${c("portfast")?"PortFast/edge forwarding is selected for the access port and must be limited to true endpoint-facing links.":"Edge forwarding is not selected; endpoint activation follows normal STP convergence."} ${c("bpduguard")?"BPDU Guard protects that edge after an unexpected BPDU.":"BPDU Guard is not selected on the modeled edge."}
+- ${c("loopguard")?"Loop Guard is selected on eligible redundant links to protect against loss of expected BPDUs.":"Loop Guard is not selected."} ${c("udld")?"UDLD aggressive is requested where supported; verify media type and vendor implementation.":"UDLD is not selected."}
+- Acceptance must confirm the operational root, per-VLAN or per-instance port roles, blocked-path location, guard consistency states and reconvergence after each uplink or root-core failure.`;
 
  const pri1=root==="1"?rp:sp, pri2=root==="2"?rp:sp;
  function stpModeLine(){
@@ -3782,7 +3784,7 @@ function sdwanGenerate(tab){
  function service(name,id){return `${c(id)?"":"no "}allow-service ${name}`;}
  if(tab==="verify") return `show sdwan control connections\nshow sdwan control local-properties\nshow sdwan bfd sessions\nshow sdwan omp peers\nshow sdwan omp routes\nshow sdwan tunnel statistics\nshow sdwan app-route stats\nshow ip interface brief\nshow ip route\nshow ip route vrf ${mgmtVrf}\nshow interfaces ${w1}\nshow interfaces ${w2}\nshow interfaces ${mgmtIf}\nshow clock\nshow ntp associations`;
  if(tab==="trouble") return `1. system-ip ${sysip}, site-id ${site}, organization-name ve vBond değerlerini doğrula.\n2. ${w1} / ${w2} interface link ve IP/gateway durumunu kontrol et.\n3. Her WAN için default route next-hop erişilebilir mi kontrol et.\n4. Tunnel source interface'lerin doğru WAN portlarını kullandığını doğrula.\n5. color ${w1c}/${w2c}, restrict ve IPsec weight değerlerini kontrol et.\n6. show sdwan control connections ile vBond/vSmart/vManage oturumlarını incele.\n7. show sdwan bfd sessions ile iki transport üzerindeki BFD durumunu kontrol et.\n8. NAT/port-hop davranışında firewall/NAT cihazlarının UDP portlarını engellemediğini doğrula.\n9. allow-service policy nedeniyle control/management trafiğinin engellenmediğini kontrol et.\n10. OMP peer/routes ile site route öğrenimini doğrula.\n11. NTP/DNS erişiminin ilgili VRF/source üzerinden çalıştığını kontrol et.\n12. MTU ${mtu} ve IPsec overhead nedeniyle fragmentation/drop oluşmadığını test et.`;
- if(tab==="notes") return `SD-WAN Design Notes\n- Bu modül Cisco cEdge / IOS-XE SD-WAN template yaklaşımını kullanır.\n- system-ip cihaz kimliğidir; interface IP değildir.\n- site-id aynı lokasyondaki edge cihazlarında tasarıma göre ortak olabilir.\n- color transport karakteristiğini tanımlar; restrict ile public/private reachability davranışı sınırlanabilir.\n- IPsec weight transport tercih ağırlığıdır.\n- vManage connection preference control-plane management tercihidir; data-plane SLA/path policy ile aynı şey değildir.\n- Default route gateway değerleri interface IP'den farklı olmalıdır.\n- Production ortamında certificate, controller reachability, OMP, centralized/local policy ve service VPN konfigürasyonları ayrıca modellenmelidir.`;
+ if(tab==="notes") return `SD-WAN Engineering Notes\n- ${host||"The selected edge"} uses system IP ${sysip||"pending"} and site ID ${site||"pending"}. System IP is the stable overlay identity, not an interface address; it must be unique across the fabric.\n- Organization name and certificate identity must agree with the controllers before the edge can establish authenticated control connections to vBond, vSmart and vManage.\n- WAN-1 ${w1} uses color ${w1c} with IPsec weight ${w1w}; WAN-2 ${w2} uses color ${w2c} with weight ${w2w}. Weights influence eligible tunnel preference but do not replace centralized/local application-aware routing policy.\n- ${c("sdRestrict1")?`${w1c} is restricted; it forms tunnels only with compatible restricted-color reachability.`:`${w1c} is unrestricted.`} ${c("sdRestrict2")?`${w2c} is restricted.`:`${w2c} is unrestricted.`} Confirm that NAT and transport reachability match the chosen colors.\n- Control hello ${hello} and tolerance ${tol} influence control-connection failure detection; aggressive values can increase false failure detection on unstable transports. BFD data-plane timers and SLA policy remain separate controls.\n- WAN default gateways ${w1gw||"pending"} and ${w2gw||"pending"} must be reachable through their own interfaces. The management VRF ${mgmtVrf} has an independent default path and must preserve recovery access during WAN failure.\n- MTU ${mtu} must accommodate SD-WAN/IPsec encapsulation across both transports. Validate fragmentation, PMTUD and application-sized packets, not only ICMP reachability.\n- Production acceptance must cover certificates, controller sessions, OMP routes, BFD tunnels, NAT behavior, application-route statistics, transport failover and rollback. Service VPN and centralized policy are outside this device-only baseline unless explicitly modeled.`;
  const svc=[service("bgp","sdSrvBgp"),service("dhcp","sdSrvDhcp"),service("dns","sdSrvDns"),service("icmp","sdSrvIcmp"),service("sshd","sdSrvSshd"),service("netconf","sdSrvNetconf"),service("ntp","sdSrvNtp"),service("ospf","sdSrvOspf"),service("stun","sdSrvStun"),service("https","sdSrvHttps"),service("snmp","sdSrvSnmp"),service("bfd","sdSrvBfd")].map(x=>"   "+x).join("\n");
  function wanBlock(iface,color,weight,restrict,porthop,lastresort,lowbw,stun){return ` interface ${iface}\n  tunnel-interface\n   encapsulation ipsec weight ${weight}\n   no border\n   color ${color}${restrict?" restrict":""}\n${lastresort?"   last-resort-circuit":"   no last-resort-circuit"}\n${lowbw?"   low-bandwidth-link":"   no low-bandwidth-link"}\n${stun?"   vbond-as-stun-server":"   no vbond-as-stun-server"}\n   vmanage-connection-preference ${pref}\n${porthop?"   port-hop":"   no port-hop"}\n   carrier default\n   nat-refresh-interval ${nat}\n   hello-interval ${hello}\n   hello-tolerance ${tol}\n   allow-service all\n${svc}\n  exit\n exit`;}
  return `system\n description           ***SYS-CONFIG***\n location              ${loc}\n system-ip             ${sysip}\n overlay-id            ${overlay}\n site-id               ${site}\n port-offset           ${po}\n control-session-pps   ${pps}\n admin-tech-on-failure\n sp-organization-name  ${org}\n organization-name     ${org}\n console-baud-rate     9600\n vbond ${vbond} port ${vbondPort}\nexit\n\nhostname ${host}\n\nip name-server ${dns}\nip name-server vrf 10 ${dns}\n\nip route 0.0.0.0 0.0.0.0 ${w1gw}\nip route 0.0.0.0 0.0.0.0 ${w2gw}\nip route vrf ${mgmtVrf} 0.0.0.0 0.0.0.0 ${mgmtGw}\n\nvrf definition ${mgmtVrf}\n description ***MGMT***\n rd ${mgmtRd}\n address-family ipv4\n  route-target export ${mgmtRd}\n  route-target import ${mgmtRd}\n  exit-address-family\n !\n\ninterface ${mgmtIf}\n description ***MGMT***\n no shutdown\n arp timeout ${arp}\n vrf forwarding ${mgmtVrf}\n ip address ${mgmtIp} ${mgmtMask}\n no ip redirects\n ip mtu ${mtu}\n load-interval ${load}\n mtu ${mtu}\n negotiation auto\nexit\n\ninterface ${w1}\n description ***${w1d}***\n no shutdown\n arp timeout ${arp}\n ip address ${w1ip} ${w1m}\n no ip redirects\n ip mtu ${mtu}\n load-interval ${load}\n mtu ${mtu}\n negotiation auto\nexit\n\ninterface ${w2}\n description ***${w2d}***\n no shutdown\n arp timeout ${arp}\n ip address ${w2ip} ${w2m}\n no ip redirects\n ip mtu ${mtu}\n load-interval ${load}\n mtu ${mtu}\n negotiation auto\nexit\n\ninterface ${t1}\n no shutdown\n ip unnumbered ${w1}\n no ip redirects\n ipv6 unnumbered ${w1}\n no ipv6 redirects\n tunnel source ${w1}\n tunnel mode sdwan\nexit\n\ninterface ${t2}\n no shutdown\n ip unnumbered ${w2}\n no ip redirects\n ipv6 unnumbered ${w2}\n no ipv6 redirects\n tunnel source ${w2}\n tunnel mode sdwan\nexit\n\nclock timezone ${tz}\n\nline con 0\n speed 9600\n stopbits 1\n\nline vty 0 4\n transport input ssh\n\nline vty 5 80\n transport input ssh\n\nntp server vrf ${mgmtVrf} ${ntp} prefer version 4\nntp source ${w1}\nlldp run\n\nsdwan\n${wanBlock(w1,w1c,w1w,c("sdRestrict1"),c("sdPortHop1"),false,false,false)}\n\n${wanBlock(w2,w2c,w2w,c("sdRestrict2"),c("sdPortHop2"),c("sdLastResort2"),c("sdLowBw2"),c("sdVbondStun2"))}\n\nline vty 0 4\n transport input ssh\nexit`;
@@ -4588,14 +4590,14 @@ diagnose firewall shaper traffic-shaper list`
 10. Port-channel/vPC üyelerinde MTU ve QoS policy tutarlılığını doğrula.`;
 
  if(tab==="notes") return `QoS / MTU Design Notes
-- Policing trafiği belirlenen CIR üzerinde drop/remark eder; shaping ise trafiği buffer ederek belirlenen hıza yayar.
-- WRED congestion oluşmadan önce seçilmiş trafik sınıflarında olasılıksal drop ile TCP akışlarını yavaşlatmayı amaçlar.
-- Voice/real-time trafiğe WRED'i mekanik olarak uygulamayın.
-- Burst değeri uygulamanın trafik profiline göre seçilmelidir; çok küçük burst mikroburst kaynaklı drop üretir.
-- Queue yapısı ve desteklenen WRED syntax'ı ASIC/NOS sürümüne göre değişebilir.
-- NX-OS'ta qos / network-qos / queuing policy tipleri birbirinden ayrıdır; bu sürüm temel interface-policy üretir.
-- Huawei CloudEngine QoS modeli Cisco MQC ile birebir aynı değildir; CE6865/CE8850 VRP 8 traffic classifier/behavior/policy yaklaşımı kullanılır.
-- Production öncesi hedef donanım/NOS sürümünün QoS hardware limitleri kontrol edilmelidir.`;
+- The path requests system/jumbo MTU ${sysMtu}/${jumbo} and interface/L3 MTU ${intMtu}/${l3Mtu}. MTU is an end-to-end property; one smaller hop or encapsulation boundary can cause size-dependent drops while small probes still succeed.
+- ${c("qosTrustEnable")?`The ingress trust boundary accepts ${trust.toUpperCase()} markings. Only administratively controlled endpoints should be trusted, otherwise applications can claim unintended priority.`:"Ingress markings are not trusted; classification must derive treatment from another match condition."}
+- Class ${cls} matches critical DSCP ${critical}; voice DSCP ${voice} remains a distinct service class. Classification creates no bandwidth guarantee until a compatible scheduler/policy is attached in the correct direction.
+- ${c("qosPolicing")?`Policing limits the class to ${policeMbps} Mbps with a ${policeBurstKb} KB burst. Excess traffic is dropped or remarked according to platform behavior; an undersized burst can discard legitimate microbursts.`:"Policing is disabled, so the policy does not impose a hard rate ceiling."}
+- ${c("qosShaping")?`Shaping buffers eligible egress traffic toward ${shapeMbps} Mbps. It reduces burst rate at the cost of queueing delay and requires sufficient buffer headroom.`:"Shaping is disabled."}
+- ${c("qosWred")?`WRED uses thresholds ${wredMin}–${wredMax} with probability denominator ${wredProb}; it is intended mainly for responsive traffic under congestion and should not be applied mechanically to voice or strict-priority traffic.`:"WRED is disabled; congestion follows the platform's normal queue and tail-drop behavior."}
+- ${c("qosQueueing")?"Queue scheduling is selected, but queue count, bandwidth units and hardware mapping must be confirmed on the target ASIC/NOS.":"No explicit scheduler is selected; marking alone does not reserve egress capacity."}
+- Acceptance must verify policy attachment, classification counters, queue occupancy, drop/remark counters, latency under load and behavior on port-channel/vPC members. Vendor CLI similarity does not imply identical hardware behavior.`;
 
  function commonHeader(h){
    return `hostname ${h}`;
@@ -5797,7 +5799,7 @@ renderModule();
    const redact=s=>String(s||"").replace(/^(\s*(?:username\b.*?\b(?:password|secret)\b|enable\s+secret\b|(?:snmp-server\s+community|(?:tacacs|radius)(?:-server)?\b.*?\bkey|neighbor\s+\S+\s+password)\b|set\s+(?:password|psksecret|secret|key)\b)).*$/gim,"$1 [REDACTED]");
    const allConfig=selectorId=>{
      const selector=document.getElementById(selectorId),previous=selector?.value;
-     try{if(selector)selector.value="all";return redact(modules[tech].generate("config"));}
+     try{if(selector){const all=[...selector.options].find(o=>String(o.value).toLowerCase()==="all");selector.value=all?.value||selector.options[0]?.value||previous;}return redact(modules[tech].generate("config"));}
      finally{if(selector)selector.value=previous;}
    };
    const sections=s=>{
@@ -5828,7 +5830,7 @@ renderModule();
      roles.upper=tech==="OSPF"?"Router":"Device";roles.lower=roles.upper;
      const a=add("upper",get("d1host")||"Device-1"),b=add("lower",get("d2host")||"Device-2");
      link(a,b,get(tech==="QOS"?"qosIf1":"d1if"),get(tech==="QOS"?"qosIf2":"d2if"),tech==="QOS"?"QoS / MTU path":"OSPF adjacency");
-     configs([a,b]);
+     configs([a,b],tech==="OSPF"?"ospfOutputDevice":"qosOutputDevice");
    }else if(tech==="EVPN"){
      const model=get("evFabricModel")||"dual-dc";
      const single=model==="single-dc";
@@ -5888,7 +5890,7 @@ renderModule();
    params.push(...reportEngineeringDecisions(tech,read,pl));
    params.push(...workspaceDesignNoteParameters(tech));
    // Configuration generators select one device via their existing output control.
-   const outputId=isVpc?(pl==="Cisco NX-OS"?"vpcOutputDevice":pl==="Arista EOS"?"arOutput":pl==="Huawei_CE_SW"?"hwOutput":"swvOutput"):null;
+   const outputId=isVpc?(pl==="Cisco NX-OS"?"vpcOutputDevice":pl==="Arista EOS"?"arOutput":pl==="Huawei_CE_SW"?"hwOutput":"swvOutput"):"stpOutputDevice";
    const selector=outputId&&document.getElementById(outputId), selected=selector?.value;
    const redact=s=>String(s||"").replace(/^(\s*(?:username\b.*?\b(?:password|secret)\b|enable\s+secret\b|(?:snmp-server\s+community|(?:tacacs|radius)(?:-server)?\b.*?\bkey|neighbor\s+\S+\s+password)\b)).*$/gim,"$1 [REDACTED]");
    const config=(id,choice)=>{
@@ -5945,6 +5947,7 @@ renderModule();
          addDevice("lower",i,names[i-1]||`LEAF-${String(i).padStart(2,"0")}`);
          for(let side=1;side<=2;side++)addLink(side,i,`${get("stpCoreLeafPrefix")||"Ethernet1/"}${start+i-1}`,get(side===1?"stpLeafUp1":"stpLeafUp2"),"STP dual-homed uplink");
        }
+       if(selector)selector.value="ALL";
        const generated=redact(modules[tech].generate("config"));
        const blocks=generated.split(/^########\s+.*?\s+########\s*$/m).map(x=>x.trim()).filter(Boolean);
        if(blocks.length!==devices.length)throw Error("STP configuration sections do not match the planned devices.");
