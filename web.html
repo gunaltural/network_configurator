@@ -1909,9 +1909,9 @@ function vpcV42ContextUI(){
      if(t==="Arista MLAG Parameters"||t==="Huawei M-LAG Parameters")el.remove();
    });
    /* v4.9.5: remove legacy Arista/Huawei controls leaking into Cisco NX-OS parameters. */
-   ["mlagPeerVlan","mlagPeerIp1","mlagPeerIp2","mlagHeartbeat","mlagReloadMlag","mlagReloadNon",
-    "aristaStpMode","aristaStpPri","huaweiDfs","huaweiPri1","huaweiPri2","huaweiDad1","huaweiDad2",
-    "huaweiDadIf1","huaweiDadIf2","huaweiStpMode","huaweiVstp","huaweiUpDelay","huaweiRecovery",
+   ["mlagPeerVlan","mlagPeerIp1","mlagPeerIp2","aristaHeartbeat","aristaReloadMlag","aristaReloadNonMlag",
+    "aristaStpMode","aristaStpPriority","huaweiDfs","huaweiDfsPri1","huaweiDfsPri2","huaweiDadIp1","huaweiDadIp2",
+    "huaweiDadIf1","huaweiDadIf2","huaweiStpMode","huaweiVstp","huaweiUpDelay","huaweiAutoRecovery",
     "huaweiDadDelay","huaweiLacpMode"].forEach(id=>{
       const el=document.getElementById(id);
       if(el){const box=el.closest("div");if(box)box.remove();}
@@ -1925,7 +1925,10 @@ function vpcV42ContextUI(){
    :active==="huawei"?"<b>CloudEngine:</b> VLAN inventory generates <code>vlan batch ...</code>. Downstream Eth-Trunks use <code>port trunk allow-pass vlan</code>."
    :"Select a supported vendor.";
  }
- const badge=[...document.querySelectorAll("#params .vpc-v42-card")].find(x=>x.textContent.includes("2 · Peer & Control Plane"))?.querySelector(".vpc-v42-badge");
+ const peerCard=[...document.querySelectorAll("#params .vpc-v42-card")].find(x=>x.textContent.includes("2 · Peer & Control Plane"));
+ const peerSub=peerCard?.querySelector(".vpc-v42-sub");
+ if(peerSub)peerSub.textContent=active==="cisco"?"Cisco Nexus vPC peer-link and peer-keepalive parameters.":active==="arista"?"Arista EOS MLAG peer-link and peer control parameters.":active==="huawei"?"Huawei CloudEngine M-LAG peer-link, DFS and DAD parameters.":"Vendor-native peer control parameters.";
+ const badge=peerCard?.querySelector(".vpc-v42-badge");
  if(badge)badge.textContent=active==="cisco"?"vPC":active==="arista"?"MLAG":active==="huawei"?"M-LAG":"VENDOR";
 }
 function vpcLeafUi(){
