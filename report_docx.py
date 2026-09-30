@@ -97,6 +97,11 @@ def _technology_text(project, placement):
 
 def build_report_docx(project):
     """Return a Word file in memory with planned topology and configuration."""
+    language = "tr" if project.get("language") == "tr" else "en"
+    words = {
+        "tr": {"subtitle":"Ağ tasarımı ve cihaz envanteri","draft":"Taslak rapor","overview":"Proje özeti","scope":"Proje kapsamı ve tasarım amacı mühendis tarafından girilmelidir.","topology":"Planlanan topoloji","upper":"Üst katman","lower":"Alt katman","schedule":"Bağlantı çizelgesi","device":"Cihaz","port":"Port","connection":"Bağlantı / hız","none":"Fiziksel bağlantı modellenmedi","special":"Özel bağlantılar ve kontrol yolları","type":"Tür","endpoint_a":"Uç A / port","endpoint_b":"Uç B / port","details":"Detaylar","logical":"mantıksal","logical_note":"Mantıksal kontrol yolları uçları gösterir; doğrudan fiziksel kablo anlamına gelmez.","approach":"Teknoloji yaklaşımı","intent":"Bu bölüm tasarım amacını gösterir; operasyonel durum henüz doğrulanmamıştır.","decisions":"Teknoloji kararları ve ağa etkileri","decision_note":"Mimari ve operasyonel davranış seçilen tasarımı yansıtır. Gerçek trafik iletimi eş cihaz konfigürasyonu ve cihaz durumuna bağlıdır.","assumptions":"Tasarım varsayımları ve uygulama notları","inventory":"Cihaz envanteri","role":"Rol","model":"Model","serial":"Seri numarası","source":"Kaynak","pending":"Atama bekliyor","external":"Harici","planned":"Planlandı","confirm":"Doğrulanacak hususlar","appendix":"Ek · Planlanan cihaz konfigürasyonları","config_note":"Üretilen konfigürasyonlar tasarım girdilerini yansıtır ve cihaz üzerinde doğrulanmamıştır. Kullanımdan önce hedef model ve yazılım sürümüyle karşılaştırılmalıdır."},
+        "en": {"subtitle":"Network design and device inventory","draft":"Draft report","overview":"Project overview","scope":"Project scope and design intent await engineer input.","topology":"Planned topology","upper":"Upper tier","lower":"Lower tier","schedule":"Connection schedule","device":"Device","port":"Port","connection":"Connection / speed","none":"No physical links modeled","special":"Special connections and control paths","type":"Type","endpoint_a":"Endpoint A / port","endpoint_b":"Endpoint B / port","details":"Details","logical":"logical","logical_note":"Logical control paths identify endpoints; they do not imply a direct physical cable.","approach":"Technology approach","intent":"Design intent only; operational state has not been verified.","decisions":"Technology decisions and network impact","decision_note":"Architecture and operational behavior reflect the selected design. Actual forwarding depends on peer configuration and device state.","assumptions":"Design assumptions and implementation notes","inventory":"Device inventory","role":"Role","model":"Model","serial":"Serial","source":"Source","pending":"Awaiting assignment","external":"External","planned":"Planned","confirm":"Items to confirm","appendix":"Appendix · Planned device configurations","config_note":"Generated configurations reflect design inputs and have not been validated on a device. Review against the target model and software release before use."}
+    }[language]
     doc = Document()
     section = doc.sections[0]
     section.page_width, section.page_height = Inches(8.5), Inches(11)
@@ -128,31 +133,41 @@ def build_report_docx(project):
     name = project["name"].strip()
     title = doc.add_paragraph(name, style="Title")
     title.paragraph_format.keep_with_next = True
-    doc.add_paragraph("Network design and device inventory", style="Subtitle")
+    doc.add_paragraph(words["subtitle"], style="Subtitle")
     roles = project.get("roles") or {}
     upper = roles.get("upper") or ("Core" if project["architecture"] == "core-access" else "Spine")
     lower = roles.get("lower") or ("Access" if project["architecture"] == "core-access" else "Leaf")
+    if language == "tr":
+        role_names = {"Network device": "Ağ cihazı", "Managed device": "Yönetilen cihaz", "Edge router": "Uç yönlendirici", "External endpoint": "Harici uç", "DC-1 node": "DC-1 düğümü", "DC-2 node": "DC-2 düğümü"}
+        upper, lower = role_names.get(upper, upper), role_names.get(lower, lower)
     vendor = "Huawei CloudEngine" if project["vendor"] == "Huawei_CE_SW" else project["vendor"]
     doc.add_paragraph(
-        f"Draft report  |  {datetime.now(timezone.utc).strftime('%d %B %Y')}  |  {vendor}"
+        f"{words['draft']}  |  {datetime.now(timezone.utc).strftime('%d %B %Y')}  |  {vendor}"
     )
 
-    doc.add_heading("Project overview", level=1)
+    doc.add_heading(words["overview"], level=1)
     architecture = ("Module topology" if project["architecture"] == "module" else
                     "Core Access" if project["architecture"] == "core-access" else "Spine Leaf")
-    overview = (f"The planned {architecture} has {project['upperCount']} {upper.lower()} "
-                + ("device" if project["upperCount"] == 1 else "devices")
-                + (f" and {project['lowerCount']} {lower.lower()} "
-                   + ("device" if project["lowerCount"] == 1 else "devices") if project["lowerCount"] else "")
-                + f" and uses {project['technology']}.")
+    if language == "tr":
+        architecture = {"Module topology": "Modül topolojisi", "Core Access": "Core–Access", "Spine Leaf": "Spine–Leaf"}[architecture]
+    if language == "tr":
+        overview = (f"Planlanan {architecture} mimarisinde {project['upperCount']} {upper} cihazı"
+                    + (f" ve {project['lowerCount']} {lower} cihazı" if project["lowerCount"] else "")
+                    + f" bulunur; kullanılan teknoloji {project['technology']} olarak seçilmiştir.")
+    else:
+        overview = (f"The planned {architecture} has {project['upperCount']} {upper.lower()} "
+                    + ("device" if project["upperCount"] == 1 else "devices")
+                    + (f" and {project['lowerCount']} {lower.lower()} "
+                       + ("device" if project["lowerCount"] == 1 else "devices") if project["lowerCount"] else "")
+                    + f" and uses {project['technology']}.")
     doc.add_paragraph(overview)
-    doc.add_paragraph(project["scope"].strip() or "Project scope and design intent await engineer input.")
+    doc.add_paragraph(project["scope"].strip() or words["scope"])
 
     devices = {device["id"]: device for device in project["devices"]}
     active = [link for link in project["links"] if link["enabled"]]
     device_name = lambda device: device["hostname"] or f"{upper if device['tier'] == 'upper' else lower}-{device['index']:02d}"
 
-    doc.add_heading("Planned topology", level=1)
+    doc.add_heading(words["topology"], level=1)
     doc.add_paragraph(
         f"{upper} tier: " + ", ".join(device_name(d) for d in project["devices"] if d["tier"] == "upper")
     )
@@ -172,46 +187,49 @@ def build_report_docx(project):
         if len(picture) > 2250000 or not picture.startswith(b"\x89PNG\r\n\x1a\n"):
             raise ValueError("Invalid topology PNG")
         doc.add_picture(BytesIO(picture), width=Inches(6.9))
-    doc.add_heading("Connection schedule", level=1)
+    doc.add_heading(words["schedule"], level=1)
     _table(
         doc,
-        [f"{upper} device", "Port", f"{lower} device", "Port", "Connection / speed"],
+        [f"{upper} {words['device'].lower()}", words["port"], f"{lower} {words['device'].lower()}", words["port"], words["connection"]],
         [1.55, 1.1, 1.55, 1.1, 1.65],
         [[device_name(devices[l["a"]]), l["upperPort"] or "TBD", device_name(devices[l["b"]]), l["lowerPort"] or "TBD", " · ".join(filter(None, [l.get("detail"), l["speed"]])) or "TBD"] for l in active]
-        or [["No physical links modeled", "", "", "", ""]],
+        or [[words["none"], "", "", "", ""]],
     )
     if project.get("specialLinks"):
-        doc.add_heading("Special connections and control paths", level=2)
+        doc.add_heading(words["special"], level=2)
         _table(
             doc,
-            ["Type", "Endpoint A / port", "Endpoint B / port", "Details"],
+            [words["type"], words["endpoint_a"], words["endpoint_b"], words["details"]],
             [1.25, 1.8, 1.8, 2.1],
-            [[link["kind"] + (" (logical)" if link["logical"] else ""),
+            [[link["kind"] + (f" ({words['logical']})" if link["logical"] else ""),
               device_name(devices[link["a"]]) + " · " + (link["aPort"] or "TBD"),
               device_name(devices[link["b"]]) + " · " + (link["bPort"] or "TBD"), link["detail"]]
              for link in project["specialLinks"]],
         )
-        doc.add_paragraph("Logical control paths identify endpoints; they do not imply a direct physical cable.")
+        doc.add_paragraph(words["logical_note"])
 
-    doc.add_heading("Technology approach", level=1)
+    doc.add_heading(words["approach"], level=1)
     placement = upper if project["techPlacement"] == "upper" else lower
     doc.add_paragraph(
-        f"The planned {project['technology']} design uses {vendor}. Device configuration proposals are included in the appendix."
-        if project.get("configurations") else _technology_text(project, placement)
+        (f"Planlanan {project['technology']} tasarımı {vendor} platformunu kullanır. Cihaz konfigürasyon önerileri ekte sunulmuştur."
+         if project.get("configurations") else f"Seçilen {project['technology']} teknolojisi devreye alma öncesinde ayrıntılı mühendislik ve arıza senaryosu doğrulaması gerektirir.")
+        if language == "tr" else
+        (f"The planned {project['technology']} design uses {vendor}. Device configuration proposals are included in the appendix."
+         if project.get("configurations") else _technology_text(project, placement))
     )
-    doc.add_paragraph("Design intent only; operational state has not been verified.")
+    doc.add_paragraph(words["intent"])
     decisions = [item for item in project.get("parameters", []) if item["value"] != "Design boundary"]
     design_notes = [item for item in project.get("parameters", []) if item["value"] == "Design boundary"]
     if decisions:
-        doc.add_heading("Technology decisions and network impact", level=2)
-        doc.add_paragraph("Architecture and operational behavior reflect the selected design. Actual forwarding depends on peer configuration and device state.")
+        doc.add_heading(words["decisions"], level=2)
+        doc.add_paragraph(words["decision_note"])
         for item in decisions:
             paragraph = doc.add_paragraph()
             paragraph.paragraph_format.keep_together = True
             paragraph.add_run(f"{item['label']} · {item['value']}\n").bold = True
             paragraph.add_run(item.get("impact") or "This saved project predates design explanations; reopen the Technology Workspace to regenerate this decision.")
     if design_notes:
-        doc.add_heading("Design assumptions and implementation notes", level=2)
+        doc.add_heading(words["assumptions"], level=2)
         for item in design_notes:
             paragraph = doc.add_paragraph()
             paragraph.paragraph_format.keep_together = True
@@ -219,34 +237,33 @@ def build_report_docx(project):
             paragraph.add_run(item.get("impact") or "")
 
     doc.add_page_break()
-    doc.add_heading("Device inventory", level=1)
-    source = lambda value: "Verified from device" if value == "device" else "Engineer entry" if value == "manual" else "Awaiting assignment"
+    doc.add_heading(words["inventory"], level=1)
+    source = lambda value: (("Cihazdan doğrulandı" if value == "device" else "Mühendis girişi" if value == "manual" else "Atama bekliyor") if language == "tr" else ("Verified from device" if value == "device" else "Engineer entry" if value == "manual" else "Awaiting assignment"))
     _table(
         doc,
-        ["Device", "Role", "Model", "Serial", "Source"],
+        [words["device"], words["role"], words["model"], words["serial"], words["source"]],
         [1.6, .9, 1.5, 1.4, 1.7],
-        [[device_name(d), upper if d["tier"] == "upper" else lower, d["model"] or ("External" if d.get("external") else "Awaiting assignment"), d["serial"] or ("External" if d.get("external") else "Awaiting assignment"),
-          "External peer" if d.get("external") else f"{source(d['modelSource'])} / {source(d['serialSource'])}" if d["modelSource"] or d["serialSource"] else "Planned"]
+        [[device_name(d), upper if d["tier"] == "upper" else lower, d["model"] or (words["external"] if d.get("external") else words["pending"]), d["serial"] or (words["external"] if d.get("external") else words["pending"]),
+          ("Harici eş" if language == "tr" else "External peer") if d.get("external") else f"{source(d['modelSource'])} / {source(d['serialSource'])}" if d["modelSource"] or d["serialSource"] else words["planned"]]
          for d in project["devices"]],
     )
 
-    doc.add_heading("Items to confirm", level=1)
+    doc.add_heading(words["confirm"], level=1)
     incomplete = sum(not d.get("external") and (not d["model"] or not d["serial"]) for d in project["devices"])
     missing_ports = sum(not l["upperPort"] or not l["lowerPort"] for l in active)
     doc.add_paragraph(
-        (f"{incomplete} {'device still needs' if incomplete == 1 else 'devices still need'} a model or serial number. " if incomplete
-         else "All device models and serial numbers are populated. ")
-        + (f"{missing_ports} active {'link still needs' if missing_ports == 1 else 'links still need'} a port at one or both ends. " if missing_ports
-           else "All active link endpoint ports are assigned. ")
-        + "Compare device-sourced inventory with the intended bill of materials before closeout."
+        ((f"{incomplete} cihaz için model veya seri numarası tamamlanmalıdır. " if incomplete else "Tüm cihaz modelleri ve seri numaraları doldurulmuştur. ")
+         + (f"{missing_ports} aktif bağlantının bir veya iki ucunda port bilgisi eksiktir. " if missing_ports else "Tüm aktif bağlantı uçlarının portları atanmıştır. ")
+         + "Cihazdan okunan envanter proje kapanışından önce planlanan malzeme listesiyle karşılaştırılmalıdır.")
+        if language == "tr" else
+        ((f"{incomplete} {'device still needs' if incomplete == 1 else 'devices still need'} a model or serial number. " if incomplete else "All device models and serial numbers are populated. ")
+         + (f"{missing_ports} active {'link still needs' if missing_ports == 1 else 'links still need'} a port at one or both ends. " if missing_ports else "All active link endpoint ports are assigned. ")
+         + "Compare device-sourced inventory with the intended bill of materials before closeout.")
     )
     if project.get("configurations"):
         doc.add_page_break()
-        doc.add_heading("Appendix · Planned device configurations", level=1)
-        doc.add_paragraph(
-            "Generated configurations reflect design inputs and have not been validated on a device. "
-            "Review against the target model and software release before use."
-        )
+        doc.add_heading(words["appendix"], level=1)
+        doc.add_paragraph(words["config_note"])
         configurations = {config["deviceId"]: config for config in project["configurations"]}
         configured_devices = [device for device in project["devices"] if device["id"] in configurations]
         for index, device in enumerate(configured_devices):
