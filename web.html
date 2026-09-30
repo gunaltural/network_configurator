@@ -4977,8 +4977,8 @@ function renderModule(){
  else { setTimeout(()=>{syncTopologyControls();syncTopology();},0); }
  document.querySelectorAll("#params input,#params select").forEach(e=>{
    if(e.id!=="sdExcelFile" && e.id!=="sdSiteSelect" && e.id!=="sdRouterSelect"){
-     e.addEventListener("input",renderOutput);
-     e.addEventListener("change",renderOutput);
+     e.addEventListener("input",()=>{renderOutput();captureWorkspaceModule(tech);});
+     e.addEventListener("change",()=>{renderOutput();captureWorkspaceModule(tech);});
    }
  });
 
@@ -5519,7 +5519,7 @@ renderModule();
    d.innerHTML=`<div class="icon">${icon}</div><h3>${label}</h3><p>${desc}</p><span class="tag">${tag}</span>`;
    d.onclick=()=>openTech(key); grid.appendChild(d);
  });
- $("v3DashboardBtn").onclick=()=>{dashboard.classList.add("show");workspace.style.display="none";health.style.display="none";window.scrollTo({top:0,behavior:"smooth"});};
+ $("v3DashboardBtn").onclick=()=>{captureWorkspaceModule(tech);dashboard.classList.add("show");workspace.style.display="none";health.style.display="none";window.scrollTo({top:0,behavior:"smooth"});};
 
  function updateHealth(){
    const plat=document.getElementById("platform");
