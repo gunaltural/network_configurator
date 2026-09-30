@@ -4952,6 +4952,11 @@ function restoreWorkspaceModule(key=tech){
  Object.entries(saved.fields||{}).forEach(([id,value])=>{const el=document.getElementById(id);if(!el)return;if(el.type==="checkbox")el.checked=!!value;else el.value=value;});
  return true;
 }
+function technologyLabel(key,pl){
+ const labels={BASIC:"System and Management",BGP:"BGP",OSPF:"OSPF",STP:"STP",EVPN:"EVPN / VXLAN",QOS:"QoS",SDWAN:"SD-WAN"};
+ if(key!=="VPC")return labels[key]||key;
+ return pl==="Cisco NX-OS"?"vPC":pl==="Cisco IOS-XE"?"StackWise Virtual":pl==="Arista EOS"?"MLAG":pl==="Huawei_CE_SW"?"M-LAG":"Multi-Chassis Redundancy";
+}
 function renderModule(){
  syncPlatformListForModule();
  const savedModule=window.__workspaceModuleStates?.[tech],savedPlatform=document.getElementById("platform");
@@ -4967,8 +4972,9 @@ function renderModule(){
    const ps=document.getElementById("platform");
    if(ps) ps.value="Cisco IOS-XE";
  }
- document.getElementById("moduleTitle").textContent=m.title;
- document.getElementById("moduleSubtitle").textContent=m.subtitle;
+ document.getElementById("moduleTitle").textContent=technologyLabel(tech,platform());
+ if(document.getElementById("v3CurrentTech"))document.getElementById("v3CurrentTech").textContent=technologyLabel(tech,platform());
+ document.getElementById("moduleSubtitle").textContent=tech==="VPC"?(platform()==="Cisco NX-OS"?"Cisco Nexus vPC · Dual Spine / Dynamic 2–8 Leaf":platform()==="Cisco IOS-XE"?"Cisco StackWise Virtual · Dual Chassis / Dynamic 2–8 Leaf":platform()==="Arista EOS"?"Arista EOS MLAG · Dual Core / Dynamic 2–8 Leaf":"Huawei CloudEngine M-LAG · Dual Core / Dynamic 2–8 Leaf"):m.subtitle;
  document.getElementById("params").innerHTML=m.params();
  document.getElementById("params").classList.toggle("bgp-v39",tech==="BGP");
  document.getElementById("params").classList.toggle("vpc-v42",tech==="VPC");
@@ -5371,11 +5377,34 @@ function workspaceDesignNoteParameters(kind=tech){
  if(!raw)return [];
  const title=modules[kind]?.title||kind,seen=new Set();
  const lines=raw.split(/\r?\n+/).map(line=>line.trim()).filter(Boolean);if(lines.length>1&&!/^[-•]/.test(lines[0]))lines.shift();
- return lines.map(line=>line.replace(/^[-•]\s*/,"")).filter(line=>line&&!/^(?:design notes?|.+ design notes?|secure management baseline)$/i.test(line)).filter(line=>{const key=line.toLowerCase();if(seen.has(key))return false;seen.add(key);return true;}).slice(0,24).map((impact,index)=>({label:`${title} engineering note ${index+1}`,value:"Design boundary",impact:impact.slice(0,1200)}));
+ const labelFor=impact=>{
+   const text=impact.toLowerCase();
+   if(/peer[- ]?link/.test(text))return "Peer-link resiliency and capacity";
+   if(/keepalive|dad path|dual.active/.test(text))return "Failure-domain separation";
+   if(/peer-switch|stp root|spanning.tree/.test(text))return "Spanning-tree integration";
+   if(/peer-gateway|arp synchronize|nd synchronize/.test(text))return "Gateway forwarding continuity";
+   if(/consistency|symmetric|vpc id|mlag id|port-channel id/.test(text))return "Multi-chassis consistency";
+   if(/auto-recovery|delay restore|reload-delay/.test(text))return "Failure recovery behavior";
+   if(/bridge assurance|root guard|bpdu guard|loop guard|udld/.test(text))return "Layer 2 protection scope";
+   if(/bfd|failure detection|hello|hold.time/.test(text))return "Failure detection and convergence";
+   if(/local preference|med|as-path|community|traffic engineering/.test(text))return "Routing policy effect";
+   if(/mtu|fragment|pmtu/.test(text))return "MTU and encapsulation validation";
+   if(/aaa|tacacs|radius|break-glass/.test(text))return "Administrative access resilience";
+   if(/snmp|syslog|logging|telemetry/.test(text))return "Operational visibility";
+   if(/ntp|time|timestamp/.test(text))return "Time and audit integrity";
+   if(/acceptance|verify|validation|test/.test(text))return "Production acceptance criteria";
+   if(/outside|excluded|not generated|not modeled|boundary/.test(text))return "Design scope and boundary";
+   return `${title} implementation consideration`;
+ };
+ return lines.map(line=>line.replace(/^[-•]\s*/,"").replace(/^(?:PASS|WARNING)\s*·\s*/i,"").trim())
+   .filter(line=>line&&!/^(?:design notes?|.+ design notes?|secure management baseline|design check|guide-based features|consistency)$/i.test(line))
+   .filter(line=>line&&!/^PASS\s*·/i.test(line))
+   .filter(line=>{const key=line.toLowerCase();if(seen.has(key))return false;seen.add(key);return true;})
+   .slice(0,24).map(impact=>({label:labelFor(impact),value:"Design boundary",impact:impact.slice(0,1200)}));
 }
 function enrichedDesignNotes(module){
  const read=id=>{const node=document.getElementById(id);return node?.type==="checkbox"?(node.checked?"Enabled":"Disabled"):(node?.value||"");};
- const decisions=window.reportEngineeringDecisions?.(tech,read,platform())||[],notes=workspaceDesignNoteParameters(tech),lines=[`${module.title||tech} · Design Decisions and Engineering Notes`,"",`Platform: ${platform()}`,"Generated from the current Technology Workspace selections.",""];
+ const decisions=window.reportEngineeringDecisions?.(tech,read,platform())||[],notes=workspaceDesignNoteParameters(tech),lines=[`${technologyLabel(tech,platform())} · Design Decisions and Engineering Notes`,"",`Platform: ${platform()}`,"Generated from the current Technology Workspace selections.",""];
  if(decisions.length){lines.push("DESIGN DECISIONS AND NETWORK IMPACT","");decisions.forEach((item,index)=>lines.push(`${index+1}. ${item.label}`,`Selected design: ${item.value}`,`Network impact: ${item.impact}`,""));}
  if(notes.length){lines.push("IMPLEMENTATION ASSUMPTIONS, RISKS AND BOUNDARIES","");notes.forEach((item,index)=>lines.push(`${index+1}. ${item.impact}`));}
  lines.push("","These notes form part of the design record and are transferred to Reporting and Inventory. Validate platform and software-release behavior before production deployment.");
@@ -5505,7 +5534,7 @@ renderModule();
    if(!b){console.error("Unknown technology workspace:",key);return;}
    b.click();
    dashboard.classList.remove("show"); workspace.style.display="flex"; health.style.display="grid";
-   $("v3CurrentTech").textContent=normalized==="VPC"?"vPC / MLAG":(b.querySelector("strong")?.textContent||normalized);
+   $("v3CurrentTech").textContent=technologyLabel(normalized,platform());
    const reportable=["BASIC","BGP","OSPF","STP","VPC","EVPN","QOS","SDWAN"].includes(normalized);
    $("v3HeadReport").hidden=!reportable;
    $("v3ReportNext").hidden=!reportable;
@@ -6073,17 +6102,17 @@ renderModule();
      image.src=url;
    });
  }
- const moduleLabel=key=>({BASIC:"System and Management",BGP:"BGP",OSPF:"OSPF",STP:"STP",VPC:"vPC / MLAG",EVPN:"EVPN / VXLAN",QOS:"QoS",SDWAN:"SD-WAN"}[key]||key);
+ const moduleLabel=(key,pl)=>technologyLabel(key,pl);
  function showCombineModal(){
    captureWorkspaceModule(tech);const modal=$("combineModal"),list=$("combineModuleList");
-   list.innerHTML=COMBINABLE_MODULES.map(key=>{const saved=window.__workspaceModuleStates[key],current=key===tech;return `<label class="combine-option"><input type="checkbox" value="${key}" ${current?"checked":""}><span><b>${moduleLabel(key)}</b><small>${current?"Current workspace":saved?.configured?`Configured · ${saved.platform}`:"Uses current default parameters if selected"}</small></span></label>`;}).join("");
+   list.innerHTML=COMBINABLE_MODULES.map(key=>{const saved=window.__workspaceModuleStates[key],current=key===tech,pl=current?platform():saved?.platform;return `<label class="combine-option"><input type="checkbox" value="${key}" ${current?"checked":""}><span><b>${moduleLabel(key,pl)}</b><small>${current?"Current workspace":saved?.configured?`Configured · ${saved.platform}`:"Uses current default parameters if selected"}</small></span></label>`;}).join("");
    $("combineError").textContent="";modal.hidden=false;
  }
  function closeCombineModal(){$("combineModal").hidden=true;}
  async function collectModuleReport(key){
    openTech(key);await new Promise(resolve=>setTimeout(resolve,60));restoreWorkspaceModule(key);if(key==="BGP")renderBgpDynamicCards();restoreWorkspaceModule(key);renderOutput();syncTopology();await new Promise(resolve=>setTimeout(resolve,40));
-   const report=reportingDesign();if(!report)throw Error(`${moduleLabel(key)} could not produce a report.`);
-   report.topologySvg=workspaceTopologySvg();report.topologyPng=await workspaceTopologyPng(report.topologySvg);report.moduleKey=key;report.moduleTitle=moduleLabel(key);return report;
+   const report=reportingDesign();if(!report)throw Error(`${moduleLabel(key,platform())} could not produce a report.`);
+   report.topologySvg=workspaceTopologySvg();report.topologyPng=await workspaceTopologyPng(report.topologySvg);report.moduleKey=key;report.moduleTitle=moduleLabel(key,report.vendor);return report;
  }
  function combineReports(reports){
    const project=snapshot(),devices=[],links=[],specialLinks=[],parameters=[],configMap=new Map(),deviceIndex=new Map(),moduleReports=[];
@@ -6181,7 +6210,7 @@ renderModule();
  document.addEventListener("click",e=>{
    const b=e.target.closest("[data-tech]");
    if(!b)return;
-   setTimeout(()=>{dashboard.classList.remove("show");workspace.style.display="flex";health.style.display="grid";$("v3CurrentTech").textContent=(b.dataset.tech==="VPC"?"vPC / MLAG":(b.querySelector("strong")?.textContent||b.dataset.tech));updateHealth();},0);
+   setTimeout(()=>{dashboard.classList.remove("show");workspace.style.display="flex";health.style.display="grid";$("v3CurrentTech").textContent=technologyLabel(b.dataset.tech,platform());updateHealth();},0);
  });
 })();
 </script>
