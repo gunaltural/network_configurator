@@ -60,10 +60,13 @@
   };
   const rw=key=>reportWords[state.language]?.[key]||reportWords.en[key]||key;
   let selectedDevice=null;
+  const rawUpper=()=>state.roles?.upper||(state.architecture==="core-access"?"Core":"Spine");
+  const rawLower=()=>state.roles?.lower||(state.architecture==="core-access"?"Access":"Leaf");
   const roleLabel=value=>state.language==="tr"?({"Network device":"Ağ cihazı","Managed device":"Yönetilen cihaz","Edge router":"Uç yönlendirici","External endpoint":"Harici uç","DC-1 node":"DC-1 düğümü","DC-2 node":"DC-2 düğümü"}[value]||value):value;
-  const upper=()=>roleLabel(state.roles?.upper||(state.architecture==="core-access"?"Core":"Spine"));
-  const lower=()=>roleLabel(state.roles?.lower||(state.architecture==="core-access"?"Access":"Leaf"));
+  const upper=()=>roleLabel(rawUpper());
+  const lower=()=>roleLabel(rawLower());
   const roleName=d=>d.tier==="upper"?upper():lower();
+  const editorRoleName=d=>d.tier==="upper"?rawUpper():rawLower();
   const deviceName=d=>d.hostname||`${roleName(d)}-${String(d.index).padStart(2,"0")}`;
   const labelSource=s=>s==="device"?"Verified from device":s==="manual"?"Engineer entry":"Awaiting assignment";
 
@@ -72,9 +75,9 @@
     if(!list.includes(state.technology))state.technology=list[0];
     $("technology").innerHTML=list.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join("");
     $("technology").value=state.technology;
-    $("upperLabel").textContent=upper()+" count";$("lowerLabel").textContent=lower()+" count";
-    $("techPlacement").options[0].text=lower()+" tier";
-    $("techPlacement").options[1].text=upper()+" tier";
+    $("upperLabel").textContent=rawUpper()+" count";$("lowerLabel").textContent=rawLower()+" count";
+    $("techPlacement").options[0].text=rawLower()+" tier";
+    $("techPlacement").options[1].text=rawUpper()+" tier";
   }
   function syncTopology(){
     if(state.source){
@@ -87,7 +90,7 @@
     for(const [tier,total] of [["upper",state.upperCount],["lower",state.lowerCount]]){
       for(let index=1;index<=total;index++){
         const id=`${tier}-${index}`;
-        const device=previous.get(id)||{id,tier,index,hostname:`${tier==="upper"?upper():lower()}-${String(index).padStart(2,"0")}`,model:"",serial:"",target:"",modelSource:"",serialSource:"",observedAt:""};
+        const device=previous.get(id)||{id,tier,index,hostname:`${tier==="upper"?rawUpper():rawLower()}-${String(index).padStart(2,"0")}`,model:"",serial:"",target:"",modelSource:"",serialSource:"",observedAt:""};
         device.vendor=state.vendor;
         devices.push(device);
       }
@@ -104,7 +107,7 @@
   }
   function deviceCard(d){
     const source=d.external?"External peer · no device configuration generated":[d.modelSource&&`Model: ${labelSource(d.modelSource)}`,d.serialSource&&`Serial: ${labelSource(d.serialSource)}`].filter(Boolean).join(" · ")||"Inventory pending";
-    return `<div class="device"><div class="device-top"><strong>${esc(roleName(d))} ${d.index}</strong></div><div class="device-fields">
+    return `<div class="device"><div class="device-top"><strong>${esc(editorRoleName(d))} ${d.index}</strong></div><div class="device-fields">
       <label>Hostname<input data-device="${d.id}" data-field="hostname" maxlength="100" value="${esc(d.hostname)}" ${state.source?"disabled":""}></label>
       <label>Product model<input data-device="${d.id}" data-field="model" maxlength="100" placeholder="Awaiting assignment" value="${esc(d.model)}"></label>
       <label>Serial number<input data-device="${d.id}" data-field="serial" maxlength="100" placeholder="Awaiting assignment" value="${esc(d.serial)}"></label>
@@ -119,7 +122,7 @@
       `<strong>Standalone report.</strong> To include a generated topology and device configurations, open a supported design in <a href="/">Technology Workspaces</a> and choose Reporting and Inventory in its header.`;
     $("linkHelp").textContent=imported?"Links and ports come from Technology Workspaces. Missing physical ports can be entered here for the document; update the workspace separately before deployment.":"Initial design connects each lower-tier device to each upper-tier device. Enter the port used at each end; uncheck a link to remove it from the report.";
     for(const id of ["vendor","architecture","technology","techPlacement","upperCount","lowerCount"])$(id).disabled=imported;
-    $("deviceCount").textContent=state.lowerCount?`${state.upperCount} ${upper()} + ${state.lowerCount} ${lower()} = ${state.devices.length} planned devices.`:`${state.upperCount} ${upper()} planned device${state.upperCount===1?"":"s"}.`;
+    $("deviceCount").textContent=state.lowerCount?`${state.upperCount} ${rawUpper()} + ${state.lowerCount} ${rawLower()} = ${state.devices.length} planned devices.`:`${state.upperCount} ${rawUpper()} planned device${state.upperCount===1?"":"s"}.`;
     $("linkCount").textContent=state.links.filter(l=>l.enabled).length;
     $("devices").innerHTML=state.devices.map(deviceCard).join("");
     $("links").innerHTML=state.links.map(l=>{
@@ -315,7 +318,7 @@
   function closeRead(){selectedDevice=null;$("sshBox").hidden=true;$("sshHelp").hidden=false;$("sshPassword").value="";$("sshSecret").value="";$("sshResult").textContent="";}
   for(const id of ["projectName","scope"]){$(id).addEventListener("input",e=>{state[id==="projectName"?"name":"scope"]=e.target.value;renderReport();});}
   $("vendor").addEventListener("change",e=>{state.vendor=e.target.value;for(const d of state.devices)d.vendor=state.vendor;renderEditor();});
-  $("architecture").addEventListener("change",e=>{state.architecture=e.target.value;for(const d of state.devices)if(d.hostname.match(/^(?:Spine|Leaf|Core|Access)-\d+$/))d.hostname=`${roleName(d)}-${String(d.index).padStart(2,"0")}`;renderEditor();});
+  $("architecture").addEventListener("change",e=>{state.architecture=e.target.value;for(const d of state.devices)if(d.hostname.match(/^(?:Spine|Leaf|Core|Access)-\d+$/))d.hostname=`${editorRoleName(d)}-${String(d.index).padStart(2,"0")}`;renderEditor();});
   $("technology").addEventListener("change",e=>{state.technology=e.target.value;renderReport();});
   $("reportLanguage").addEventListener("change",e=>{state.language=e.target.value==="en"?"en":"tr";renderReport();});
   $("techPlacement").addEventListener("change",e=>{state.techPlacement=e.target.value;renderReport();});
