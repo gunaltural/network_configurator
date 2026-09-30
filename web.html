@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Network Configurator v5.13.0</title>
+<title>Network Configurator v5.14.0</title>
 <style>
 :root{
   --bg:#0d1117;--panel:#161b22;--panel2:#1f2630;--line:#2b3440;
@@ -267,6 +267,7 @@ pre{
 
 .v3-recent{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.v3-recent-card{border:1px solid #20394e;border-radius:12px;background:#081621;padding:13px;cursor:pointer}.v3-recent-card:hover{border-color:#3c6c8d}.v3-recent-card b{font-size:12px}.v3-recent-card span{display:block;color:#7891a3;font-size:9px;margin-top:5px}.v3-empty{color:#71899b;font-size:11px;padding:14px;border:1px dashed #29445b;border-radius:10px}
 .v3-toast{position:fixed;right:20px;bottom:20px;z-index:1000;background:#102638;border:1px solid #3c6b8b;color:#e2f3fc;border-radius:10px;padding:10px 14px;font-size:11px;box-shadow:0 12px 35px rgba(0,0,0,.35);opacity:0;transform:translateY(8px);pointer-events:none;transition:.2s}.v3-toast.show{opacity:1;transform:none}
+.combine-modal[hidden]{display:none}.combine-modal{position:fixed;inset:0;z-index:1200;display:grid;place-items:center;padding:20px;background:rgba(2,8,14,.78);backdrop-filter:blur(5px)}.combine-card{width:min(620px,100%);max-height:85vh;overflow:auto;border:1px solid #345a73;border-radius:16px;background:#0b1721;box-shadow:0 28px 80px rgba(0,0,0,.55);padding:20px}.combine-card h3{margin:0;color:#e8f5fc}.combine-card>p{color:#94adbd;font-size:12px;line-height:1.6}.combine-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:16px 0}.combine-option{display:flex;align-items:flex-start;gap:10px;padding:11px;border:1px solid #263f51;border-radius:10px;background:#09131c}.combine-option:has(input:checked){border-color:#35a9e0;background:#0b2030}.combine-option input{width:17px;height:17px;margin-top:2px;accent-color:#38bdf8}.combine-option b{display:block;color:#dcecf5;font-size:12px}.combine-option small{display:block;margin-top:3px;color:#7894a6;font-size:10px}.combine-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:14px}.combine-error{min-height:18px;color:#fca5a5;font-size:11px}.combine-mode{padding:10px 12px;border:1px solid #29475c;border-radius:10px;background:#07121a;color:#9fb6c6;font-size:11px}.combine-mode strong{color:#dff4ff}@media(max-width:620px){.combine-list{grid-template-columns:1fr}}
 @media(max-width:900px){.v3-recent{grid-template-columns:1fr}}
 
 
@@ -382,6 +383,9 @@ pre{
   <div class="v3-recent" id="v3RecentProjects"></div>
 </section>
 <div class="v3-toast" id="v3Toast"></div>
+<div class="combine-modal" id="combineModal" hidden role="dialog" aria-modal="true" aria-labelledby="combineTitle">
+ <div class="combine-card"><h3 id="combineTitle">Build a combined report</h3><p>Select the Technology Workspace modules that should be included. Each module keeps its own platform, engineering decisions, topology and device configuration source.</p><div class="combine-mode"><strong>Primary topology:</strong> the currently open module leads the combined design; every selected module is also documented in its own report section.</div><div class="combine-list" id="combineModuleList"></div><div class="combine-error" id="combineError"></div><div class="combine-actions"><button class="btn" type="button" id="combineCancel">Cancel</button><button class="btn primary" type="button" id="combineCreate">Create Combined Report</button></div></div>
+</div>
 
 <div class="v3-workspace-head" id="v3WorkspaceHead" style="display:none">
   <div class="v3-breadcrumb">Project / <strong id="v3CurrentTech">Technology</strong></div>
@@ -399,7 +403,7 @@ pre{
     <div class="logo">NC</div>
     <div><h1>Network Configurator</h1><small>Configure · Validate · Troubleshoot</small></div>
   </div>
-  <div class="badge">Version 5.13.0 · Engineering Design Notes and Reporting</div>
+  <div class="badge">Version 5.14.0 · Combined Workspace Reporting</div>
 </header>
 
 <div class="layout">
@@ -4935,8 +4939,23 @@ function syncPlatformListForModule(){
  else if(wanted.some(x=>x[0]===current)) ps.value=current;
  else ps.value=wanted[0][0];
 }
+const COMBINABLE_MODULES=["BASIC","BGP","OSPF","STP","VPC","EVPN","QOS","SDWAN"];
+window.__workspaceModuleStates=window.__workspaceModuleStates||{};
+function captureWorkspaceModule(key=tech){
+ if(!COMBINABLE_MODULES.includes(key))return;
+ const fields={};document.querySelectorAll("#params input[id],#params select[id],#params textarea[id]").forEach(el=>{if(el.type!=="file")fields[el.id]=el.type==="checkbox"?el.checked:el.value;});
+ window.__workspaceModuleStates[key]={platform:platform(),fields,configured:true,updatedAt:new Date().toISOString()};
+}
+function restoreWorkspaceModule(key=tech){
+ const saved=window.__workspaceModuleStates[key];if(!saved)return false;
+ const ps=document.getElementById("platform");if(ps&&saved.platform&&[...ps.options].some(o=>o.value===saved.platform))ps.value=saved.platform;
+ Object.entries(saved.fields||{}).forEach(([id,value])=>{const el=document.getElementById(id);if(!el)return;if(el.type==="checkbox")el.checked=!!value;else el.value=value;});
+ return true;
+}
 function renderModule(){
  syncPlatformListForModule();
+ const savedModule=window.__workspaceModuleStates?.[tech],savedPlatform=document.getElementById("platform");
+ if(savedModule?.platform&&savedPlatform&&[...savedPlatform.options].some(o=>o.value===savedModule.platform))savedPlatform.value=savedModule.platform;
  const m=modules[tech];
  if(tech==="EVPN"){
    const ps=document.getElementById("platform");
@@ -4954,7 +4973,7 @@ function renderModule(){
  document.getElementById("params").classList.toggle("bgp-v39",tech==="BGP");
  document.getElementById("params").classList.toggle("vpc-v42",tech==="VPC");
  if(tech==="VPC")setTimeout(()=>{vpcLeafUi();vpcV42WorkspaceUI();syncTopologyControls();syncTopology();},0); if(tech==="EVPN")setTimeout(()=>{evpnV431Ui();syncTopologyControls();syncTopology();},0);
- if(tech==="BGP"){ renderBgpDynamicCards(); setTimeout(()=>{bgpV39ContextUI();syncTopologyControls();syncTopology();},0); }
+ if(tech==="BGP"){ renderBgpDynamicCards(); setTimeout(()=>{restoreWorkspaceModule(tech);renderBgpDynamicCards();restoreWorkspaceModule(tech);bgpV39ContextUI();syncTopologyControls();syncTopology();renderOutput();},0); }
  else { setTimeout(()=>{syncTopologyControls();syncTopology();},0); }
  document.querySelectorAll("#params input,#params select").forEach(e=>{
    if(e.id!=="sdExcelFile" && e.id!=="sdSiteSelect" && e.id!=="sdRouterSelect"){
@@ -4966,7 +4985,7 @@ function renderModule(){
  if(tech==="BGP"){["bgpCeCount","bgpIspCount","bgpConnectivity","bgpInternal"].forEach(id=>{const e=document.getElementById(id);if(e)e.addEventListener("change",()=>{renderBgpDynamicCards();renderOutput();});});}
  if(tech==="SDWAN") initSdwanUploadUI();
  renderOutput();
- setTimeout(()=>{syncTopologyControls();syncTopology();},20);
+ setTimeout(()=>{restoreWorkspaceModule(tech);if(tech==="VPC")vpcLeafUi();if(tech==="EVPN")evpnV431Ui();syncTopologyControls();syncTopology();renderOutput();},20);
 }
 
 
@@ -5434,6 +5453,7 @@ function renderOutput(){
 }
 
 document.querySelectorAll(".tech").forEach(b=>b.addEventListener("click",()=>{
+ captureWorkspaceModule(tech);
  document.querySelectorAll(".tech").forEach(x=>x.classList.remove("active"));
  b.classList.add("active"); tech=b.dataset.tech; window.activeTech=tech; window.currentTech=tech; renderModule();
 }));
@@ -5446,8 +5466,8 @@ document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{
 document.getElementById("platform").addEventListener("change",()=>{
  window.__modulePlatformLast=window.__modulePlatformLast||{};
  window.__modulePlatformLast[tech]=platform();
- if(tech==="VPC"){renderModule();syncTopology();return;}
- renderOutput();
+ if(tech==="VPC"){captureWorkspaceModule(tech);renderModule();syncTopology();return;}
+ renderOutput();captureWorkspaceModule(tech);
 });
 
 function copyOut(){navigator.clipboard.writeText(document.getElementById("output").textContent)}
@@ -6053,6 +6073,39 @@ renderModule();
      image.src=url;
    });
  }
+ const moduleLabel=key=>({BASIC:"System and Management",BGP:"BGP",OSPF:"OSPF",STP:"STP",VPC:"vPC / MLAG",EVPN:"EVPN / VXLAN",QOS:"QoS",SDWAN:"SD-WAN"}[key]||key);
+ function showCombineModal(){
+   captureWorkspaceModule(tech);const modal=$("combineModal"),list=$("combineModuleList");
+   list.innerHTML=COMBINABLE_MODULES.map(key=>{const saved=window.__workspaceModuleStates[key],current=key===tech;return `<label class="combine-option"><input type="checkbox" value="${key}" ${current?"checked":""}><span><b>${moduleLabel(key)}</b><small>${current?"Current workspace":saved?.configured?`Configured · ${saved.platform}`:"Uses current default parameters if selected"}</small></span></label>`;}).join("");
+   $("combineError").textContent="";modal.hidden=false;
+ }
+ function closeCombineModal(){$("combineModal").hidden=true;}
+ async function collectModuleReport(key){
+   openTech(key);await new Promise(resolve=>setTimeout(resolve,60));restoreWorkspaceModule(key);if(key==="BGP")renderBgpDynamicCards();restoreWorkspaceModule(key);renderOutput();syncTopology();await new Promise(resolve=>setTimeout(resolve,40));
+   const report=reportingDesign();if(!report)throw Error(`${moduleLabel(key)} could not produce a report.`);
+   report.topologySvg=workspaceTopologySvg();report.topologyPng=await workspaceTopologyPng(report.topologySvg);report.moduleKey=key;report.moduleTitle=moduleLabel(key);return report;
+ }
+ function combineReports(reports){
+   const project=snapshot(),devices=[],links=[],specialLinks=[],parameters=[],configMap=new Map(),deviceIndex=new Map(),moduleReports=[];
+   reports.forEach((report,moduleNo)=>{
+     const map=new Map(),prefix=report.moduleKey.toLowerCase();
+     report.devices.forEach(device=>{const identity=`${device.vendor}|${String(device.hostname||device.id).toLowerCase()}`,existing=deviceIndex.get(identity);let id=existing;if(!id){id=`${prefix}-${device.id}`;deviceIndex.set(identity,id);devices.push({...device,id,tier:moduleNo===0?device.tier:"upper",index:devices.length+1});}map.set(device.id,id);});
+     report.links.forEach((link,index)=>links.push({...link,id:`${prefix}-link-${index+1}`,a:map.get(link.a),b:map.get(link.b),detail:`${report.moduleTitle} · ${link.detail||"physical connection"}`}));
+     (report.specialLinks||[]).forEach((link,index)=>specialLinks.push({...link,id:`${prefix}-special-${index+1}`,a:map.get(link.a),b:map.get(link.b),detail:`${report.moduleTitle} · ${link.detail||"control path"}`}));
+     (report.parameters||[]).forEach(item=>parameters.push({...item,label:`${report.moduleTitle} · ${item.label}`}));
+     (report.configurations||[]).forEach(cfg=>{const id=map.get(cfg.deviceId);if(!id)return;const part=`######## ${report.moduleTitle.toUpperCase()} · ${cfg.source} ########\n${cfg.text}`;configMap.set(id,[configMap.get(id),part].filter(Boolean).join("\n\n"));});
+     moduleReports.push({module:report.moduleKey,title:report.moduleTitle,vendor:report.vendor,technology:report.technology,topologySvg:report.topologySvg,parameters:report.parameters||[],deviceCount:report.devices.length,configurationCount:(report.configurations||[]).length});
+   });
+   const first=reports[0],configurations=[...configMap].map(([deviceId,text])=>({deviceId,text,source:"Combined Technology Workspaces"}));
+   return {schema:"network-configurator-report-v1",name:project.project.name==="Untitled Network Project"?"":project.project.name,vendor:first.vendor,architecture:"module",technology:`Combined · ${reports.map(r=>r.moduleTitle).join(" + ")}`,techPlacement:"upper",roles:{upper:"Network device",lower:"Network device"},upperCount:devices.length,lowerCount:0,scope:"",devices:devices.map((d,i)=>({...d,tier:"upper",index:i+1})),links,specialLinks,parameters,configurations,moduleReports,topologySvg:first.topologySvg,topologyPng:first.topologyPng,source:{module:"COMBINED",modules:reports.map(r=>r.moduleKey),projectId:project.project.id||"active",generatedAt:new Date().toISOString()}};
+ }
+ async function createCombinedReport(){
+   const selected=[...document.querySelectorAll("#combineModuleList input:checked")].map(x=>x.value);if(!selected.length){$("combineError").textContent="Select at least one module.";return;}
+   const button=$("combineCreate"),original=tech;button.disabled=true;button.textContent="Building report…";$("combineError").textContent="";
+   try{captureWorkspaceModule(original);const reports=[];for(const key of selected)reports.push(await collectModuleReport(key));const payload=combineReports(reports);sessionStorage.setItem("networkConfigurator.report.import",JSON.stringify(payload));closeCombineModal();window.location.assign("/reporting");}
+   catch(err){$("combineError").textContent=err.message;openTech(original);}
+   finally{button.disabled=false;button.textContent="Create Combined Report";}
+ }
  async function openReporting(event){
    if(event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
    event.preventDefault();
@@ -6073,9 +6126,10 @@ renderModule();
      toast("Report import failed: "+err.message);
    }
  }
+ $("combineCancel").addEventListener("click",closeCombineModal);$("combineCreate").addEventListener("click",createCombinedReport);$("combineModal").addEventListener("click",event=>{if(event.target===$("combineModal"))closeCombineModal();});
  $("v3Dashboard").querySelector(".v3-report-card").addEventListener("click",openReporting);
- $("v3WorkspaceReportTopBtn").addEventListener("click",openReporting);
- $("v3WorkspaceReportBtn").addEventListener("click",openReporting);
+ $("v3WorkspaceReportTopBtn").addEventListener("click",showCombineModal);
+ $("v3WorkspaceReportBtn").addEventListener("click",showCombineModal);
  function renderRecent(){
    const box=$("v3RecentProjects");if(!box)return;
    const arr=Object.values(store()).sort((a,b)=>{
