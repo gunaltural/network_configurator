@@ -32,7 +32,7 @@
   <section id="maintenanceArea" class="panel" hidden></section>
   <div class="editor"><div class="stack">
     <div class="source-banner" id="sourceBanner" hidden></div>
-    <section class="panel"><h2>Project information</h2><p class="hint" id="projectHelp">Enter the project name and design intent. Design inputs come from Technology Workspaces.</p><p class="note" id="designSummary" hidden></p><div class="fields">
+    <section class="panel"><h2>Project information</h2><p class="hint" id="projectHelp">Enter the project name and design intent. Design inputs come from Technology Workspaces.</p><p class="note" id="designSummary" hidden></p><p class="note" id="liveInventoryStatus" aria-live="polite"></p><div class="fields">
       <label class="wide">Project name<input id="projectName" maxlength="120" placeholder="Enter a project name" required></label>
       <label>Primary vendor / platform<select id="vendor"><option>Cisco NX-OS</option><option>Cisco IOS-XE</option><option>Arista EOS</option><option value="Huawei_CE_SW">Huawei CloudEngine</option><option>FortiGate</option></select></label>
       <label>Architecture<select id="architecture"><option value="spine-leaf">Spine–Leaf</option><option value="core-access">Core–Access</option><option value="module">Module topology</option></select></label>
@@ -339,6 +339,9 @@
     return {...p,label,value,impact};
   };
   function renderReport(){
+    normalizeInventoryProject(state);
+    const inventory=currentReportInventory();
+    $("liveInventoryStatus").textContent=`Live inventory: ${inventory.length} devices from Inventory. Manual changes and successful SSH collection update this report immediately.`;
     const active=state.links.filter(l=>l.enabled);
     const incomplete=currentReportInventory().filter(d=>!d.external&&(!d.model||!d.serial));
     const missingPorts=active.filter(l=>!l.upperPort||!l.lowerPort).length;
@@ -363,7 +366,6 @@
       <h2>${rw("confirm")}</h2><p>${esc(confirmText)}</p>
       ${configs.length?`<div class="config-section"><h2>${rw("appendix")}</h2><p class="design-note">${rw("configNote")}</p>${state.devices.filter(d=>configs.some(c=>c.deviceId===d.id)).map(d=>{const cfg=configs.find(c=>c.deviceId===d.id);return `<h3>${esc(deviceName(d))} · ${esc(cfg.source)}</h3><pre>${esc(cfg.text)}</pre>`;}).join("")}</div>`:""}
       <div class="report-footer">${rw("footer")}</div>`;
-    normalizeInventoryProject(state);
     try{
       if(state.source){
         sessionStorage.setItem(`networkConfigurator.report.edit.${state.source.projectId}.${state.source.module}.${state.vendor}`,JSON.stringify(state));
@@ -577,7 +579,7 @@
       return [lifecycle,{label:`${deviceName(d)} · ${tr?"Yazılım ve destek değerlendirmesi":"Software and support assessment"}`,value:versionState,impact:`${supportState}. ${tr?"Bu karşılaştırma mühendis tarafından doğrulanan kaynak girdisine dayanır; özellik, lisans veya donanım uyumluluğunu tek başına kanıtlamaz.":"This comparison relies on engineer-reviewed source data; it does not independently prove feature, license or hardware compatibility."}`},upgrade,...details].map(p=>({...p,label:p.label.slice(0,100),value:p.value.slice(0,500)}));
     });
   }
-  document.querySelectorAll('[data-view]').forEach(button=>button.onclick=()=>{maintenanceView=button.dataset.view;document.querySelectorAll('[data-view]').forEach(x=>x.setAttribute('aria-selected',String(x===button)));renderMaintenance();});
+  document.querySelectorAll('[data-view]').forEach(button=>button.onclick=()=>{maintenanceView=button.dataset.view;document.querySelectorAll('[data-view]').forEach(x=>x.setAttribute('aria-selected',String(x===button)));renderReport();renderMaintenance();});
   const projectName=()=>{if(!$("projectName").value.trim()){$("projectName").focus();$("projectName").reportValidity();return "";}return $("projectName").value.trim();};
 
   function reportInventorySnapshot(){
