@@ -805,13 +805,16 @@ def reporting_inventory(p: DeviceRequest):
                 warnings.append(f"{field}: not returned in a recognizable format; previous value retained")
         if not identity["model"] and not identity["serial"]:
             raise HTTPException(status_code=502, detail="SSH connected, but the device did not return a recognizable chassis model or serial. Enter them manually.")
-        return {"ok": True, "platform": platform, **identity,
+        return {"ok": True, "connection_status": "connected", "platform": platform, **identity,
                 "observed_at": datetime.now(timezone.utc).isoformat(),
                 "commands": list(outputs), "warnings": warnings}
-    except HTTPException:
+    except HTTPException as exc:
+        if conn:
+            detail = exc.detail if isinstance(exc.detail, dict) else {"error": str(exc.detail)}
+            raise HTTPException(status_code=exc.status_code, detail={**detail, "connection_status": "connected"}) from exc
         raise
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Inventory read failed: {exc}") from exc
+        raise HTTPException(status_code=502, detail={"error": f"Inventory read failed: {exc}", "connection_status": "connected" if conn else "failed"}) from exc
     finally:
         if conn:
             try:
