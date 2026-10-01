@@ -6161,7 +6161,7 @@ renderModule();
      }
      else{
        sessionStorage.removeItem("networkConfigurator.report.import");
-       sessionStorage.removeItem("networkConfigurator.report.current");
+       // Keep the latest inventory when opening Maintenance from Home.
      }
      window.location.assign("/reporting");
    }catch(err){
