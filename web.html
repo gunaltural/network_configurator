@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Network Configurator v5.14.0</title>
+<title>Network Configurator v5.14.1</title>
 <style>
 :root{
   --bg:#0d1117;--panel:#161b22;--panel2:#1f2630;--line:#2b3440;
@@ -404,7 +404,7 @@ pre{
     <div class="logo">NC</div>
     <div><h1>Network Configurator</h1><small>Configure · Validate · Troubleshoot</small></div>
   </div>
-  <div class="badge">Version 5.14.0 · Combined Workspace Reporting</div>
+  <div class="badge">Version 5.14.1 · Combined Workspace Reporting</div>
 </header>
 
 <div class="layout">
@@ -3628,6 +3628,7 @@ function sdSameSubnet(ip,cidr){
  if(!c||n===null) return false;
  return ((n & c.mask)>>>0)===c.network;
 }
+function htmlEscape(value){return String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 function sdSetStatus(msg,kind){
  const e=document.getElementById("sdExcelStatus"); if(!e)return;
  e.textContent=msg;
@@ -3638,7 +3639,7 @@ function sdFillSiteOptions(){
  if(!sel)return;
  const sites=[...new Set(sdwanExcelRows.map(r=>String(sdCell(r,["LOKASYON"])).trim()).filter(Boolean))];
  sites.sort((a,b)=>a.localeCompare(b,"tr"));
- sel.innerHTML='<option value="">Select site</option>'+sites.map(s=>`<option>${s}</option>`).join("");
+ sel.innerHTML='<option value="">Select site</option>'+sites.map(s=>`<option>${htmlEscape(s)}</option>`).join("");
  sel.disabled=false;
  const r=document.getElementById("sdRouterSelect");
  if(r){r.innerHTML='<option value="">Önce site seçin</option>';r.disabled=true;}
@@ -3648,7 +3649,7 @@ function sdFillRouterOptions(site){
  const rows=sdwanExcelRows.filter(r=>String(sdCell(r,["LOKASYON"])).trim()===site);
  sel.innerHTML='<option value="">Select router</option>'+rows.map((r,i)=>{
    const host=String(sdCell(r,["Router Hostname"])).trim()||`Router-${i+1}`;
-   return `<option value="${i}">${host}</option>`;
+   return `<option value="${i}">${htmlEscape(host)}</option>`;
  }).join("");
  sel.disabled=rows.length===0;
  sel.dataset.site=site;
@@ -3678,11 +3679,11 @@ function sdApplyRouterSelection(site,index){
  if(dns){sdSet("sdDns",dns);sdSet("sdNtp",dns);}
 
  const summary=document.getElementById("sdProfileSummary");
- if(summary) summary.innerHTML=`<b>${String(org||"TUPRAS_SDWAN")} · Dual MPLS</b><br>
- WAN-1: GigabitEthernet0/0/0 · ${String(wan1||"-")} · private1 · weight 2 · Tunnel0<br>
- WAN-2: GigabitEthernet0/0/1 · ${String(wan2||"-")} · private2 · weight 1 · Tunnel1<br>
- Management: GigabitEthernet0/0/3 · ${String(mgmt||"-")} · Mgmt-intf<br>
- vBond: ${String(vbond||"-")} · DNS/NTP: ${String(dns||"-")}`;
+ if(summary) summary.innerHTML=`<b>${htmlEscape(org||"TUPRAS_SDWAN")} · Dual MPLS</b><br>
+ WAN-1: GigabitEthernet0/0/0 · ${htmlEscape(wan1||"-")} · private1 · weight 2 · Tunnel0<br>
+ WAN-2: GigabitEthernet0/0/1 · ${htmlEscape(wan2||"-")} · private2 · weight 1 · Tunnel1<br>
+ Management: GigabitEthernet0/0/3 · ${htmlEscape(mgmt||"-")} · Mgmt-intf<br>
+ vBond: ${htmlEscape(vbond||"-")} · DNS/NTP: ${htmlEscape(dns||"-")}`;
 
  sdValidate(true);
  renderOutput();
@@ -4871,7 +4872,7 @@ function renderBgpDynamicCards(){
  document.getElementById("bgpIspCards").innerHTML=Array.from({length:ispN},(_,i)=>`<div class="bgp-device-card"><h4>ISP-${i+1}</h4><div class="mini-grid">
  <div><label>Name</label><input id="bgpIsp${i+1}Name" value="${val(`bgpIsp${i+1}Name`,`ISP-${i+1}`)}"></div>
  <div><label>ASN</label><input id="bgpIsp${i+1}As" value="${val(`bgpIsp${i+1}As`,i?"64502":"64501")}"></div></div></div>`).join("");
- document.getElementById("bgpLinkCards").innerHTML=bgpEdges().map(([c,i])=>{const ce=bgpCe(c),isp=bgpIsp(i),n=`bgpLinkC${c+1}I${i+1}`,base=16+(c*4+i)*4;return `<div class="bgp-link-card"><h4>${ce.name} ↔ ${isp.name}</h4><div class="bgp-link-meta">eBGP · AS ${v("bgpCustomerAs")||"65001"} ↔ AS ${isp.asn}</div><div class="mini-grid">
+ document.getElementById("bgpLinkCards").innerHTML=bgpEdges().map(([c,i])=>{const ce=bgpCe(c),isp=bgpIsp(i),n=`bgpLinkC${c+1}I${i+1}`,base=16+(c*4+i)*4;return `<div class="bgp-link-card"><h4>${htmlEscape(ce.name)} ↔ ${htmlEscape(isp.name)}</h4><div class="bgp-link-meta">eBGP · AS ${htmlEscape(v("bgpCustomerAs")||"65001")} ↔ AS ${htmlEscape(isp.asn)}</div><div class="mini-grid">
  <div><label>CE Interface</label><input id="${n}CeIf" value="${val(n+"CeIf",`Ethernet1/${i+1}`)}"></div>
  <div><label>CE IP/Prefix</label><input id="${n}CeIp" value="${val(n+"CeIp",`172.16.${base}.1/30`)}"></div>
  <div><label>ISP Interface</label><input id="${n}IspIf" value="${val(n+"IspIf",`Ethernet0/${c+1}`)}"></div>
@@ -4879,7 +4880,7 @@ function renderBgpDynamicCards(){
  const outSel=document.getElementById("bgpOutputDevice");
  if(outSel){
    const old=outSel.value||"all";
-   outSel.innerHTML='<option value="all">All CE Routers</option>'+Array.from({length:ceN},(_,i)=>`<option value="${i}">${bgpCe(i).name}</option>`).join("");
+   outSel.innerHTML='<option value="all">All CE Routers</option>'+Array.from({length:ceN},(_,i)=>`<option value="${i}">${htmlEscape(bgpCe(i).name)}</option>`).join("");
    outSel.value=[...outSel.options].some(o=>o.value===old)?old:"all";
    outSel.addEventListener("change",renderOutput);
  }
@@ -4907,6 +4908,9 @@ function syncPlatformListForModule(){
  ];
 
  let wanted=all;
+ if(tech==="EVPN")wanted=all.filter(([value])=>["Cisco NX-OS","Arista EOS","Huawei_CE_SW"].includes(value));
+ if(tech==="SDWAN")wanted=all.filter(([value])=>value==="Cisco IOS-XE");
+ if(tech==="STP")wanted=all.filter(([value])=>value!=="FortiGate");
  if(tech==="BASIC"){
    wanted=[
     ["Cisco NX-OS","Cisco NX-OS"],
@@ -4947,7 +4951,7 @@ const COMBINABLE_MODULES=["BASIC","BGP","OSPF","STP","VPC","EVPN","QOS","SDWAN"]
 window.__workspaceModuleStates=window.__workspaceModuleStates||{};
 function captureWorkspaceModule(key=tech){
  if(!COMBINABLE_MODULES.includes(key))return;
- const fields={};document.querySelectorAll("#params input[id],#params select[id],#params textarea[id]").forEach(el=>{if(el.type!=="file")fields[el.id]=el.type==="checkbox"?el.checked:el.value;});
+ const fields={};document.querySelectorAll("#params input[id],#params select[id],#params textarea[id],#topologyControls input[id],#topologyControls select[id]").forEach(el=>{if(el.type!=="file"&&el.type!=="password")fields[el.id]=el.type==="checkbox"?el.checked:el.value;});
  window.__workspaceModuleStates[key]={platform:platform(),fields,configured:true,updatedAt:new Date().toISOString()};
 }
 function restoreWorkspaceModule(key=tech){
@@ -4955,6 +4959,12 @@ function restoreWorkspaceModule(key=tech){
  const ps=document.getElementById("platform");if(ps&&saved.platform&&[...ps.options].some(o=>o.value===saved.platform))ps.value=saved.platform;
  Object.entries(saved.fields||{}).forEach(([id,value])=>{const el=document.getElementById(id);if(!el)return;if(el.type==="checkbox")el.checked=!!value;else el.value=value;});
  return true;
+}
+function safeProjectFields(fields){
+ return Object.fromEntries(Object.entries(fields||{}).filter(([id])=>{
+   const el=document.getElementById(id);
+   return el?.type!=="password"&&!/^(?:sd|verify|trouble)(?:Password|Secret)$/.test(id);
+ }));
 }
 function technologyLabel(key,pl){
  const labels={BASIC:"System and Management",BGP:"BGP",OSPF:"OSPF",STP:"STP",EVPN:"EVPN / VXLAN",QOS:"QoS",SDWAN:"SD-WAN"};
@@ -4979,6 +4989,7 @@ function renderModule(){
  document.getElementById("moduleTitle").textContent=technologyLabel(tech,platform());
  if(document.getElementById("v3CurrentTech"))document.getElementById("v3CurrentTech").textContent=technologyLabel(tech,platform());
  document.getElementById("moduleSubtitle").textContent=tech==="VPC"?(platform()==="Cisco NX-OS"?"Cisco Nexus vPC · Dual Spine / Dynamic 2–8 Leaf":platform()==="Cisco IOS-XE"?"Cisco StackWise Virtual · Dual Chassis / Dynamic 2–8 Leaf":platform()==="Arista EOS"?"Arista EOS MLAG · Dual Core / Dynamic 2–8 Leaf":"Huawei CloudEngine M-LAG · Dual Core / Dynamic 2–8 Leaf"):m.subtitle;
+ document.getElementById("topologyControls").replaceChildren();
  document.getElementById("params").innerHTML=m.params();
  document.getElementById("params").classList.toggle("bgp-v39",tech==="BGP");
  document.getElementById("params").classList.toggle("vpc-v42",tech==="VPC");
@@ -5208,7 +5219,7 @@ window.SimpleDeployEngine=SimpleDeployEngine;
 
 const VerificationEngine=(()=>{
  const el=id=>document.getElementById(id);
- let catalog=null,loading=null,lastSignature="",lastOutput="",lastCommands=[],lastRun=null;
+ let catalog=null,loading=null,lastSignature="",lastOutput="",lastCommands=[],lastRun=null,connectionWorkspace="";
  const canonical=p=>p==="Cisco_StackWise"?"Cisco IOS-XE":p==="Huawei"?"Huawei_CE_SW":p;
  const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
  function status(message,kind="neutral"){const box=el("verifyStatus");box.textContent=message;box.className=`sd-result ${kind}`;}
@@ -5233,7 +5244,7 @@ const VerificationEngine=(()=>{
  }
  function relevant(command){
    const c=command.toLowerCase();
-   const common=/version|clock|logging|interface brief|interface status|interface description|counters errors|lldp|cdp|route|routing-table/;
+   const common=/version|clock|logging|interface brief|interface status|interface description|counters errors|lldp|cdp|^show (?:ip|ipv6) route(?: |$)|^display (?:ip|ipv6) routing-table(?: |$)|^get router info routing-table/;
    const rules={
      BASIC:/ssh|aaa|tacacs|radius|snmp|ntp|logging|clock|users|login|archive|access-list|management|mgmt|version|inventory/,
      BGP:/\bbgp\b|route|routing-table|interface|bfd|vrf|arp|forwarding|prefix|community/,
@@ -5291,19 +5302,19 @@ const VerificationEngine=(()=>{
    el("verifyPlatformTitle").textContent=vendor.toUpperCase();el("verifyModuleBadge").textContent=modules[tech]?.title||tech;
    lastSignature=`${tech}|${vendor}|${moduleCommands().join("|")}`;updateCount();clearOutput(false);status("Select the checks required for this validation window.");
  }
- function clearOutput(resetStatus=true){lastOutput="";lastCommands=[];el("verifyOutput").textContent="Selected command output will appear here.";el("verifyCopy").disabled=true;el("verifyDownload").disabled=true;if(resetStatus)status("Select the checks required for this validation window.");}
+ function clearOutput(resetStatus=true){lastOutput="";lastCommands=[];lastRun=null;el("verifyOutput").textContent="Selected command output will appear here.";el("verifyCopy").disabled=true;el("verifyDownload").disabled=true;if(resetStatus)status("Select the checks required for this validation window.");}
  function setSelection(mode){document.querySelectorAll("#verifyGroups .verify-command .verify-select").forEach(box=>box.checked=!box.disabled&&(mode==="all"||(mode==="recommended"&&box.dataset.recommended==="1")));updateCount();}
  function syncConnection(){
    const pairs=[["sdTarget","verifyTarget"],["sdPort","verifyPort"],["sdUsername","verifyUsername"],["sdPassword","verifyPassword"],["sdSecret","verifySecret"]];
    for(const ids of pairs){const value=ids.map(id=>el(id)?.value).find(Boolean)||"";ids.forEach(id=>{if(el(id))el(id).value=value;});}
  }
  async function activate(){
-   syncConnection();const workspace=canonical(platform());if([...el("verifyPlatform").options].some(x=>x.value===workspace))el("verifyPlatform").value=workspace;
+   syncConnection();const workspace=canonical(platform()),workspaceKey=`${tech}|${workspace}`;if(connectionWorkspace!==workspaceKey){if([...el("verifyPlatform").options].some(x=>x.value===workspace))el("verifyPlatform").value=workspace;connectionWorkspace=workspaceKey;}
    if(!catalog){
      if(loading)return loading;status("Loading verification command catalog…","busy");el("verifyRun").disabled=true;
      loading=(async()=>{try{const response=await fetch("/api/device/commands");if(!response.ok)throw new Error(`HTTP ${response.status}`);const data=await response.json();catalog=data.platforms;render();}catch(error){status(`Verification catalog unavailable: ${error.message}`,"fail");}finally{loading=null;}})();return loading;
    }
-   const signature=`${tech}|${workspace}|${moduleCommands().join("|")}`;if(signature!==lastSignature)render();
+   const signature=`${tech}|${canonical(el("verifyPlatform").value)}|${moduleCommands().join("|")}`;if(signature!==lastSignature)render();
  }
  async function testConnection(){
    const button=el("verifyTest"),p={target:el("verifyTarget").value.trim(),port:Number(el("verifyPort").value),platform:el("verifyPlatform").value,username:el("verifyUsername").value.trim(),password:el("verifyPassword").value,secret:el("verifySecret").value};
@@ -5336,7 +5347,7 @@ VerificationEngine.bind();
 
 const TroubleshootingEngine=(()=>{
  const el=id=>document.getElementById(id),canonical=p=>p==="Cisco_StackWise"?"Cisco IOS-XE":p==="Huawei"?"Huawei_CE_SW":p;
- let catalog=null,loading=null,lastOutput="",lastCommands=[],signature="";
+ let catalog=null,loading=null,lastOutput="",lastCommands=[],signature="",connectionWorkspace="";
  const symptomCatalog={
    BGP:[
     ["session_down","Neighbor Down / Active","Validate interface state, peer reachability, TCP/179, local/remote ASN, update-source and authentication before examining policy."],
@@ -5358,7 +5369,7 @@ const TroubleshootingEngine=(()=>{
  const genericSymptoms=[["physical","Physical or interface problem","Start with interface state, counters, optics and neighbor discovery."],["reachability","IP reachability problem","Validate addressing, ARP/ND, routing and forwarding in order."],["policy","Policy or filtering problem","Confirm the object exists, matches traffic and is applied in the intended direction."]];
  const patterns={session_down:/summary|neighbor|peer|interface|route.*peer|tcp|bfd|logging/,no_received:/received|neighbor|peer|route-map|policy|prefix|maximum|bgp.*route/,no_advertised:/advertised|network|route-map|policy|prefix|running-config|bgp.*route/,wrong_exit:/bgp|route|local.preference|weight|as.path|med|community|route-map|forwarding/,inbound_te:/advertised|as.path|med|community|route-map|policy|bgp/,bfd_down:/bfd|interface|route|neighbor|logging/,rib_fib:/bgp|route|forwarding|fib|cef|arp|adjacency/,flap:/neighbor|peer|interface|counter|bfd|logging|clock/,adjacency:/ospf|interface|bfd|logging/,route:/ospf|route|database|policy|prefix|forwarding/,peer:/vpc|mlag|m-lag|dfs|peer|keepalive|interface|lacp|logging/,suspended:/consistency|interface|port-channel|eth-trunk|lacp|vlan|trunk/,split:/vpc|mlag|m-lag|dfs|peer|keepalive|role|logging/,vlan:/vlan|trunk|spanning|mac|interface/,root:/spanning|stp|root|bridge|interface/,blocked:/spanning|stp|interface|cost|role/,guard:/spanning|stp|guard|udld|logging/,vni:/nve|vxlan|vni|interface|route/,mac:/evpn|l2route|mac|arp|route-type 2/,type5:/evpn|vrf|route-type 5|bgp|route/,forwarding:/route|forwarding|fib|cef|arp|mac|interface/,control:/sdwan|control|system|certificate|ntp|dns|interface|route/,bfd:/bfd|tunnel|interface|route/,omp:/omp|route|policy|vpn/,sla:/app-route|sla|bfd|loss|latency|jitter|policy/,classification:/qos|class-map|policy-map|dscp|counter/,drops:/qos|queue|drop|wred|polic|shap|counter|interface/,marking:/qos|class-map|policy-map|dscp|mark|remark/,ssh:/ssh|management|mgmt|interface|route|access-list|aaa/,aaa:/aaa|tacacs|radius|user|login|management/,ntp:/ntp|clock|route|management/,logging:/logging|snmp|management|route|clock/,physical:/interface|transceiver|counter|lldp|cdp/,reachability:/route|arp|interface|forwarding/,policy:/policy|route-map|prefix|access-list|filter/};
  function status(message,kind="neutral"){const box=el("troubleStatus");box.textContent=message;box.className=`sd-result ${kind}`;}
- function moduleVerify(){const m=modules[tech];return String(m?.generate?.("verify")||"").split(/\r?\n/).map(x=>x.trim()).filter(x=>/^(?:show|display|get|diagnose)\s/i.test(x));}
+ function moduleVerify(){if(canonical(platform())!==canonical(el("troublePlatform").value))return [];const m=modules[tech];return String(m?.generate?.("verify")||"").split(/\r?\n/).map(x=>x.trim()).filter(x=>/^(?:show|display|get|diagnose)\s/i.test(x));}
  function allPlatformCommands(){const vendor=canonical(el("troublePlatform")?.value||platform());return Object.values(catalog?.[vendor]||{}).flat();}
  function selected(){return [...document.querySelectorAll("#troubleCommandGroups .verify-command")].filter(row=>row.querySelector(".verify-select")?.checked).map(row=>row.querySelector(".verify-command-editor")?.value.trim()).filter(Boolean);}
  function updateSelection(){const cmds=selected(),all=[...document.querySelectorAll("#troubleCommandGroups .verify-select")].filter(x=>!x.disabled);el("troubleSelectedCount").textContent=`${cmds.length} of ${all.length} selected`;el("troubleSelectedPreview").textContent=cmds.length?cmds.join("\n"):"No commands selected.";el("troubleRun").disabled=!cmds.length;}
@@ -5367,10 +5378,10 @@ const TroubleshootingEngine=(()=>{
  function renderCommands(){const key=el("troubleSymptom").value,match=patterns[key]||/.*/,base=moduleVerify(),extra=allPlatformCommands().filter(command=>match.test(command.toLowerCase())).slice(0,35),seen=new Set(),unique=list=>list.filter(command=>{const k=command.toLowerCase();if(seen.has(k))return false;seen.add(k);return true;}),root=el("troubleCommandGroups");root.replaceChildren();addGroup(root,"User-defined command",[],false,true);const topology=unique(base);if(topology.length)addGroup(root,"Topology-aware baseline",topology,true);const diagnostic=unique(extra);if(diagnostic.length)addGroup(root,"Symptom-focused diagnostics",diagnostic,true);updateSelection();}
  function renderEvidence(){const snap=VerificationEngine.snapshot(),runbook=String(modules[tech]?.generate?.("trouble")||"").trim();if(snap&&snap.module===tech){const failed=snap.results.filter(x=>!x.ok).map(x=>`✗ ${x.command}`),passed=snap.results.filter(x=>x.ok).length;el("troubleDevice").textContent=snap.target||"Unknown device";el("troubleEvidenceState").textContent=`${passed} passed · ${failed.length} command errors`;el("troubleEvidence").textContent=[`Device: ${snap.target}\nPlatform: ${snap.platform}\nObserved: ${snap.observedAt}`,failed.length?`\nFailed commands:\n${failed.join("\n")}`:"\nNo command-level errors reported.",snap.truncated?"\nOutput was truncated.":"",`\nVerification output:\n${snap.output||"No output returned."}`].join("\n");}else{el("troubleDevice").textContent=el("troubleTarget")?.value.trim()||"Not connected";el("troubleEvidenceState").textContent="No live result imported";el("troubleEvidence").textContent=`No live Verification result is available for this module.\n\nModule runbook:\n${runbook||"Start with physical, reachability, control-plane, policy and data-plane checks."}`;}}
  function renderSymptom(){const list=symptomCatalog[tech]||genericSymptoms,select=el("troubleSymptom"),old=select.value;select.innerHTML=list.map(([value,label])=>`<option value="${value}">${label}</option>`).join("");if(list.some(x=>x[0]===old))select.value=old;const item=list.find(x=>x[0]===select.value)||list[0];el("troubleGuidance").textContent=item?.[2]||"";el("troubleSymptomState").textContent=item?.[1]||"Not selected";}
- async function activate(){const vendor=canonical(platform()),nextSignature=`${tech}|${vendor}`;if([...el("troublePlatform").options].some(x=>x.value===vendor))el("troublePlatform").value=vendor;[["sdTarget","verifyTarget","troubleTarget"],["sdPort","verifyPort","troublePort"],["sdUsername","verifyUsername","troubleUsername"],["sdPassword","verifyPassword","troublePassword"],["sdSecret","verifySecret","troubleSecret"]].forEach(ids=>{const value=ids.map(id=>el(id)?.value).find(Boolean)||"";ids.forEach(id=>{if(el(id))el(id).value=value;});});el("troublePlatformTitle").textContent=vendor.toUpperCase();el("troubleModuleBadge").textContent=modules[tech]?.title||tech;renderEvidence();renderSymptom();if(!catalog){if(loading)return loading;status("Loading diagnostic command catalog…","busy");loading=(async()=>{try{const response=await fetch("/api/device/commands");if(!response.ok)throw new Error(`HTTP ${response.status}`);catalog=(await response.json()).platforms;signature=nextSignature;renderCommands();status("Select the commands required for this diagnostic step.");}catch(error){status(`Diagnostic catalog unavailable: ${error.message}`,"fail");}finally{loading=null;}})();return loading;}if(signature!==nextSignature){signature=nextSignature;renderCommands();}else renderCommands();status("Select the commands required for this diagnostic step.");}
+ async function activate(){const workspace=canonical(platform()),workspaceKey=`${tech}|${workspace}`;if(connectionWorkspace!==workspaceKey){if([...el("troublePlatform").options].some(x=>x.value===workspace))el("troublePlatform").value=workspace;connectionWorkspace=workspaceKey;}const vendor=canonical(el("troublePlatform").value),nextSignature=`${tech}|${vendor}`;[["sdTarget","verifyTarget","troubleTarget"],["sdPort","verifyPort","troublePort"],["sdUsername","verifyUsername","troubleUsername"],["sdPassword","verifyPassword","troublePassword"],["sdSecret","verifySecret","troubleSecret"]].forEach(ids=>{const value=ids.map(id=>el(id)?.value).find(Boolean)||"";ids.forEach(id=>{if(el(id))el(id).value=value;});});el("troublePlatformTitle").textContent=vendor.toUpperCase();el("troubleModuleBadge").textContent=modules[tech]?.title||tech;renderEvidence();renderSymptom();if(!catalog){if(loading)return loading;status("Loading diagnostic command catalog…","busy");loading=(async()=>{try{const response=await fetch("/api/device/commands");if(!response.ok)throw new Error(`HTTP ${response.status}`);catalog=(await response.json()).platforms;signature=nextSignature;renderCommands();status("Select the commands required for this diagnostic step.");}catch(error){status(`Diagnostic catalog unavailable: ${error.message}`,"fail");}finally{loading=null;}})();return loading;}if(signature!==nextSignature){signature=nextSignature;renderCommands();}status("Select the commands required for this diagnostic step.");}
  function connectionPayload(){return {target:el("troubleTarget").value.trim(),port:Number(el("troublePort").value),platform:el("troublePlatform").value,username:el("troubleUsername").value.trim(),password:el("troublePassword").value,secret:el("troubleSecret").value};}
  async function testConnection(){const button=el("troubleTest"),p=connectionPayload();button.disabled=true;button.textContent="Testing…";status(`Connecting to ${p.target||"device"}…`,"busy");try{const response=await fetch("/api/device/test",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(p)});const data=await response.json();if(!response.ok)throw new Error(data.detail?.error||data.error||`HTTP ${response.status}`);const lines=(data.steps||[]).map(x=>`${x.status==="PASS"?"✓":x.status==="WARN"?"!":"✗"} ${x.name}${x.detail?`: ${x.detail}`:""}`);status(lines.join("\n")||"Connection test successful.","pass");}catch(error){status(`✗ Connection failed\n${error.message}`,"fail");}finally{button.disabled=false;button.textContent="Test Connection";}}
- async function run(){const commands=selected();if(!commands.length)return;const p={...connectionPayload(),command:commands.join("\n")},button=el("troubleRun");button.disabled=true;button.textContent="Running Diagnostics…";status(`Running ${commands.length} diagnostic commands on ${p.target}…`,"busy");try{const response=await fetch("/api/device/show",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(p)});const data=await response.json();if(!response.ok)throw new Error(data.detail?.error||data.error||`HTTP ${response.status}`);lastOutput=data.output||"";lastCommands=commands;el("troubleOutput").textContent=lastOutput||"(Commands returned no output.)";el("troubleCopy").disabled=!lastOutput;el("troubleDownload").disabled=!lastOutput;const failed=(data.results||[]).filter(x=>!x.ok).length;status(`${data.device} · ${commands.length} diagnostics · ${commands.length-failed} completed${failed?` · ${failed} command errors`:""}`,failed?"warn":"pass");}catch(error){el("troubleOutput").textContent="No diagnostic output received.";status(`Troubleshooting failed: ${error.message}`,"fail");}finally{button.disabled=false;button.textContent="Run Selected Commands";}}
+ async function run(){const commands=selected();if(!commands.length)return;lastOutput="";lastCommands=[];el("troubleCopy").disabled=true;el("troubleDownload").disabled=true;const p={...connectionPayload(),command:commands.join("\n")},button=el("troubleRun");button.disabled=true;button.textContent="Running Diagnostics…";status(`Running ${commands.length} diagnostic commands on ${p.target}…`,"busy");try{const response=await fetch("/api/device/show",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(p)});const data=await response.json();if(!response.ok)throw new Error(data.detail?.error||data.error||`HTTP ${response.status}`);lastOutput=data.output||"";lastCommands=commands;el("troubleOutput").textContent=lastOutput||"(Commands returned no output.)";el("troubleCopy").disabled=!lastOutput;el("troubleDownload").disabled=!lastOutput;const failed=(data.results||[]).filter(x=>!x.ok).length;status(`${data.mock?"MOCK output · ":""}${data.device} · ${commands.length} diagnostics · ${commands.length-failed} completed${failed?` · ${failed} command errors`:""}${data.truncated?" · output truncated at 1 MB":""}`,failed||data.truncated?"warn":"pass");}catch(error){el("troubleOutput").textContent="No diagnostic output received.";status(`Troubleshooting failed: ${error.message}`,"fail");}finally{button.disabled=false;button.textContent="Run Selected Commands";}}
  function bind(){el("troubleSymptom").addEventListener("change",()=>{const list=symptomCatalog[tech]||genericSymptoms,item=list.find(x=>x[0]===el("troubleSymptom").value);el("troubleGuidance").textContent=item?.[2]||"";el("troubleSymptomState").textContent=item?.[1]||"Not selected";renderCommands();});[["sdTarget","verifyTarget","troubleTarget"],["sdPort","verifyPort","troublePort"],["sdUsername","verifyUsername","troubleUsername"],["sdPassword","verifyPassword","troublePassword"],["sdSecret","verifySecret","troubleSecret"]].forEach(ids=>ids.forEach(id=>el(id)?.addEventListener("input",()=>{const value=el(id).value;ids.forEach(other=>{if(other!==id&&el(other))el(other).value=value;});if(id==="troubleTarget")el("troubleDevice").textContent=value.trim()||"Not connected";})));el("troublePlatform").addEventListener("change",()=>{el("verifyPlatform").value=el("troublePlatform").value;el("troublePlatformTitle").textContent=el("troublePlatform").value.toUpperCase();signature="";renderCommands();});el("troubleSelectAll").addEventListener("click",()=>{document.querySelectorAll("#troubleCommandGroups .verify-select:not(:disabled)").forEach(x=>x.checked=true);updateSelection();});el("troubleClearAll").addEventListener("click",()=>{document.querySelectorAll("#troubleCommandGroups .verify-select").forEach(x=>x.checked=false);updateSelection();});el("troubleTest").addEventListener("click",testConnection);el("troubleRun").addEventListener("click",run);el("troubleCopy").addEventListener("click",async()=>{if(lastOutput)try{await navigator.clipboard.writeText(lastOutput);status("Diagnostic output copied.","pass");}catch{status("Copy failed.","fail");}});el("troubleDownload").addEventListener("click",()=>{if(!lastOutput)return;const notes=`Probable cause: ${el("troubleProbableCause").value}\nRoot cause: ${el("troubleRootCause").value}\nCorrective action: ${el("troubleCorrectiveAction").value}\nPost-check: ${el("troublePostCheck").value}\nNotes: ${el("troubleNotes").value}`;const blob=new Blob([`${notes}\n\nCommands:\n${lastCommands.join("\n")}\n\nOutput:\n${lastOutput}\n`],{type:"text/plain;charset=utf-8"}),url=URL.createObjectURL(blob),link=document.createElement("a");link.href=url;link.download=`${tech}_${canonical(platform()).replace(/[^a-z0-9]+/gi,"_")}_troubleshooting.txt`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});}
  return {bind,activate};
 })();
@@ -5566,14 +5577,12 @@ renderModule();
    const plat=document.getElementById("platform");
    $("v3PlatformHealth").textContent=plat?plat.value:"—";
    const active=(window.activeTech||window.currentTech||"").toString().toUpperCase();
-   let n="—";
-   if(active.includes("VPC")) n="6";
-   else if(active.includes("BGP")) n="4";
-   else if(active.includes("EVPN")) n="4";
-   else if(active.includes("SDWAN")) n="1";
+   const read=id=>Number(document.getElementById(id)?.value)||0,pl=platform();
+   const leafField=pl==="Arista EOS"?"arLeafCount":pl==="Huawei_CE_SW"?"hwLeafCount":pl==="Cisco IOS-XE"?"swvLeafCount":"vpcLeafCount";
+   const n={BASIC:1,BGP:read("bgpCeCount")+read("bgpIspCount"),OSPF:2,STP:2+read("stpLeafCount"),VPC:2+read(leafField),EVPN:document.getElementById("evFabricModel")?.value==="multisite"?6:4,SDWAN:1,QOS:2}[active]||"—";
    $("v3DeviceCount").textContent=n;
  }
- document.addEventListener("change",e=>{if(e.target.id==="platform")updateHealth();});
+ document.addEventListener("change",e=>{if(e.target.id==="platform"||e.target.closest("#params"))updateHealth();});
 
  // Expert-level parameter visibility is now the default.
  // Optional advanced features remain controlled by their individual checkboxes/fields.
@@ -5583,9 +5592,10 @@ renderModule();
  let currentProjectId=null;
  const toast=msg=>{const t=$("v3Toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),1800);};
  function snapshot(){
+   captureWorkspaceModule(tech);
    const fields={};
    document.querySelectorAll("input[id],select[id],textarea[id]").forEach(el=>{
-     if(el.type==="file"||el.id==="v3ProjectName"||el.id.startsWith("sd"))return;
+     if(el.type==="file"||el.type==="password"||el.id==="v3ProjectName"||el.id.startsWith("sd"))return;
      fields[el.id]=el.type==="checkbox"?el.checked:el.value;
    });
    const get=id=>document.getElementById(id)?.value??"";
@@ -5606,6 +5616,7 @@ renderModule();
        platform:get("platform")
      },
      design:{},
+     moduleStates:Object.fromEntries(Object.entries(window.__workspaceModuleStates).map(([key,value])=>[key,{...value,fields:safeProjectFields(value.fields)}])),
      fields
    };
 
@@ -5665,25 +5676,28 @@ renderModule();
    currentProjectId=meta?.id||data.id||null;
    // The target module must exist before restoring its dynamic controls.
    const tech=data.workspace?.technology||data.activeTech;
+   window.__workspaceModuleStates=Object.fromEntries(Object.entries(data.moduleStates||{}).filter(([key])=>COMBINABLE_MODULES.includes(key)).map(([key,value])=>[key,{...value,fields:safeProjectFields(value.fields)}]));
+   if(tech&&!window.__workspaceModuleStates[String(tech).toUpperCase()])window.__workspaceModuleStates[String(tech).toUpperCase()]={platform:data.workspace?.platform,fields:safeProjectFields(data.fields),configured:true};
+   document.querySelectorAll('input[type="password"]').forEach(el=>el.value="");
    if(tech)openTech(String(tech).toUpperCase());
    const ps=$("platform");
-   if(ps&&data.workspace?.platform&&[...ps.options].some(o=>o.value===data.workspace.platform)){
+   if(ps&&data.workspace?.platform&&ps.value!==data.workspace.platform&&[...ps.options].some(o=>o.value===data.workspace.platform)){
      ps.value=data.workspace.platform;
      ps.dispatchEvent(new Event("change",{bubbles:true}));
    }
    setTimeout(()=>{
-     const fields=data.fields||{};
+     const fields=safeProjectFields(data.fields);
      for(const id of ["bgpCeCount","bgpIspCount","bgpConnectivity","bgpInternal"]){
        const el=$(id);if(el&&fields[id]!==undefined)el.value=fields[id];
      }
      if(String(tech).toUpperCase()==="BGP")renderBgpDynamicCards();
      Object.entries(fields).forEach(([id,val])=>{
-       const el=$(id);if(!el||el.type==="file")return;
+       const el=$(id);if(!el||el.type==="file"||el.type==="password")return;
        if(el.type==="checkbox")el.checked=!!val;else el.value=val;
      });
      if(typeof render==="function")render();
-     syncTopology();renderOutput();updateHealth();
-   },0);
+     captureWorkspaceModule(tech);syncTopology();renderOutput();updateHealth();
+   },30);
  }
  function saveAs(forceName){
    let name=forceName||prompt("Project name", $("v3ProjectName").value||"Untitled Network Project");
@@ -6136,7 +6150,7 @@ renderModule();
      (report.specialLinks||[]).forEach((link,index)=>specialLinks.push({...link,id:`${prefix}-special-${index+1}`,a:map.get(link.a),b:map.get(link.b),detail:`${report.moduleTitle} · ${link.detail||"control path"}`}));
      (report.parameters||[]).forEach(item=>parameters.push({...item,label:`${report.moduleTitle} · ${item.label}`}));
      (report.configurations||[]).forEach(cfg=>{const id=map.get(cfg.deviceId);if(!id)return;const part=`######## ${report.moduleTitle.toUpperCase()} · ${cfg.source} ########\n${cfg.text}`;configMap.set(id,[configMap.get(id),part].filter(Boolean).join("\n\n"));});
-     moduleReports.push({module:report.moduleKey,title:report.moduleTitle,vendor:report.vendor,technology:report.technology,topologySvg:report.topologySvg,parameters:report.parameters||[],deviceCount:report.devices.length,configurationCount:(report.configurations||[]).length});
+     moduleReports.push({module:report.moduleKey,title:report.moduleTitle,vendor:report.vendor,technology:report.technology,topologySvg:report.topologySvg,topologyPng:report.topologyPng,parameters:report.parameters||[],deviceCount:report.devices.length,configurationCount:(report.configurations||[]).length});
    });
    const first=reports[0],configurations=[...configMap].map(([deviceId,text])=>({deviceId,text,source:"Combined Technology Workspaces"}));
    return {schema:"network-configurator-report-v1",language:$("combineLanguage")?.value||"tr",name:project.project.name==="Untitled Network Project"?"":project.project.name,vendor:first.vendor,architecture:"module",technology:`Combined · ${reports.map(r=>r.moduleTitle).join(" + ")}`,techPlacement:"upper",roles:{upper:"Network device",lower:"Network device"},upperCount:devices.length,lowerCount:0,scope:"",devices:devices.map((d,i)=>({...d,tier:"upper",index:i+1})),links,specialLinks,parameters,configurations,moduleReports,topologySvg:first.topologySvg,topologyPng:first.topologyPng,source:{module:"COMBINED",modules:reports.map(r=>r.moduleKey),projectId:project.project.id||"active",generatedAt:new Date().toISOString()}};

@@ -112,7 +112,7 @@ def build_report_docx(project):
     styles["Normal"].font.name = "Arial"
     styles["Normal"].font.size = Pt(10)
     styles["Normal"].paragraph_format.space_after = Pt(7)
-    for style_name, size in (("Title", 21), ("Heading 1", 13)):
+    for style_name, size in (("Title", 21), ("Heading 1", 13), ("Heading 2", 12)):
         style = styles[style_name]
         style.font.name = "Arial"
         style.font.size = Pt(size)
@@ -138,12 +138,13 @@ def build_report_docx(project):
     upper = roles.get("upper") or ("Core" if project["architecture"] == "core-access" else "Spine")
     lower = roles.get("lower") or ("Access" if project["architecture"] == "core-access" else "Leaf")
     if language == "tr":
-        role_names = {"Network device": "Ağ cihazı", "Managed device": "Yönetilen cihaz", "Edge router": "Uç yönlendirici", "External endpoint": "Harici uç", "DC-1 node": "DC-1 düğümü", "DC-2 node": "DC-2 düğümü"}
+        role_names = {"Device":"Cihaz", "Peer":"Eş cihaz", "Router":"Yönlendirici", "CE router":"CE yönlendirici", "ISP router":"ISP yönlendirici", "Network device": "Ağ cihazı", "Managed device": "Yönetilen cihaz", "Edge router": "Uç yönlendirici", "External endpoint": "Harici uç", "DC-1 node": "DC-1 düğümü", "DC-2 node": "DC-2 düğümü"}
         upper, lower = role_names.get(upper, upper), role_names.get(lower, lower)
     vendor = "Huawei CloudEngine" if project["vendor"] == "Huawei_CE_SW" else project["vendor"]
-    doc.add_paragraph(
-        f"{words['draft']}  |  {datetime.now(timezone.utc).strftime('%d %B %Y')}  |  {vendor}"
-    )
+    now = datetime.now(timezone.utc)
+    months_tr = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
+    report_date = f"{now.day} {months_tr[now.month-1]} {now.year}" if language == "tr" else now.strftime("%d %B %Y")
+    doc.add_paragraph(f"{words['draft']}  |  {report_date}  |  {vendor}")
 
     doc.add_heading(words["overview"], level=1)
     architecture = ("Module topology" if project["architecture"] == "module" else
@@ -151,8 +152,8 @@ def build_report_docx(project):
     if language == "tr":
         architecture = {"Module topology": "Modül topolojisi", "Core Access": "Core–Access", "Spine Leaf": "Spine–Leaf"}[architecture]
     if language == "tr":
-        overview = (f"Planlanan {architecture} mimarisinde {project['upperCount']} {upper} cihazı"
-                    + (f" ve {project['lowerCount']} {lower} cihazı" if project["lowerCount"] else "")
+        overview = (f"Planlanan {architecture} mimarisinde {project['upperCount']} {upper}"
+                    + (f" ve {project['lowerCount']} {lower}" if project["lowerCount"] else "")
                     + f" bulunur; kullanılan teknoloji {project['technology']} olarak seçilmiştir.")
     else:
         overview = (f"The planned {architecture} has {project['upperCount']} {upper.lower()} "
@@ -175,14 +176,15 @@ def build_report_docx(project):
 
     doc.add_heading(words["topology"], level=1)
     doc.add_paragraph(
-        f"{upper} tier: " + ", ".join(device_name(d) for d in project["devices"] if not d.get("inventoryOnly") and d["tier"] == "upper")
+        f"{upper} {'katmanı' if language == 'tr' else 'tier'}: " + ", ".join(device_name(d) for d in project["devices"] if not d.get("inventoryOnly") and d["tier"] == "upper")
     )
     if project["lowerCount"]:
         doc.add_paragraph(
-            f"{lower} tier: " + ", ".join(device_name(d) for d in project["devices"] if not d.get("inventoryOnly") and d["tier"] == "lower")
+            f"{lower} {'katmanı' if language == 'tr' else 'tier'}: " + ", ".join(device_name(d) for d in project["devices"] if not d.get("inventoryOnly") and d["tier"] == "lower")
         )
-    topology_png = project.get("topologyPng", "")
-    if topology_png:
+    def add_topology_image(topology_png):
+        if not topology_png:
+            return
         prefix = "data:image/png;base64,"
         if not topology_png.startswith(prefix):
             raise ValueError("Invalid topology image format")
@@ -193,12 +195,18 @@ def build_report_docx(project):
         if len(picture) > 2250000 or not picture.startswith(b"\x89PNG\r\n\x1a\n"):
             raise ValueError("Invalid topology PNG")
         doc.add_picture(BytesIO(picture), width=Inches(6.9))
+    if project.get("moduleReports"):
+        for module in project["moduleReports"]:
+            doc.add_heading(module["title"] + " · " + ("Huawei CloudEngine" if module["vendor"] == "Huawei_CE_SW" else module["vendor"]), level=2)
+            add_topology_image(module.get("topologyPng", ""))
+    else:
+        add_topology_image(project.get("topologyPng", ""))
     doc.add_heading(words["schedule"], level=1)
     _table(
         doc,
         [f"{upper} {words['device'].lower()}", words["port"], f"{lower} {words['device'].lower()}", words["port"], words["connection"]],
         [1.55, 1.1, 1.55, 1.1, 1.65],
-        [[device_name(devices[l["a"]]), l["upperPort"] or "TBD", device_name(devices[l["b"]]), l["lowerPort"] or "TBD", " · ".join(filter(None, [l.get("detail"), l["speed"]])) or "TBD"] for l in active]
+        [[device_name(devices[l["a"]]), l["upperPort"] or ("Belirlenecek" if language == "tr" else "TBD"), device_name(devices[l["b"]]), l["lowerPort"] or ("Belirlenecek" if language == "tr" else "TBD"), " · ".join(filter(None, [l.get("detail"), l["speed"]])) or "TBD"] for l in active]
         or [[words["none"], "", "", "", ""]],
     )
     if project.get("specialLinks"):
@@ -208,8 +216,8 @@ def build_report_docx(project):
             [words["type"], words["endpoint_a"], words["endpoint_b"], words["details"]],
             [1.25, 1.8, 1.8, 2.1],
             [[link["kind"] + (f" ({words['logical']})" if link["logical"] else ""),
-              device_name(devices[link["a"]]) + " · " + (link["aPort"] or "TBD"),
-              device_name(devices[link["b"]]) + " · " + (link["bPort"] or "TBD"), link["detail"]]
+              device_name(devices[link["a"]]) + " · " + (link["aPort"] or ("Belirlenecek" if language == "tr" else "TBD")),
+              device_name(devices[link["b"]]) + " · " + (link["bPort"] or ("Belirlenecek" if language == "tr" else "TBD")), link["detail"]]
              for link in project["specialLinks"]],
         )
         doc.add_paragraph(words["logical_note"])
@@ -247,14 +255,20 @@ def build_report_docx(project):
     inventory_ids = project.get("inventoryDeviceIds")
     inventory = [d for d in project["devices"] if inventory_ids is None or d["id"] in inventory_ids]
     source = lambda value: (("Cihazdan doğrulandı" if value == "device" else "Mühendis girişi" if value == "manual" else "Atama bekliyor") if language == "tr" else ("Verified from device" if value == "device" else "Engineer entry" if value == "manual" else "Awaiting assignment"))
-    _table(
+    inventory_table = _table(
         doc,
         [words["device"], words["role"], words["model"], words["serial"], "Yazılım sürümü" if language == "tr" else "Software version", words["source"]],
         [1.4, .7, 1.3, 1.2, 1.1, 1.4],
         [[device_name(d) + ("\n" + d["observedHostname"] if d.get("observedHostname") and d["observedHostname"] != device_name(d) else ""), ("Envanter cihazı" if language == "tr" else "Inventory device") if d.get("inventoryOnly") else upper if d["tier"] == "upper" else lower, d["model"] or (words["external"] if d.get("external") else words["pending"]), d["serial"] or (words["external"] if d.get("external") else words["pending"]), d.get("softwareVersion") or words["pending"],
           ("Harici eş" if language == "tr" else "External peer") if d.get("external") else " / ".join(dict.fromkeys(source(d.get(k)) for k in ("modelSource", "serialSource", "softwareSource") if d.get(k))) if d["modelSource"] or d["serialSource"] else words["planned"]]
-         for d in inventory],
+         for d in inventory] or [["Henüz envanter kaydı yok; Inventory modülünden veri ekleyin." if language == "tr" else "No inventory records yet; add data in Inventory.", "", "", "", "", ""]],
     )
+
+    if not inventory:
+        cell = inventory_table.rows[1].cells[0].merge(inventory_table.rows[1].cells[-1])
+        cell.text = "Henüz envanter kaydı yok; Inventory modülünden veri ekleyin." if language == "tr" else "No inventory records yet; add data in Inventory."
+        for run in cell.paragraphs[0].runs:
+            run.font.size = Pt(9)
 
     doc.add_heading(words["confirm"], level=1)
     if project.get("maintenanceNotes"):
@@ -266,12 +280,12 @@ def build_report_docx(project):
     incomplete = sum(not d.get("external") and (not d["model"] or not d["serial"]) for d in inventory)
     missing_ports = sum(not l["upperPort"] or not l["lowerPort"] for l in active)
     doc.add_paragraph(
-        ((f"{incomplete} cihaz için model veya seri numarası tamamlanmalıdır. " if incomplete else "Tüm cihaz modelleri ve seri numaraları doldurulmuştur. ")
-         + (f"{missing_ports} aktif bağlantının bir veya iki ucunda port bilgisi eksiktir. " if missing_ports else "Tüm aktif bağlantı uçlarının portları atanmıştır. ")
+        ((f"{incomplete} cihaz için model veya seri numarası tamamlanmalıdır. " if incomplete else "Tüm cihaz modelleri ve seri numaraları doldurulmuştur. " if inventory else "Henüz envanter kaydı yok; model ve seri numarası doğrulanmamıştır. ")
+         + (f"{missing_ports} aktif bağlantının bir veya iki ucunda port bilgisi eksiktir. " if missing_ports else "Tüm aktif bağlantı uçlarının portları atanmıştır. " if active else "Fiziksel bağlantı modellenmedi; port eşlemesi doğrulanmamıştır. ")
          + "Cihazdan okunan envanter proje kapanışından önce planlanan malzeme listesiyle karşılaştırılmalıdır.")
         if language == "tr" else
-        ((f"{incomplete} {'device still needs' if incomplete == 1 else 'devices still need'} a model or serial number. " if incomplete else "All device models and serial numbers are populated. ")
-         + (f"{missing_ports} active {'link still needs' if missing_ports == 1 else 'links still need'} a port at one or both ends. " if missing_ports else "All active link endpoint ports are assigned. ")
+        ((f"{incomplete} {'device still needs' if incomplete == 1 else 'devices still need'} a model or serial number. " if incomplete else "All device models and serial numbers are populated. " if inventory else "No inventory records yet; model and serial numbers have not been verified. ")
+         + (f"{missing_ports} active {'link still needs' if missing_ports == 1 else 'links still need'} a port at one or both ends. " if missing_ports else "All active link endpoint ports are assigned. " if active else "No physical links modeled; port mapping is unverified. ")
          + "Compare device-sourced inventory with the intended bill of materials before closeout.")
     )
     if project.get("configurations"):
@@ -289,7 +303,7 @@ def build_report_docx(project):
                 paragraph.paragraph_format.space_after = Pt(0)
                 paragraph.paragraph_format.line_spacing = 1.0
                 run = paragraph.add_run(line or " ")
-                run.font.name = "Consolas"
+                run.font.name = "Courier New"
                 run.font.size = Pt(8)
             if index < len(configured_devices) - 1:
                 doc.add_page_break()

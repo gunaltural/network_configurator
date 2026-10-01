@@ -1,0 +1,9 @@
+{
+  "private": true,
+  "scripts": {
+    "test": "node test_inventory_ui.mjs && node test_workspaces.cjs && node test_reporting.cjs"
+  },
+  "devDependencies": {
+    "jsdom": "30.1.1"
+  }
+}

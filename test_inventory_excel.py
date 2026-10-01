@@ -88,7 +88,7 @@ class InventoryExcelTests(unittest.TestCase):
                 self.assertIn('ACTUAL-SW1', inventory.rows[1].cells[0].text)
                 root = __import__('xml.etree.ElementTree', fromlist=['']).fromstring(xml)
                 text = [''.join(p.itertext()) for p in root.findall('.//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}p')]
-                tier_line = next(x for x in text if 'tier:' in x)
+                tier_line = next(x for x in text if ('katmanı:' if language == 'tr' else 'tier:') in x)
                 self.assertNotIn('Extra-', tier_line)
 
     def test_latest_inventory_export(self):

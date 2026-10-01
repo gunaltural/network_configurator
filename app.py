@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Network Configurator v5.11.0 — Hosted multi-vendor Live CLI and reporting
+Network Configurator v5.14.1 — Hosted multi-vendor Live CLI and reporting
 
 Designed for Render / hosted web use:
 - Browser-only client experience
@@ -30,7 +30,7 @@ import uvicorn
 from report_docx import build_report_docx
 from docx.image.exceptions import UnrecognizedImageError
 
-VERSION = "5.11.0"
+VERSION = "5.14.1"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
 REPORTING_HTML = (BASE_DIR / "reporting.html").read_text(encoding="utf-8")
@@ -69,6 +69,7 @@ RUNNING_COMMAND = {
     "cisco_nxos": "show running-config",
     "cisco_xe": "show running-config",
     "arista_eos": "show running-config",
+    "fortinet": "show full-configuration",
     "huawei_vrpv8": "display current-configuration",
 }
 
@@ -172,9 +173,9 @@ class LiveCommandRequest(DeviceRequest):
 
 class ReportDevice(BaseModel):
     inventoryOnly: bool = False
-    id: str = Field(max_length=32)
+    id: str = Field(max_length=100)
     tier: Literal["upper", "lower"]
-    index: int = Field(ge=1, le=16)
+    index: int = Field(ge=1, le=1000)
     hostname: str = Field(max_length=100)
     model: str = Field(max_length=100)
     serial: str = Field(max_length=100)
@@ -188,8 +189,8 @@ class ReportDevice(BaseModel):
 
 
 class ReportLink(BaseModel):
-    a: str = Field(max_length=32)
-    b: str = Field(max_length=32)
+    a: str = Field(max_length=100)
+    b: str = Field(max_length=100)
     enabled: bool
     upperPort: str = Field(max_length=100)
     lowerPort: str = Field(max_length=100)
@@ -199,8 +200,8 @@ class ReportLink(BaseModel):
 
 class ReportSpecialLink(BaseModel):
     kind: str = Field(max_length=100)
-    a: str = Field(max_length=32)
-    b: str = Field(max_length=32)
+    a: str = Field(max_length=100)
+    b: str = Field(max_length=100)
     aPort: str = Field(max_length=200)
     bPort: str = Field(max_length=200)
     detail: str = Field(max_length=500)
@@ -214,7 +215,7 @@ class ReportParameter(BaseModel):
 
 
 class ReportConfiguration(BaseModel):
-    deviceId: str = Field(max_length=32)
+    deviceId: str = Field(max_length=100)
     text: str = Field(max_length=100000)
     source: str = Field(max_length=100)
 
@@ -224,14 +225,20 @@ class ReportTierLabels(BaseModel):
     lower: str = Field(max_length=40)
 
 
+class ReportModuleSummary(BaseModel):
+    title: str = Field(max_length=100)
+    vendor: Literal["Cisco NX-OS", "Cisco IOS-XE", "Arista EOS", "Huawei_CE_SW", "FortiGate"]
+    topologyPng: str = Field(default="", max_length=3000000)
+
+
 class ReportWordRequest(BaseModel):
     language: Literal["tr", "en"] = "en"
     name: str = Field(min_length=1, max_length=120)
     vendor: Literal["Cisco NX-OS", "Cisco IOS-XE", "Arista EOS", "Huawei_CE_SW", "FortiGate"]
     architecture: Literal["spine-leaf", "core-access", "module"]
-    technology: str = Field(max_length=32)
+    technology: str = Field(max_length=500)
     techPlacement: Literal["upper", "lower"]
-    upperCount: int = Field(ge=1, le=8)
+    upperCount: int = Field(ge=1, le=64)
     lowerCount: int = Field(ge=0, le=16)
     roles: ReportTierLabels | None = None
     scope: str = Field(max_length=2000)
@@ -244,6 +251,7 @@ class ReportWordRequest(BaseModel):
     topologyPng: str = Field(default="", max_length=3000000)
     projectInformation: List[ReportParameter] = Field(default_factory=list, max_length=20)
     maintenanceNotes: List[ReportParameter] = Field(default_factory=list)
+    moduleReports: List[ReportModuleSummary] = Field(default_factory=list, max_length=8)
 
 
 def parse_inventory(platform: str, outputs: dict) -> dict:
@@ -656,7 +664,7 @@ def network_diagnostics(target: str = "", port: int = 22):
 
 @app.post("/api/device/test")
 def test_connection(p: DeviceRequest):
-    local = checks(p, include_config=False)
+    local = checks(p, include_config=False, live=True)
     if not ok(local):
         raise HTTPException(
             status_code=400,
@@ -668,7 +676,7 @@ def test_connection(p: DeviceRequest):
             "ok": True,
             "steps": [
                 {"name": "Connected", "status": "PASS", "detail": f"MOCK SSH to {p.target}:{p.port}"},
-                {"name": "Platform adapter", "status": "PASS", "detail": device_type(p.platform)},
+                {"name": "Platform adapter", "status": "PASS", "detail": device_type(p.platform, live=True)},
                 {"name": "Running-config read", "status": "PASS", "detail": "MOCK snapshot"},
             ],
             "message": "Connection test successful in MOCK mode.",
@@ -676,7 +684,7 @@ def test_connection(p: DeviceRequest):
 
     conn = None
     try:
-        conn, dt = connect(p)
+        conn, dt = connect(p, live=True)
         prompt = conn.find_prompt()
         snap = snapshot(conn, dt)
         return {
@@ -804,7 +812,7 @@ def reporting_inventory(p: DeviceRequest):
             identity["hostname"] = re.sub(r"[>#]$", "", prompt).strip("<>")[:100]
         for field in ("model", "serial", "software_version", "hostname"):
             if not identity[field]:
-                warnings.append(f"{field}: not returned in a recognizable format; previous value retained")
+                warnings.append(f"{field}: not returned in a recognizable format; field left empty")
         if not identity["model"] and not identity["serial"]:
             raise HTTPException(status_code=502, detail="SSH connected, but the device did not return a recognizable chassis model or serial. Enter them manually.")
         return {"ok": True, "connection_status": "connected", "platform": platform, **identity,
@@ -850,12 +858,15 @@ def reporting_word(p: ReportWordRequest):
     topology_devices = [d for d in p.devices if not d.inventoryOnly]
     topology_ids = {d.id for d in topology_devices}
     if (not p.name.strip() or len(p.devices) != len(actual)
-            or len(topology_devices) != len(expected) or topology_ids != expected
-            or any(d.id != f"{d.tier}-{d.index}" for d in topology_devices)
+            or len(topology_devices) != p.upperCount + p.lowerCount
+            or sum(d.tier == "upper" for d in topology_devices) != p.upperCount
+            or sum(d.tier == "lower" for d in topology_devices) != p.lowerCount
+            or (p.architecture != "module" and (topology_ids != expected
+                or any(d.id != f"{d.tier}-{d.index}" for d in topology_devices)))
             or len(p.links) > 128 or len(p.specialLinks) > 32
             or len(p.parameters) > 250 or len(p.configurations) > len(topology_devices)
             or any(l.a not in topology_ids or l.b not in topology_ids
-                   or not l.a.startswith("upper-") or not l.b.startswith("lower-") for l in p.links)
+                   or (p.architecture != "module" and (not l.a.startswith("upper-") or not l.b.startswith("lower-"))) for l in p.links)
             or any(l.a not in topology_ids or l.b not in topology_ids for l in p.specialLinks)
             or len({c.deviceId for c in p.configurations}) != len(p.configurations)
             or any(c.deviceId not in topology_ids for c in p.configurations)

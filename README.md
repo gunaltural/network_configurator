@@ -1,12 +1,12 @@
-# Network Configurator v5.11.0 — Selective Verification, Live CLI, and Reporting
+# Network Configurator v5.14.1 — Technology Workspaces and Maintenance Reporting
 
 Render Web Service deployment using the repository's Dockerfile.
 
 System and Management generates a baseline for one managed device. Its parameters,
 topology and configuration output contain one device block.
 
-## Reporting and Inventory
-Open **Reporting and Inventory** from the home page or `/reporting`. The workspace
+## Maintenance and Reporting
+Open **Maintenance and Reporting** from the home page or `/reporting`. The workspace
 action imports designs from System and Management, BGP, OSPF, STP, vPC / MLAG /
 M-LAG / StackWise Virtual, EVPN / VXLAN, QoS and Cisco cEdge SD-WAN. It carries
 the active topology, real device names and configured ports, engineering explanations for selected parameters,
@@ -19,7 +19,7 @@ device labels and technology-specific paths appear in the report preview, printe
 and Word download. SD-WAN's HTML topology is represented by a report SVG of the
 selected edge, controllers and two WAN transports. The drawings use a light palette for readability on
 white paper; the interactive workspace retains its original colors. Use the prominent
-**Reporting and Inventory** action in the workspace
+**Maintenance and Reporting** action in the workspace
 header or at the end of the parameters to open the report after designing
 any supported module; the home-page card remains
 available. Reopen the report from the workspace after changing the drawing.
@@ -28,21 +28,22 @@ records say so explicitly. Huawei M-LAG leaf physical uplink ports remain unassi
 until the engineer identifies them.
 
 The imported topology and platform are read-only in the report; edit them in
-Technology Workspaces and reopen Reporting and Inventory to refresh. Existing
+Technology Workspaces and reopen Maintenance and Reporting to refresh. Existing
 inventory, scope and documentation-only link details are retained for the same project
 in the browser session. MPLS and Multicast modules are placeholders and have no
 generated device configuration to document. Standalone reports start with a project name, primary vendor,
 architecture, device counts and planned technology.
-Device cards and an editable connection schedule follow the topology. Each card has a
-hostname, optional management address, product model and serial number. Model and serial
-can be entered manually before deployment, or read from a reachable device afterward.
+The design report uses Technology Workspaces for topology, engineering choices and generated
+configuration. Observed inventory comes only from the Inventory tab. The on-screen
+Project inventory table and report use the same current record set; planned devices
+are not automatically reported as collected inventory.
 
 The Maintenance and Reporting **Inventory** tab provides a manual table for observed
 hostname, serial number, software version and product model. Upload an `.xlsx` file
 using the downloadable template; the first worksheet is imported directly. Existing
 devices are updated by Device ID or unique hostname, and new devices are added to
 inventory automatically. No second device selection or Apply action is needed.
-Duplicate identities reject the import before changing data. Blank values retain existing inventory, and planned
+Duplicate identities reject the import before changing data. New imports replace the current visible batch; blank values remain empty, and planned
 topology names stay unchanged. Formula cells are rejected; use text values, especially
 for serial numbers with leading zeros. Maximum upload size is 5 MB / 1,000 records.
 
@@ -56,7 +57,7 @@ each target, port and username. A shared password and enable secret may be used,
 per-device overrides. Collection runs sequentially with separate results; a failure
 does not stop remaining devices. Only the latest successful collection enters the report; missing fields remain empty.
 Passwords and enable secrets are cleared after collection and never saved with the
-project. The tab collects planned and additional inventory devices; it does not discover neighbors.
+project. The tab collects selected inventory targets; it does not discover neighbors.
 
 Manual and Automatic SSH inventories have separate device lists. Automatic SSH provides
 **Download SSH Excel template** and **Upload SSH targets**. The template contains only
@@ -81,38 +82,52 @@ editable DOCX report. **Download project** / **Open project** save and restore
 the editable design as JSON. The report documents design intent and optional
 inventory verification; it does not crawl neighbors or claim operational validation.
 
-## Browser user experience
-No local installation is required. Users open the Render service URL and use:
-`Test Connection -> Pre-Check` and `Live CLI -> Run Command -> Copy Output / Download TXT`.
+## Verification and Troubleshooting
+No local installation is required. The Verification and Troubleshooting tabs expose
+the read-only SSH engine; there is no separate Live CLI tab. Connection details can
+be shared with Deploy Config. Use **Test Connection** before running selected commands.
 
-Live CLI supports Cisco IOS-XE, Cisco NX-OS, Arista EOS, Huawei CloudEngine (VRP 8), and
-FortiGate. Choose the platform and a command from the grouped catalog, or choose the first
-option, **User-defined command**, to enter multiple read-only commands, one per line.
-Live CLI starts with the platform selected in the workspace and refreshes its command
-menu when that selection changes. The device platform can also be chosen separately
-inside Live CLI. Huawei uses `display` commands, while Arista EOS offers its own
-MLAG, VXLAN, and BGP EVPN commands. Some options depend on the device's features,
-DFS group/node IDs, and software release.
-The server accepts `show` on Cisco and Arista, `display` on Huawei, and `show` / `get`
-on FortiGate. It also accepts the built-in FortiGate diagnostic commands and common
-read-only output filters such as `| include` and `| grep`. Commands run in order over
-one SSH session. Configuration commands, redirects, other pipe actions, shell operators,
-and command chaining are rejected. Combined output is capped at 1 MB, and the input
-at 128 KiB; there is no fixed command-count limit. Exact command availability varies
-by model, feature set, and operating system release.
+Verification combines module-specific checks with the selected platform catalog,
+groups commands by purpose and provides a scrollable picker. Each command is editable;
+a user-defined command appears first. Only checked commands run. Clear selection and
+custom edits are retained when switching output tabs without changing the module or platform.
+Troubleshooting adds symptom-specific commands and the latest matching Verification evidence.
+A failed new run cannot leave an older output enabled for download.
 
-Live CLI uses the same SSH details entered in Deploy Config. Passwords are used for the
-request and are not saved in a project. `GET /api/device/commands` supplies the catalog;
-`POST /api/device/show` executes the validated command list against the address entered by the user.
+The engine supports Cisco IOS-XE, Cisco NX-OS, Arista EOS, Huawei CloudEngine and FortiGate.
+It accepts platform-specific read-only commands and approved output filters. Configuration
+mode, command chaining, redirects and shell operators are rejected. Commands execute
+sequentially in one SSH session, with per-command results and failure isolation. Combined
+output is capped at 1 MB and input at 128 KiB; there is no fixed command-count limit.
+Command success indicates execution, not proof that the network meets its design requirements.
+`GET /api/device/commands` returns the catalog and `POST /api/device/show` runs selected commands.
 
-The **Verification** tab uses the same read-only Live CLI engine. It combines the active
-Technology Workspace's context-aware post-checks with the selected vendor's wider command
-catalog, removes duplicates, and groups checks by purpose (system health, physical links,
-Layer 2, protocol adjacencies, routing/forwarding, overlay, redundancy, QoS, and configuration
-evidence). Engineers can select recommended checks, an entire category, all commands, or any
-individual commands. Only checked commands are sent, in order, over one SSH session. Results
-can be copied or downloaded as a text evidence file; a command error does not stop the remaining
-selected read-only checks.
+## Project files and combined reports
+Save/Open preserves configured module states, including topology count controls and SD-WAN
+parameters. SSH passwords and enable secrets are excluded from project snapshots and are
+not restored from older files. A combined report preserves module platforms, device references,
+engineering explanations and merged device configuration. Word output includes each available
+module topology image, together with the current inventory. Project brief samples follow the
+selected Turkish/English report language; engineer-edited text is preserved verbatim.
+
+EVPN platform choices are Cisco NX-OS, Arista EOS and Huawei CloudEngine. SD-WAN generates
+Cisco IOS-XE cEdge configuration only. STP excludes FortiGate from the design platform menu.
+
+## Regression checks
+Install development dependencies and run:
+
+```sh
+python -m pip install -r requirements-dev.txt
+npm install
+python -m unittest test_inventory_excel.py test_application_audit.py
+npm test
+```
+
+The source DOM suite checks all 31 supported module/platform pairs, configuration and report
+coverage, command selection, module state restoration and credential exclusion. Backend tests
+cover inventory Excel, combined Word topology integrity, module images and mocked read-only SSH.
+No regression test contacts or configures a real device. See `APPLICATION_AUDIT.md` for the
+review scope, corrected faults and remaining engineering validation limits.
 
 ## Default safety
 - Default mode is READ-ONLY (`ENABLE_REAL_DEPLOY=0`).
