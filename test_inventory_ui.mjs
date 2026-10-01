@@ -12,7 +12,7 @@ $('batchRows').querySelectorAll=()=>rows;
 $('batchPassword').value='test-password';
 let calls=0,reportUpdates=0;
 const context={setTimeout,crypto:webcrypto,$,val:id=>$(id).value,state:{devices,vendor:'Cisco NX-OS'},document:{querySelectorAll:selector=>selector.includes("#batchRows")?rows.map(row=>row.selection):[]},deviceName:d=>d.hostname,esc:x=>String(x),vendorLabel:x=>x,renderReport(){reportUpdates++;},renderEditor(){},fetch:async(url,request)=>{if(!request?.body)return context.jobResult;const p=JSON.parse(request.body);assert.equal(p.password,'test-password');assert.equal(p.platform,devices[calls].vendor);calls++;context.jobResult=calls===1?{ok:true,json:async()=>({status:'failed',error:'Test failure'})}:{ok:true,json:async()=>({status:'completed',result:{hostname:'OBSERVED-SW2',model:'DCS-7050',serial:'',software_version:'4.32.1F',observed_at:'now',warnings:['serial unavailable']}})};return {ok:true,json:async()=>({job_id:'test-job'})};}};
-context.window=context;vm.createContext(context);vm.runInContext(fs.readFileSync("verification-evidence.js","utf8"),context);vm.runInContext(logic,context);
+vm.createContext(context);vm.runInContext(logic,context);
 await $('runInventoryBatch').onclick();
 assert.equal(calls,2,'failure must not stop the next device');
 assert.equal(devices[0].model,'','failed latest reads must not retain old identity');
