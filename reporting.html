@@ -86,8 +86,8 @@
     $("projectDetailFields").innerHTML=projectGroups.map(([group,number,title,hint])=>`<div class="project-group"><div class="project-group-title"><span>${number}</span><div><h3>${title}</h3><p class="hint">${hint}</p></div></div><div class="fields">${projectDetailDefinitions.filter(f=>f[3]===group).map(([key,en,tr,g,type,placeholder])=>`<label class="${type==="textarea"?"wide":""}">${en}${type==="textarea"?`<textarea data-project-detail="${key}" maxlength="1200" placeholder="${esc(placeholder)}">${esc(state.projectDetails[key]||"")}</textarea>`:type==="select"?`<select data-project-detail="${key}"><option value="">Select status</option>${["Draft","For review","Approved","As-built"].map(v=>`<option ${state.projectDetails[key]===v?"selected":""}>${v}</option>`).join("")}</select>`:`<input data-project-detail="${key}" type="${type}" maxlength="200" placeholder="${esc(placeholder)}" value="${esc(state.projectDetails[key]||"")}">`}</label>`).join("")}</div></div>`).join("");
   }
   $("projectDetailFields").addEventListener("input",e=>{const key=e.target.dataset.projectDetail;if(!key)return;state.projectDetails=state.projectDetails||{};state.projectDetails[key]=e.target.value;renderReport();});
-  function applyProjectExample(){
-    const tr=state.language==="tr";
+  function buildProjectExample(language=state.language){
+    const tr=language==="tr";
     const example=tr?{customer:"ÖRNEK — Müşteri kuruluş adı",reference:"ÖRNEK-PROJE-2026-001",sites:"ÖRNEK — İstanbul / DC-1 ve ilgili ağ alanları",author:"ÖRNEK — Ağ Tasarım Ekibi / Hazırlayan mühendis",reviewer:"ÖRNEK — Müşteri teknik inceleme sorumlusu; onay bekleniyor",revision:"0.1 — İlk teknik inceleme taslağı",documentStatus:"For review",documentDate:new Date().toISOString().slice(0,10)}:{customer:"EXAMPLE — Customer organization",reference:"EXAMPLE-PROJECT-2026-001",sites:"EXAMPLE — Istanbul / DC-1 and relevant network areas",author:"EXAMPLE — Network Design Team / Preparing engineer",reviewer:"EXAMPLE — Customer technical reviewer; approval pending",revision:"0.1 — Initial technical review draft",documentStatus:"For review",documentDate:new Date().toISOString().slice(0,10)};
     Object.assign(example,tr?{
       objectives:`ÖRNEK HEDEF: ${state.technology} tasarımıyla iş servislerinin ihtiyaç duyduğu erişim, yönetilebilirlik ve işletim görünürlüğünü sağlamak. Kritik servisler, servis sahipleri ve beklenen operasyonel fayda müşteriyle netleştirilecektir. Seçilen topoloji ve teknoloji, bu gereksinimleri karşılama açısından gözden geçirilecek; bu metin gerçekleşmiş performans veya tamamlanmış uygulama kanıtı değildir.`,
@@ -108,11 +108,24 @@
       risks:"EXAMPLE RISKS: R1 — Inconsistent adjacent-device settings may interrupt service; mitigate through end-to-end review and testing, owner: network team. R2 — Management changes may cause lockout; mitigate through verified console/OOB access, backups and rollback planning. R3 — Shared failure domains or insufficient remaining capacity may defeat resilience targets; mitigate through dependency review and load testing. These risks remain open.",
       acceptance:"EXAMPLE ACCEPTANCE PLAN: 1) Verify identity, model and release against Inventory. 2) Compare ports, links and applicable protocol state with the design. 3) Test permitted service traffic and access restrictions end to end. 4) Where redundant paths exist, test failure and recovery; compare interruption and convergence with customer-agreed targets. 5) Verify management, monitoring, backup and rollback readiness. Record expected results, dates, CLI/measurement evidence and approval for every test. Status: not yet executed."
     });
-    state.projectDetails=state.projectDetails||{};
-    for(const [key,value] of Object.entries(example))if(!String(state.projectDetails[key]||"").trim())state.projectDetails[key]=value;
-    if(!state.name.trim())state.name=tr?`ÖRNEK — ${state.technology} Ağ Tasarım Projesi`:`EXAMPLE — ${state.technology} Network Design Project`;
-    if(!state.scope.trim())state.scope=tr?`ÖRNEK KAPSAM: ${vendorLabel(state.vendor)} platformunda ${state.technology} tasarımının müşteri teknik incelemesine hazırlanması. Technology Workspace, topoloji, bağlantı portları, teknoloji seçimleri ve cihaz konfigürasyonlarını sağlar; Inventory, gerçek cihaz kimliği ve donanım/yazılım bilgilerini sağlar. Proje; tasarım girdilerinin doğrulanması, uygulama sorumluluklarının tanımlanması ve kabul kanıtlarının planlanmasını kapsar. Mevcut üretim durumu, saha bağımlılıkları ve kapsam dışı işler mühendis tarafından netleştirilecektir. Bu örnek metin tamamlanmış uygulama veya müşteri onayı anlamına gelmez.`:`EXAMPLE SCOPE: Prepare the ${state.technology} design on ${vendorLabel(state.vendor)} for customer technical review. Technology Workspaces provide topology, connection ports, technology decisions and device configuration; Inventory provides observed device identity, hardware and software details. The project covers design-input validation, implementation responsibilities and acceptance evidence planning. The engineer must confirm the production context, site dependencies and exclusions. This example is not evidence of completed implementation or customer approval.`;
+    return {fields:example,name:tr?`ÖRNEK — ${state.technology} Ağ Tasarım Projesi`:`EXAMPLE — ${state.technology} Network Design Project`,scope:tr?`ÖRNEK KAPSAM: ${vendorLabel(state.vendor)} platformunda ${state.technology} tasarımının müşteri teknik incelemesine hazırlanması. Technology Workspace, topoloji, bağlantı portları, teknoloji seçimleri ve cihaz konfigürasyonlarını sağlar; Inventory, gerçek cihaz kimliği ve donanım/yazılım bilgilerini sağlar. Proje; tasarım girdilerinin doğrulanması, uygulama sorumluluklarının tanımlanması ve kabul kanıtlarının planlanmasını kapsar. Mevcut üretim durumu, saha bağımlılıkları ve kapsam dışı işler mühendis tarafından netleştirilecektir. Bu örnek metin tamamlanmış uygulama veya müşteri onayı anlamına gelmez.`:`EXAMPLE SCOPE: Prepare the ${state.technology} design on ${vendorLabel(state.vendor)} for customer technical review. Technology Workspaces provide topology, connection ports, technology decisions and device configuration; Inventory provides observed device identity, hardware and software details. The project covers design-input validation, implementation responsibilities and acceptance evidence planning. The engineer must confirm the production context, site dependencies and exclusions. This example is not evidence of completed implementation or customer approval.`};
+  }
+  function applyProjectExample(){
+    const sample=buildProjectExample();state.projectDetails=state.projectDetails||{};
+    state.projectExampleValues=state.projectExampleValues||{fields:{}};
+    for(const [key,value] of Object.entries(sample.fields))if(!String(state.projectDetails[key]||"").trim()){state.projectDetails[key]=value;state.projectExampleValues.fields[key]=value;}
+    for(const key of ["name","scope"])if(!String(state[key]||"").trim()){state[key]=sample[key];state.projectExampleValues[key]=sample[key];}
     $("projectName").value=state.name;$("scope").value=state.scope;renderProjectDetails();renderReport();
+  }
+  function updateProjectExampleLanguage(previousLanguage){
+    const previous=buildProjectExample(previousLanguage),next=buildProjectExample();
+    state.projectDetails=state.projectDetails||{};state.projectExampleValues=state.projectExampleValues||{fields:{}};
+    for(const [key,value] of Object.entries(next.fields)){
+      const current=state.projectDetails[key];
+      if(current&&(current===state.projectExampleValues.fields[key]||current===previous.fields[key])){state.projectDetails[key]=value;state.projectExampleValues.fields[key]=value;}
+    }
+    for(const key of ["name","scope"])if(state[key]&&(state[key]===state.projectExampleValues[key]||state[key]===previous[key])){state[key]=next[key];state.projectExampleValues[key]=next[key];}
+    $("projectName").value=state.name;$("scope").value=state.scope;renderProjectDetails();
   }
   $("useProjectExample").onclick=applyProjectExample;
   const rw=key=>reportWords[state.language]?.[key]||reportWords.en[key]||key;
@@ -421,7 +434,7 @@
   $("vendor").addEventListener("change",e=>{state.vendor=e.target.value;for(const d of state.devices)d.vendor=state.vendor;renderEditor();});
   $("architecture").addEventListener("change",e=>{state.architecture=e.target.value;for(const d of state.devices)if(d.hostname.match(/^(?:Spine|Leaf|Core|Access)-\d+$/))d.hostname=`${editorRoleName(d)}-${String(d.index).padStart(2,"0")}`;renderEditor();});
   $("technology").addEventListener("change",e=>{state.technology=e.target.value;renderReport();});
-  $("reportLanguage").addEventListener("change",e=>{state.language=e.target.value==="en"?"en":"tr";renderReport();});
+  $("reportLanguage").addEventListener("change",e=>{const previousLanguage=state.language;state.language=e.target.value==="en"?"en":"tr";updateProjectExampleLanguage(previousLanguage);renderReport();});
   $("techPlacement").addEventListener("change",e=>{state.techPlacement=e.target.value;renderReport();});
   for(const [id,key,max] of [["upperCount","upperCount",8],["lowerCount","lowerCount",16]])$(id).addEventListener("input",e=>{state[key]=count(id,max);syncTopology();renderEditor();});
   $("devices").addEventListener("input",e=>{const field=e.target.dataset.field,id=e.target.dataset.device;if(!field||!id)return;const d=state.devices.find(x=>x.id===id);if(!d)return;d[field]=e.target.value;if(field==="model"||field==="serial")d[`${field}Source`]=d[field]?"manual":"";if(field==="softwareVersion")d.softwareSource=d[field]?"manual":"";renderReport();});
@@ -692,12 +705,12 @@
           p.inventoryDeviceIds=records.map(d=>mapping.get(d.id));
           p.manualVisibleIds=(old.manualVisibleIds||[]).map(id=>mapping.get(id)).filter(Boolean);
           p.sshVisibleIds=(old.sshVisibleIds||[]).map(id=>mapping.get(id)).filter(Boolean);
-          p.inventoryRevision=2;p.projectDetails=old.projectDetails||{};p.scope=p.scope||old.scope||"";
+          p.inventoryRevision=2;p.projectDetails=old.projectDetails||{};p.projectExampleValues=old.projectExampleValues||{fields:{}};p.scope=p.scope||old.scope||"";
         }
         if(old?.source && old.source.module===p.source.module && old.vendor===p.vendor && Array.isArray(old.devices)){
           normalizeInventoryProject(old);
           const previous=new Map(old.devices.map(d=>[d.id,d]));
-          p.inventoryRevision=2;p.inventoryDeviceIds=old.inventoryDeviceIds;p.manualVisibleIds=old.manualVisibleIds;p.sshVisibleIds=old.sshVisibleIds;p.scope=old.scope||"";p.projectDetails=old.projectDetails||{};p.name=p.name||old.name||"";
+          p.inventoryRevision=2;p.inventoryDeviceIds=old.inventoryDeviceIds;p.manualVisibleIds=old.manualVisibleIds;p.sshVisibleIds=old.sshVisibleIds;p.scope=old.scope||"";p.projectDetails=old.projectDetails||{};p.projectExampleValues=old.projectExampleValues||{fields:{}};p.name=p.name||old.name||"";
           p.devices.forEach(d=>{const saved=previous.get(d.id);if(!saved)return;for(const k of ["inventoryRecord","inventoryChannel","model","serial","modelSource","serialSource","target","observedAt","softwareVersion","softwareSource","observedHostname","collectionMethod","sshUsername","sshPort"])d[k]=saved[k]||"";d.maintenance=saved.maintenance||{};d.inventoryWarnings=saved.inventoryWarnings||[];d.inventoryCommands=saved.inventoryCommands||[];});
           p.devices.push(...old.devices.filter(d=>d.inventoryOnly&&!p.devices.some(x=>x.id===d.id)));
           const priorLinks=new Map(old.links.map(l=>[l.id,l]));
