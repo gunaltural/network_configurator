@@ -5594,7 +5594,7 @@ renderModule();
    const n={BASIC:1,BGP:read("bgpCeCount")+read("bgpIspCount"),OSPF:2,STP:2+read("stpLeafCount"),VPC:2+read(leafField),EVPN:["multisite","dual-dc-rr"].includes(document.getElementById("evFabricModel")?.value)?6:4,SDWAN:1,QOS:2}[active]||"—";
    $("v3DeviceCount").textContent=n;
  }
- document.addEventListener("change",e=>{if(e.target.id==="platform"||e.target.closest("#params"))updateHealth();});
+ document.addEventListener("change",e=>{if(e.target.id==="platform"||e.target.closest("#params")||e.target.closest("#topologyControls"))updateHealth();});
 
  // Expert-level parameter visibility is now the default.
  // Optional advanced features remain controlled by their individual checkboxes/fields.

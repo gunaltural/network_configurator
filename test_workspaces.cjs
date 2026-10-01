@@ -34,7 +34,7 @@ const reports=[];
    if(key==='EVPN'){
     for(const model of ['single-dc','dual-dc-rr']){
      change('evFabricModel',model);await pause();click('.tab[data-tab="config"]');await pause();
-     const fabric=w.__audit.reportingDesign();assert.equal(fabric.devices.length,model==='single-dc'?4:6);assert.equal(fabric.configurations.length,fabric.devices.length);
+     assert.equal(d.getElementById('v3DeviceCount').textContent,model==='single-dc'?'4':'6');const fabric=w.__audit.reportingDesign();assert.equal(fabric.devices.length,model==='single-dc'?4:6);assert.equal(fabric.configurations.length,fabric.devices.length);
      assert.equal(fabric.specialLinks.length,model==='single-dc'?6:8);
      for(const config of fabric.configurations.slice(0,4)){
       assert.ok(!config.text.includes('65002'),'shared overlay must not use hidden DC-2 ASN');
