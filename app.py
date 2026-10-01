@@ -57,10 +57,10 @@ LIVE_PLATFORM_MAP = {**PLATFORM_MAP, "FortiGate": "fortinet"}
 LIVE_PLATFORM_ALIASES = {"Cisco_StackWise": "Cisco IOS-XE", "Huawei": "Huawei_CE_SW"}
 
 INVENTORY_COMMANDS = {
-    "Cisco NX-OS": ("show inventory", "show version"),
-    "Cisco IOS-XE": ("show inventory", "show version"),
-    "Arista EOS": ("show version", "show inventory"),
-    "Huawei_CE_SW": ("display version", "display device", "display esn", "display device esn"),
+    "Cisco NX-OS": ("show version", "show inventory", "show running-config | include ^hostname"),
+    "Cisco IOS-XE": ("show version", "show inventory", "show running-config | include ^hostname"),
+    "Arista EOS": ("show version", "show inventory", "show running-config | include ^hostname"),
+    "Huawei_CE_SW": ("display version", "display device", "display esn", "display device esn", "display current-configuration | include ^sysname"),
     "FortiGate": ("get system status",),
 }
 
@@ -255,9 +255,15 @@ def parse_inventory(platform: str, outputs: dict) -> dict:
         if match:
             model, serial = match.group(1).strip(), match.group(2).strip()
         if not model:
-            m = re.search(r"(?im)^(?:Model Number|Model|Platform)\s*:\s*(\S+)", outputs.get("show version", ""))
+            m = re.search(r"(?im)^\s*(?:Model Number|Model|Platform)\s*:\s*(\S+)", outputs.get("show version", ""))
             if m: model = m.group(1)
-        m = re.search(r"(?im)^(?:Cisco (?:IOS XE|NX-OS) Software|system: version|NXOS: version).*?([0-9]+\.[0-9]+[^\s,]*)", outputs.get("show version", ""))
+        if not model:
+            m = re.search(r"(?im)^\s*cisco\s+(\S+)\s+\([^\r\n]*\)\s+processor", outputs.get("show version", ""))
+            if m: model = m.group(1)
+        if not serial:
+            m = re.search(r"(?im)^\s*(?:System Serial Number\s*[: ]\s*|Processor board ID\s+)(\S+)", outputs.get("show version", ""))
+            if m: serial = m.group(1)
+        m = re.search(r"(?im)^\s*(?:Cisco (?:IOS XE|IOS|NX-OS) Software|system: version|NXOS: version).*?([0-9]+\.[0-9]+[^\s,]*)", outputs.get("show version", ""))
         if m: version = m.group(1)
     elif platform == "Arista EOS":
         output = outputs.get("show version", "")
@@ -289,7 +295,7 @@ def parse_inventory(platform: str, outputs: dict) -> dict:
         if m: version = m.group(1)
     if serial.upper() in {"N/A", "NA", "UNKNOWN", "NONE", "-"}:
         serial = ""
-    hostname_match = re.search(r"(?im)^\s*Hostname\s*:\s*(\S+)", joined) or re.search(r"(?im)^\s*(\S+)\s+uptime is\b", joined)
+    hostname_match = re.search(r"(?im)^\s*(?:hostname|sysname)\s+(\S+)", joined) or re.search(r"(?im)^\s*Hostname\s*:\s*(\S+)", joined) or re.search(r"(?im)^\s*(\S+)\s+uptime is\b", joined)
     return {"model": model, "serial": serial, "software_version": version,
             "hostname": hostname_match.group(1) if hostname_match else ""}
 
@@ -792,6 +798,9 @@ def reporting_inventory(p: DeviceRequest):
         if not identity["hostname"]:
             prompt = conn.find_prompt().strip()
             identity["hostname"] = re.sub(r"[>#]$", "", prompt).strip("<>")[:100]
+        for field in ("model", "serial", "software_version", "hostname"):
+            if not identity[field]:
+                warnings.append(f"{field}: not returned in a recognizable format; previous value retained")
         if not identity["model"] and not identity["serial"]:
             raise HTTPException(status_code=502, detail="SSH connected, but the device did not return a recognizable chassis model or serial. Enter them manually.")
         return {"ok": True, "platform": platform, **identity,
