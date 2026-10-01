@@ -42,7 +42,7 @@ context.fetch=async(url,request)=>{
  if(url.endsWith('/cancel')){cancelRequests++;return {ok:true,json:async()=>({status:'cancelling'})};}
  return {ok:true,json:async()=>({status:'cancelled'})};
 };
-await $('runInventoryBatch').onclick();assert.equal(started,1);assert.equal(cancelRequests,1);assert.equal(vm.runInContext('state.inventoryDeviceIds.length',context),0);assert.equal(devices[1].sshCollectionState,'cancelled');assert.equal($('batchPassword').value,'');
+await $('runInventoryBatch').onclick();assert.equal(started,1);assert.equal(cancelRequests,1);assert.equal(vm.runInContext('state.inventoryDeviceIds.length',context),0);assert.equal(devices[1].sshCollectionState,'cancelled');assert.equal(devices[1].model,'');assert.equal(devices[1].observedHostname,'');assert.equal($('batchPassword').value,'');
 rows.forEach(row=>row.selection.checked=true);
 console.log('Background job polling, failed-only retry and cancellation without late inventory import passed.');
 devices.forEach(d=>{d.collectionMethod='manual';d.inventoryChannel='manual';});

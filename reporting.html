@@ -453,11 +453,13 @@
   };
   $("runInventoryBatch").onclick=async()=>{
     if(batchRunning||$("readDevice").disabled)return;
-    const retry=retryInventoryOnly;retryInventoryOnly=false;
+    const retry=retryInventoryOnly;
     const jobs=[...$("batchRows").querySelectorAll('[data-batch]')].filter(row=>row.querySelector('[data-select]').checked).map(row=>{const d=state.devices.find(x=>x.id===row.dataset.batch),get=key=>row.querySelector(`[data-key="${key}"]`).value;return {d,row,params:{target:get("target").trim(),port:Number(get("sshPort")),username:get("sshUsername").trim(),password:get("password")||val("batchPassword"),secret:get("secret")||val("batchSecret"),platform:d.vendor||state.vendor}};});
     const invalid=jobs.filter(({params:p})=>!p.target||!p.username||!p.password||!Number.isInteger(p.port)||p.port<1||p.port>65535);
     if(!jobs.length||invalid.length){$("batchSummary").textContent=!jobs.length?"Select at least one device.":"Complete target, port, username and password for: "+invalid.map(x=>deviceName(x.d)).join(", ");return;}
-    batchRunning=true;batchCancelRequested=false;if(!retry)state.inventoryDeviceIds=[];renderReport();let success=0,failed=0,cancelled=0;
+    retryInventoryOnly=false;batchRunning=true;batchCancelRequested=false;if(!retry)state.inventoryDeviceIds=[];
+    jobs.forEach(({d})=>{for(const key of ["model","serial","softwareVersion","modelSource","serialSource","softwareSource","observedHostname","observedAt"])d[key]="";d.inventoryWarnings=[];d.inventoryCommands=[];state.inventoryDeviceIds=state.inventoryDeviceIds.filter(id=>id!==d.id);});
+    renderSshInventoryResults();renderReport();let success=0,failed=0,cancelled=0;
     const controls=[...document.querySelectorAll('input,button,select,textarea')].map(element=>({element,disabled:element.disabled}));controls.forEach(x=>x.element.disabled=true);$("cancelInventoryBatch").disabled=false;
     $("inventoryBatchProgress").max=jobs.length;$("inventoryBatchProgress").value=0;
     try{for(let i=0;i<jobs.length;i++){
