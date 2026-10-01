@@ -10,8 +10,8 @@ const $=id=>{if(!elements.has(id))elements.set(id,{value:'',disabled:false,textC
 const rows=devices.map(d=>{const inputs={'target':{value:d.id+'.example.test'},sshPort:{value:'22'},sshUsername:{value:'test'},password:{value:''},secret:{value:''}};return {dataset:{batch:d.id},inputs,status:{textContent:''},querySelector(selector){if(selector==='[data-select]')return {checked:true};if(selector==='[data-result]')return this.status;return inputs[/data-key="(.*?)"/.exec(selector)[1]];}};});
 $('batchRows').querySelectorAll=()=>rows;
 $('batchPassword').value='test-password';
-let calls=0;
-const context={crypto:webcrypto,$,val:id=>$(id).value,state:{devices,vendor:'Cisco NX-OS'},document:{querySelectorAll:()=>[]},deviceName:d=>d.hostname,esc:x=>String(x),vendorLabel:x=>x,renderReport(){},renderEditor(){},fetch:async(url,request)=>{const p=JSON.parse(request.body);assert.equal(p.password,'test-password');assert.equal(p.platform,devices[calls].vendor);calls++;return calls===1?{ok:false,json:async()=>({detail:'Test failure'})}:{ok:true,json:async()=>({hostname:'OBSERVED-SW2',model:'DCS-7050',serial:'',software_version:'4.32.1F',observed_at:'now',warnings:['serial unavailable']})};}};
+let calls=0,reportUpdates=0;
+const context={crypto:webcrypto,$,val:id=>$(id).value,state:{devices,vendor:'Cisco NX-OS'},document:{querySelectorAll:()=>[]},deviceName:d=>d.hostname,esc:x=>String(x),vendorLabel:x=>x,renderReport(){reportUpdates++;},renderEditor(){},fetch:async(url,request)=>{const p=JSON.parse(request.body);assert.equal(p.password,'test-password');assert.equal(p.platform,devices[calls].vendor);calls++;return calls===1?{ok:false,json:async()=>({detail:'Test failure'})}:{ok:true,json:async()=>({hostname:'OBSERVED-SW2',model:'DCS-7050',serial:'',software_version:'4.32.1F',observed_at:'now',warnings:['serial unavailable']})};}};
 vm.createContext(context);vm.runInContext(logic,context);
 await $('runInventoryBatch').onclick();
 assert.equal(calls,2,'failure must not stop the next device');
@@ -104,3 +104,13 @@ assert.equal(JSON.stringify(context.state).includes('test-only-import'),false);
 assert.equal(vm.runInContext('sshPasswords.get(sshPageDevices()[0].id)',context),'test-only-import');
 assert.match($('batchRows').innerHTML,/type="password"/);
 console.log('Four-column SSH imports, default platform and transient passwords passed.');
+
+const beforeUpdate=reportUpdates;
+vm.runInContext('setInventoryData(sshPageDevices()[0],{hostname:"ACTUAL-SSH",model:"C9300",serial:"DYNAMIC-SN",software_version:"17.9.5",observed_at:"now"})',context);
+assert.ok(reportUpdates>beforeUpdate,'SSH inventory immediately refreshes the report');
+vm.runInContext(html.slice(html.indexOf('  function reportInventorySnapshot(){'),html.indexOf('  const filename=name=>')),context);
+const snapshot=vm.runInContext('reportInventorySnapshot()',context);
+assert.equal(snapshot.find(d=>d.serial==='DYNAMIC-SN').softwareVersion,'17.9.5');
+assert.equal(JSON.stringify(snapshot).includes('test-only-import'),false);
+assert.ok(snapshot.every(d=>['hostname','model','serial','modelSource','serialSource'].every(k=>typeof d[k]==='string')),'legacy missing fields export as valid strings');
+console.log('Immediate report refresh, current export data, legacy defaults and credential exclusion passed.');
