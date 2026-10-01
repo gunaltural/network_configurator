@@ -2,6 +2,7 @@ const fs=require('node:fs'),assert=require('node:assert/strict');
 const {JSDOM,VirtualConsole}=require('jsdom');
 const {execFileSync}=require('node:child_process');
 const guide=require('./vpc-report.js');
+assert.match(fs.readFileSync('Dockerfile','utf8'),/^COPY .*vpc-report\.js .*$/m,'the Render image must include the guide');
 const device=(tier,i)=>({id:`${tier}-${i}`,tier,index:i,hostname:`${tier==='upper'?'SPINE':'LEAF'}-${i}`,model:'',serial:'',modelSource:'',serialSource:'',vendor:'Cisco NX-OS'});
 const design={schema:'network-configurator-report-v1',language:'tr',name:'vPC Network Design',vendor:'Cisco NX-OS',technology:'vPC',architecture:'spine-leaf',upperCount:2,lowerCount:8,techPlacement:'upper',scope:'',devices:[device('upper',1),device('upper',2),...Array.from({length:8},(_,i)=>device('lower',i+1))],links:[],specialLinks:[],parameters:[],configurations:[],source:{module:'VPC',projectId:'guide-test'}};
 for(let i=1;i<=8;i++)for(let j=1;j<=2;j++)design.links.push({a:`upper-${j}`,b:`lower-${i}`,enabled:true,upperPort:`Ethernet1/${i}`,lowerPort:`Ethernet1/${j}`,speed:'100G',detail:`vPC ${i}`});
