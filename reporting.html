@@ -408,6 +408,8 @@
   function manualPageDevices(){const ids=Array.isArray(state.manualVisibleIds)?new Set(state.manualVisibleIds):null;return state.devices.filter(d=>!isAutomaticDevice(d)&&(!ids||ids.has(d.id)));}
   function sshPageDevices(){const visible=Array.isArray(state.sshVisibleIds)?new Set(state.sshVisibleIds):null;return state.devices.filter(d=>!d.external&&isAutomaticDevice(d)&&(!visible||visible.has(d.id)));}
   function createInventoryDevice(hostname=""){
+    const visibilityKey=inventoryMode==="automatic"?"sshVisibleIds":"manualVisibleIds";
+    if(!Array.isArray(state[visibilityKey]))state[visibilityKey]=(inventoryMode==="automatic"?sshPageDevices():manualPageDevices()).map(d=>d.id);
     const d={id:"inv-"+crypto.randomUUID().slice(0,20),inventoryOnly:true,tier:"upper",index:1,hostname:hostname||`Device-${state.devices.filter(x=>x.inventoryOnly).length+1}`,observedHostname:hostname,model:"",serial:"",softwareVersion:"",target:"",sshPort:22,sshUsername:"",vendor:state.vendor,modelSource:"",serialSource:"",softwareSource:"",collectionMethod:inventoryMode,inventoryChannel:inventoryMode};
     if(inventoryMode==="automatic"&&Array.isArray(state.sshVisibleIds))state.sshVisibleIds.push(d.id);
     state.devices.push(d);if(inventoryMode==="manual"&&Array.isArray(state.manualVisibleIds))state.manualVisibleIds.push(d.id);return d;
