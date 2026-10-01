@@ -80,6 +80,12 @@ class InventoryExcelTests(unittest.TestCase):
                 xml = doc.read('word/document.xml').decode()
                 for value in ['Planned-SW1', 'ACTUAL-SW1', '0000123', '17.9.5', 'C9300', 'Extra-19', 'Extra-SN-19', 'Envanter cihazı' if language == 'tr' else 'Inventory device']:
                     self.assertIn(value, xml)
+                from docx import Document
+                tables = Document(io.BytesIO(response.content)).tables
+                inventory = next(t for t in tables if t.rows[0].cells[2].text in {'Model'})
+                self.assertEqual(len(inventory.columns), 6)
+                self.assertIn('17.9.5', inventory.rows[1].cells[4].text)
+                self.assertIn('ACTUAL-SW1', inventory.rows[1].cells[0].text)
                 root = __import__('xml.etree.ElementTree', fromlist=['']).fromstring(xml)
                 text = [''.join(p.itertext()) for p in root.findall('.//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}p')]
                 tier_line = next(x for x in text if 'tier:' in x)
