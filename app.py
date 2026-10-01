@@ -242,6 +242,7 @@ class ReportWordRequest(BaseModel):
     parameters: List[ReportParameter] = Field(default_factory=list)
     configurations: List[ReportConfiguration] = Field(default_factory=list)
     topologyPng: str = Field(default="", max_length=3000000)
+    projectInformation: List[ReportParameter] = Field(default_factory=list, max_length=20)
     maintenanceNotes: List[ReportParameter] = Field(default_factory=list)
 
 
