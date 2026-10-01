@@ -171,6 +171,7 @@ class LiveCommandRequest(DeviceRequest):
 
 
 class ReportDevice(BaseModel):
+    inventoryOnly: bool = False
     id: str = Field(max_length=32)
     tier: Literal["upper", "lower"]
     index: int = Field(ge=1, le=16)
@@ -838,15 +839,18 @@ def reporting_word(p: ReportWordRequest):
         f"lower-{i}" for i in range(1, p.lowerCount + 1)
     }
     actual = {d.id for d in p.devices}
-    if (not p.name.strip() or len(p.devices) != len(expected) or actual != expected
-            or any(d.id != f"{d.tier}-{d.index}" for d in p.devices)
+    topology_devices = [d for d in p.devices if not d.inventoryOnly]
+    topology_ids = {d.id for d in topology_devices}
+    if (not p.name.strip() or len(p.devices) != len(actual)
+            or len(topology_devices) != len(expected) or topology_ids != expected
+            or any(d.id != f"{d.tier}-{d.index}" for d in topology_devices)
             or len(p.links) > 128 or len(p.specialLinks) > 32
-            or len(p.parameters) > 250 or len(p.configurations) > len(p.devices)
-            or any(l.a not in actual or l.b not in actual
+            or len(p.parameters) > 250 or len(p.configurations) > len(topology_devices)
+            or any(l.a not in topology_ids or l.b not in topology_ids
                    or not l.a.startswith("upper-") or not l.b.startswith("lower-") for l in p.links)
-            or any(l.a not in actual or l.b not in actual for l in p.specialLinks)
+            or any(l.a not in topology_ids or l.b not in topology_ids for l in p.specialLinks)
             or len({c.deviceId for c in p.configurations}) != len(p.configurations)
-            or any(c.deviceId not in actual for c in p.configurations)):
+            or any(c.deviceId not in topology_ids for c in p.configurations)):
         raise HTTPException(status_code=400, detail="Invalid project topology or project name.")
     data = p.model_dump() if hasattr(p, "model_dump") else p.dict()
     try:
