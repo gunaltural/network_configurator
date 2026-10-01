@@ -58,11 +58,14 @@
       const speeds=[...new Set(cross.map(l=>String(l.speed||'').trim()).filter(Boolean))];
       const missing=cross.filter(l=>!String(l.speed||'').trim()).length;
       const roles=design.roles||{},u=roles.upper||(design.architecture==='core-access'?'Core':'Spine'),l=roles.lower||(design.architecture==='core-access'?'Access':'Leaf');
-      topology.push(pick(`Planlanan yapı ${upper.length} adet ${u} ve ${lower.length} adet ${l} cihazından oluşur; Cisco NX-OS vPC teknolojisi seçilmiştir. ${cross.length} katmanlar arası bağlantı modellenmiştir. ${dual}/${lower.length} ${l} en az iki farklı üst katman cihazına bağlıdır.`,`The planned design comprises ${upper.length} ${u} and ${lower.length} ${l} devices and uses Cisco NX-OS vPC. It models ${cross.length} inter-tier connections; ${dual}/${lower.length} ${l} devices connect to at least two distinct upper-tier devices.`));
-      topology.push(pick(`${speeds.length?`Seçilen bağlantı hızları: ${speeds.join(', ')}.`:'Katmanlar arası bağlantı hızı belirtilmemiştir.'}${missing?` ${missing} bağlantının hızı henüz belirtilmemiştir.`:''} Bu bağlantılar fiziksel yol yedekliliğini gösterir; bağımsız güç, kablo güzergâhı ve arıza sonrası kapasite ayrıca doğrulanmalıdır.`,`${speeds.length?`Selected link rates: ${speeds.join(', ')}.`:'Inter-tier link speed is unspecified.'}${missing?` ${missing} connections still have no specified rate.`:''} These links model physical path diversity; independent power, cabling and residual capacity require separate validation.`));
+      const connectivity=dual===lower.length&&lower.length&&upper.length===2
+        ?pick(`Her ${l} switch, iki ${u} switch'e ayrı fiziksel uplinklerle bağlanır.`,`Each ${l} switch connects to both ${u} switches through separate physical uplinks.`)
+        :dual?pick(`${dual} ${l} switch, iki farklı ${u} switch'e ayrı fiziksel uplinklerle bağlanır.`,`${dual} ${l} switches connect to two distinct ${u} switches through separate physical uplinks.`):'';
+      topology.push(pick(`Tasarım ${upper.length} adet ${u} ve ${lower.length} adet ${l} switch'ten oluşur ve Cisco NX-OS vPC teknolojisini kullanır. ${connectivity} ${l}–${u} bağlantıları toplam ${cross.length} fiziksel uplink üzerinden sağlanır.`,`The design comprises ${upper.length} ${u} and ${lower.length} ${l} switches and uses Cisco NX-OS vPC. ${connectivity} The ${l}–${u} connections use a total of ${cross.length} physical uplinks.`));
+      if(cross.length&&speeds.length&&!missing)topology.push(pick(speeds.length===1?`${l}–${u} uplinkleri ${speeds[0]} hızında tasarlanmıştır.`:`${l}–${u} uplinklerinde ${speeds.join(', ')} bağlantı hızları kullanılır.`,speeds.length===1?`The ${l}–${u} uplinks are designed to operate at ${speeds[0]}.`:`The ${l}–${u} uplinks use link rates of ${speeds.join(', ')}.`));
       const special=design.specialLinks||[],peers=special.filter(s=>/peer[- ]link/i.test(s.kind)&&!s.logical),ka=special.filter(s=>/keepalive/i.test(s.kind));
       topology.push(pick(`vPC eşleşmesi ${design.techPlacement==='lower'?l:u} katmanında planlanmıştır. ${peers.length} fiziksel peer-link üyesi ve ${ka.length} keepalive kontrol yolu kayıtlıdır. ${ka.length?'Keepalive uçları özel bağlantı çizelgesinde gösterilir.':'Keepalive yolu henüz rapor bağlantılarında tanımlanmamıştır.'}`,`The vPC pair is planned in the ${design.techPlacement==='lower'?l:u} tier. The design records ${peers.length} physical peer-link members and ${ka.length} keepalive control paths. ${ka.length?'Keepalive endpoints appear in the special-connection schedule.':'No keepalive path is recorded in the report connections yet.'}`));
-    }else topology.push(pick('Birleşik rapor Cisco vPC tasarımını içerir. Bu eski kayıt modülün katman ve bağlantı ayrıntılarını taşımıyor; vPC topoloji açıklamasını güncellemek için raporu Technology Workspaces üzerinden yeniden oluşturun.','The combined report includes Cisco vPC. This older record lacks module-specific tier/link details; regenerate it from Technology Workspaces to refresh the vPC topology narrative.'));
+    }
     const configs=(state.configurations||[]).filter(c=>/^\s*vpc domain \d+/m.test(c.text||'')).map(c=>c.text);
     const choices=[];
     const features=[
@@ -79,6 +82,38 @@
     return {title:pick('Cisco vPC teknoloji rehberi','Cisco vPC technology guide'),topologyTitle:pick('Seçilen vPC topolojisi ve bağlantı modeli','Selected vPC topology and connectivity model'),topology,
       sections:[...chapters.map(([a,b,c,d])=>({title:pick(a,b),paragraphs:[pick(c,d)]})),{title:pick('Bu projede seçilen özellikler','Features selected in this project'),paragraphs:choices},{title:pick('Platform ve sürüm değerlendirmesi','Platform and release assessment'),paragraphs:[pick('Rehber klasik fiziksel peer-link tasarımını açıklar. Fabric peering, EVPN/VXLAN ve ISSU için ayrı koşullar geçerlidir. Kaynaklardaki eski Nexus örnekleri kavramsal referanstır; komut ve varsayılanlar hedef model/NX-OS sürümüyle doğrulanmalıdır. Seçim durumu üretilen konfigürasyondan okunmuştur; canlı cihaz doğrulaması değildir.','This guide describes a conventional physical peer-link design. Fabric peering, EVPN/VXLAN and ISSU have additional conditions. Older Nexus examples provide conceptual context; commands and defaults require target model/NX-OS validation. Selection status comes from generated configuration and is not live device verification.')]}],sources};
   }
-  root.NetworkReportGuide={build};
+  function topologyNarratives(state){
+    const tr=state.language==='tr',pick=(a,b)=>tr?a:b;
+    const rolesTr={'Device':'ağ cihazı','Peer':'eş cihaz','Router':'yönlendirici','CE router':'CE yönlendirici','ISP router':'ISP yönlendirici','Network device':'ağ cihazı','Managed device':'yönetilen cihaz','Edge router':'uç yönlendirici','External endpoint':'harici uç','DC-1 node':'DC-1 düğümü','DC-2 node':'DC-2 düğümü','Fabric VTEP':'Fabric VTEP'};
+    const modules=state.moduleReports||[];
+    const scopes=modules.length?modules.filter(m=>m.design).map(m=>({...m,design:{...m.design,vendor:m.vendor,technology:m.technology}})):[{title:state.technology,design:state}];
+    return scopes.map(scope=>{
+      const design=scope.design,guide=build({...design,language:state.language,moduleReports:[]});
+      if(guide)return {title:guide.topologyTitle,paragraphs:guide.topology};
+      const devices=(design.devices||[]).filter(d=>!d.inventoryOnly&&!d.inventoryRecord),ids=new Set(devices.map(d=>d.id));
+      const labels=design.roles||{upper:design.architecture==='core-access'?'Core':design.architecture==='spine-leaf'?'Spine':'Network device',lower:design.architecture==='core-access'?'Access':design.architecture==='spine-leaf'?'Leaf':'Network device'};
+      const counts=new Map();
+      devices.forEach(d=>{const role=labels[d.tier]||'Network device';counts.set(role,(counts.get(role)||0)+1);});
+      const roles=[...counts].map(([role,n])=>tr?`${n} adet ${rolesTr[role]||role}`:`${n} ${role}${n===1?'':'s'}`);
+      const vendor=design.vendor==='Huawei_CE_SW'?'Huawei CloudEngine':design.vendor;
+      const paragraphs=[];
+      if(devices.length)paragraphs.push(pick(`Tasarım ${roles.join(' ve ')} içerir. ${vendor} platformunda ${design.technology} teknolojisi kullanılır.`,`The design comprises ${roles.join(' and ')}. It uses ${design.technology} on the ${vendor} platform.`));
+      const links=(design.links||[]).filter(l=>l.enabled&&ids.has(l.a)&&ids.has(l.b));
+      if(links.length){
+        const names=[...new Set(devices.filter(d=>links.some(l=>l.a===d.id||l.b===d.id)).map(d=>labels[d.tier]))].filter(Boolean);
+        const roleText=names.map(role=>tr?rolesTr[role]||role:role).join(' / ');
+        paragraphs.push(pick(`${roleText} bağlantı planı ${links.length} fiziksel bağlantıdan oluşur.`,`The ${roleText} connection plan contains ${links.length} physical connections.`));
+        if(links.every(l=>String(l.speed||'').trim())){
+          const speeds=[...new Set(links.map(l=>l.speed.trim()))];
+          paragraphs.push(pick(`Bu bağlantılar ${speeds.join(', ')} hızında tasarlanmıştır.`,`These connections are designed for ${speeds.join(', ')} link rates.`));
+        }
+      }
+      const logical=(design.specialLinks||[]).filter(l=>l.logical&&ids.has(l.a)&&ids.has(l.b));
+      if(logical.length){const kinds=[...new Set(logical.map(l=>l.kind))];paragraphs.push(pick(`Mantıksal kontrol bağlantıları ${kinds.join(', ')} oturumlarını içerir. Bu oturumlar fiziksel kablo bağlantılarından ayrı olarak gösterilir.`,`Logical control connections include ${kinds.join(', ')} sessions, shown separately from physical cable connections.`));}
+      return {title:pick(`${scope.title} topolojisi ve bağlantı modeli`,`${scope.title} topology and connectivity model`),paragraphs};
+    }).filter(section=>section.paragraphs.length);
+  }
+  root.NetworkReportGuide={build,topologyNarratives};
+
   if(typeof module!=='undefined'&&module.exports)module.exports=root.NetworkReportGuide;
 })(typeof window==='undefined'?globalThis:window);

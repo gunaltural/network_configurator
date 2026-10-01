@@ -1825,11 +1825,22 @@ Downstream policy: ${policy==="all"?"Full Trunk":"Created VLANs Only"}.`;
  }
  return `######## ${host1} · MASTER ########\n${master}\n######## ${host2} · BACKUP ########\n${backup}\n${leaves.map(L=>`######## ${L.name} · LEAF ########\n${leafCfg(L)}`).join("\n")}`;
 }
+function ensureDesignLinkSpeed(){
+ if(!["VPC","STP"].includes(tech))return;
+ const root=document.getElementById("params");if(!root)return;
+ const section=[...root.querySelectorAll(".vpc-v42-card")].find(card=>/Leaf Connectivity|Downstream Leaf|Leaf.*Connectivity/.test(card.querySelector(".vpc-v42-title")?.textContent||""));
+ const existing=document.getElementById("designUplinkSpeed");if(existing){if(section&&!section.contains(existing))section.appendChild(existing.parentElement.parentElement);return;}
+ const field=document.createElement("div");field.className="param-grid";
+ field.innerHTML='<div><label for="designUplinkSpeed">Leaf–Spine / Core uplink speed</label><select id="designUplinkSpeed"><option value="">Select uplink speed</option>'+["1G","10G","25G","40G","50G","100G","200G","400G","800G"].map(rate=>`<option value="${rate}">${rate}</option>`).join("")+'</select><p class="hint">Per physical uplink. Used in the report and connection schedule.</p></div>';
+ if(section)section.appendChild(field);else root.appendChild(field);
+ const select=field.querySelector("select");select.value=window.__workspaceModuleStates?.[tech]?.fields?.designUplinkSpeed||"";
+ select.addEventListener("change",()=>{captureWorkspaceModule(tech);renderOutput();});
+}
 function vpcV42WorkspaceUI(){
  if(tech!=="VPC")return;
- if(platform()==="Cisco IOS-XE"){stackWiseWorkspaceUI();return;}
- if(platform()==="Arista EOS"){aristaMlagWorkspaceUI();return;}
- if(platform()==="Huawei_CE_SW"){huaweiMlagWorkspaceUI();return;}
+ if(platform()==="Cisco IOS-XE"){stackWiseWorkspaceUI();ensureDesignLinkSpeed();return;}
+ if(platform()==="Arista EOS"){aristaMlagWorkspaceUI();ensureDesignLinkSpeed();return;}
+ if(platform()==="Huawei_CE_SW"){huaweiMlagWorkspaceUI();ensureDesignLinkSpeed();return;}
  const root=document.getElementById("params");if(!root)return;
  if(root.dataset.vpc46==="1"){vpcV42ContextUI();return;}
  root.dataset.vpc46="1";
@@ -5000,7 +5011,7 @@ function renderModule(){
  document.getElementById("params").innerHTML=m.params();
  document.getElementById("params").classList.toggle("bgp-v39",tech==="BGP");
  document.getElementById("params").classList.toggle("vpc-v42",tech==="VPC");
- if(tech==="VPC")setTimeout(()=>{vpcLeafUi();vpcV42WorkspaceUI();syncTopologyControls();syncTopology();},0); if(tech==="EVPN")setTimeout(()=>{evpnV431Ui();syncTopologyControls();syncTopology();},0);
+ if(tech==="VPC")setTimeout(()=>{vpcLeafUi();vpcV42WorkspaceUI();ensureDesignLinkSpeed();syncTopologyControls();syncTopology();},0); if(tech==="EVPN")setTimeout(()=>{evpnV431Ui();syncTopologyControls();syncTopology();},0);
  if(tech==="BGP"){ renderBgpDynamicCards(); setTimeout(()=>{restoreWorkspaceModule(tech);renderBgpDynamicCards();restoreWorkspaceModule(tech);bgpV39ContextUI();syncTopologyControls();syncTopology();renderOutput();},0); }
  else { setTimeout(()=>{syncTopologyControls();syncTopology();},0); }
  document.querySelectorAll("#params input,#params select").forEach(e=>{
@@ -5458,6 +5469,7 @@ function deviceOutputUi(){
 }
 
 function renderOutput(){
+ ensureDesignLinkSpeed();
  const noteControl=document.getElementById("designNotesLanguageControl");if(noteControl){noteControl.hidden=tab!=="notes";noteControl.style.display=tab==="notes"?"inline-flex":"none";}
  if(tech==="BGP")bgpV39ContextUI();
  if(tech==="VPC"){vpcLeafUi();vpcV42ContextUI();} if(tech==="EVPN")evpnV431Ui();
@@ -5881,7 +5893,7 @@ renderModule();
    if(tech==="EVPN"&&!(["Cisco NX-OS","Arista EOS","Huawei_CE_SW"].includes(pl)))throw Error("Select a supported EVPN platform before creating the report.");
    const project=snapshot(),devices=[],links=[],specialLinks=[],configurations=[],parameters=[];
    const add=(tier,name)=>{const index=devices.filter(d=>d.tier===tier).length+1,id=`${tier}-${index}`;devices.push({id,tier,index,hostname:name,model:"",serial:"",target:"",modelSource:"",serialSource:"",observedAt:"",vendor:pl});return id;};
-   const link=(a,b,upperPort,lowerPort,detail)=>links.push({id:`${a}--${b}`,a,b,enabled:true,upperPort:upperPort||"",lowerPort:lowerPort||"",speed:"",detail});
+   const link=(a,b,upperPort,lowerPort,detail)=>links.push({id:`${a}--${b}`,a,b,enabled:true,upperPort:upperPort||"",lowerPort:lowerPort||"",speed:get("designUplinkSpeed"),detail});
    const special=(kind,a,b,aPort="",bPort="",detail="")=>specialLinks.push({kind,a,b,aPort,bPort,detail,logical:true});
    const redact=s=>String(s||"").replace(/^(\s*(?:username\b.*?\b(?:password|secret)\b|enable\s+secret\b|(?:snmp-server\s+community|(?:tacacs|radius)(?:-server)?\b.*?\bkey|neighbor\s+\S+\s+password)\b|set\s+(?:password|psksecret|secret|key)\b)).*$/gim,"$1 [REDACTED]");
    const allConfig=selectorId=>{
@@ -5978,7 +5990,7 @@ renderModule();
    const project=snapshot();
    const devices=[],links=[],specialLinks=[],configurations=[];
    const addDevice=(tier,index,hostname)=>devices.push({id:`${tier}-${index}`,tier,index,hostname,model:"",serial:"",target:"",modelSource:"",serialSource:"",observedAt:"",vendor:pl});
-   const addLink=(side,index,aPort,bPort,detail="")=>links.push({id:`upper-${side}--lower-${index}`,a:`upper-${side}`,b:`lower-${index}`,enabled:true,upperPort:aPort||"",lowerPort:bPort||"",speed:"",detail});
+   const addLink=(side,index,aPort,bPort,detail="")=>links.push({id:`upper-${side}--lower-${index}`,a:`upper-${side}`,b:`lower-${index}`,enabled:true,upperPort:aPort||"",lowerPort:bPort||"",speed:get("designUplinkSpeed"),detail});
    const special=(kind,a,b,aPort,bPort,detail,logical=false)=>specialLinks.push({kind,a,b,aPort:aPort||"",bPort:bPort||"",detail:detail||"",logical});
    const params=[];
    params.push(...reportEngineeringDecisions(tech,read,pl));
@@ -6050,7 +6062,7 @@ renderModule();
      }
    }finally{if(selector)selector.value=selected;}
    return {schema:"network-configurator-report-v1",name:project.project.name==="Untitled Network Project"?"":project.project.name,
-     vendor:pl,architecture:swv?"core-access":"spine-leaf",technology:kind,techPlacement:"upper",
+     vendor:pl,architecture:swv?"core-access":"spine-leaf",technology:kind,techPlacement:"upper",roles:{upper:isVpc&&pl==="Cisco NX-OS"?"Spine":"Core",lower:"Leaf"},
      upperCount:devices.filter(d=>d.tier==="upper").length,lowerCount:devices.filter(d=>d.tier==="lower").length,
      scope:"",devices,links,specialLinks,parameters:params.map(p=>p.impact?p:{...p,impact:p.value,value:"Design boundary"}),configurations,
      source:{module:tech,projectId:project.project.id||"active",generatedAt:new Date().toISOString()}};

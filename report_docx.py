@@ -190,9 +190,10 @@ def build_report_docx(project):
 
     guide = project.get("technologyGuide")
     doc.add_heading(words["topology"], level=1)
-    if guide:
-        doc.add_heading(guide["topologyTitle"], level=2)
-        for paragraph in guide["topology"]:
+    narratives = project.get("topologyNarratives") or ([{"title": guide["topologyTitle"], "paragraphs": guide["topology"]}] if guide and guide["topology"] else [])
+    for narrative in narratives:
+        doc.add_heading(narrative["title"], level=2)
+        for paragraph in narrative["paragraphs"]:
             doc.add_paragraph(paragraph)
     doc.add_paragraph(
         f"{upper} {'katmanı' if language == 'tr' else 'tier'}: " + ", ".join(device_name(d) for d in project["devices"] if not d.get("inventoryOnly") and d["tier"] == "upper")
