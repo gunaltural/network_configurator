@@ -18,7 +18,7 @@
 .paper pre{white-space:pre-wrap;overflow-wrap:anywhere;font:9px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;background:#f2f5f8;border:1px solid #dce4ea;padding:12px;border-radius:7px}.paper .summary-grid{grid-template-columns:repeat(auto-fit,minmax(120px,1fr))}.paper .workspace-topology{display:block;width:100%;height:auto;border:1px solid #d2e2ec;border-radius:8px;background:#edf5fa}.paper .config-section{break-before:page}.paper .design-note{padding:8px 10px;background:#edf5fb;border-left:3px solid #2876a4}.source-banner{margin:0 0 15px;padding:10px 12px;background:#102838;border:1px solid #34536b;border-radius:9px;color:#c6e2f4;font-size:12px}.source-banner a{margin-left:8px}
 .paper .decision{border-left:3px solid #80abc4;background:#f5f9fc;padding:9px 12px;margin:9px 0;break-inside:avoid}.paper .decision strong{font-size:11px;color:#153e58}.paper .decision .choice{display:inline-block;margin-left:7px;color:#215f83;font-size:11px;font-weight:700}.paper .decision p{margin:5px 0 0;color:#354e5e;line-height:1.55}
 @media(max-width:1040px){.editor{grid-template-columns:1fr}.preview-panel{position:static}}@media(max-width:680px){.shell{padding:0 12px 40px}.nav,.intro{align-items:flex-start;flex-direction:column}.fields,.device-fields{grid-template-columns:1fr}.paper{padding:19px}.status{white-space:normal}}
-@media print{body{background:#fff;color:#000}.shell{padding:0;max-width:none}.nav,.intro,.editor>.stack,.preview-panel>h2,.status{display:none!important}.editor{display:block}.preview-panel{border:0;padding:0}.paper{box-shadow:none;padding:0;min-height:0;overflow:visible}.paper h2,.paper table,.paper svg,.paper .workspace-topology{break-inside:avoid}@page{size:A4;margin:15mm}}
+@media print{body{background:#fff;color:#000}.shell{padding:0;max-width:none}.nav,.intro,.editor>.stack,.preview-panel>h2,.status{display:none!important}.editor{display:block}.preview-panel{border:0;padding:0}.paper{box-shadow:none;padding:0;min-height:0;overflow:visible}.paper h2,.paper svg,.paper .workspace-topology{break-inside:avoid}.paper table{width:100%;table-layout:fixed;break-inside:auto}.paper th,.paper td{overflow-wrap:anywhere}.paper tr{break-inside:avoid}.paper thead{display:table-header-group}@page{size:A4;margin:15mm}}
 </style>
 <style>.maintenance-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}.maintenance-tabs button[aria-selected=true]{background:#245577;border-color:#78b6e0}.maintenance-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.maintenance-evidence{white-space:pre-wrap;max-height:260px;overflow:auto;font-size:12px}.maintenance-grid .wide{grid-column:1/-1}@media(max-width:800px){.maintenance-grid{grid-template-columns:1fr}}@media print{.maintenance-tabs,#maintenanceArea{display:none!important}}</style>
 </head>
@@ -425,7 +425,7 @@
   function setInventoryData(d,data){
     for(const [remote,local] of [["model","model"],["serial","serial"],["software_version","softwareVersion"],["hostname","observedHostname"]])if(data[remote])d[local]=data[remote];
     if(data.model)d.modelSource="device";if(data.serial)d.serialSource="device";if(data.software_version)d.softwareSource="device";
-    if(d.inventoryOnly&&data.hostname)d.hostname=data.hostname;d.collectionMethod="automatic";d.observedAt=data.observed_at;d.inventoryWarnings=data.warnings||[];d.inventoryCommands=data.commands||[];renderSshInventoryResults();
+    if(d.inventoryOnly&&data.hostname)d.hostname=data.hostname;d.collectionMethod="automatic";d.observedAt=data.observed_at;d.inventoryWarnings=data.warnings||[];d.inventoryCommands=data.commands||[];renderSshInventoryResults();renderReport();
   }
   $("inventoryMode").onchange=e=>{inventoryMode=e.target.value;renderInventoryManager();};
   $("manualRows").oninput=e=>{const d=state.devices.find(x=>x.id===e.target.dataset.inventory),key=e.target.dataset.key;if(!d||!key)return;d[key]=e.target.value;if(d.inventoryOnly&&key==="observedHostname"&&d[key])d.hostname=d[key];d.collectionMethod="manual";if(key==="model"||key==="serial")d[key+"Source"]=d[key]?"manual":"";if(key==="softwareVersion")d.softwareSource=d[key]?"manual":"";renderReport();};
@@ -442,7 +442,7 @@
     try{for(let i=0;i<jobs.length;i++){
       const {d,row,params}=jobs[i],status=row.querySelector('[data-result]');d.target=params.target;d.sshPort=params.port;d.sshUsername=params.username;d.collectionMethod="automatic";
       $("batchSummary").textContent=`Collecting ${i+1} / ${jobs.length} · ${deviceName(d)}`;status.textContent="Connecting…";
-      try{const response=await fetch('/api/reporting/inventory',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(params)});const data=await response.json();if(!response.ok){const error=Error(typeof data.detail==="string"?data.detail:data.detail?.error||"Inventory request failed");error.connectionStatus=data.detail?.connection_status;throw error;}setInventoryData(d,data);success++;status.textContent=data.warnings?.length?"Connection successful · inventory warnings: "+data.warnings.join(" · "):"Connection successful · inventory collected";renderReport();}
+      try{const response=await fetch('/api/reporting/inventory',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(params)});const data=await response.json();if(!response.ok){const error=Error(typeof data.detail==="string"?data.detail:data.detail?.error||"Inventory request failed");error.connectionStatus=data.detail?.connection_status;throw error;}setInventoryData(d,data);success++;status.textContent=data.warnings?.length?"Connection successful · inventory warnings: "+data.warnings.join(" · "):"Connection successful · inventory collected";}
       catch(error){failed++;status.textContent=(error.connectionStatus==="connected"?"Connection successful · inventory read failed: ":"Connection failed: ")+error.message;}
       batchResults.set(d.id,status.textContent);d.sshResultStatus=status.textContent;params.password="";params.secret="";
     }}finally{sshPasswords.clear();batchRunning=false;controls.forEach(x=>x.element.disabled=x.disabled);$("batchPassword").value="";$("batchSecret").value="";jobs.forEach(x=>{x.params.password="";x.params.secret="";});$("batchSummary").textContent=`Completed: ${success} collected · ${failed} failed · ${jobs.length} total`;renderEditor();}
@@ -462,7 +462,7 @@
     });
     const used=new Set();for(const p of plans)if(p.device){if(used.has(p.device.id))throw Error(`Excel row ${p.r.row}: duplicate device.`);used.add(p.device.id);}
     state.sshVisibleIds=[];batchSelection.clear();let added=0;sshPasswords.clear();for(const p of plans){const d=p.device||createInventoryDevice(p.r.hostname||p.target);if(!p.device){added++;d.inventoryImportId=p.r.id||"";}Object.assign(d,{target:p.target,sshUsername:p.username,sshPort:p.port,vendor:p.platform,collectionMethod:"automatic",inventoryChannel:"automatic"});if(p.r.password)sshPasswords.set(d.id,p.r.password);if(!state.sshVisibleIds.includes(d.id))state.sshVisibleIds.push(d.id);batchSelection.add(d.id);}
-    return added;
+    renderReport();return added;
   }
   $("sshTargetsExcel").onchange=async e=>{const file=e.target.files[0];if(!file)return;try{
     if(!file.name.toLowerCase().endsWith('.xlsx')||file.size>5000000)throw Error("Upload an .xlsx file smaller than 5 MB.");$("sshExcelResult").textContent="Reading SSH targets…";
@@ -482,7 +482,7 @@
       for(const [key,field] of [["hostname","observedHostname"],["serial","serial"],["softwareVersion","softwareVersion"],["model","model"]])if(record[key]){d[field]=record[key];if(field==="serial"||field==="model")d[field+"Source"]="manual";if(field==="softwareVersion")d.softwareSource="manual";}
       if(d.inventoryOnly&&record.hostname)d.hostname=record.hostname;d.collectionMethod="manual";d.inventoryChannel="manual";
     }
-    return added;
+    renderReport();return added;
   }
   $("inventoryExcel").onchange=async e=>{
     const file=e.target.files[0];if(!file)return;
@@ -544,16 +544,21 @@
   document.querySelectorAll('[data-view]').forEach(button=>button.onclick=()=>{maintenanceView=button.dataset.view;document.querySelectorAll('[data-view]').forEach(x=>x.setAttribute('aria-selected',String(x===button)));renderMaintenance();});
   const projectName=()=>{if(!$("projectName").value.trim()){$("projectName").focus();$("projectName").reportValidity();return "";}return $("projectName").value.trim();};
 
+  function reportInventorySnapshot(){
+    return state.devices.map(d=>({id:d.id,tier:d.tier,index:d.index,
+      ...Object.fromEntries(["hostname","model","serial","modelSource","serialSource","softwareVersion","softwareSource","observedHostname","observedAt"].map(key=>[key,String(d[key]||"")])),
+      external:!!d.external,inventoryOnly:!!d.inventoryOnly}));
+  }
   const filename=name=>name.replace(/[^\p{L}\p{N}_-]+/gu,"_").replace(/^_+|_+$/g,"").slice(0,70)||"network-report";
   const download=(blob,name)=>{const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
-  $("printReport").addEventListener("click",()=>{if(projectName()){document.querySelector('.editor').hidden=false;window.print();renderMaintenance();}});
+  $("printReport").addEventListener("click",()=>{if(projectName()){renderReport();document.querySelector('.editor').hidden=false;window.print();renderMaintenance();}});
   $("saveProject").addEventListener("click",()=>{const name=projectName();if(name)download(new Blob([JSON.stringify({...state,name},null,2)],{type:"application/json"}),filename(name)+".json");});
   $("downloadWord").addEventListener("click",async()=>{
 
-    const name=projectName();if(!name)return;
+    const name=projectName();if(!name)return;renderReport();
     const btn=$("downloadWord");btn.disabled=true;btn.textContent="Preparing Word…";
     try{
-      const payload={language:state.language,name,vendor:state.vendor,architecture:state.architecture,technology:state.technology,techPlacement:state.techPlacement,roles:state.roles||null,upperCount:state.upperCount,lowerCount:state.lowerCount,scope:state.scope,devices:state.devices.map(({id,tier,index,hostname,model,serial,modelSource,serialSource,external,inventoryOnly,softwareVersion,softwareSource,observedHostname,observedAt})=>({id,tier,index,hostname,model,serial,modelSource,serialSource,external:!!external,inventoryOnly:!!inventoryOnly,softwareVersion:softwareVersion||"",softwareSource:softwareSource||"",observedHostname:observedHostname||"",observedAt:observedAt||""})),links:state.links.map(({a,b,enabled,upperPort,lowerPort,speed,detail})=>({a,b,enabled,upperPort,lowerPort,speed,detail:detail||""})),specialLinks:state.specialLinks||[],parameters:(state.parameters||[]).map(localizedParameter),configurations:state.configurations||[],maintenanceNotes:maintenanceNotes(),topologyPng:state.topologyPng||""};
+      const payload={language:state.language,name,vendor:state.vendor,architecture:state.architecture,technology:state.technology,techPlacement:state.techPlacement,roles:state.roles||null,upperCount:state.upperCount,lowerCount:state.lowerCount,scope:state.scope,devices:reportInventorySnapshot(),links:state.links.map(({a,b,enabled,upperPort,lowerPort,speed,detail})=>({a,b,enabled,upperPort,lowerPort,speed,detail:detail||""})),specialLinks:state.specialLinks||[],parameters:(state.parameters||[]).map(localizedParameter),configurations:state.configurations||[],maintenanceNotes:maintenanceNotes(),topologyPng:state.topologyPng||""};
       const response=await fetch("/api/reporting/word",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
       if(!response.ok){const err=await response.json().catch(()=>({}));throw Error(typeof err.detail==="string"?err.detail:"Could not create Word report.");}
       download(await response.blob(),filename(name)+".docx");
