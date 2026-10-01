@@ -39,18 +39,24 @@ can be entered manually before deployment, or read from a reachable device after
 
 The Maintenance and Reporting **Inventory** tab provides a manual table for observed
 hostname, serial number, software version and product model. Upload an `.xlsx` file
-using the downloadable template; the first worksheet is matched by Device ID or a
-unique existing hostname. Review the preview before applying matched rows. Duplicate
-or unmatched rows are skipped, blank values retain existing inventory, and planned
+using the downloadable template; the first worksheet is imported directly. Existing
+devices are updated by Device ID or unique hostname, and new devices are added to
+inventory automatically. No second device selection or Apply action is needed.
+Duplicate identities reject the import before changing data. Blank values retain existing inventory, and planned
 topology names stay unchanged. Formula cells are rejected; use text values, especially
 for serial numbers with leading zeros. Maximum upload size is 5 MB / 1,000 records.
+
+Use **Add device** in manual or Automatic SSH mode to add any number of inventory
+records. Additional inventory devices appear in reporting and maintenance without
+changing Technology Workspace topology, links or generated configurations. Inventory
+is retained across page refreshes in the current browser tab and in downloaded projects.
 
 Choose **Automatic · SSH · multiple devices** to select inventory devices and supply
 each target, port and username. A shared password and enable secret may be used, with
 per-device overrides. Collection runs sequentially with separate results; a failure
 does not stop remaining devices. Missing returned fields retain previous values.
 Passwords and enable secrets are cleared after collection and never saved with the
-project. The tab collects existing planned devices; it does not discover neighbors.
+project. The tab collects planned and additional inventory devices; it does not discover neighbors.
 
 **Read from device** runs platform-specific read-only SSH commands and records the
 hardware source. It never changes device configuration and never saves SSH passwords
