@@ -444,6 +444,7 @@
     const visible=mode==="manual"?manualPageDevices():sshPageDevices();
     const selected=new Set(ids.filter(id=>visible.some(d=>d.id===id)));
     if(!selected.size)return;
+    $("excelPreview").textContent="";$("sshExcelResult").textContent="";
     if(!Array.isArray(state.inventoryDeviceIds))state.inventoryDeviceIds=currentReportInventory().map(d=>d.id);
     state.inventoryDeviceIds=state.inventoryDeviceIds.filter(id=>!selected.has(id));
     const key=mode==="manual"?"manualVisibleIds":"sshVisibleIds";
@@ -532,7 +533,7 @@
     try{if(!file.name.toLowerCase().endsWith('.xlsx')||file.size>5000000)throw Error("Upload an .xlsx file smaller than 5 MB.");$("excelPreview").textContent="Reading Excel…";
       const response=await fetch('/api/reporting/inventory-excel',{method:'POST',headers:{'Content-Type':'application/octet-stream'},body:file});const data=await response.json();if(!response.ok)throw Error(data.detail||"Could not read Excel.");
       const added=importExcelRows(data.rows);renderEditor();
-      $("excelPreview").innerHTML=`<p style="color:var(--good)"><strong>${data.rows.length} devices imported directly into inventory and report.</strong> ${added} new inventory devices added. This upload replaces the current manual inventory; blank cells remain empty.</p><div class="inventory-scroll"><table><thead><tr><th>Hostname</th><th>Serial number</th><th>Software version</th><th>Product model</th></tr></thead><tbody>${data.rows.map(r=>`<tr><td>${esc(r.hostname)}</td><td>${esc(r.serial)}</td><td>${esc(r.softwareVersion)}</td><td>${esc(r.model)}</td></tr>`).join("")}</tbody></table></div>`;
+      $("excelPreview").textContent=`${data.rows.length} devices imported. The current device list above and report are updated; blank cells remain empty.`;
     }catch(error){$("excelPreview").textContent=error.message;}finally{e.target.value="";}
   };
   let maintenanceView="design", maintenanceDevice="";
