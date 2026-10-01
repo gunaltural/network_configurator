@@ -257,17 +257,17 @@ console.log('All 16 editable example fields, custom-risk preservation and platfo
 for(const vendor of ['Cisco NX-OS','Cisco IOS-XE','Arista EOS','Huawei_CE_SW','FortiGate']){
  context.state={language:'tr',name:'',scope:'',vendor,technology:'Test technology',projectDetails:{}};
  vm.runInContext('applyProjectExample();state.language="en";updateProjectExampleLanguage("tr")',context);
- assert.equal(context.state.projectDetails.acceptance.startsWith('EXAMPLE ACCEPTANCE PLAN'),true,vendor);
- assert.equal(context.state.scope.startsWith('EXAMPLE SCOPE'),true,vendor);
- assert.equal(context.state.name.startsWith('EXAMPLE'),true,vendor);
+ assert.equal(context.state.projectDetails.acceptance.startsWith('1) Verify'),true,vendor);
+ assert.equal(context.state.scope.startsWith('Prepare the'),true,vendor);
+ assert.equal(context.state.name.endsWith('Network Design Project'),true,vendor);
  context.state.projectDetails.risks='User-edited risk';
  vm.runInContext('state.language="tr";updateProjectExampleLanguage("en")',context);
- assert.equal(context.state.projectDetails.acceptance.startsWith('ÖRNEK KABUL PLANI'),true,vendor);
+ assert.equal(context.state.projectDetails.acceptance.startsWith('1) Cihaz'),true,vendor);
  assert.equal(context.state.projectDetails.risks,'User-edited risk',vendor);
 }
 context.state={language:'en',name:'',scope:'',vendor:'Cisco NX-OS',technology:'vPC',projectDetails:{}};
 vm.runInContext('const legacySample=buildProjectExample("tr");state.projectDetails=legacySample.fields;state.name=legacySample.name;state.scope=legacySample.scope;updateProjectExampleLanguage("tr")',context);
-assert.equal(context.state.projectDetails.customer,'EXAMPLE — Customer organization');
+assert.equal(context.state.projectDetails.customer,'Customer organization');
 console.log('Bidirectional example language switching across all five platforms, edited-content protection and legacy samples passed.');
 
 context.state.language='tr';vm.runInContext('renderProjectDetails()',context);
@@ -281,12 +281,19 @@ for(const vendor of ['Cisco NX-OS','Cisco IOS-XE','Arista EOS','Huawei_CE_SW','F
  context.state={language:'tr',vendor,technology:'Test technology',projectDetails:{}};
  vm.runInContext('state.projectDetails=buildProjectExample("en").fields',context);
  const rows=vm.runInContext('projectInformation()',context);
- assert.equal(rows.find(r=>r.label==='Varsayımlar ve bağımlılıklar').impact.startsWith('ÖRNEK VARSAYIMLAR'),true,vendor);
+ assert.equal(rows.find(r=>r.label==='Varsayımlar ve bağımlılıklar').impact.startsWith('Güç, rack'),true,vendor);
  context.state.projectDetails.risks='Engineer supplied English text';
  context.state.language='en';vm.runInContext('renderProjectDetails()',context);
- assert.equal(context.state.projectDetails.assumptions.startsWith('EXAMPLE ASSUMPTIONS'),true,vendor);
+ assert.equal(context.state.projectDetails.assumptions.startsWith('Validate power'),true,vendor);
  assert.equal(context.state.projectDetails.risks,'Engineer supplied English text',vendor);
  context.state.language='tr';vm.runInContext('renderProjectDetails()',context);
- assert.equal(context.state.projectDetails.assumptions.startsWith('ÖRNEK VARSAYIMLAR'),true,vendor);
+ assert.equal(context.state.projectDetails.assumptions.startsWith('Güç, rack'),true,vendor);
 }
 console.log('Already mismatched saved samples reconcile on report and editor rendering across all vendors.');
+
+context.state={language:'tr',vendor:'Cisco NX-OS',technology:'vPC',projectDetails:{}};
+vm.runInContext('const legacyTemplate=buildProjectExample("en",true);state.projectDetails=legacyTemplate.fields;state.name=legacyTemplate.name;state.scope=legacyTemplate.scope;reconcileProjectExampleLanguage()',context);
+assert.equal(context.state.projectDetails.assumptions.startsWith('Güç, rack'),true);
+assert.equal(/ÖRNEK|EXAMPLE/.test(JSON.stringify(context.state.projectDetails)),false);
+assert.equal(/ÖRNEK|EXAMPLE/.test(context.state.name+context.state.scope),false);
+console.log('Legacy labelled templates clean up and reconcile in the selected language.');

@@ -164,11 +164,25 @@ def build_report_docx(project):
     doc.add_paragraph(overview)
     doc.add_paragraph(project["scope"].strip() or words["scope"])
     if project.get("projectInformation"):
-        doc.add_heading("Proje bilgileri ve gereksinimler" if language == "tr" else "Project information and requirements", level=2)
+        identity_labels = {"Customer / organization", "Müşteri / kuruluş", "Project reference", "Proje referansı", "Sites and locations", "Sahalar ve lokasyonlar", "Prepared by", "Hazırlayan", "Reviewer / approver", "İnceleyen / onaylayan", "Document revision", "Doküman revizyonu", "Document status", "Doküman durumu", "Document date", "Doküman tarihi"}
+        grouped = {key: [] for key in ["identity", "requirements", "delivery"]}
         for item in project["projectInformation"]:
-            paragraph = doc.add_paragraph()
-            paragraph.add_run(item["label"] + "\n").bold = True
-            paragraph.add_run(item.get("impact") or item.get("value", ""))
+            group = item.get("group") or ("identity" if item["label"] in identity_labels else "requirements")
+            grouped[group].append(item)
+        titles = {"identity": "Proje kimliği ve doküman kontrolü" if language == "tr" else "Project identity and document control", "requirements": "İş ve mühendislik gereksinimleri" if language == "tr" else "Business and engineering requirements", "delivery": "Kapsam sınırları ve kabul koşulları" if language == "tr" else "Delivery boundaries and acceptance"}
+        for group, items in grouped.items():
+            if not items:
+                continue
+            doc.add_heading(titles[group], level=2)
+            if group == "identity":
+                identity_table = _table(doc, ["Alan", "Bilgi"] if language == "tr" else ["Field", "Information"], [2.25, 4.65], [(item["label"], item.get("impact") or item.get("value", "")) for item in items])
+                for column, width in zip(identity_table.columns, [2.25, 4.65]):
+                    column.width = Inches(width)
+            else:
+                for item in items:
+                    paragraph = doc.add_paragraph()
+                    paragraph.add_run(item["label"] + "\n").bold = True
+                    paragraph.add_run(item.get("impact") or item.get("value", ""))
 
     devices = {device["id"]: device for device in project["devices"]}
     active = [link for link in project["links"] if link["enabled"]]

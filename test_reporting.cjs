@@ -11,13 +11,14 @@ const w=dom.window,d=w.document,pause=()=>new Promise(r=>setTimeout(r,10));
  for(const language of ['en','tr']){
   const select=d.getElementById('reportLanguage');select.value=language;select.dispatchEvent(new w.Event('change',{bubbles:true}));
   const text=d.getElementById('reportPreview').textContent;
-  assert.ok(text.includes(language==='tr'?'ÖRNEK VARSAYIMLAR':'EXAMPLE ASSUMPTIONS'));
-  assert.ok(!text.includes(language==='tr'?'EXAMPLE ASSUMPTIONS':'ÖRNEK VARSAYIMLAR'));
+  assert.ok(text.includes(language==='tr'?'Güç, rack':'Validate power'));
+  assert.ok(!text.includes(language==='tr'?'Validate power':'Güç, rack'));
+  assert.equal(d.querySelectorAll('.project-identity-table tbody tr').length,8);assert.ok(!/ÖRNEK|EXAMPLE/.test(text));
   d.getElementById('downloadWord').click();await pause();assert.ok(wordPayload);
   assert.ok(wordPayload.devices.find(x=>x.id===source.inventoryDeviceIds[0]).tier==='upper');
   assert.equal(wordPayload.moduleReports.length,3);
-  const result=execFileSync('python',['-c','import sys,json;from app import app;from fastapi.testclient import TestClient;r=TestClient(app).post("/api/reporting/word",json=json.load(sys.stdin));print(r.status_code);print(r.text[:500] if r.status_code!=200 else len(r.content))'],{input:JSON.stringify(wordPayload),encoding:'utf8'});
-  assert.ok(result.startsWith('200'),result);
+  const result=execFileSync('python',['-c','import sys,json,io;from docx import Document;from app import app;from fastapi.testclient import TestClient;r=TestClient(app).post("/api/reporting/word",json=json.load(sys.stdin));print(r.status_code);print(r.text[:500] if r.status_code!=200 else json.dumps([[c.text for c in row.cells] for row in Document(io.BytesIO(r.content)).tables[0].rows],ensure_ascii=False))'],{input:JSON.stringify(wordPayload),encoding:'utf8'});
+  assert.ok(result.startsWith('200'),result);const identityRows=JSON.parse(result.split('\n')[1]);assert.equal(identityRows.length,9);assert.equal(identityRows[0][0],language==='tr'?'Alan':'Field');assert.equal(identityRows[1][0],language==='tr'?'Müşteri / kuruluş':'Customer / organization');assert.equal(identityRows[1][1],language==='tr'?'Müşteri kuruluş adı':'Customer organization');
  }
  d.querySelector('[data-view="inventory"]').click();d.getElementById('selectManualAll').click();d.getElementById('removeInventoryDevice').click();
  assert.equal(d.getElementById('manualRows').children.length,0);assert.ok(!d.getElementById('reportPreview').textContent.includes('AUDIT-SERIAL'));

@@ -218,6 +218,10 @@ class ReportParameter(BaseModel):
     impact: str = Field(default="", max_length=1200)
 
 
+class ReportProjectInformation(ReportParameter):
+    group: Literal["identity", "requirements", "delivery"] | None = None
+
+
 class ReportConfiguration(BaseModel):
     deviceId: str = Field(max_length=100)
     text: str = Field(max_length=100000)
@@ -253,7 +257,7 @@ class ReportWordRequest(BaseModel):
     parameters: List[ReportParameter] = Field(default_factory=list)
     configurations: List[ReportConfiguration] = Field(default_factory=list)
     topologyPng: str = Field(default="", max_length=3000000)
-    projectInformation: List[ReportParameter] = Field(default_factory=list, max_length=20)
+    projectInformation: List[ReportProjectInformation] = Field(default_factory=list, max_length=20)
     maintenanceNotes: List[ReportParameter] = Field(default_factory=list)
     moduleReports: List[ReportModuleSummary] = Field(default_factory=list, max_length=8)
 
