@@ -79,6 +79,8 @@ pre{
 .live-cli .live-help{display:block;margin-top:7px;color:#95adbd;font-size:12px;line-height:1.5}
 .verification-cli[hidden]{display:none!important}
 .verification-cli{display:grid;gap:12px}
+.grid:has(#verificationPanel:not([hidden])){grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr)}.grid:has(#verificationPanel:not([hidden]))>*,.verification-cli,.verification-cli>*{min-width:0;max-width:100%}.verification-cli .sd-cli{width:100%;max-width:100%;box-sizing:border-box}.verification-cli input,.verification-cli select,.verification-cli textarea{min-width:0}.verification-cli summary{overflow-wrap:anywhere}@media(max-width:1000px){.grid:has(#verificationPanel:not([hidden])){grid-template-columns:minmax(0,1fr)}}
+
 .verify-picker{position:relative;margin-bottom:10px}
 .verify-picker-trigger{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 13px;border:1px solid #315b77;border-radius:9px;background:#07111a;color:#dcebf4;text-align:left;font:11px/1.35 'JetBrains Mono','Fira Code','Roboto Mono','Consolas','Courier New',monospace;cursor:pointer}
 .verify-picker-trigger:hover,.verify-picker-trigger[aria-expanded="true"]{border-color:#58a6ff;background:#0a1b28}.verify-picker-trigger:after{content:"⌄";font-size:16px;color:#72d9ff;transition:transform .15s}.verify-picker-trigger[aria-expanded="true"]:after{transform:rotate(180deg)}
