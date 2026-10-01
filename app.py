@@ -15,6 +15,9 @@ import ipaddress
 import os
 import re
 import socket
+import html as html_module
+from urllib.request import Request, build_opener, HTTPRedirectHandler
+from urllib.parse import urlparse
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import List, Literal
@@ -176,6 +179,10 @@ class ReportDevice(BaseModel):
     modelSource: str = Field(max_length=30)
     serialSource: str = Field(max_length=30)
     external: bool = False
+    softwareVersion: str = Field(default="", max_length=100)
+    observedHostname: str = Field(default="", max_length=100)
+    observedAt: str = Field(default="", max_length=100)
+    softwareSource: str = Field(default="", max_length=30)
 
 
 class ReportLink(BaseModel):
@@ -232,6 +239,7 @@ class ReportWordRequest(BaseModel):
     parameters: List[ReportParameter] = Field(default_factory=list)
     configurations: List[ReportConfiguration] = Field(default_factory=list)
     topologyPng: str = Field(default="", max_length=3000000)
+    maintenanceNotes: List[ReportParameter] = Field(default_factory=list)
 
 
 def parse_inventory(platform: str, outputs: dict) -> dict:
@@ -281,7 +289,9 @@ def parse_inventory(platform: str, outputs: dict) -> dict:
         if m: version = m.group(1)
     if serial.upper() in {"N/A", "NA", "UNKNOWN", "NONE", "-"}:
         serial = ""
-    return {"model": model, "serial": serial, "software_version": version}
+    hostname_match = re.search(r"(?im)^\s*Hostname\s*:\s*(\S+)", joined) or re.search(r"(?im)^\s*(\S+)\s+uptime is\b", joined)
+    return {"model": model, "serial": serial, "software_version": version,
+            "hostname": hostname_match.group(1) if hostname_match else ""}
 
 
 def sha256(text: str) -> str:
@@ -512,6 +522,50 @@ def health():
         "diagnostics": "/api/diagnostics/network",
     }
 
+class MaintenanceSourceRequest(BaseModel):
+    vendor: str = Field(max_length=40)
+    url: str = Field(max_length=2000)
+    model: str = Field(min_length=1, max_length=100)
+
+@app.post("/api/reporting/vendor-source")
+def maintenance_vendor_source(p: MaintenanceSourceRequest):
+    domains = {"Cisco NX-OS": ("cisco.com",), "Cisco IOS-XE": ("cisco.com",),
+               "Arista EOS": ("arista.com",), "Huawei_CE_SW": ("huawei.com",),
+               "FortiGate": ("fortinet.com",)}
+    def validate(url):
+        u = urlparse(url)
+        host = (u.hostname or "").lower()
+        if u.scheme != "https" or u.username or u.password or u.port not in (None, 443) or not any(host == d or host.endswith("." + d) for d in domains.get(p.vendor, ())):
+            raise HTTPException(400, "Use an HTTPS document on the selected manufacturer's official domain.")
+        addresses = socket.getaddrinfo(host, 443, type=socket.SOCK_STREAM)
+        if not addresses or any(not ipaddress.ip_address(a[4][0]).is_global for a in addresses):
+            raise HTTPException(400, "The document host must resolve to public addresses.")
+    class OfficialRedirect(HTTPRedirectHandler):
+        def redirect_request(self, req, fp, code, msg, headers, newurl):
+            validate(newurl)
+            return super().redirect_request(req, fp, code, msg, headers, newurl)
+    try:
+        validate(p.url)
+        with build_opener(OfficialRedirect()).open(Request(p.url, headers={"User-Agent": "NetworkConfigurator/1.0", "Accept": "text/html"}), timeout=15) as response:
+            if "text/html" not in response.headers.get("Content-Type", ""):
+                raise HTTPException(400, "Use the HTML version of the official document; PDF requires manual review.")
+            raw = response.read(1_000_001)
+            if len(raw) > 1_000_000:
+                raise HTTPException(400, "Document is too large; review it manually.")
+            source = raw.decode("utf-8", errors="replace")
+            final_url = response.geturl()
+        source = re.sub(r"<(script|style)\b[^>]*>.*?</\1>", "", source, flags=re.I | re.S)
+        text = re.sub(r"\s+", " ", html_module.unescape(re.sub(r"<[^>]+>", " ", source))).strip()
+        match = re.search(re.escape(p.model), text, re.I)
+        excerpt = text[max(0, match.start()-500):match.end()+4500] if match else text[:2000]
+        return {"source_url": final_url, "checked_at": datetime.now(timezone.utc).isoformat(),
+                "model_mentioned": bool(match), "excerpt": excerpt,
+                "status": "Engineer review required", "automatic_assessment": False}
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(502, "Official source could not be read. Use the manufacturer portal and record the evidence manually.")
+
 
 
 
@@ -735,6 +789,9 @@ def reporting_inventory(p: DeviceRequest):
             except Exception:
                 warnings.append(f"{command}: could not read output")
         identity = parse_inventory(platform, outputs)
+        if not identity["hostname"]:
+            prompt = conn.find_prompt().strip()
+            identity["hostname"] = re.sub(r"[>#]$", "", prompt).strip("<>")[:100]
         if not identity["model"] and not identity["serial"]:
             raise HTTPException(status_code=502, detail="SSH connected, but the device did not return a recognizable chassis model or serial. Enter them manually.")
         return {"ok": True, "platform": platform, **identity,
