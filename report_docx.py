@@ -169,11 +169,11 @@ def build_report_docx(project):
 
     doc.add_heading(words["topology"], level=1)
     doc.add_paragraph(
-        f"{upper} tier: " + ", ".join(device_name(d) for d in project["devices"] if d["tier"] == "upper")
+        f"{upper} tier: " + ", ".join(device_name(d) for d in project["devices"] if not d.get("inventoryOnly") and d["tier"] == "upper")
     )
     if project["lowerCount"]:
         doc.add_paragraph(
-            f"{lower} tier: " + ", ".join(device_name(d) for d in project["devices"] if d["tier"] == "lower")
+            f"{lower} tier: " + ", ".join(device_name(d) for d in project["devices"] if not d.get("inventoryOnly") and d["tier"] == "lower")
         )
     topology_png = project.get("topologyPng", "")
     if topology_png:
@@ -246,7 +246,7 @@ def build_report_docx(project):
         doc,
         [words["device"], words["role"], words["model"], words["serial"], words["source"]],
         [1.6, .9, 1.5, 1.4, 1.7],
-        [[device_name(d), upper if d["tier"] == "upper" else lower, d["model"] or (words["external"] if d.get("external") else words["pending"]), d["serial"] or (words["external"] if d.get("external") else words["pending"]),
+        [[device_name(d), ("Envanter cihazı" if language == "tr" else "Inventory device") if d.get("inventoryOnly") else upper if d["tier"] == "upper" else lower, d["model"] or (words["external"] if d.get("external") else words["pending"]), d["serial"] or (words["external"] if d.get("external") else words["pending"]),
           ("Harici eş" if language == "tr" else "External peer") if d.get("external") else f"{source(d['modelSource'])} / {source(d['serialSource'])}" if d["modelSource"] or d["serialSource"] else words["planned"]]
          for d in project["devices"]],
     )
