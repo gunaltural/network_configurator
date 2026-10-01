@@ -607,6 +607,7 @@
     }catch(error){alert(error.message);}finally{btn.disabled=false;btn.textContent="Download Word";}
   });
   function normalizeInventoryProject(p){
+    p.devices=p.devices.filter(d=>!(d.inventoryOnly&&d.id.startsWith("inventory-")&&!d.inventoryRecord&&!d.observedHostname&&!d.observedAt&&!d.model&&!d.serial&&!d.softwareVersion));
     const tracked=Array.isArray(p.inventoryDeviceIds);
     if(!tracked && p.inventoryRevision!==2){
       p.devices=p.devices.filter(d=>!d.inventoryOnly);
