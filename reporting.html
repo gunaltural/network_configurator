@@ -80,8 +80,9 @@
   };
   const projectDetailDefinitions=[["customer", "Customer / organization", "Müşteri / kuruluş", "identity", "text", "Customer legal or business name"], ["reference", "Project reference", "Proje referansı", "identity", "text", "Project / contract / change reference"], ["sites", "Sites and locations", "Sahalar ve lokasyonlar", "identity", "text", "Data centers, buildings, campuses or branches"], ["author", "Prepared by", "Hazırlayan", "identity", "text", "Engineer / team / organization"], ["reviewer", "Reviewer / approver", "İnceleyen / onaylayan", "identity", "text", "Design reviewer or customer owner"], ["revision", "Document revision", "Doküman revizyonu", "identity", "text", "e.g. 1.0"], ["documentStatus", "Document status", "Doküman durumu", "identity", "select", ""], ["documentDate", "Document date", "Doküman tarihi", "identity", "date", ""], ["objectives", "Business outcomes", "İş hedefleri", "requirements", "textarea", "Services to enable, current problem and expected operational benefit"], ["availability", "Availability and resilience requirements", "Erişilebilirlik ve yedeklilik gereksinimleri", "requirements", "textarea", "Service target, acceptable interruption, failure scenarios and convergence objectives"], ["capacity", "Capacity and growth requirements", "Kapasite ve büyüme gereksinimleri", "requirements", "textarea", "Traffic profile, peak bandwidth, port demand and growth horizon"], ["security", "Security and operations requirements", "Güvenlik ve işletim gereksinimleri", "requirements", "textarea", "Segmentation, management access, AAA, logging, monitoring and operational ownership"], ["boundaries", "Out of scope", "Kapsam dışı işler", "delivery", "textarea", "Explicit exclusions and responsibility boundaries"], ["assumptions", "Assumptions and dependencies", "Varsayımlar ve bağımlılıklar", "delivery", "textarea", "Power, cabling, licenses, addressing, provider delivery and adjacent systems"], ["risks", "Risks and mitigation", "Riskler ve önlemler", "delivery", "textarea", "Risk, service impact, mitigation and responsible owner"], ["acceptance", "Acceptance criteria", "Kabul kriterleri", "delivery", "textarea", "Measurable tests, expected result, evidence and approving party"]];
   const projectGroups=[ ["identity","01","Project identity and document control","Who owns this project and which document version is being reviewed?"],["requirements","02","Business and engineering requirements","Describe requirements; these entries do not change generated configuration."],["delivery","03","Delivery boundaries and acceptance","Record dependencies, risks and measurable acceptance evidence."] ];
-  function projectInformation(){return projectDetailDefinitions.filter(([key])=>String(state.projectDetails?.[key]||"").trim()).map(([key,en,tr,group])=>({label:state.language==="tr"?tr:en,value:String(key==="documentStatus"&&state.language==="tr"?({Draft:"Taslak","For review":"İnceleme için",Approved:"Onaylı","As-built":"Uygulanan tasarım"}[state.projectDetails[key]]||state.projectDetails[key]):state.projectDetails[key]).slice(0,500),impact:String(key==="documentStatus"&&state.language==="tr"?({Draft:"Taslak","For review":"İnceleme için",Approved:"Onaylı","As-built":"Uygulanan tasarım"}[state.projectDetails[key]]||state.projectDetails[key]):state.projectDetails[key]).slice(0,1200),group}));}
+  function projectInformation(){reconcileProjectExampleLanguage();return projectDetailDefinitions.filter(([key])=>String(state.projectDetails?.[key]||"").trim()).map(([key,en,tr,group])=>({label:state.language==="tr"?tr:en,value:String(key==="documentStatus"&&state.language==="tr"?({Draft:"Taslak","For review":"İnceleme için",Approved:"Onaylı","As-built":"Uygulanan tasarım"}[state.projectDetails[key]]||state.projectDetails[key]):state.projectDetails[key]).slice(0,500),impact:String(key==="documentStatus"&&state.language==="tr"?({Draft:"Taslak","For review":"İnceleme için",Approved:"Onaylı","As-built":"Uygulanan tasarım"}[state.projectDetails[key]]||state.projectDetails[key]):state.projectDetails[key]).slice(0,1200),group}));}
   function renderProjectDetails(){
+    reconcileProjectExampleLanguage();
     state.projectDetails=state.projectDetails||{};
     const isTr=state.language==="tr";
     $("projectInformationTitle").textContent=isTr?"Proje bilgileri":"Project information";
@@ -128,14 +129,23 @@
     for(const key of ["name","scope"])if(!String(state[key]||"").trim()){state[key]=sample[key];state.projectExampleValues[key]=sample[key];}
     $("projectName").value=state.name;$("scope").value=state.scope;renderProjectDetails();renderReport();
   }
-  function updateProjectExampleLanguage(previousLanguage){
-    const previous=buildProjectExample(previousLanguage),next=buildProjectExample();
-    state.projectDetails=state.projectDetails||{};state.projectExampleValues=state.projectExampleValues||{fields:{}};
+  function reconcileProjectExampleLanguage(){
+    const samples=[buildProjectExample("tr"),buildProjectExample("en")],next=buildProjectExample();
+    state.projectDetails=state.projectDetails||{};
+    state.projectExampleValues=state.projectExampleValues||{fields:{}};
+    state.projectExampleValues.fields=state.projectExampleValues.fields||{};
     for(const [key,value] of Object.entries(next.fields)){
       const current=state.projectDetails[key];
-      if(current&&(current===state.projectExampleValues.fields[key]||current===previous.fields[key])){state.projectDetails[key]=value;state.projectExampleValues.fields[key]=value;}
+      if(current&&(current===state.projectExampleValues.fields[key]||samples.some(sample=>current===sample.fields[key]))){
+        state.projectDetails[key]=value;state.projectExampleValues.fields[key]=value;
+      }
     }
-    for(const key of ["name","scope"])if(state[key]&&(state[key]===state.projectExampleValues[key]||state[key]===previous[key])){state[key]=next[key];state.projectExampleValues[key]=next[key];}
+    for(const key of ["name","scope"])if(state[key]&&(state[key]===state.projectExampleValues[key]||samples.some(sample=>state[key]===sample[key]))){
+      state[key]=next[key];state.projectExampleValues[key]=next[key];
+    }
+  }
+  function updateProjectExampleLanguage(){
+    reconcileProjectExampleLanguage();
     $("projectName").value=state.name;$("scope").value=state.scope;renderProjectDetails();
   }
   $("useProjectExample").onclick=applyProjectExample;
