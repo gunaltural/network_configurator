@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Network Configurator v5.14.2 — Hosted multi-vendor Live CLI and reporting
+Network Configurator v5.15.0 — Hosted multi-vendor Live CLI and reporting
 
 Designed for Render / hosted web use:
 - Browser-only client experience
@@ -13,6 +13,10 @@ Designed for Render / hosted web use:
 import hashlib
 import ipaddress
 import os
+import secrets
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
 import re
 import socket
 import html as html_module
@@ -24,13 +28,13 @@ from typing import List, Literal
 
 from fastapi import FastAPI, HTTPException, Request as WebRequest
 from inventory_excel import parse_inventory_xlsx
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, StreamingResponse, Response, JSONResponse
 from pydantic import BaseModel, Field
 import uvicorn
 from report_docx import build_report_docx
 from docx.image.exceptions import UnrecognizedImageError
 
-VERSION = "5.14.2"
+VERSION = "5.15.0"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
 REPORTING_HTML = (BASE_DIR / "reporting.html").read_text(encoding="utf-8")
@@ -250,7 +254,6 @@ class ReportWordRequest(BaseModel):
     configurations: List[ReportConfiguration] = Field(default_factory=list)
     topologyPng: str = Field(default="", max_length=3000000)
     projectInformation: List[ReportParameter] = Field(default_factory=list, max_length=20)
-    inventoryAssignments: List[ReportParameter] = Field(default_factory=list, max_length=100)
     maintenanceNotes: List[ReportParameter] = Field(default_factory=list)
     moduleReports: List[ReportModuleSummary] = Field(default_factory=list, max_length=8)
 
@@ -524,6 +527,11 @@ def reporting():
     return HTMLResponse(REPORTING_HTML, headers={"Cache-Control": "no-store"})
 
 
+@app.get("/engineering-locale.js")
+def engineering_locale():
+    return Response((BASE_DIR / "engineering-locale.js").read_text(encoding="utf-8"), media_type="application/javascript", headers={"Cache-Control": "no-cache"})
+
+
 @app.get("/api/health")
 def health():
     mode = "MOCK" if MOCK_SSH else ("DEPLOY ENABLED" if REAL_DEPLOY else "READ-ONLY")
@@ -784,8 +792,106 @@ def live_commands():
     return {"ok": True, "platforms": LIVE_COMMANDS}
 
 
+# Inventory jobs remain process-local and expire. The opaque id is a bearer
+# capability: never include it in a report or project; credentials never appear
+# in job status and are cleared when the worker finishes.
+INVENTORY_JOB_TTL = 900
+INVENTORY_JOB_LIMIT = 16
+_inventory_jobs = {}
+_inventory_job_lock = threading.Lock()
+_inventory_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="inventory")
+
+
+def _inventory_job_view(job):
+    return {key: job[key] for key in ("status", "created_at", "result", "error", "connection_status")}
+
+
+def _run_inventory_job(job_id, request):
+    with _inventory_job_lock:
+        job = _inventory_jobs[job_id]
+        job["status"] = "running"
+    try:
+        if job["cancel"].is_set():
+            return
+        result = collect_inventory(request, job["cancel"])
+        with _inventory_job_lock:
+            if not job["cancel"].is_set():
+                job["result"] = result
+                job["status"] = "completed"
+    except HTTPException as exc:
+        detail = exc.detail if isinstance(exc.detail, dict) else {"error": str(exc.detail)}
+        with _inventory_job_lock:
+            if not job["cancel"].is_set():
+                job["error"] = str(detail.get("error", "Inventory collection failed"))[:2000]
+                for credential in (request.password, request.secret):
+                    if credential:
+                        job["error"] = job["error"].replace(credential, "[REDACTED]")
+                job["connection_status"] = detail.get("connection_status", "failed")
+                job["status"] = "failed"
+    except Exception:
+        with _inventory_job_lock:
+            job["error"] = "Inventory collection failed. Retry the device."
+            job["status"] = "failed"
+    finally:
+        request.password = ""
+        request.secret = ""
+        with _inventory_job_lock:
+            if job["cancel"].is_set():
+                job["status"] = "cancelled"
+                job["result"] = None
+            job["finished"] = time.monotonic()
+
+
+@app.post("/api/reporting/inventory-jobs", status_code=202)
+def create_inventory_job(p: DeviceRequest):
+    items = checks(p, include_config=False, live=True)
+    if not ok(items):
+        raise HTTPException(status_code=400, detail={"error": "Complete device address, platform and credentials.", "checks": items})
+    now = time.monotonic()
+    with _inventory_job_lock:
+        for key in list(_inventory_jobs):
+            job = _inventory_jobs[key]
+            if job.get("finished") is not None and now - job["finished"] > INVENTORY_JOB_TTL:
+                del _inventory_jobs[key]
+        finished = sorted((key for key, job in _inventory_jobs.items() if job.get("finished") is not None), key=lambda key: _inventory_jobs[key]["finished"])
+        while len(_inventory_jobs) >= 128 and finished:
+            del _inventory_jobs[finished.pop(0)]
+        active = sum(job["status"] in ("queued", "running", "cancelling") for job in _inventory_jobs.values())
+        if active >= INVENTORY_JOB_LIMIT:
+            raise HTTPException(status_code=429, detail="Inventory collection queue is busy. Retry shortly.")
+        job_id = secrets.token_urlsafe(32)
+        _inventory_jobs[job_id] = {"status": "queued", "created_at": datetime.now(timezone.utc).isoformat(), "result": None, "error": "", "connection_status": "", "cancel": threading.Event(), "finished": None}
+    _inventory_executor.submit(_run_inventory_job, job_id, p)
+    return {"job_id": job_id, "status": "queued"}
+
+
+@app.get("/api/reporting/inventory-jobs/{job_id}")
+def inventory_job_status(job_id: str):
+    with _inventory_job_lock:
+        job = _inventory_jobs.get(job_id)
+        if not job or job.get("finished") is not None and time.monotonic() - job["finished"] > INVENTORY_JOB_TTL:
+            raise HTTPException(status_code=404, detail="Inventory job expired or the service restarted. Retry the device.")
+        return JSONResponse(_inventory_job_view(job), headers={"Cache-Control": "no-store"})
+
+
+@app.post("/api/reporting/inventory-jobs/{job_id}/cancel")
+def cancel_inventory_job(job_id: str):
+    with _inventory_job_lock:
+        job = _inventory_jobs.get(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Inventory job not found.")
+        if job["status"] in ("queued", "running", "cancelling"):
+            job["cancel"].set()
+            job["status"] = "cancelling"
+        return JSONResponse(_inventory_job_view(job), headers={"Cache-Control": "no-store"})
+
+
 @app.post("/api/reporting/inventory")
 def reporting_inventory(p: DeviceRequest):
+    return collect_inventory(p)
+
+
+def collect_inventory(p: DeviceRequest, cancel=None):
     platform = LIVE_PLATFORM_ALIASES.get(p.platform, p.platform)
     if platform not in INVENTORY_COMMANDS:
         raise HTTPException(status_code=400, detail="Unsupported inventory platform.")
@@ -799,6 +905,8 @@ def reporting_inventory(p: DeviceRequest):
         conn, _ = connect(p, live=True)
         outputs, warnings = {}, []
         for command in INVENTORY_COMMANDS[platform]:
+            if cancel is not None and cancel.is_set():
+                raise HTTPException(status_code=499, detail="Inventory collection cancelled.")
             try:
                 result = conn.send_command(command, read_timeout=40)
                 if LIVE_CLI_ERROR_RE.search(result):

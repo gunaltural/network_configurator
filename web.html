@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Network Configurator v5.14.2</title>
+<title>Network Configurator v5.15.0</title>
 <style>
 :root{
   --bg:#0d1117;--panel:#161b22;--panel2:#1f2630;--line:#2b3440;
@@ -404,7 +404,7 @@ pre{
     <div class="logo">NC</div>
     <div><h1>Network Configurator</h1><small>Configure · Validate · Troubleshoot</small></div>
   </div>
-  <div class="badge">Version 5.14.2 · Combined Workspace Reporting</div>
+  <div class="badge">Version 5.15.0 · Combined Workspace Reporting</div>
 </header>
 
 <div class="layout">
@@ -460,7 +460,7 @@ pre{
           <button class="tab" data-tab="deploy">Deploy Config</button>
           <button class="tab" data-tab="verify">Verification</button>
           <button class="tab" data-tab="trouble">Troubleshooting</button>
-          <button class="tab" data-tab="notes">Design Notes</button>
+          <button class="tab" data-tab="notes">Design Notes</button><label id="designNotesLanguageControl" hidden>Notes language <select id="designNotesLanguage"><option value="en">English</option><option value="tr">Türkçe</option></select></label>
         </div>
         <div id="deployPanel" class="simple-deploy" hidden>
           <div class="simple-deploy-head">
@@ -632,6 +632,7 @@ pre{
 </div>
 
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="/engineering-locale.js"></script>
 <script>
 let tech="BASIC", tab="config"; window.activeTech=tech; window.currentTech=tech;
 
@@ -909,7 +910,7 @@ STP:{
 
 modules["EVPN"]={
  title:"EVPN / VXLAN",
- subtitle:"Dual-DC EVPN Fabric · L2 Stretch · Type-2/3 · L3VNI / Type-5",
+ subtitle:"EVPN Fabric · Full-Mesh / Dual RR / Multi-Site · Type-2/3 · L3VNI / Type-5",
  params:()=>`
  <div class="section-title">1 · Fabric Design</div>
  <div class="param-grid">
@@ -924,8 +925,9 @@ modules["EVPN"]={
    <div><label>DC-2 ASN</label><input id="evAsR" value="65002"></div>
    <div><label>EVPN eBGP Multihop</label><input id="evMultihop" value="5"></div>
  </div>
- <p class="note"><b>Control plane:</b> intra-DC VTEPs use iBGP EVPN; DCI uses R1↔R3 and R2↔R4 eBGP EVPN. VTEP loopback reachability remains an underlay prerequisite.</p>
+ <p class="note" id="evControlPlaneNote"></p>
 
+ <div id="evRrParams" hidden><div class="section-title">Route Reflectors · Shared Overlay ASN</div><div class="param-grid"><div><label>RR-1 hostname</label><input id="evRr1" value="RR-1"></div><div><label>RR-1 loopback</label><input id="evRrLo1" value="10.255.100.1/32"></div><div><label>RR-2 hostname</label><input id="evRr2" value="RR-2"></div><div><label>RR-2 loopback</label><input id="evRrLo2" value="10.255.100.2/32"></div></div><p class="note">All four VTEPs peer with both control-plane-only RRs using the shared ASN. Underlay connectivity is engineered separately.</p></div>
  <div class="section-title">2 · VTEPs / Border Nodes</div>
  <div class="bgp-card-grid">
   <div class="bgp-device-card"><h4>DC-1 · VTEP-1</h4><div class="param-grid">
@@ -1013,7 +1015,7 @@ modules["EVPN"]={
      <option value="R2">DC-1 · VTEP-2</option>
      <option value="R3">DC-2 · VTEP-1</option>
      <option value="R4">DC-2 · VTEP-2</option>
-     <option value="BGW1">DC-1 · BGW-1</option>
+     <option value="RR1">RR-1</option><option value="RR2">RR-2</option><option value="BGW1">DC-1 · BGW-1</option>
      <option value="BGW2">DC-2 · BGW-2</option>
    </select></div>
  </div>
@@ -2106,20 +2108,20 @@ function syncTopology(){
       <text x="475" y="28" text-anchor="middle" class="vpc-domain-title">SINGLE DC · 4 VTEP · iBGP EVPN OVERLAY</text>
       <rect x="90" y="55" width="770" height="325" rx="18" class="vpc-domain-box"/><text x="475" y="82" text-anchor="middle" class="vpc-domain-title">EVPN FABRIC · AS ${asL}</text>
       <line x1="250" y1="140" x2="700" y2="140" style="stroke:#ffad42;stroke-width:2.4;stroke-dasharray:7 5"/><line x1="250" y1="290" x2="700" y2="290" style="stroke:#ffad42;stroke-width:2.4;stroke-dasharray:7 5"/><line x1="250" y1="140" x2="250" y2="290" style="stroke:#ffad42;stroke-width:2.4;stroke-dasharray:7 5"/><line x1="700" y1="140" x2="700" y2="290" style="stroke:#ffad42;stroke-width:2.4;stroke-dasharray:7 5"/>
+      <line x1="250" y1="140" x2="700" y2="290" style="stroke:#ffad42;stroke-width:1.5;stroke-dasharray:7 5"/><line x1="700" y1="140" x2="250" y2="290" style="stroke:#ffad42;stroke-width:1.5;stroke-dasharray:7 5"/>
       ${node(250,140,r[0],lo[0])}${node(700,140,r[1],lo[1])}${node(250,290,r[2],lo[2])}${node(700,290,r[3],lo[3])}
-      <text x="475" y="215" text-anchor="middle" class="vpc-small">Full-mesh / RR-ready iBGP EVPN control plane</text>${services}</svg></div>`;return;
+      <text x="475" y="215" text-anchor="middle" class="vpc-small">Full-mesh iBGP EVPN · 3 peers per VTEP</text>${services}</svg></div>`;return;
    }
 
    if(model==="dual-dc-rr"){
-     area.innerHTML=`<div class="vpc-svg-wrap"><svg class="vpc-svg" viewBox="0 0 950 520" role="img" aria-label="Dual data center EVPN route reflector topology">
-      <text x="475" y="28" text-anchor="middle" class="vpc-domain-title">DUAL DC · ROUTE REFLECTOR EVPN OVERLAY</text>
+     const rr1=e(v("evRr1")||"RR-1"),rr2=e(v("evRr2")||"RR-2");
+     area.innerHTML=`<div class="vpc-svg-wrap"><svg class="vpc-svg" viewBox="0 0 950 520" role="img" aria-label="Dual data center EVPN topology with two configured route reflectors">
+      <text x="475" y="28" text-anchor="middle" class="vpc-domain-title">DUAL DC · TWO ROUTE REFLECTORS · SHARED AS ${asL}</text>
       <rect x="70" y="55" width="360" height="325" rx="18" class="vpc-domain-box"/><rect x="520" y="55" width="360" height="325" rx="18" class="vpc-domain-box"/>
-      <text x="250" y="82" text-anchor="middle" class="vpc-domain-title">DC-1 · AS ${asL}</text><text x="700" y="82" text-anchor="middle" class="vpc-domain-title">DC-2 · AS ${asR}</text>
-      <rect x="405" y="92" width="140" height="54" rx="12" class="vpc-peer-label-bg"/><text x="475" y="116" text-anchor="middle" class="vpc-device-name">EVPN RR</text><text x="475" y="136" text-anchor="middle" class="vpc-small">Route Reflector</text>
-      ${[[250,155],[250,290],[700,155],[700,290]].map(([x,y])=>`<line x1="475" y1="146" x2="${x}" y2="${y}" style="stroke:#ffad42;stroke-width:2.2;stroke-dasharray:7 5"/>`).join("")}
-      ${node(250,155,r[0],lo[0])}${node(250,290,r[1],lo[1])}${node(700,155,r[2],lo[2])}${node(700,290,r[3],lo[3])}
-      <line x1="322" y1="155" x2="628" y2="155" class="vpc-member-line"/><line x1="322" y1="290" x2="628" y2="290" class="vpc-member-line"/>
-      <text x="475" y="279" text-anchor="middle" class="vpc-small">Dual DCI data paths</text>${services}</svg></div>`;return;
+      <text x="250" y="82" text-anchor="middle" class="vpc-domain-title">DC-1 · AS ${asL}</text><text x="700" y="82" text-anchor="middle" class="vpc-domain-title">DC-2 · AS ${asL}</text>
+      ${[[410,rr1],[540,rr2]].map(([x,name])=>`<rect x="${x-58}" y="95" width="116" height="52" rx="12" class="vpc-peer-label-bg"/><text x="${x}" y="118" text-anchor="middle" class="vpc-device-name">${name}</text><text x="${x}" y="137" text-anchor="middle" class="vpc-small">EVPN RR</text>${[[220,195],[220,305],[730,195],[730,305]].map(([vx,vy])=>`<line x1="${x}" y1="147" x2="${vx}" y2="${vy}" style="stroke:#ffad42;stroke-width:1.8;stroke-dasharray:7 5"/>`).join("")}`).join("")}
+      ${node(220,195,r[0],lo[0])}${node(220,305,r[1],lo[1])}${node(730,195,r[2],lo[2])}${node(730,305,r[3],lo[3])}
+      <text x="475" y="365" text-anchor="middle" class="vpc-small">Logical EVPN sessions · routed underlay designed separately</text>${services}</svg></div>`;return;
    }
 
    if(model==="multisite"){
@@ -3805,13 +3807,21 @@ function evpnV431Ui(){
  const n=Math.max(1,Math.min(4,+v("evVrfCount")||1));
  document.querySelectorAll("[data-evpn-vrf]").forEach(el=>el.style.display=(+el.dataset.evpnVrf<=n)?"":"none");
  const model=v("evFabricModel")||"dual-dc";
+ const rrFields=document.getElementById("evRrParams");if(rrFields)rrFields.hidden=model!=="dual-dc-rr";
+ const controlNote=document.getElementById("evControlPlaneNote");if(controlNote)controlNote.textContent=model==="single-dc"?"Control plane: four VTEPs form a full iBGP EVPN mesh using one ASN. Routed underlay reachability is required.":model==="dual-dc-rr"?"Control plane: four VTEPs peer with both RRs using one overlay ASN across the two DCs. Physical underlay and DCI connectivity are engineered separately.":"Control plane: intra-DC VTEPs use iBGP EVPN; inter-DC peering uses eBGP EVPN. Underlay reachability is required.";
+ const shared=["single-dc","dual-dc-rr"].includes(model),asn2=document.getElementById("evAsR");if(asn2){asn2.disabled=shared;asn2.parentElement.hidden=shared;}
+ const asn1=document.getElementById("evAsL");if(asn1)asn1.previousElementSibling.textContent=shared?"Overlay ASN":"DC-1 ASN";
+ const multiHop=document.getElementById("evMultihop");if(multiHop)multiHop.parentElement.hidden=shared;
+ ["evR1","evR2","evR3","evR4"].forEach((id,i)=>{const card=document.getElementById(id)?.closest(".bgp-device-card");if(card)card.querySelector("h4").textContent=model==="single-dc"?`Fabric · VTEP-${i+1}`:`DC-${i<2?1:2} · VTEP-${i%2+1}`;});
  const bgw=document.getElementById("evBgwParams"); if(bgw)bgw.style.display=model==="multisite"?"":"none";
- const out=document.getElementById("evOutputDevice"); if(out){[...out.options].forEach(o=>{if(o.value==="BGW1"||o.value==="BGW2")o.hidden=model!=="multisite";}); if(model!=="multisite"&&(out.value==="BGW1"||out.value==="BGW2"))out.value="all";}
+ const out=document.getElementById("evOutputDevice"); if(out){[...out.options].forEach(o=>{if(o.value==="BGW1"||o.value==="BGW2")o.hidden=model!=="multisite";if(o.value==="RR1"||o.value==="RR2")o.hidden=model!=="dual-dc-rr";}); if(model!=="multisite"&&(out.value==="BGW1"||out.value==="BGW2"))out.value="all";}
+ if(out&&model!=="dual-dc-rr"&&/^RR/.test(out.value))out.value="all";
  const rr=document.getElementById("evRrMode"),ms=document.getElementById("evMultisiteBg");
- if(rr && model==="dual-dc-rr") rr.checked=true;
- if(ms && model==="multisite") ms.checked=true;
+ if(rr){rr.checked=model==="dual-dc-rr";rr.disabled=true;}
+ if(ms){ms.checked=model==="multisite";ms.disabled=true;}
 }
 function evpnGenerate(tab){
+ const evModel=v("evFabricModel")||"dual-dc";
  const p=platform(),
  evVrfCount=Math.max(1,Math.min(4,+v("evVrfCount")||1)),
  evVrfs=Array.from({length:evVrfCount},(_,i)=>({name:v(i?`evVrf${i+1}`:"evVrf"),vni:v(i?`evL3Vni${i+1}`:"evL3Vni"),rt:v(i?`evRt${i+1}`:"evRt")})),
@@ -3826,14 +3836,27 @@ function evpnGenerate(tab){
  bgwDciIp1=v("evBgwDciIp1")||"172.31.0.1/30",bgwDciIp2=v("evBgwDciIp2")||"172.31.0.2/30",
  rid1=v("evRid1"),rid2=v("evRid2"),rid3=v("evRid3"),rid4=v("evRid4"),
  lo1=v("evLo1"),lo2=v("evLo2"),lo3=v("evLo3"),lo4=v("evLo4"),
- asL=v("evAsL"),asR=v("evAsR"),vrf=v("evVrf"),l3vni=v("evL3Vni"),rt=v("evRt"),
+ asL=v("evAsL"),asR=["single-dc","dual-dc-rr"].includes(evModel)?v("evAsL"):v("evAsR"),vrf=v("evVrf"),l3vni=v("evL3Vni"),rt=v("evRt"),
  mh=v("evMultihop"),
  vlan10=v("evVlan10"),vni10=v("evVni10"),vlan20=v("evVlan20"),vni20=v("evVni20"),
  vlan100=v("evVlan100"),svi100=v("evSvi100"),pfx100=v("evPfx100"),
  vlan200=v("evVlan200"),svi200=v("evSvi200"),pfx200=v("evPfx200");
 
- const evModel=v("evFabricModel")||"dual-dc";
  const ip=x=>(x||"").split("/")[0];
+ const rrNodes=[{key:"RR1",name:v("evRr1")||"RR-1",rid:ip(v("evRrLo1")||"10.255.100.1/32"),lo:v("evRrLo1")||"10.255.100.1/32"},{key:"RR2",name:v("evRr2")||"RR-2",rid:ip(v("evRrLo2")||"10.255.100.2/32"),lo:v("evRrLo2")||"10.255.100.2/32"}];
+ const overlayPeers=(lo,asn,local,remote,remoteAs)=>evModel==="single-dc"?[lo1,lo2,lo3,lo4].filter(x=>ip(x)!==ip(lo)).map(x=>({ip:ip(x),asn:asL})):evModel==="dual-dc-rr"?rrNodes.map(x=>({ip:x.rid,asn:asL})):[{ip:ip(local),asn},{ip:ip(remote),asn:remoteAs}];
+ const rrConfig=node=>{
+   const peers=[lo1,lo2,lo3,lo4].map(ip);
+   if(p==="Cisco NX-OS")return `hostname ${node.name}\nfeature bgp\ninterface loopback0\n  ip address ${node.lo}\nrouter bgp ${asL}\n  router-id ${node.rid}\n  address-family l2vpn evpn\n${peers.map(peer=>`  neighbor ${peer}\n    remote-as ${asL}\n    update-source loopback0\n    address-family l2vpn evpn\n      route-reflector-client\n      send-community\n      send-community extended`).join("\n")}\n# Control-plane-only RR: underlay reachability is configured separately.`;
+   if(p==="Arista EOS")return `hostname ${node.name}\nip routing\ninterface Loopback0\n   ip address ${node.lo}\nrouter bgp ${asL}\n   router-id ${node.rid}\n${peers.map(peer=>`   neighbor ${peer} remote-as ${asL}\n   neighbor ${peer} update-source Loopback0\n   neighbor ${peer} send-community extended`).join("\n")}\n   address-family evpn\n${peers.map(peer=>`      neighbor ${peer} activate\n      neighbor ${peer} route-reflector-client`).join("\n")}\n! Control-plane-only RR; EVPN next hop remains the originating VTEP.`;
+   return `sysname ${node.name}\ninterface LoopBack1\n ip address ${node.rid} 255.255.255.255\nbgp ${asL}\n router-id ${node.rid}\n${peers.map(peer=>` peer ${peer} as-number ${asL}\n peer ${peer} connect-interface LoopBack1`).join("\n")}\n l2vpn-family evpn\n  undo policy vpn-target\n${peers.map(peer=>`  peer ${peer} enable\n  peer ${peer} reflect-client`).join("\n")}\n#\ncommit\n# Control-plane-only RR; no next-hop-local is applied.`;
+ };
+ const finishOverlay=configs=>{
+   if(evModel==="dual-dc-rr")rrNodes.forEach(node=>configs[node.key]=rrConfig(node));
+   if(evOutput!=="all")return `######## ${evOutput} ########\n${configs[evOutput]||"# Unknown EVPN device"}`;
+   const nodes=[{key:"R1",name:r1},{key:"R2",name:r2},{key:"R3",name:r3},{key:"R4",name:r4},...(evModel==="dual-dc-rr"?rrNodes:[])];
+   return nodes.map(node=>`######## ${node.name} · ${node.key.startsWith("RR")?"EVPN ROUTE REFLECTOR":"FABRIC VTEP"} ########\n${configs[node.key]}`).join("\n\n")+"\n# Routed underlay reachability and MTU must be engineered separately.";
+ };
  const prefixLen=x=>(x||"").includes("/")?(x.split("/")[1]):"32";
  const rtAdmin=String(rt||"65000:50000").split(":")[0]||"65000";
  const l2Rt=vni=>`${rtAdmin}:${vni}`;
@@ -4049,20 +4072,11 @@ ${c("evArpSuppress")?`    suppress-arp
 router bgp ${asn}
   router-id ${rid}
   address-family l2vpn evpn
-  neighbor ${ip(ibgp)}
-    remote-as ${asn}
+${overlayPeers(lo,asn,ibgp,ebgp,remoteAs).map(peer=>`  neighbor ${peer.ip}
+    remote-as ${peer.asn}
     update-source loopback0
-    address-family l2vpn evpn
-${c("evSendCommunity")?`      send-community
-      send-community extended
-`:""}  neighbor ${ip(ebgp)}
-    remote-as ${remoteAs}
-    update-source loopback0
-    ebgp-multihop ${mh}
-    address-family l2vpn evpn
-${c("evSendCommunity")?`      send-community
-      send-community extended
-`:""}${nxosBgpVrfs(localPfx)}`;
+${String(peer.asn)!==String(asn)?`    ebgp-multihop ${mh}\n`:""}    address-family l2vpn evpn
+${c("evSendCommunity")?`      send-community\n      send-community extended\n`:""}`).join("")}${nxosBgpVrfs(localPfx)}`;
  }
 
 
@@ -4207,7 +4221,8 @@ ${sitePeers.map(x=>`  neighbor ${ip(x)}
     BGW1:nxosBgw(bgw1,bgwRid1,bgwLo1,asL,bgwLo2,asR,msId1,bgwFabIf1,bgwDciIf1,bgwDciIp1,[lo1,lo2]),
     BGW2:nxosBgw(bgw2,bgwRid2,bgwLo2,asR,bgwLo1,asL,msId2,bgwFabIf2,bgwDciIf2,bgwDciIp2,[lo3,lo4])
    };
-   if(evOutput!=="all") return `######## ${evOutput} · ${({R1:r1,R2:r2,R3:r3,R4:r4,BGW1:bgw1,BGW2:bgw2})[evOutput]} ########
+   if(["single-dc","dual-dc-rr"].includes(evModel))return finishOverlay(configs);
+   if(evOutput!=="all") return `######## ${evOutput} · ${({R1:r1,R2:r2,R3:r3,R4:r4,RR1:rrNodes[0].name,RR2:rrNodes[1].name,BGW1:bgw1,BGW2:bgw2})[evOutput]} ########
 ${configs[evOutput]||"# Unknown EVPN device"}`;
    return `######## DC-1 · ${r1} ########
 ${configs.R1}
@@ -4276,13 +4291,9 @@ ${aristaVxlanVrfs()}
 router bgp ${asn}
    router-id ${rid}
    maximum-paths 4
-   neighbor ${ip(ibgp)} remote-as ${asn}
-   neighbor ${ip(ibgp)} update-source Loopback0
-   neighbor ${ip(ibgp)} send-community extended
-   neighbor ${ip(ebgp)} remote-as ${remoteAs}
-   neighbor ${ip(ebgp)} update-source Loopback0
-   neighbor ${ip(ebgp)} ebgp-multihop ${mh}
-   neighbor ${ip(ebgp)} send-community extended
+${overlayPeers(lo,asn,ibgp,ebgp,remoteAs).map(peer=>`   neighbor ${peer.ip} remote-as ${peer.asn}
+   neighbor ${peer.ip} update-source Loopback0
+${String(peer.asn)!==String(asn)?`   neighbor ${peer.ip} ebgp-multihop ${mh}\n`:""}   neighbor ${peer.ip} send-community extended`).join("\n")}
 
    vlan ${vlan10}
       rd ${rid}:${vni10}
@@ -4297,8 +4308,7 @@ router bgp ${asn}
 ${aristaBgpVrfs(rid)}
 
    address-family evpn
-      neighbor ${ip(ibgp)} activate
-      neighbor ${ip(ebgp)} activate
+${overlayPeers(lo,asn,ibgp,ebgp,remoteAs).map(peer=>`      neighbor ${peer.ip} activate`).join("\n")}
 
 ! Expected local Type-5 source: ${localPfx}
 ! EOS native model: MAC-VRF per VLAN + IP-VRF/L3VNI + EVPN AF.`;
@@ -4359,7 +4369,8 @@ ${sitePeers.map(x=>`      neighbor ${ip(x)} activate`).join("\n")}
     BGW1:aristaBgw(bgw1,bgwRid1,bgwLo1,asL,bgwLo2,asR,[lo1,lo2]),
     BGW2:aristaBgw(bgw2,bgwRid2,bgwLo2,asR,bgwLo1,asL,[lo3,lo4])
    };
-   if(evOutput!=="all") return `######## ${evOutput} · ${({R1:r1,R2:r2,R3:r3,R4:r4,BGW1:bgw1,BGW2:bgw2})[evOutput]} ########
+   if(["single-dc","dual-dc-rr"].includes(evModel))return finishOverlay(configs);
+   if(evOutput!=="all") return `######## ${evOutput} · ${({R1:r1,R2:r2,R3:r3,R4:r4,RR1:rrNodes[0].name,RR2:rrNodes[1].name,BGW1:bgw1,BGW2:bgw2})[evOutput]} ########
 ${configs[evOutput]||"# Unknown EVPN device"}`;
    return `######## DC-1 · ${r1} ########
 ${configs.R1}
@@ -4423,17 +4434,12 @@ interface Nve1
 #
 bgp ${asn}
  router-id ${rid}
- peer ${ip(ibgp)} as-number ${asn}
- peer ${ip(ibgp)} connect-interface LoopBack1
- peer ${ip(ebgp)} as-number ${remoteAs}
- peer ${ip(ebgp)} connect-interface LoopBack1
+${overlayPeers(lo,asn,ibgp,ebgp,remoteAs).map(peer=>` peer ${peer.ip} as-number ${peer.asn}
+ peer ${peer.ip} connect-interface LoopBack1${String(peer.asn)!==String(asn)?`\n peer ${peer.ip} ebgp-max-hop ${mh}`:""}`).join("\n")}
  #
  l2vpn-family evpn
   policy vpn-target
-  peer ${ip(ibgp)} enable
-  peer ${ip(ibgp)} advertise irb
-  peer ${ip(ebgp)} enable
-  peer ${ip(ebgp)} advertise irb
+${overlayPeers(lo,asn,ibgp,ebgp,remoteAs).map(peer=>`  peer ${peer.ip} enable\n  peer ${peer.ip} advertise irb`).join("\n")}
  #
 ${huaweiBgpVrfs()}
 #
@@ -4501,7 +4507,8 @@ commit
     BGW1:huaweiBgw(bgw1,bgwRid1,bgwLo1,asL,bgwLo2,asR,[lo1,lo2]),
     BGW2:huaweiBgw(bgw2,bgwRid2,bgwLo2,asR,bgwLo1,asL,[lo3,lo4])
    };
-   if(evOutput!=="all") return `######## ${evOutput} · ${({R1:r1,R2:r2,R3:r3,R4:r4,BGW1:bgw1,BGW2:bgw2})[evOutput]} ########
+   if(["single-dc","dual-dc-rr"].includes(evModel))return finishOverlay(configs);
+   if(evOutput!=="all") return `######## ${evOutput} · ${({R1:r1,R2:r2,R3:r3,R4:r4,RR1:rrNodes[0].name,RR2:rrNodes[1].name,BGW1:bgw1,BGW2:bgw2})[evOutput]} ########
 ${configs[evOutput]||"# Unknown EVPN device"}`;
    return `######## DC-1 · ${r1} ########
 ${configs.R1}
@@ -5423,14 +5430,17 @@ function workspaceDesignNoteParameters(kind=tech){
    .filter(line=>line&&!/^(?:design notes?|.+ design notes?|secure management baseline|design check|guide-based features|consistency)$/i.test(line))
    .filter(line=>line&&!/^PASS\s*·/i.test(line))
    .filter(line=>{const key=line.toLowerCase();if(seen.has(key))return false;seen.add(key);return true;})
-   .slice(0,24).map(impact=>({label:labelFor(impact),value:"Design boundary",impact:impact.slice(0,1200)}));
+   .slice(0,24).map(impact=>({label:NetworkLocale.classifyNote(labelFor(impact),impact),value:"Design boundary",impact:impact.slice(0,1200)}));
 }
 function enrichedDesignNotes(module){
  const read=id=>{const node=document.getElementById(id);return node?.type==="checkbox"?(node.checked?"Enabled":"Disabled"):(node?.value||"");};
- const decisions=window.reportEngineeringDecisions?.(tech,read,platform())||[],notes=workspaceDesignNoteParameters(tech),lines=[`${technologyLabel(tech,platform())} · Design Decisions and Engineering Notes`,"",`Platform: ${platform()}`,"Generated from the current Technology Workspace selections.",""];
- if(decisions.length){lines.push("DESIGN DECISIONS AND NETWORK IMPACT","");decisions.forEach((item,index)=>lines.push(`${index+1}. ${item.label}`,`Selected design: ${item.value}`,`Network impact: ${item.impact}`,""));}
- if(notes.length){lines.push("IMPLEMENTATION ASSUMPTIONS, RISKS AND BOUNDARIES","");notes.forEach((item,index)=>lines.push(`${index+1}. ${item.impact}`));}
- lines.push("","These notes form part of the design record and are transferred to Maintenance and Reporting. Validate platform and software-release behavior before production deployment.");
+ const language=document.getElementById("designNotesLanguage")?.value||"en",tr=language==="tr";
+ const localize=p=>NetworkLocale.localizeParameter(p,language);
+ const decisions=(window.reportEngineeringDecisions?.(tech,read,platform())||[]).map(localize),notes=workspaceDesignNoteParameters(tech).map(localize).filter((p,i,all)=>all.findIndex(x=>x.label===p.label&&x.impact===p.impact)===i);
+ const lines=[`${technologyLabel(tech,platform())} · ${tr?"Tasarım kararları ve mühendislik notları":"Design decisions and engineering notes"}`,"",`${tr?"Platform":"Platform"}: ${platform()}`,tr?"Mevcut Technology Workspace seçimlerinden üretilmiştir.":"Generated from the current Technology Workspace selections.",""];
+ if(decisions.length){lines.push(tr?"TASARIM KARARLARI VE AĞA ETKİLERİ":"DESIGN DECISIONS AND NETWORK IMPACT","");decisions.forEach((item,index)=>lines.push(`${index+1}. ${item.label}`,`${tr?"Seçilen tasarım":"Selected design"}: ${item.value}`,`${tr?"Ağa etkisi":"Network impact"}: ${item.impact}`,""));}
+ if(notes.length){lines.push(tr?"UYGULAMA VARSAYIMLARI, RİSKLER VE SINIRLAR":"IMPLEMENTATION ASSUMPTIONS, RISKS AND BOUNDARIES","");notes.forEach((item,index)=>lines.push(`${index+1}. ${item.label}`,item.impact,""));}
+ lines.push("",tr?"Bu notlar tasarım kaydının parçasıdır ve Maintenance and Reporting bölümüne aktarılır. Üretim öncesinde hedef platform ve yazılım sürümüyle doğrulanmalıdır.":"These notes form part of the design record and are transferred to Maintenance and Reporting. Validate platform and software-release behavior before production deployment.");
  return lines.join("\n");
 }
 
@@ -5448,6 +5458,7 @@ function deviceOutputUi(){
 }
 
 function renderOutput(){
+ const noteControl=document.getElementById("designNotesLanguageControl");if(noteControl)noteControl.hidden=tab!=="notes";
  if(tech==="BGP")bgpV39ContextUI();
  if(tech==="VPC"){vpcLeafUi();vpcV42ContextUI();} if(tech==="EVPN")evpnV431Ui();
  deviceOutputUi();
@@ -5510,6 +5521,7 @@ document.querySelectorAll(".tech").forEach(b=>b.addEventListener("click",()=>{
  b.classList.add("active"); tech=b.dataset.tech; window.activeTech=tech; window.currentTech=tech; renderModule();
 }));
 
+document.getElementById("designNotesLanguage").addEventListener("change",renderOutput);
 document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{
  document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
  b.classList.add("active"); tab=b.dataset.tab; renderOutput();
@@ -5579,7 +5591,7 @@ renderModule();
    const active=(window.activeTech||window.currentTech||"").toString().toUpperCase();
    const read=id=>Number(document.getElementById(id)?.value)||0,pl=platform();
    const leafField=pl==="Arista EOS"?"arLeafCount":pl==="Huawei_CE_SW"?"hwLeafCount":pl==="Cisco IOS-XE"?"swvLeafCount":"vpcLeafCount";
-   const n={BASIC:1,BGP:read("bgpCeCount")+read("bgpIspCount"),OSPF:2,STP:2+read("stpLeafCount"),VPC:2+read(leafField),EVPN:document.getElementById("evFabricModel")?.value==="multisite"?6:4,SDWAN:1,QOS:2}[active]||"—";
+   const n={BASIC:1,BGP:read("bgpCeCount")+read("bgpIspCount"),OSPF:2,STP:2+read("stpLeafCount"),VPC:2+read(leafField),EVPN:["multisite","dual-dc-rr"].includes(document.getElementById("evFabricModel")?.value)?6:4,SDWAN:1,QOS:2}[active]||"—";
    $("v3DeviceCount").textContent=n;
  }
  document.addEventListener("change",e=>{if(e.target.id==="platform"||e.target.closest("#params"))updateHealth();});
@@ -5783,9 +5795,9 @@ renderModule();
      return decisions;
    }
    if(kind==="EVPN"){
-     const model=r("evFabricModel"),m={"dual-dc":"dual data center","single-dc":"single fabric","dual-dc-rr":"dual data center with illustrated RR","multisite":"multi-site with border gateways"}[model]||model;
-     add("EVPN fabric and control plane",`${m} · AS ${r("evAsL")}${model==="single-dc"?"":` / ${r("evAsR")}`}`,
-       `BGP EVPN is the overlay control plane: it distributes endpoint and tenant reachability, while the routed underlay must independently provide stable loopback/VTEP reachability and sufficient MTU. ${model==="multisite"?`Border gateways create the DCI policy and failure boundary, using site IDs ${r("evMsId1")} and ${r("evMsId2")}.`:model==="dual-dc-rr"?"The route reflector is illustrative and has no generated device configuration, so control-plane redundancy and next-hop handling remain design items.":model==="single-dc"?"The current generator still uses DC-specific AS and cross-site peer templates in this view; review its CLI before use.":"Inter-DC overlay sessions depend on the selected AS design and routed DCI."} An established EVPN session does not prove VXLAN data-plane reachability.`);
+     const model=r("evFabricModel"),m={"dual-dc":"dual data center","single-dc":"single fabric","dual-dc-rr":"dual data center with two configured route reflectors","multisite":"multi-site with border gateways"}[model]||model;
+     add("EVPN fabric and control plane",`${m} · AS ${r("evAsL")}${["single-dc","dual-dc-rr"].includes(model)?"":` / ${r("evAsR")}`}`,
+       `BGP EVPN is the overlay control plane: it distributes endpoint and tenant reachability, while the routed underlay must independently provide stable loopback/VTEP reachability and sufficient MTU. ${model==="multisite"?`Border gateways create the DCI policy and failure boundary, using site IDs ${r("evMsId1")} and ${r("evMsId2")}.`:model==="dual-dc-rr"?"Both route reflectors and all four clients use the shared overlay ASN. Each VTEP peers with both RRs; route reflection preserves the originating VTEP next hop. RR and underlay failure domains must be independent.":model==="single-dc"?"All four VTEPs use the shared overlay ASN with a full mesh of three iBGP EVPN neighbors per VTEP.":"Inter-DC overlay sessions depend on the selected AS design and routed DCI."} An established EVPN session does not prove VXLAN data-plane reachability.`);
      add("Layer 2 extension",`VLAN ${r("evVlan10")} → VNI ${r("evVni10")} · VLAN ${r("evVlan20")} → VNI ${r("evVni20")}`,
        `The selected VLAN/VNI mappings extend these broadcast domains between participating VTEPs through VXLAN. EVPN Type-2 reachability distributes learned endpoint MAC information; ${on("evIngressReplication")?"ingress replication is selected for BUM handling.":"BUM transport must match the generated VTEP configuration and underlay."} Extending a VLAN also extends its Layer 2 failure domain.`);
      const count=Math.min(4,Math.max(1,Number(r("evVrfCount"))||1));
@@ -5917,14 +5929,21 @@ renderModule();
        upper.forEach(id=>special("Site-local EVPN",id,bgw1));lower.forEach(id=>special("Site-local EVPN",id,bgw2));
        link(bgw1,bgw2,get("evBgwDciIf1"),get("evBgwDciIf2"),"Multi-site DCI / eBGP EVPN");
        upper.push(bgw1);lower.push(bgw2);
-     }else if(!single){
+     }else if(!single&&model!=="dual-dc-rr"){
        special("EVPN overlay",upper[0],lower[0],"","","BGP EVPN adjacency over routed underlay.");
        special("EVPN overlay",upper[1],lower[1],"","","BGP EVPN adjacency over routed underlay.");
      }
-     configs([...upper.slice(0,2),...lower.slice(0,2),...upper.slice(2),...lower.slice(2)],"evOutputDevice");
+     const configIds=[...upper.slice(0,2),...lower.slice(0,2),...upper.slice(2),...lower.slice(2)];
+     if(single)for(let i=0;i<configIds.length;i++)for(let j=i+1;j<configIds.length;j++)special("iBGP EVPN",configIds[i],configIds[j],"","","Logical full-mesh peering over the routed underlay.");
+     if(model==="dual-dc-rr"){
+       const rrs=[add("upper",get("evRr1")||"RR-1"),add("lower",get("evRr2")||"RR-2")];
+       configIds.forEach(id=>rrs.forEach(rr=>special("RR client EVPN",id,rr,"","","Logical iBGP EVPN session using the shared overlay ASN.")));
+       configIds.push(...rrs);
+     }
+     configs(configIds,"evOutputDevice");
      parameters.push({label:"Underlay scope",value:"EVPN adjacencies are logical; physical underlay interfaces are not inferred from the topology diagram."});
-     if(single)parameters.push({label:"Single DC configuration review",value:"The workspace displays one four-VTEP fabric, but its current configuration generator still uses DC-1/DC-2 ASNs and cross-DC peer settings. Review and adapt the generated configurations before deployment."});
-     if(model==="dual-dc-rr")parameters.push({label:"Route reflector scope",value:"The RR shown in the topology is illustrative. This workspace does not generate RR device configuration or model its inventory details."});
+
+     if(model==="dual-dc-rr")parameters.push({label:"Route reflector scope",value:"Two control-plane-only RRs are configured. All VTEPs peer with both RRs in one overlay ASN; physical underlay and redundancy must be engineered separately."});
    }else if(tech==="SDWAN"){
      const validation=sdValidate(true);
      roles.upper="Edge router";roles.lower="External endpoint";

@@ -7,11 +7,11 @@ const logic=html.slice(html.indexOf('  let inventoryMode='),html.indexOf('  let 
 const devices=[{id:'one',hostname:'SW1',model:'Keep model',vendor:'Cisco NX-OS'},{id:'two',hostname:'SW2',serial:'Keep serial',vendor:'Arista EOS'}];
 const elements=new Map();
 const $=id=>{if(!elements.has(id))elements.set(id,{value:'',disabled:false,textContent:'',innerHTML:'',hidden:false,querySelector:()=>null});return elements.get(id);};
-const rows=devices.map(d=>{const inputs={'target':{value:d.id+'.example.test'},sshPort:{value:'22'},sshUsername:{value:'test'},password:{value:''},secret:{value:''}};return {dataset:{batch:d.id},inputs,status:{textContent:''},querySelector(selector){if(selector==='[data-select]')return {checked:true};if(selector==='[data-result]')return this.status;return inputs[/data-key="(.*?)"/.exec(selector)[1]];}};});
+const rows=devices.map(d=>{const inputs={'target':{value:d.id+'.example.test'},sshPort:{value:'22'},sshUsername:{value:'test'},password:{value:''},secret:{value:''}};return {dataset:{batch:d.id},selection:{checked:true,dataset:{select:d.id}},inputs,status:{textContent:''},querySelector(selector){if(selector==='[data-select]')return this.selection;if(selector==='[data-result]')return this.status;return inputs[/data-key="(.*?)"/.exec(selector)[1]];}};});
 $('batchRows').querySelectorAll=()=>rows;
 $('batchPassword').value='test-password';
 let calls=0,reportUpdates=0;
-const context={crypto:webcrypto,$,val:id=>$(id).value,state:{devices,vendor:'Cisco NX-OS'},document:{querySelectorAll:()=>[]},deviceName:d=>d.hostname,esc:x=>String(x),vendorLabel:x=>x,renderReport(){reportUpdates++;},renderEditor(){},fetch:async(url,request)=>{const p=JSON.parse(request.body);assert.equal(p.password,'test-password');assert.equal(p.platform,devices[calls].vendor);calls++;return calls===1?{ok:false,json:async()=>({detail:'Test failure'})}:{ok:true,json:async()=>({hostname:'OBSERVED-SW2',model:'DCS-7050',serial:'',software_version:'4.32.1F',observed_at:'now',warnings:['serial unavailable']})};}};
+const context={setTimeout,crypto:webcrypto,$,val:id=>$(id).value,state:{devices,vendor:'Cisco NX-OS'},document:{querySelectorAll:selector=>selector.includes("#batchRows")?rows.map(row=>row.selection):[]},deviceName:d=>d.hostname,esc:x=>String(x),vendorLabel:x=>x,renderReport(){reportUpdates++;},renderEditor(){},fetch:async(url,request)=>{if(!request?.body)return context.jobResult;const p=JSON.parse(request.body);assert.equal(p.password,'test-password');assert.equal(p.platform,devices[calls].vendor);calls++;context.jobResult=calls===1?{ok:true,json:async()=>({status:'failed',error:'Test failure'})}:{ok:true,json:async()=>({status:'completed',result:{hostname:'OBSERVED-SW2',model:'DCS-7050',serial:'',software_version:'4.32.1F',observed_at:'now',warnings:['serial unavailable']}})};return {ok:true,json:async()=>({job_id:'test-job'})};}};
 vm.createContext(context);vm.runInContext(logic,context);
 await $('runInventoryBatch').onclick();
 assert.equal(calls,2,'failure must not stop the next device');
@@ -28,6 +28,23 @@ assert.equal(JSON.stringify(devices).includes('test-password'),false);
 console.log('Multi-device failure isolation, vendor routing, partial collection and credential exclusion passed.');
 assert.match(rows[0].status.textContent,/Connection failed/);
 assert.match(rows[1].status.textContent,/Connection successful/);
+// Retry collects only failed devices, preserving previous successful records.
+$('batchPassword').value='retry-password';let retryTargets=[];
+context.fetch=async(url,request)=>{if(request?.body){retryTargets.push(JSON.parse(request.body).target);return {ok:true,json:async()=>({job_id:'retry'})};}return {ok:true,json:async()=>({status:'completed',result:{hostname:'RETRIED-SW1',model:'TEST-MODEL',serial:'TEST-SERIAL',software_version:'1.0'}})};};
+$('retryInventoryBatch').onclick();
+for(let i=0;i<20&&vm.runInContext('batchRunning',context);i++)await new Promise(resolve=>setTimeout(resolve,1));
+assert.deepEqual(retryTargets,['one.example.test']);assert.equal(devices[1].observedHostname,'OBSERVED-SW2');
+assert.equal(vm.runInContext('state.inventoryDeviceIds.length',context),2);
+// Cancellation does not launch the next target or import a late success.
+rows.forEach(row=>row.selection.checked=true);$('batchPassword').value='cancel-password';let started=0,cancelRequests=0;
+context.fetch=async(url,request)=>{
+ if(request?.body){started++;await $('cancelInventoryBatch').onclick();return {ok:true,json:async()=>({job_id:'cancel-job'})};}
+ if(url.endsWith('/cancel')){cancelRequests++;return {ok:true,json:async()=>({status:'cancelling'})};}
+ return {ok:true,json:async()=>({status:'cancelled'})};
+};
+await $('runInventoryBatch').onclick();assert.equal(started,1);assert.equal(cancelRequests,1);assert.equal(vm.runInContext('state.inventoryDeviceIds.length',context),0);assert.equal(devices[1].sshCollectionState,'cancelled');assert.equal($('batchPassword').value,'');
+rows.forEach(row=>row.selection.checked=true);
+console.log('Background job polling, failed-only retry and cancellation without late inventory import passed.');
 devices.forEach(d=>{d.collectionMethod='manual';d.inventoryChannel='manual';});
 context.fetch=async()=>({ok:true,json:async()=>({rows:[
   {row:'2',id:'one',hostname:'OBSERVED-SW1',serial:'00012',softwareVersion:'',model:''},

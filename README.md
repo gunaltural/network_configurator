@@ -168,3 +168,14 @@ does not log in to an SSH server, and does not change any device configuration.
 
 The endpoint tests the user-selected device and port, subject to the same address policy
 as Live CLI. A failed TCP probe indicates that Render cannot reach that device and port.
+
+
+### v5.15.0 — EVPN, SSH collection and shared report language
+
+- Removed optional design–inventory assignment UI. Inventory remains independent of the Technology Workspace topology and generated configurations.
+- Single-DC EVPN uses one overlay ASN and full-mesh iBGP between four VTEPs. The two-DC RR model uses one shared overlay ASN, two explicit control-plane-only RRs, four clients and six device configurations. Physical underlay/DCI ports are intentionally not inferred.
+- Automatic inventory collection uses bounded background jobs with per-device results, progress, cancellation and failed/cancelled-only retries. Cancellation takes effect after the current SSH operation returns; it cannot instantly interrupt an in-progress SSH read. Job IDs are opaque capabilities, kept only in the active page; passwords are not returned or saved and are cleared after collection. Jobs expire after 15 minutes and are lost on service restart; retry from the page in that case. This implementation assumes one application process.
+- Reports and Design Notes share `engineering-locale.js`. Language selection applies to documentation only; parameter labels and CLI syntax remain unchanged. Engineer-written project fields are preserved.
+- Regression tests use synthetic output and mocked SSH; real-device/platform validation is still required.
+
+EVPN references: [Cisco NX-OS guide](https://www.cisco.com/c/en/us/td/docs/dcn/nx-os/nexus9000/105x/configuration/vxlan/cisco-nexus-9000-series-nx-os-vxlan-configuration-guide-release-105x/m_configuring_vxlan_bgp_evpn.html), [Arista EVPN guide](https://www.arista.com/en/um-eos/eos-configuring-evpn?searchword=eos+29+2+configuring+bgp), [Huawei CloudEngine distributed-gateway example](https://support.huawei.com/enterprise/en/doc/EDOC1000039339/5e782f6/example-for-configuring-nfvi-distributed-gateways-symmetric-mode).

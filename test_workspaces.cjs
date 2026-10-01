@@ -7,7 +7,7 @@ const errors=[];const vc=new VirtualConsole();vc.on('jsdomError',e=>errors.push(
 const catalog=JSON.parse(execFileSync('python',['-c','import app,json;print(json.dumps(app.live_commands()))'],{encoding:'utf8'}));
 let html=fs.readFileSync('web.html','utf8');
 html=html.replace(/\}\)\(\);\s*<\/script>\s*<\/body>/,'window.__audit={snapshot,applyProject,reportingDesign,combineReports};})();</script></body>');
-const dom=new JSDOM(html,{url:'https://test.invalid/',runScripts:'dangerously',virtualConsole:vc,beforeParse(w){w.scrollTo=()=>{};w.fetch=async()=>({ok:true,json:async()=>catalog});w.SVGElement.prototype.getBBox=()=>({x:0,y:0,width:720,height:300});w.SVGElement.prototype.getComputedTextLength=()=>80;}});
+const dom=new JSDOM(html,{url:'https://test.invalid/',runScripts:'dangerously',virtualConsole:vc,beforeParse(w){w.eval(fs.readFileSync("engineering-locale.js","utf8"));w.scrollTo=()=>{};w.fetch=async()=>({ok:true,json:async()=>catalog});w.SVGElement.prototype.getBBox=()=>({x:0,y:0,width:720,height:300});w.SVGElement.prototype.getComputedTextLength=()=>80;}});
 const w=dom.window,d=w.document;
 const pause=()=>new Promise(r=>setTimeout(r,80));
 const click=selector=>{assert.ok(d.querySelector(selector),selector);d.querySelector(selector).click();};
@@ -28,6 +28,24 @@ const reports=[];
    if(key==='SDWAN'&&!d.getElementById('sdHostname').value){assert.equal(report.configurations.length,0);assert.ok(report.parameters.some(p=>p.label==='Configuration pending'));}
    else assert.equal(report.configurations.length,report.devices.filter(x=>!x.external).length,`${key}/${option.value}: per-device configurations`);
    reports.push({...report,moduleKey:key,moduleTitle:report.technology});
+   for(const parameter of report.parameters||[])if(parameter.impact)assert.notEqual(w.NetworkLocale.localizeParameter(parameter,'tr').impact,parameter.impact,`${key}/${option.value}: untranslated ${parameter.label}`);
+   change('designNotesLanguage','tr');await pause();assert.ok(d.getElementById('output').textContent.includes('Tasarım kararları ve mühendislik notları'));assert.ok(!d.getElementById('output').textContent.includes('Selected design:'));
+   change('designNotesLanguage','en');await pause();assert.ok(d.getElementById('output').textContent.includes('Design decisions and engineering notes'));
+   if(key==='EVPN'){
+    for(const model of ['single-dc','dual-dc-rr']){
+     change('evFabricModel',model);await pause();click('.tab[data-tab="config"]');await pause();
+     const fabric=w.__audit.reportingDesign();assert.equal(fabric.devices.length,model==='single-dc'?4:6);assert.equal(fabric.configurations.length,fabric.devices.length);
+     assert.equal(fabric.specialLinks.length,model==='single-dc'?6:8);
+     for(const config of fabric.configurations.slice(0,4)){
+      assert.ok(!config.text.includes('65002'),'shared overlay must not use hidden DC-2 ASN');
+      const peers=option.value==='Huawei_CE_SW'?(config.text.match(/^ peer .* as-number /gm)||[]):option.value==='Cisco NX-OS'?(config.text.match(/^  neighbor /gm)||[]):(config.text.match(/^   neighbor .* remote-as /gm)||[]);
+      assert.equal(peers.length,model==='single-dc'?3:2,`${option.value}/${model}`);
+     }
+     if(model==='dual-dc-rr')for(const rr of fabric.configurations.slice(4)){assert.match(rr.text,/reflect-client|route-reflector-client/);assert.ok(!/interface [Nn]ve|interface Vxlan/.test(rr.text));}
+    }
+    change('evFabricModel','dual-dc');await pause();
+   }
+
    click('.tab[data-tab="verify"]');await pause();assert.ok(d.querySelectorAll('#verifyGroups .verify-command').length>5);
    click('#verifyClearAll');assert.equal(d.getElementById('verifyRun').disabled,true);assert.equal(d.querySelectorAll('#verifyGroups .verify-select:checked').length,0);
    const custom=d.querySelector('[aria-label="User-defined verification command"]');custom.value=option.value==='Huawei_CE_SW'?'display version':'show version';custom.dispatchEvent(new w.Event('input',{bubbles:true}));assert.equal(d.getElementById('verifyRun').disabled,false);
