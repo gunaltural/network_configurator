@@ -119,7 +119,7 @@
       <label>Observed hostname<input data-device="${d.id}" data-field="observedHostname" maxlength="100" placeholder="Actual device identity" value="${esc(d.observedHostname||"")}"></label>
       <span class="source">${esc(d.softwareSource?`Software: ${labelSource(d.softwareSource)}`:"")} · Last SSH observation: ${esc(d.observedAt||"Not verified")}</span>
       <label style="grid-column:1/-1">Management address for later SSH verification<input data-device="${d.id}" data-field="target" maxlength="255" placeholder="Optional public hostname or IP" value="${esc(d.target)}"></label></div>
-      <div class="device-actions"><span class="source">${esc(source)}</span>${d.external?"":`<button class="button small" type="button" data-read="${d.id}">Read from device</button>`}</div></div>`;
+      <div class="device-actions"><span class="source">${esc(source)}</span>${d.external?"":`<button class="button small" type="button" data-read="${d.id}">Read from device</button>`}</div>${d.inventoryWarnings?.length?`<p class="note">Partial collection: ${esc(d.inventoryWarnings.join(" · "))}</p>`:""}</div>`;
   }
   function renderEditor(){
     syncOptions();
@@ -356,8 +356,17 @@
   $("techPlacement").addEventListener("change",e=>{state.techPlacement=e.target.value;renderReport();});
   for(const [id,key,max] of [["upperCount","upperCount",8],["lowerCount","lowerCount",16]])$(id).addEventListener("input",e=>{state[key]=count(id,max);syncTopology();renderEditor();});
   $("devices").addEventListener("input",e=>{const field=e.target.dataset.field,id=e.target.dataset.device;if(!field||!id)return;const d=state.devices.find(x=>x.id===id);if(!d)return;d[field]=e.target.value;if(field==="model"||field==="serial")d[`${field}Source`]=d[field]?"manual":"";if(field==="softwareVersion")d.softwareSource=d[field]?"manual":"";renderReport();});
-  $("devices").addEventListener("change",e=>{if(["hostname","model","serial"].includes(e.target.dataset.field))renderEditor();});
-  $("devices").addEventListener("click",e=>{const id=e.target.closest("[data-read]")?.dataset.read;if(!id)return;selectedDevice=id;const d=state.devices.find(x=>x.id===id);$("sshTitle").textContent=`Read inventory · ${deviceName(d)} · ${vendorLabel(d.vendor)}`;$("sshTarget").value=d.target;$("sshBox").hidden=false;$("sshHelp").hidden=true;$("sshResult").textContent="";$("sshTarget").focus();});
+  function openInventorySsh(id){
+    const d=state.devices.find(x=>x.id===id);if(!d||d.external||$("readDevice").disabled)return;
+    selectedDevice=id;d.collectionMethod="automatic";
+    $("sshTitle").textContent=`Automatic SSH inventory · ${deviceName(d)} · ${vendorLabel(d.vendor||state.vendor)}`;
+    $("sshTarget").value=d.target||"";$("sshPort").value=d.sshPort||22;$("sshUser").value=d.sshUsername||"";
+    $("sshPassword").value="";$("sshSecret").value="";$("sshBox").hidden=false;$("sshHelp").hidden=true;
+    $("sshResult").className="ssh-result";$("sshResult").textContent="Enter this device's IP/hostname and SSH credentials, then choose Read inventory. Hostname, model, serial number and current software will be collected.";
+    renderEditor();$("sshBox").scrollIntoView({behavior:"smooth",block:"center"});$("sshTarget").focus({preventScroll:true});
+  }
+  $("devices").addEventListener("change",e=>{const field=e.target.dataset.field;if(field==="collectionMethod"){const d=state.devices.find(x=>x.id===e.target.dataset.device);if(!d)return;d.collectionMethod=e.target.value;if(d.collectionMethod==="automatic")openInventorySsh(d.id);else if(selectedDevice===d.id)closeRead();renderReport();}else if(["hostname","model","serial"].includes(field))renderEditor();});
+  $("devices").addEventListener("click",e=>{const id=e.target.closest("[data-read]")?.dataset.read;if(id)openInventorySsh(id);});
   $("links").addEventListener("input",e=>{const l=state.links.find(x=>x.id===e.target.dataset.link),field=e.target.dataset.field;if(!l||!field)return;l[field]=field==="enabled"?e.target.checked:e.target.value;renderReport();});
   $("links").addEventListener("change",e=>{if(e.target.dataset.field==="enabled")renderEditor();});
   $("cancelRead").addEventListener("click",closeRead);
@@ -365,14 +374,15 @@
     const d=state.devices.find(x=>x.id===selectedDevice);if(!d)return;
     const target=val("sshTarget").trim(),port=Number(val("sshPort"));
     if(!target||!val("sshUser").trim()||!val("sshPassword")||!Number.isInteger(port)||port<1||port>65535){$("sshResult").className="ssh-result error";$("sshResult").textContent="Enter a target, port, username and password.";return;}
-    d.target=target;const btn=$("readDevice");btn.disabled=true;$("sshResult").className="ssh-result";$("sshResult").textContent="Reading hardware identity…";
+    d.target=target;d.sshPort=port;d.sshUsername=val("sshUser").trim();const btn=$("readDevice");btn.disabled=true;$("cancelRead").disabled=true;$("sshResult").className="ssh-result";$("sshResult").textContent="Connecting over SSH and reading device identity and software…";
     try{
-      const response=await fetch("/api/reporting/inventory",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({target,port,platform:d.vendor,username:val("sshUser").trim(),password:val("sshPassword"),secret:val("sshSecret")})});
+      const response=await fetch("/api/reporting/inventory",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({target,port,platform:d.vendor||state.vendor,username:val("sshUser").trim(),password:val("sshPassword"),secret:val("sshSecret")})});
       const data=await response.json();if(!response.ok)throw Error(typeof data.detail==="string"?data.detail:data.detail?.error||"Inventory request failed");
       if(data.model){d.model=data.model;d.modelSource="device"}if(data.serial){d.serial=data.serial;d.serialSource="device"}if(data.software_version){d.softwareVersion=data.software_version;d.softwareSource="device"}if(data.hostname)d.observedHostname=data.hostname;d.collectionMethod="automatic";d.observedAt=data.observed_at;
-      renderEditor();$("sshResult").className="ssh-result ok";$("sshResult").textContent=`Verified: ${data.model||"model unavailable"} · ${data.serial||"serial unavailable"}${data.warnings?.length?" · Some commands were unavailable":""}`;
+      d.inventoryWarnings=data.warnings||[];d.inventoryCommands=data.commands||[];
+      renderEditor();$("sshResult").className="ssh-result ok";$("sshResult").textContent=`Read from device: ${data.hostname||"hostname unavailable"} · Model: ${data.model||"unavailable"} · Serial: ${data.serial||"unavailable"} · Software: ${data.software_version||"unavailable"}\nCommands: ${(data.commands||[]).join("; ")}${data.warnings?.length?"\n"+data.warnings.join("\n"):""}`;
     }catch(err){$("sshResult").className="ssh-result error";$("sshResult").textContent=err.message;}
-    finally{btn.disabled=false;$("sshPassword").value="";$("sshSecret").value="";}
+    finally{btn.disabled=false;$("cancelRead").disabled=false;$("sshPassword").value="";$("sshSecret").value="";}
   });
   let maintenanceView="design", maintenanceDevice="";
   const maintenanceFields={lifecycle:[["sourceUrl","Official document URL","url"],["matchedModel","Exact product/PID covered by the document"],["recommendedVersion","Manufacturer recommended version"],["endSale","End of sale date","date"],["endMaintenance","End of software maintenance date","date"],["endSupport","Last support date","date"],["reviewedAt","Engineer review date","date"],["reviewer","Reviewer"],["assessment","Assessment and applicability notes","textarea"]],upgrade:[["targetVersion","Target software version"],["upgradePath","Ordered upgrade hops / supported path","textarea"],["pathSource","Official upgrade guide URL","url"],["features","Required features / hardware / license compatibility","textarea"],["image","Image filename and manufacturer checksum"],["backup","Configuration and image backup location"],["window","Maintenance window and expected interruption"],["sequence","Device order and redundancy strategy","textarea"],["prechecks","Pre-check results: peers, routes, interfaces, storage, boot variables","textarea"],["postchecks","Acceptance criteria and verification commands","textarea"],["rollback","Rollback triggers, supported downgrade path and recovery steps","textarea"],["owner","Engineer / approver"]]};
@@ -446,7 +456,7 @@
         if(old?.source && Array.isArray(old.devices)){
           const previous=new Map(old.devices.map(d=>[d.id,d]));
           p.scope=old.scope||"";p.name=p.name||old.name||"";
-          p.devices.forEach(d=>{const saved=previous.get(d.id);if(!saved)return;for(const k of ["model","serial","modelSource","serialSource","target","observedAt","softwareVersion","softwareSource","observedHostname","collectionMethod"])d[k]=saved[k]||"";d.maintenance=saved.maintenance||{};});
+          p.devices.forEach(d=>{const saved=previous.get(d.id);if(!saved)return;for(const k of ["model","serial","modelSource","serialSource","target","observedAt","softwareVersion","softwareSource","observedHostname","collectionMethod","sshUsername","sshPort"])d[k]=saved[k]||"";d.maintenance=saved.maintenance||{};d.inventoryWarnings=saved.inventoryWarnings||[];d.inventoryCommands=saved.inventoryCommands||[];});
           const priorLinks=new Map(old.links.map(l=>[l.id,l]));
           p.links.forEach(l=>{const saved=priorLinks.get(l.id);if(!saved)return;l.speed=saved.speed||"";if(!l.upperPort)l.upperPort=saved.upperPort||"";if(!l.lowerPort)l.lowerPort=saved.lowerPort||"";});
         }
