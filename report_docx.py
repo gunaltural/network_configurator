@@ -298,6 +298,9 @@ def build_report_docx(project):
             config = configurations[device["id"]]
             doc.add_heading(device_name(device), level=2)
             doc.add_paragraph(config["source"])
+            for assignment in project.get("projectInformation", []):
+                if assignment["label"] in ("Tasarım–envanter eşleştirmesi", "Design–inventory assignment") and assignment["value"] == device["id"]:
+                    doc.add_paragraph(assignment["impact"])
             for line in config["text"].splitlines():
                 paragraph = doc.add_paragraph(style="Normal")
                 paragraph.paragraph_format.space_after = Pt(0)
