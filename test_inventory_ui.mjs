@@ -15,13 +15,13 @@ const context={crypto:webcrypto,$,val:id=>$(id).value,state:{devices,vendor:'Cis
 vm.createContext(context);vm.runInContext(logic,context);
 await $('runInventoryBatch').onclick();
 assert.equal(calls,2,'failure must not stop the next device');
-assert.equal(devices[0].model,'Keep model');
-assert.equal(devices[1].serial,'Keep serial','missing collected fields retain previous values');
+assert.equal(devices[0].model,'','failed latest reads must not retain old identity');
+assert.equal(devices[1].serial,'','missing latest fields stay empty');
 assert.equal(devices[1].softwareVersion,'4.32.1F');
 assert.equal(devices[1].observedHostname,'OBSERVED-SW2');
 assert.match($('sshInventoryResults').innerHTML,/OBSERVED-SW2/);
 assert.match($('sshInventoryResults').innerHTML,/4.32.1F/);
-assert.match($('sshInventoryResults').innerHTML,/Keep serial/);
+assert.equal($('sshInventoryResults').innerHTML.includes('Keep serial'),false);
 assert.equal($('batchPassword').value,'');
 assert.match($('batchSummary').textContent,/1 collected · 1 failed/);
 assert.equal(JSON.stringify(devices).includes('test-password'),false);
@@ -38,9 +38,9 @@ await $('inventoryExcel').onchange({target:{files:[{name:'inventory.xlsx',size:1
 assert.equal(devices[0].serial,'00012','Excel imports directly without an Apply action');
 assert.equal(devices[0].hostname,'SW1','planned topology hostname is preserved');
 assert.equal(devices[0].observedHostname,'OBSERVED-SW1');
-assert.equal(devices[0].model,'Keep model','blank cells must retain existing values');
+assert.equal(devices[0].model,'','new upload blank cells clear previous values');
 assert.equal(devices[1].serial,'SN2');
-assert.equal(devices[1].softwareVersion,'4.32.1F');
+assert.equal(devices[1].softwareVersion,'');
 assert.equal(devices[2].inventoryOnly,true);
 assert.equal(devices[2].hostname,'NEW-SW3');
 assert.equal(devices[2].serial,'SN3');
@@ -114,3 +114,15 @@ assert.equal(snapshot.find(d=>d.serial==='DYNAMIC-SN').softwareVersion,'17.9.5')
 assert.equal(JSON.stringify(snapshot).includes('test-only-import'),false);
 assert.ok(snapshot.every(d=>['hostname','model','serial','modelSource','serialSource'].every(k=>typeof d[k]==='string')),'legacy missing fields export as valid strings');
 console.log('Immediate report refresh, current export data, legacy defaults and credential exclusion passed.');
+
+vm.runInContext(html.slice(html.indexOf('  function currentReportInventory(){'),html.indexOf('  function reportRow(')),context);
+vm.runInContext('inventoryMode="manual";importExcelRows([{row:"2",hostname:"LATEST-ONLY",serial:"LATEST-SN",softwareVersion:"LATEST-VERSION",model:"LATEST-MODEL"}])',context);
+assert.equal(vm.runInContext('manualPageDevices().length',context),1);
+assert.equal(vm.runInContext('currentReportInventory().length',context),1);
+assert.equal(vm.runInContext('currentReportInventory()[0].serial',context),'LATEST-SN');
+assert.equal(vm.runInContext('currentReportInventory().some(d=>d.serial==="DYNAMIC-SN")',context),false);
+vm.runInContext('importExcelRows([{row:"2",hostname:"LATEST-ONLY",serial:"",softwareVersion:"",model:""}])',context);
+assert.equal(vm.runInContext('currentReportInventory()[0].serial',context),'');
+vm.runInContext('importSshTargets([{row:"2",target:"latest-ssh.example.com",username:"engineer"}])',context);
+assert.equal(vm.runInContext('currentReportInventory().length',context),0,'SSH upload must not report earlier manual or collected data');
+console.log('Latest-only manual list and report, blank replacement and SSH batch isolation passed.');
