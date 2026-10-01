@@ -24,7 +24,7 @@ const w=dom.window,d=w.document,pause=()=>new Promise(r=>setTimeout(r,10));
   const text=d.getElementById('reportPreview').textContent;
   assert.ok(text.includes(language==='tr'?'ÖRNEK VARSAYIMLAR':'EXAMPLE ASSUMPTIONS'));
   assert.ok(!text.includes(language==='tr'?'EXAMPLE ASSUMPTIONS':'ÖRNEK VARSAYIMLAR'));
-  d.getElementById('downloadWord').click();await pause();assert.ok(wordPayload);assert.ok(wordPayload.projectInformation.some(x=>x.impact.includes("→ ACTUAL-AUDIT-SW")));
+  d.getElementById('downloadWord').click();await pause();assert.ok(wordPayload);assert.ok(wordPayload.inventoryAssignments.some(x=>x.impact.includes("→ ACTUAL-AUDIT-SW")));
   assert.ok(wordPayload.devices.find(x=>x.id===source.inventoryDeviceIds[0]).tier==='upper');
   assert.equal(wordPayload.moduleReports.length,3);
   const result=execFileSync('python',['-c','import sys,json;from app import app;from fastapi.testclient import TestClient;r=TestClient(app).post("/api/reporting/word",json=json.load(sys.stdin));print(r.status_code);print(r.text[:500] if r.status_code!=200 else len(r.content))'],{input:JSON.stringify(wordPayload),encoding:'utf8'});

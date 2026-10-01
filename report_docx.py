@@ -251,6 +251,11 @@ def build_report_docx(project):
             paragraph.add_run(item.get("impact") or "")
 
     doc.add_page_break()
+    assignments = project.get("inventoryAssignments", [])
+    if assignments:
+        doc.add_heading("Tasarım–envanter eşleştirmesi" if language == "tr" else "Design–inventory assignment", level=2)
+        for assignment in assignments:
+            doc.add_paragraph(assignment["impact"])
     doc.add_heading(words["inventory"], level=1)
     inventory_ids = project.get("inventoryDeviceIds")
     inventory = [d for d in project["devices"] if inventory_ids is None or d["id"] in inventory_ids]
@@ -298,7 +303,7 @@ def build_report_docx(project):
             config = configurations[device["id"]]
             doc.add_heading(device_name(device), level=2)
             doc.add_paragraph(config["source"])
-            for assignment in project.get("projectInformation", []):
+            for assignment in project.get("inventoryAssignments", []):
                 if assignment["label"] in ("Tasarım–envanter eşleştirmesi", "Design–inventory assignment") and assignment["value"] == device["id"]:
                     doc.add_paragraph(assignment["impact"])
             for line in config["text"].splitlines():
