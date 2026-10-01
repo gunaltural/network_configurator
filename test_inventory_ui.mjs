@@ -26,6 +26,9 @@ assert.equal($('batchPassword').value,'');
 assert.match($('batchSummary').textContent,/1 collected · 1 failed/);
 assert.equal(JSON.stringify(devices).includes('test-password'),false);
 console.log('Multi-device failure isolation, vendor routing, partial collection and credential exclusion passed.');
+assert.match(rows[0].status.textContent,/Connection failed/);
+assert.match(rows[1].status.textContent,/Connection successful/);
+devices.forEach(d=>{d.collectionMethod='manual';d.inventoryChannel='manual';});
 context.fetch=async()=>({ok:true,json:async()=>({rows:[
   {row:'2',id:'one',hostname:'OBSERVED-SW1',serial:'00012',softwareVersion:'',model:''},
   {row:'3',hostname:'SW2',serial:'SN2',softwareVersion:'',model:''},
@@ -78,3 +81,26 @@ assert.throws(()=>vm.runInContext('importSshTargets([{row:"2",target:"valid.exam
 assert.equal(context.state.devices.length,count,'invalid uploads cannot partially mutate inventory');
 assert.equal(vm.runInContext('batchSelection.has(state.devices.find(d=>d.hostname==="SSH-SW1").id)',context),true);
 console.log('SSH Excel target loading, default ports, per-device vendors, reimport and validation passed.');
+const manualDevice=vm.runInContext('inventoryMode="manual";createInventoryDevice("SAME-NAME")',context);
+manualDevice.model='MANUAL-ONLY-MODEL';manualDevice.serial='MANUAL-ONLY-SERIAL';
+vm.runInContext('importSshTargets([{row:"2",hostname:"SAME-NAME",target:"separate.example.com",username:"engineer"}])',context);
+const separate=context.state.devices.filter(d=>d.hostname==='SAME-NAME');
+assert.equal(separate.length,2);
+assert.equal(separate.find(d=>d.inventoryChannel==='automatic').model,'');
+assert.equal(manualDevice.serial,'MANUAL-ONLY-SERIAL');
+assert.equal(vm.runInContext('sshPageDevices().length',context),1,'upload shows only the new selected batch');
+context.maintenanceView='inventory';vm.runInContext('renderInventoryManager()',context);
+assert.equal($('batchRows').innerHTML.includes('MANUAL-ONLY-MODEL'),false);
+assert.equal($('manualRows').innerHTML.includes('SSH-SW1'),false);
+assert.equal($('manualRows').innerHTML.includes('MANUAL-ONLY-MODEL'),true);
+console.log('Manual/SSH data isolation, selected uploaded batch visibility and connection status labels passed.');
+
+vm.runInContext('importSshTargets([{row:"2",target:"four-column.example.com",port:"",username:"engineer",password:"test-only-import"}]);renderInventoryManager()',context);
+const fourColumn=context.state.devices.find(d=>d.target==='four-column.example.com');
+assert.ok(fourColumn);
+assert.equal(fourColumn.sshPort,22);
+assert.equal(fourColumn.vendor,context.state.vendor);
+assert.equal(JSON.stringify(context.state).includes('test-only-import'),false);
+assert.equal(vm.runInContext('sshPasswords.get(sshPageDevices()[0].id)',context),'test-only-import');
+assert.match($('batchRows').innerHTML,/type="password"/);
+console.log('Four-column SSH imports, default platform and transient passwords passed.');
