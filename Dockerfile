@@ -3,5 +3,5 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-COPY app.py report_docx.py inventory_excel.py web.html reporting.html engineering-locale.js ./
+COPY app.py report_docx.py inventory_excel.py web.html reporting.html engineering-locale.js verification-evidence.js ./
 CMD ["python", "app.py"]

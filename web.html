@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Network Configurator v5.15.0</title>
+<title>Network Configurator v5.16.0</title>
 <style>
 :root{
   --bg:#0d1117;--panel:#161b22;--panel2:#1f2630;--line:#2b3440;
@@ -404,7 +404,7 @@ pre{
     <div class="logo">NC</div>
     <div><h1>Network Configurator</h1><small>Configure · Validate · Troubleshoot</small></div>
   </div>
-  <div class="badge">Version 5.15.0 · Combined Workspace Reporting</div>
+  <div class="badge">Version 5.16.0 · Combined Workspace Reporting</div>
 </header>
 
 <div class="layout">
@@ -573,6 +573,14 @@ pre{
           <div class="sd-actions"><button class="btn" id="verifyTest" type="button">Test Connection</button><button class="btn primary" id="verifyRun" type="button">Run Selected Commands</button><button class="btn" id="verifyCopy" type="button" disabled>Copy Output</button><button class="btn" id="verifyDownload" type="button" disabled>Download TXT</button></div>
           <div id="verifyStatus" class="sd-result neutral" role="status" aria-live="polite">Select the checks required for this validation window.</div>
           <pre id="verifyOutput" class="sd-cli" aria-label="Verification output">Selected command output will appear here.</pre>
+          <div class="sd-card" id="verificationEvidencePanel"><details><summary><strong>Verification evidence · engineer review</strong></summary>
+            <p class="live-help">Save selected output as evidence, or paste/upload a TXT log. Command execution success is not a network health verdict. Review sensitive content before saving. Up to 12 records, 40,000 characters per record.</p>
+            <div class="trouble-grid"><div><label for="evidencePhase">Validation stage</label><select id="evidencePhase"><option value="baseline">Pre-check</option><option value="post-change">Post-check</option><option value="diagnostic">Diagnostic</option></select></div><div><label for="evidenceTarget">Device / target for supplied output</label><input id="evidenceTarget" maxlength="253" placeholder="Hostname or device address"></div><div><label for="evidenceReview">Engineer review</label><select id="evidenceReview"><option value="pending">Awaiting review</option><option value="accepted">Accepted by engineer</option><option value="issue">Issue recorded by engineer</option></select></div><div><label for="evidenceCommand">Command for supplied output</label><input id="evidenceCommand" maxlength="300" placeholder="show / display command"></div><div class="full"><label for="evidenceExpected">Expected result</label><textarea id="evidenceExpected" maxlength="2000" placeholder="Expected peer state, route, interface state or acceptance criterion"></textarea></div><div class="full"><label for="evidenceAssessment">Engineer assessment</label><textarea id="evidenceAssessment" maxlength="2000" placeholder="Observed finding, impact and next check; no automatic PASS/FAIL is inferred"></textarea></div></div>
+            <details><summary>Paste or upload command output</summary><label for="evidencePaste">Supplied CLI output</label><textarea id="evidencePaste" maxlength="40000" spellcheck="false" style="font-family:ui-monospace,SFMono-Regular,Consolas,monospace;min-height:150px"></textarea><label for="evidenceFile">Upload TXT log (maximum 1 MB)<input id="evidenceFile" type="file" accept=".txt,text/plain"></label></details>
+            <div class="sd-actions"><button class="btn" id="evidenceSaveLive" type="button">Save latest run as evidence</button><button class="btn" id="evidenceSaveManual" type="button">Save supplied output</button></div>
+            <div id="evidenceStatus" role="status" aria-live="polite" class="live-help"></div><div id="evidenceRecords" style="max-height:280px;overflow:auto"></div></details>
+          </div>
+
         </div>
         <div id="troubleshootingPanel" class="troubleshooting-cli" hidden>
           <div class="simple-deploy-head"><div><b>GUIDED TROUBLESHOOTING · <span id="troublePlatformTitle">CISCO IOS-XE</span></b><span>Turn verification evidence into focused diagnostic actions</span></div><span id="troubleModuleBadge" class="sd-badge neutral">MODULE</span></div>
@@ -633,6 +641,7 @@ pre{
 
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="/engineering-locale.js"></script>
+<script src="/verification-evidence.js"></script>
 <script>
 let tech="BASIC", tab="config"; window.activeTech=tech; window.currentTech=tech;
 
@@ -4970,7 +4979,7 @@ function restoreWorkspaceModule(key=tech){
 function safeProjectFields(fields){
  return Object.fromEntries(Object.entries(fields||{}).filter(([id])=>{
    const el=document.getElementById(id);
-   return el?.type!=="password"&&!/^(?:sd|verify|trouble)(?:Password|Secret)$/.test(id);
+   return !id.startsWith("evidence")&&el?.type!=="password"&&!/^(?:sd|verify|trouble)(?:Password|Secret)$/.test(id);
  }));
 }
 function technologyLabel(key,pl){
@@ -5224,6 +5233,18 @@ const SimpleDeployEngine=(()=>{
 })();
 window.SimpleDeployEngine=SimpleDeployEngine;
 
+const EvidenceStore=(()=>{
+ let records=[],lastContext="";
+ const el=id=>document.getElementById(id),context=()=>({module:tech,platform:document.getElementById('verifyPlatform')?.value||platform()});
+ const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ function render(){if(!el('evidenceRecords'))return;const c=context(),signature=c.module+'|'+c.platform;if(lastContext&&lastContext!==signature){for(const id of ['evidenceTarget','evidenceCommand','evidenceExpected','evidenceAssessment','evidencePaste'])el(id).value='';el('evidenceReview').value='pending';el('evidenceStatus').textContent='';}lastContext=signature;el('evidenceRecords').innerHTML=records.filter(r=>r.module===c.module&&r.platform===c.platform).map(r=>`<div class="sd-card"><strong>${esc(r.target||'Unspecified device')} · ${esc(r.phase)} · ${esc(r.source)}</strong><p>${esc(r.observedAt)} · ${esc(r.review)}${r.truncated?' · TRUNCATED':''}</p><details><summary>Review saved output</summary><pre class="sd-cli" style="min-height:0;max-height:160px">${esc(r.output)}</pre><p>${esc(r.expected)}</p><p>${esc(r.assessment)}</p></details><button class="btn" type="button" data-remove-evidence="${esc(r.id)}">Remove evidence</button></div>`).join('')||'<p class="live-help">No saved evidence for this module and platform.</p>';el('evidenceRecords').querySelectorAll('[data-remove-evidence]').forEach(b=>b.onclick=()=>{records=records.filter(r=>r.id!==b.dataset.removeEvidence);render();});}
+ function save(run){if(!run?.output?.trim()){el('evidenceStatus').textContent='No output to save. Run commands or supply a log first.';return;}if(records.length>=12){el('evidenceStatus').textContent='Evidence limit reached. Remove a saved record before adding another.';return;}const secrets=[...document.querySelectorAll('input[type="password"]')].map(x=>x.value);const row=VerificationEvidence.normalize([{...run,id:crypto.randomUUID(),phase:el('evidencePhase').value,review:el('evidenceReview').value,expected:el('evidenceExpected').value,assessment:el('evidenceAssessment').value}],secrets)[0];records.push(row);el('evidencePaste').value='';el('evidenceStatus').textContent=`Evidence saved · ${row.source}${row.truncated?' · output truncated':''}. Included when opening Maintenance and Reporting; use Save to retain it in the project.`;render();}
+ el('evidenceSaveLive').onclick=()=>{const run=VerificationEngine.snapshot(),c=context();if(!run||run.module!==c.module||run.platform!==c.platform){el('evidenceStatus').textContent='No matching latest run for this module and platform.';return;}save({...run,source:run.mock?'mock':'live'});};
+ el('evidenceSaveManual').onclick=()=>{if(!el('evidenceTarget').value.trim()||!el('evidenceCommand').value.trim()){el('evidenceStatus').textContent='Enter a device / target and command before saving supplied output.';return;}save({...context(),target:el('evidenceTarget').value,commands:[el('evidenceCommand').value].filter(Boolean),output:el('evidencePaste').value,source:'manual',observedAt:new Date().toISOString()});};
+ el('evidenceFile').onchange=async e=>{const f=e.target.files[0];try{if(!f)return;if(f.size>1000000||!/\.txt$/i.test(f.name))throw Error('Select a TXT log of at most 1 MB.');const text=await f.text();if(text.length>40000)throw Error('Log exceeds 40,000 characters. Split it into focused command logs.');el('evidencePaste').value=text;el('evidenceStatus').textContent='Log loaded. Review the output and select Save supplied output.';}catch(err){el('evidenceStatus').textContent=err.message;}finally{e.target.value='';}};
+ return {render,snapshot:(modules,vendor)=>VerificationEvidence.normalize(records.filter(r=>(!modules||modules.includes(r.module))&&(!vendor||r.platform===vendor))),restore:items=>{records=VerificationEvidence.normalize(items);render();}};
+})();
+
 const VerificationEngine=(()=>{
  const el=id=>document.getElementById(id);
  let catalog=null,loading=null,lastSignature="",lastOutput="",lastCommands=[],lastRun=null,connectionWorkspace="";
@@ -5334,7 +5355,7 @@ const VerificationEngine=(()=>{
    const selected=selectedCommands();if(!selected.length){status("Select at least one verification command.","fail");return;}
    const p={target:el("verifyTarget").value.trim(),port:Number(el("verifyPort").value),platform:el("verifyPlatform").value,username:el("verifyUsername").value.trim(),password:el("verifyPassword").value,secret:el("verifySecret").value,command:selected.join("\n")};
    const button=el("verifyRun");button.disabled=true;button.textContent="Running Selected Commands…";clearOutput(false);status(`Connecting to ${p.target} and running ${selected.length} selected commands…`,`busy`);
-   try{const response=await fetch("/api/device/show",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(p)});let data;try{data=await response.json()}catch{throw new Error(`Invalid server response (HTTP ${response.status}).`)}if(!response.ok)throw new Error(data.detail?.error||data.error||`HTTP ${response.status}`);lastOutput=data.output||"";lastCommands=selected;lastRun={module:tech,platform:p.platform,target:p.target,commands:[...selected],results:data.results||[],output:lastOutput,truncated:!!data.truncated,observedAt:new Date().toISOString()};el("verifyOutput").textContent=lastOutput||"(Selected commands returned no output.)";el("verifyCopy").disabled=!lastOutput;el("verifyDownload").disabled=!lastOutput;const failed=(data.results||[]).filter(x=>!x.ok).length;status(`${data.mock?"MOCK output":"Device verification"} · ${data.device} · ${selected.length} checks · ${selected.length-failed} passed${failed?` · ${failed} command errors`:""}${data.truncated?" · output truncated at 1 MB":""}`,failed||data.truncated?"warn":"pass");}
+   try{const response=await fetch("/api/device/show",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(p)});let data;try{data=await response.json()}catch{throw new Error(`Invalid server response (HTTP ${response.status}).`)}if(!response.ok)throw new Error(data.detail?.error||data.error||`HTTP ${response.status}`);lastOutput=data.output||"";lastCommands=selected;lastRun={module:tech,platform:p.platform,target:p.target,commands:[...selected],results:data.results||[],output:lastOutput,mock:!!data.mock,truncated:!!data.truncated,observedAt:new Date().toISOString()};el("verifyOutput").textContent=lastOutput||"(Selected commands returned no output.)";el("verifyCopy").disabled=!lastOutput;el("verifyDownload").disabled=!lastOutput;const failed=(data.results||[]).filter(x=>!x.ok).length;status(`${data.mock?"MOCK output":"Device verification"} · ${data.device} · ${selected.length} checks · ${selected.length-failed} passed${failed?` · ${failed} command errors`:""}${data.truncated?" · output truncated at 1 MB":""}`,failed||data.truncated?"warn":"pass");}
    catch(error){el("verifyOutput").textContent="No verification output received.";status(`Verification failed: ${error.message}`,"fail");}
    finally{button.disabled=false;button.textContent="Run Selected Commands";}
  }
@@ -5343,7 +5364,7 @@ const VerificationEngine=(()=>{
    el("verifyPickerTrigger").addEventListener("click",()=>{const open=el("verifyPickerPanel").hidden;el("verifyPickerPanel").hidden=!open;el("verifyPickerTrigger").setAttribute("aria-expanded",String(open));});
    document.addEventListener("click",event=>{if(!el("verifyPicker").contains(event.target))closePicker();});
    document.addEventListener("keydown",event=>{if(event.key==="Escape")closePicker();});
-   el("verifyPlatform").addEventListener("change",render);el("verifySelectRecommended").addEventListener("click",()=>setSelection("recommended"));el("verifySelectAll").addEventListener("click",()=>setSelection("all"));el("verifyClearAll").addEventListener("click",()=>setSelection("none"));el("verifyTest").addEventListener("click",testConnection);el("verifyRun").addEventListener("click",run);
+   el("verifyPlatform").addEventListener("change",()=>{render();EvidenceStore.render();});el("verifySelectRecommended").addEventListener("click",()=>setSelection("recommended"));el("verifySelectAll").addEventListener("click",()=>setSelection("all"));el("verifyClearAll").addEventListener("click",()=>setSelection("none"));el("verifyTest").addEventListener("click",testConnection);el("verifyRun").addEventListener("click",run);
    [["sdTarget","verifyTarget"],["sdPort","verifyPort"],["sdUsername","verifyUsername"],["sdPassword","verifyPassword"],["sdSecret","verifySecret"]].forEach(ids=>ids.forEach(id=>el(id)?.addEventListener("input",()=>{const value=el(id).value;ids.forEach(other=>{if(other!==id&&el(other))el(other).value=value;});clearOutput();})));
    el("verifyCopy").addEventListener("click",async()=>{if(lastOutput)try{await navigator.clipboard.writeText(lastOutput);status(`Copied ${lastCommands.length} verification results.`,`pass`);}catch{status("Copy failed. Select the output text manually.","fail");}});
    el("verifyDownload").addEventListener("click",()=>{if(!lastOutput)return;const blob=new Blob([`Module: ${tech}\nPlatform: ${el("verifyPlatform").value}\nCommands: ${lastCommands.length}\n\n${lastOutput}\n`],{type:"text/plain;charset=utf-8"});const url=URL.createObjectURL(blob),link=document.createElement("a");link.href=url;link.download=`${tech}_${el("verifyPlatform").value.replace(/[^a-z0-9]+/gi,"_")}_verification.txt`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
@@ -5486,7 +5507,7 @@ function renderOutput(){
      if(deploy)deploy.hidden=true;
      if(verification)verification.hidden=false;
      if(troubleshooting)troubleshooting.hidden=true;
-     VerificationEngine.activate();
+     VerificationEngine.activate();EvidenceStore.render();
      return;
    }
    if(tab==="trouble"){
@@ -5607,7 +5628,7 @@ renderModule();
    captureWorkspaceModule(tech);
    const fields={};
    document.querySelectorAll("input[id],select[id],textarea[id]").forEach(el=>{
-     if(el.type==="file"||el.type==="password"||el.id==="v3ProjectName"||el.id.startsWith("sd"))return;
+     if(el.id.startsWith("evidence")||el.type==="file"||el.type==="password"||el.id==="v3ProjectName"||el.id.startsWith("sd"))return;
      fields[el.id]=el.type==="checkbox"?el.checked:el.value;
    });
    const get=id=>document.getElementById(id)?.value??"";
@@ -5627,6 +5648,7 @@ renderModule();
        technology:active,
        platform:get("platform")
      },
+     verificationEvidence:EvidenceStore.snapshot(),
      design:{},
      moduleStates:Object.fromEntries(Object.entries(window.__workspaceModuleStates).map(([key,value])=>[key,{...value,fields:safeProjectFields(value.fields)}])),
      fields
@@ -5683,6 +5705,7 @@ renderModule();
  function store(){try{return JSON.parse(localStorage.getItem(STORE)||"{}")}catch(e){return {}}}
  function writeStore(s){localStorage.setItem(STORE,JSON.stringify(s));renderRecent();}
  function applyProject(data){
+   EvidenceStore.restore(data.verificationEvidence);
    const meta=data.project&&typeof data.project==="object"?data.project:null;
    $("v3ProjectName").value=meta?.name||data.project||"Untitled Network Project";
    currentProjectId=meta?.id||data.id||null;
@@ -5960,7 +5983,7 @@ renderModule();
    return {schema:"network-configurator-report-v1",name:project.project.name==="Untitled Network Project"?"":project.project.name,
      vendor:pl,architecture:"module",technology,techPlacement:"upper",roles,
      upperCount:devices.filter(d=>d.tier==="upper").length,lowerCount:devices.filter(d=>d.tier==="lower").length,
-     scope:"",devices,links,specialLinks,parameters:parameters.map(p=>p.impact?p:{...p,impact:p.value,value:"Design boundary"}),configurations,
+     verificationEvidence:EvidenceStore.snapshot([tech],pl),scope:"",devices,links,specialLinks,parameters:parameters.map(p=>p.impact?p:{...p,impact:p.value,value:"Design boundary"}),configurations,
      source:{module:tech,projectId:project.project.id||"active",generatedAt:new Date().toISOString()}};
  }
  // Export a typed design from the active workspace. Do not derive links from SVG;
@@ -6052,7 +6075,7 @@ renderModule();
    return {schema:"network-configurator-report-v1",name:project.project.name==="Untitled Network Project"?"":project.project.name,
      vendor:pl,architecture:swv?"core-access":"spine-leaf",technology:kind,techPlacement:"upper",
      upperCount:devices.filter(d=>d.tier==="upper").length,lowerCount:devices.filter(d=>d.tier==="lower").length,
-     scope:"",devices,links,specialLinks,parameters:params.map(p=>p.impact?p:{...p,impact:p.value,value:"Design boundary"}),configurations,
+     verificationEvidence:EvidenceStore.snapshot([tech],pl),scope:"",devices,links,specialLinks,parameters:params.map(p=>p.impact?p:{...p,impact:p.value,value:"Design boundary"}),configurations,
      source:{module:tech,projectId:project.project.id||"active",generatedAt:new Date().toISOString()}};
  }
  // SD-WAN's interactive topology uses HTML. Summarize only the selected edge's
@@ -6172,7 +6195,7 @@ renderModule();
      moduleReports.push({module:report.moduleKey,title:report.moduleTitle,vendor:report.vendor,technology:report.technology,topologySvg:report.topologySvg,topologyPng:report.topologyPng,parameters:report.parameters||[],deviceCount:report.devices.length,configurationCount:(report.configurations||[]).length});
    });
    const first=reports[0],configurations=[...configMap].map(([deviceId,text])=>({deviceId,text,source:"Combined Technology Workspaces"}));
-   return {schema:"network-configurator-report-v1",language:$("combineLanguage")?.value||"tr",name:project.project.name==="Untitled Network Project"?"":project.project.name,vendor:first.vendor,architecture:"module",technology:`Combined · ${reports.map(r=>r.moduleTitle).join(" + ")}`,techPlacement:"upper",roles:{upper:"Network device",lower:"Network device"},upperCount:devices.length,lowerCount:0,scope:"",devices:devices.map((d,i)=>({...d,tier:"upper",index:i+1})),links,specialLinks,parameters,configurations,moduleReports,topologySvg:first.topologySvg,topologyPng:first.topologyPng,source:{module:"COMBINED",modules:reports.map(r=>r.moduleKey),projectId:project.project.id||"active",generatedAt:new Date().toISOString()}};
+   return {schema:"network-configurator-report-v1",language:$("combineLanguage")?.value||"tr",name:project.project.name==="Untitled Network Project"?"":project.project.name,vendor:first.vendor,architecture:"module",technology:`Combined · ${reports.map(r=>r.moduleTitle).join(" + ")}`,techPlacement:"upper",roles:{upper:"Network device",lower:"Network device"},upperCount:devices.length,lowerCount:0,verificationEvidence:VerificationEvidence.normalize(reports.flatMap(r=>r.verificationEvidence||[])),scope:"",devices:devices.map((d,i)=>({...d,tier:"upper",index:i+1})),links,specialLinks,parameters,configurations,moduleReports,topologySvg:first.topologySvg,topologyPng:first.topologyPng,source:{module:"COMBINED",modules:reports.map(r=>r.moduleKey),projectId:project.project.id||"active",generatedAt:new Date().toISOString()}};
  }
  async function createCombinedReport(){
    const selected=[...document.querySelectorAll("#combineModuleList input:checked")].map(x=>x.value);if(!selected.length){$("combineError").textContent="Select at least one module.";return;}

@@ -7,7 +7,7 @@ const errors=[];const vc=new VirtualConsole();vc.on('jsdomError',e=>errors.push(
 const catalog=JSON.parse(execFileSync('python',['-c','import app,json;print(json.dumps(app.live_commands()))'],{encoding:'utf8'}));
 let html=fs.readFileSync('web.html','utf8');
 html=html.replace(/\}\)\(\);\s*<\/script>\s*<\/body>/,'window.__audit={snapshot,applyProject,reportingDesign,combineReports};})();</script></body>');
-const dom=new JSDOM(html,{url:'https://test.invalid/',runScripts:'dangerously',virtualConsole:vc,beforeParse(w){w.eval(fs.readFileSync("engineering-locale.js","utf8"));w.scrollTo=()=>{};w.fetch=async()=>({ok:true,json:async()=>catalog});w.SVGElement.prototype.getBBox=()=>({x:0,y:0,width:720,height:300});w.SVGElement.prototype.getComputedTextLength=()=>80;}});
+const dom=new JSDOM(html,{url:'https://test.invalid/',runScripts:'dangerously',virtualConsole:vc,beforeParse(w){w.eval(fs.readFileSync("engineering-locale.js","utf8"));w.eval(fs.readFileSync("verification-evidence.js","utf8"));w.scrollTo=()=>{};w.fetch=async()=>({ok:true,json:async()=>catalog});w.SVGElement.prototype.getBBox=()=>({x:0,y:0,width:720,height:300});w.SVGElement.prototype.getComputedTextLength=()=>80;}});
 const w=dom.window,d=w.document;
 const pause=()=>new Promise(r=>setTimeout(r,80));
 const click=selector=>{assert.ok(d.querySelector(selector),selector);d.querySelector(selector).click();};
@@ -71,6 +71,24 @@ const reports=[];
  // An old project must not restore embedded SSH credentials.
  const legacy={...saved,fields:{...saved.fields,verifyPassword:'LEGACY_TEST_SECRET',troubleSecret:'LEGACY_TEST_SECRET'}};
  w.__audit.applyProject(legacy);await pause();assert.equal(d.getElementById('verifyPassword').value,'');assert.equal(d.getElementById('troubleSecret').value,'');
+ const cleaned=w.VerificationEvidence.redact('snmp-server community PRIVATEVALUE ro\nBGP community 65000:1\nusername admin secret SECRETVAL');assert.ok(!cleaned.includes('PRIVATEVALUE'));assert.ok(!cleaned.includes('SECRETVAL'));assert.ok(cleaned.includes('65000:1'));const clipped=w.VerificationEvidence.normalize([{output:'x'.repeat(40001)}])[0];assert.equal(clipped.output.length,40000);assert.equal(clipped.truncated,true);
+ // Evidence is explicit, scoped, escaped and preserved through Save/Open.
+ click('.tab[data-tab="verify"]');await pause();
+ d.getElementById('evidenceTarget').value='EVIDENCE-CE';
+ d.getElementById('evidenceCommand').value='show ip bgp summary';
+ d.getElementById('evidencePaste').value='peer Established\npassword SYNTHETIC_TEST_SECRET\n<script>alert(1)</script>';
+ d.getElementById('verifyPassword').value='SYNTHETIC_TEST_SECRET';
+ d.getElementById('evidenceExpected').value='Expected neighbor Established';
+ d.getElementById('evidenceSaveManual').click();
+ const evidenceSaved=w.__audit.snapshot();assert.equal(evidenceSaved.verificationEvidence.length,1);
+ assert.equal(evidenceSaved.verificationEvidence[0].source,'manual');assert.equal(evidenceSaved.verificationEvidence[0].review,'pending');
+ assert.ok(!JSON.stringify(evidenceSaved).includes('SYNTHETIC_TEST_SECRET'));assert.ok(!evidenceSaved.fields.evidencePaste);
+ assert.equal(d.querySelector('#evidenceRecords script'),null);
+ assert.equal(w.__audit.reportingDesign().verificationEvidence.length,1);
+ click('.tech[data-tech="BASIC"]');await pause();assert.equal(w.__audit.reportingDesign().verificationEvidence.length,0);
+ w.__audit.applyProject(evidenceSaved);await pause();assert.equal(w.__audit.snapshot().verificationEvidence.length,1);
+ click('.tab[data-tab="verify"]');await pause();d.querySelector('[data-remove-evidence]').click();assert.equal(w.__audit.snapshot().verificationEvidence.length,0);
+ console.log('Evidence scoping, manual provenance, secret redaction, escaped output, Save/Open and removal passed.');
  assert.deepEqual(errors,[]);
  console.log(`${pairs} module/platform pairs: configuration, notes, reporting, verification and troubleshooting passed; multi-module Save/Open and credential exclusion passed.`);
  }finally{w.close();}

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Network Configurator v5.15.0 — Hosted multi-vendor Live CLI and reporting
+Network Configurator v5.16.0 — Hosted multi-vendor Live CLI and reporting
 
 Designed for Render / hosted web use:
 - Browser-only client experience
@@ -34,7 +34,7 @@ import uvicorn
 from report_docx import build_report_docx
 from docx.image.exceptions import UnrecognizedImageError
 
-VERSION = "5.15.0"
+VERSION = "5.16.0"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
 REPORTING_HTML = (BASE_DIR / "reporting.html").read_text(encoding="utf-8")
@@ -235,6 +235,22 @@ class ReportModuleSummary(BaseModel):
     topologyPng: str = Field(default="", max_length=3000000)
 
 
+class ReportEvidence(BaseModel):
+    id: str = Field(default="", max_length=80)
+    module: str = Field(max_length=80)
+    platform: str = Field(max_length=80)
+    target: str = Field(default="", max_length=253)
+    observedAt: str = Field(default="", max_length=50)
+    phase: Literal["baseline", "post-change", "diagnostic"] = "diagnostic"
+    source: Literal["live", "mock", "manual"] = "manual"
+    review: Literal["pending", "accepted", "issue"] = "pending"
+    commands: List[str] = Field(default_factory=list, max_length=100)
+    output: str = Field(default="", max_length=40000)
+    truncated: bool = False
+    expected: str = Field(default="", max_length=2000)
+    assessment: str = Field(default="", max_length=2000)
+
+
 class ReportWordRequest(BaseModel):
     language: Literal["tr", "en"] = "en"
     name: str = Field(min_length=1, max_length=120)
@@ -254,6 +270,7 @@ class ReportWordRequest(BaseModel):
     configurations: List[ReportConfiguration] = Field(default_factory=list)
     topologyPng: str = Field(default="", max_length=3000000)
     projectInformation: List[ReportParameter] = Field(default_factory=list, max_length=20)
+    verificationEvidence: List[ReportEvidence] = Field(default_factory=list, max_length=12)
     maintenanceNotes: List[ReportParameter] = Field(default_factory=list)
     moduleReports: List[ReportModuleSummary] = Field(default_factory=list, max_length=8)
 
@@ -525,6 +542,11 @@ def root():
 @app.get("/reporting", response_class=HTMLResponse)
 def reporting():
     return HTMLResponse(REPORTING_HTML, headers={"Cache-Control": "no-store"})
+
+
+@app.get("/verification-evidence.js")
+def verification_evidence_script():
+    return Response((BASE_DIR / "verification-evidence.js").read_text(encoding="utf-8"), media_type="application/javascript", headers={"Cache-Control": "no-cache"})
 
 
 @app.get("/engineering-locale.js")

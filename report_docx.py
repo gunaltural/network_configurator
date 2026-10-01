@@ -270,6 +270,31 @@ def build_report_docx(project):
         for run in cell.paragraphs[0].runs:
             run.font.size = Pt(9)
 
+    evidence = project.get("verificationEvidence") or []
+    if evidence:
+        tr = language == "tr"
+        doc.add_heading("Doğrulama kanıtları" if tr else "Verification evidence", level=1)
+        doc.add_paragraph("Komut çıktıları tek başına servis sağlığını veya kabulü kanıtlamaz. Değerlendirme mühendis girdisidir; mock ve manuel çıktılar canlı cihaz doğrulaması sayılmaz." if tr else "Command output alone does not prove service health or acceptance. Review is engineer input; mock and manually supplied output do not constitute live device verification.")
+        phases = {"baseline": "Ön kontrol" if tr else "Pre-check", "post-change": "Son kontrol" if tr else "Post-check", "diagnostic": "Tanılama" if tr else "Diagnostic"}
+        sources = {"live": "Canlı SSH" if tr else "Live SSH", "mock": "Mock / örnek çıktı" if tr else "Mock / sample output", "manual": "Mühendis tarafından eklenen çıktı" if tr else "Engineer-supplied output"}
+        reviews = {"pending": "İnceleme bekliyor" if tr else "Awaiting review", "accepted": "Mühendis tarafından kabul edildi" if tr else "Accepted by engineer", "issue": "Mühendis tarafından sorun kaydedildi" if tr else "Issue recorded by engineer"}
+        for record in evidence:
+            doc.add_heading(f"{record['module']} · {record['platform']} · {phases[record['phase']]}", level=2)
+            doc.add_paragraph(f"{'Cihaz / hedef' if tr else 'Device / target'}: {record['target'] or '—'} · {'Kayıt zamanı' if tr else 'Recorded at'}: {record['observedAt']}")
+            doc.add_paragraph(f"{'Kaynak' if tr else 'Source'}: {sources[record['source']]} · {'Mühendis değerlendirmesi' if tr else 'Engineer review'}: {reviews[record['review']]}")
+            for key, label in [("expected", "Beklenen sonuç" if tr else "Expected result"), ("assessment", "Değerlendirme notu" if tr else "Assessment note")]:
+                if record.get(key):
+                    doc.add_paragraph(f"{label}: {record[key]}")
+            doc.add_paragraph(f"{'Komutlar' if tr else 'Commands'}: {'; '.join(record['commands'])}")
+            if record.get("truncated"):
+                doc.add_paragraph("Çıktı kısaltılmıştır; tam kanıt olarak değerlendirilmemelidir." if tr else "Output was truncated; do not treat it as complete evidence.")
+            for line in record["output"].splitlines():
+                paragraph = doc.add_paragraph()
+                run = paragraph.add_run(line)
+                run.font.name = "Consolas"
+                run.font.size = Pt(8)
+                paragraph.paragraph_format.space_after = Pt(0)
+
     doc.add_heading(words["confirm"], level=1)
     if project.get("maintenanceNotes"):
         doc.add_heading("Bakım değerlendirmesi ve upgrade planı" if language == "tr" else "Maintenance assessment and upgrade plan", level=1)

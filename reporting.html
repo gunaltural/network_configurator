@@ -64,6 +64,7 @@
   </div><section class="panel preview-panel"><h2>Report preview</h2><article class="paper" id="reportPreview" aria-label="Project report preview"></article></section></div>
 </div>
 <script src="/engineering-locale.js"></script>
+<script src="/verification-evidence.js"></script>
 <script>
 (()=>{
   const $=id=>document.getElementById(id);
@@ -315,6 +316,7 @@
       <h2 id="reportInventory">${rw("inventory")}</h2><table><thead><tr><th>${rw("device")}</th><th>${rw("role")}</th><th>${rw("model")}</th><th>${rw("serial")}</th><th>${state.language==="tr"?"Yazılım sürümü":"Software version"}</th><th>${rw("source")}</th></tr></thead><tbody>${currentReportInventory().map(reportRow).join("")||`<tr><td colspan="6">${state.language==="tr"?"Henüz envanter kaydı yok; Inventory modülünden veri ekleyin.":"No inventory records yet; add data in Inventory."}</td></tr>`}</tbody></table>
 
       ${maintenanceNotes().length?`<h2>${state.language==="tr"?"Bakım değerlendirmesi ve upgrade planı":"Maintenance assessment and upgrade plan"}</h2>${maintenanceNotes().map(p=>`<div class="decision"><strong>${esc(p.label)}</strong><p>${esc(p.value)}</p><p style="white-space:pre-wrap">${esc(p.impact)}</p></div>`).join("")}`:""}
+      ${evidenceReport()}
       <h2>${rw("confirm")}</h2><p>${esc(confirmText)}</p>
       ${configs.length?`<div class="config-section"><h2>${rw("appendix")}</h2><p class="design-note">${rw("configNote")}</p>${state.devices.filter(d=>configs.some(c=>c.deviceId===d.id)).map(d=>{const cfg=configs.find(c=>c.deviceId===d.id);return `<h3>${esc(deviceName(d))} · ${esc(cfg.source)}</h3><pre>${esc(cfg.text)}</pre>`;}).join("")}</div>`:""}
       <div class="report-footer">${rw("footer")}</div>`;
@@ -554,6 +556,12 @@
       try{const response=await fetch('/api/reporting/vendor-source',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({vendor:d.vendor||state.vendor,url:m.sourceUrl||"",model:d.model||""})});const result=await response.json();if(!response.ok)throw Error(typeof result.detail==="string"?result.detail:"Enter a model and official document URL.");m.checkedAt=result.checked_at;m.checkedModel=d.model;m.checkedSoftware=d.softwareVersion||"";m.checkedUrl=result.source_url;m.modelMentioned=result.model_mentioned;m.excerpt=result.excerpt;renderMaintenance();renderReport();}catch(error){status.textContent=error.message;}finally{button.disabled=false;}
     };
   }
+  function evidenceReport(){
+    const items=VerificationEvidence.normalize(state.verificationEvidence),l=VerificationEvidence.labels(state.language==='tr');
+    if(!items.length)return '';
+    return `<h2>${esc(l.title)}</h2><p class="design-note">${esc(l.boundary)}</p>${items.map(r=>`<div class="decision"><strong>${esc(r.module)} · ${esc(r.platform)} · ${esc(l[r.phase])}</strong><p>${esc(l.device)}: ${esc(r.target||'—')} · ${esc(l.time)}: ${esc(r.observedAt)}</p><p>${esc(l.source)}: ${esc(l[r.source])} · ${esc(l.review)}: ${esc(l[r.review])}</p>${r.expected?`<p>${esc(l.expected)}: ${esc(r.expected)}</p>`:''}${r.assessment?`<p>${esc(l.assessment)}: ${esc(r.assessment)}</p>`:''}<p>${esc(l.commands)}: ${esc(r.commands.join('; '))}</p>${r.truncated?`<p>${esc(l.truncated)}</p>`:''}</div><pre>${esc(r.output)}</pre>`).join('')}`;
+  }
+
   function maintenanceNotes(){
     const tr=state.language==="tr";
     return currentReportInventory().filter(d=>d.maintenance&&Object.values(d.maintenance).some(Boolean)).flatMap(d=>{
@@ -587,7 +595,7 @@
     const name=projectName();if(!name)return;renderReport();
     const btn=$("downloadWord");btn.disabled=true;btn.textContent="Preparing Word…";
     try{
-      const payload={language:state.language,name,vendor:state.vendor,architecture:state.architecture,technology:state.technology,techPlacement:state.techPlacement,roles:state.roles||null,upperCount:state.upperCount,lowerCount:state.lowerCount,scope:state.scope,projectInformation:projectInformation().map(({label,value,impact})=>({label,value,impact})),devices:reportInventorySnapshot(),inventoryDeviceIds:currentReportInventory().map(d=>d.id),links:state.links.map(({a,b,enabled,upperPort,lowerPort,speed,detail})=>({a,b,enabled,upperPort,lowerPort,speed,detail:detail||""})),specialLinks:state.specialLinks||[],parameters:reportParameters(),configurations:state.configurations||[],maintenanceNotes:maintenanceNotes(),moduleReports:(state.moduleReports||[]).map(({title,vendor,topologyPng})=>({title,vendor,topologyPng:topologyPng||""})),topologyPng:state.topologyPng||""};
+      const payload={verificationEvidence:VerificationEvidence.normalize(state.verificationEvidence),language:state.language,name,vendor:state.vendor,architecture:state.architecture,technology:state.technology,techPlacement:state.techPlacement,roles:state.roles||null,upperCount:state.upperCount,lowerCount:state.lowerCount,scope:state.scope,projectInformation:projectInformation().map(({label,value,impact})=>({label,value,impact})),devices:reportInventorySnapshot(),inventoryDeviceIds:currentReportInventory().map(d=>d.id),links:state.links.map(({a,b,enabled,upperPort,lowerPort,speed,detail})=>({a,b,enabled,upperPort,lowerPort,speed,detail:detail||""})),specialLinks:state.specialLinks||[],parameters:reportParameters(),configurations:state.configurations||[],maintenanceNotes:maintenanceNotes(),moduleReports:(state.moduleReports||[]).map(({title,vendor,topologyPng})=>({title,vendor,topologyPng:topologyPng||""})),topologyPng:state.topologyPng||""};
       const response=await fetch("/api/reporting/word",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
       if(!response.ok){const err=await response.json().catch(()=>({}));throw Error(typeof err.detail==="string"?err.detail:"Could not create Word report.");}
       download(await response.blob(),filename(name)+".docx");
@@ -613,6 +621,7 @@
   }
   function openReport(p,refresh=false){
     delete p.inventoryAssignments;
+    p.verificationEvidence=VerificationEvidence.normalize(p.verificationEvidence);
     manualSelection.clear();batchSelection.clear();batchResults.clear();sshPasswords.clear();$("excelPreview").textContent="";$("batchSummary").textContent="";$("batchPassword").value="";$("batchSecret").value="";
     if(p.schema!=="network-configurator-report-v1"||!vendors.includes(p.vendor)||!Array.isArray(p.devices)||!Array.isArray(p.links))throw Error("Unsupported project format");
     if(refresh && p.source){
