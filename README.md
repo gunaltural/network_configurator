@@ -58,13 +58,15 @@ does not stop remaining devices. Missing returned fields retain previous values.
 Passwords and enable secrets are cleared after collection and never saved with the
 project. The tab collects planned and additional inventory devices; it does not discover neighbors.
 
-Automatic SSH also provides **Download SSH Excel template** and **Upload SSH targets**.
-Columns are Device ID and Hostname (optional), SSH Target, Port (default 22), Username,
-and Platform (default project platform). Uploaded targets are added or updated and
-selected for collection; uploading never starts SSH. Enter passwords on the page,
-then choose Read selected devices. Hostname, serial, software and model appear in the
-same page's **Collected inventory** table as well as in the report. The table retains
-previous values for fields unavailable during a partial collection.
+Manual and Automatic SSH inventories have separate device lists. Automatic SSH provides
+**Download SSH Excel template** and **Upload SSH targets**. The template contains only
+SSH Target, Port (default 22), Username and Password; devices use the project platform.
+Uploading shows only the uploaded targets, selected for collection, without starting SSH.
+Choose **Connect selected devices** to collect inventory. Each row reports connection
+success or failure and any collection error. Uploaded passwords are kept temporarily
+on the page, cleared after collection and excluded from saved projects and reports.
+Hostname, serial, software and model appear in **Collected inventory** and the report.
+Previous values are retained when a partial collection cannot retrieve a field.
 
 **Read from device** runs platform-specific read-only SSH commands and records the
 hardware source. It never changes device configuration and never saves SSH passwords
