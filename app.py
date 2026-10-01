@@ -236,6 +236,7 @@ class ReportWordRequest(BaseModel):
     roles: ReportTierLabels | None = None
     scope: str = Field(max_length=2000)
     devices: List[ReportDevice]
+    inventoryDeviceIds: List[str] | None = None
     links: List[ReportLink]
     specialLinks: List[ReportSpecialLink] = Field(default_factory=list)
     parameters: List[ReportParameter] = Field(default_factory=list)
@@ -856,7 +857,8 @@ def reporting_word(p: ReportWordRequest):
                    or not l.a.startswith("upper-") or not l.b.startswith("lower-") for l in p.links)
             or any(l.a not in topology_ids or l.b not in topology_ids for l in p.specialLinks)
             or len({c.deviceId for c in p.configurations}) != len(p.configurations)
-            or any(c.deviceId not in topology_ids for c in p.configurations)):
+            or any(c.deviceId not in topology_ids for c in p.configurations)
+            or (p.inventoryDeviceIds is not None and (len(p.inventoryDeviceIds)!=len(set(p.inventoryDeviceIds)) or not set(p.inventoryDeviceIds)<=actual))):
         raise HTTPException(status_code=400, detail="Invalid project topology or project name.")
     data = p.model_dump() if hasattr(p, "model_dump") else p.dict()
     try:
