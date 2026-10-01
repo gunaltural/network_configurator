@@ -238,17 +238,16 @@ def build_report_docx(project):
 
     doc.add_page_break()
     doc.add_heading(words["inventory"], level=1)
-    for device in project["devices"]:
-        if device.get("softwareVersion") or device.get("observedHostname"):
-            doc.add_paragraph(f"{device_name(device)} · " + ("Gözlenen cihaz adı" if language == "tr" else "Observed hostname") + f": {device.get('observedHostname') or '—'} · " + ("Yazılım" if language == "tr" else "Software") + f": {device.get('softwareVersion') or '—'} · " + ("Son SSH doğrulaması" if language == "tr" else "Last SSH verification") + f": {device.get('observedAt') or '—'}")
+    inventory_ids = project.get("inventoryDeviceIds")
+    inventory = [d for d in project["devices"] if inventory_ids is None or d["id"] in inventory_ids]
     source = lambda value: (("Cihazdan doğrulandı" if value == "device" else "Mühendis girişi" if value == "manual" else "Atama bekliyor") if language == "tr" else ("Verified from device" if value == "device" else "Engineer entry" if value == "manual" else "Awaiting assignment"))
     _table(
         doc,
         [words["device"], words["role"], words["model"], words["serial"], "Yazılım sürümü" if language == "tr" else "Software version", words["source"]],
         [1.4, .7, 1.3, 1.2, 1.1, 1.4],
         [[device_name(d) + ("\n" + d["observedHostname"] if d.get("observedHostname") and d["observedHostname"] != device_name(d) else ""), ("Envanter cihazı" if language == "tr" else "Inventory device") if d.get("inventoryOnly") else upper if d["tier"] == "upper" else lower, d["model"] or (words["external"] if d.get("external") else words["pending"]), d["serial"] or (words["external"] if d.get("external") else words["pending"]), d.get("softwareVersion") or words["pending"],
-          ("Harici eş" if language == "tr" else "External peer") if d.get("external") else f"{source(d['modelSource'])} / {source(d['serialSource'])}" if d["modelSource"] or d["serialSource"] else words["planned"]]
-         for d in project["devices"]],
+          ("Harici eş" if language == "tr" else "External peer") if d.get("external") else " / ".join(dict.fromkeys(source(d.get(k)) for k in ("modelSource", "serialSource", "softwareSource") if d.get(k))) if d["modelSource"] or d["serialSource"] else words["planned"]]
+         for d in inventory],
     )
 
     doc.add_heading(words["confirm"], level=1)
@@ -258,7 +257,7 @@ def build_report_docx(project):
             doc.add_heading(item["label"], level=2)
             doc.add_paragraph(item["value"])
             doc.add_paragraph(item.get("impact") or "")
-    incomplete = sum(not d.get("external") and (not d["model"] or not d["serial"]) for d in project["devices"])
+    incomplete = sum(not d.get("external") and (not d["model"] or not d["serial"]) for d in inventory)
     missing_ports = sum(not l["upperPort"] or not l["lowerPort"] for l in active)
     doc.add_paragraph(
         ((f"{incomplete} cihaz için model veya seri numarası tamamlanmalıdır. " if incomplete else "Tüm cihaz modelleri ve seri numaraları doldurulmuştur. ")
