@@ -828,7 +828,10 @@ async def inventory_excel(request: WebRequest):
         if len(data) > 5_000_000:
             raise HTTPException(status_code=413, detail="Excel file must be smaller than 5 MB.")
     try:
-        return {"rows": parse_inventory_xlsx(bytes(data))}
+        mode = request.query_params.get('mode', 'manual')
+        if mode not in {'manual', 'ssh'}:
+            raise ValueError('Unsupported inventory import mode.')
+        return {"rows": parse_inventory_xlsx(bytes(data), mode=mode)}
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
