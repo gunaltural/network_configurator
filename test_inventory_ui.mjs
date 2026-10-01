@@ -236,3 +236,19 @@ vm.runInContext('applyProjectExample()',context);
 assert.equal(context.state.projectDetails.objectives.includes('MLAG'),true);
 assert.equal(context.state.projectDetails.acceptance.includes('not yet executed'),true);
 console.log('All 16 editable example fields, custom-risk preservation and platform-aware English content passed.');
+
+for(const vendor of ['Cisco NX-OS','Cisco IOS-XE','Arista EOS','Huawei_CE_SW','FortiGate']){
+ context.state={language:'tr',name:'',scope:'',vendor,technology:'Test technology',projectDetails:{}};
+ vm.runInContext('applyProjectExample();state.language="en";updateProjectExampleLanguage("tr")',context);
+ assert.equal(context.state.projectDetails.acceptance.startsWith('EXAMPLE ACCEPTANCE PLAN'),true,vendor);
+ assert.equal(context.state.scope.startsWith('EXAMPLE SCOPE'),true,vendor);
+ assert.equal(context.state.name.startsWith('EXAMPLE'),true,vendor);
+ context.state.projectDetails.risks='User-edited risk';
+ vm.runInContext('state.language="tr";updateProjectExampleLanguage("en")',context);
+ assert.equal(context.state.projectDetails.acceptance.startsWith('ÖRNEK KABUL PLANI'),true,vendor);
+ assert.equal(context.state.projectDetails.risks,'User-edited risk',vendor);
+}
+context.state={language:'en',name:'',scope:'',vendor:'Cisco NX-OS',technology:'vPC',projectDetails:{}};
+vm.runInContext('const legacySample=buildProjectExample("tr");state.projectDetails=legacySample.fields;state.name=legacySample.name;state.scope=legacySample.scope;updateProjectExampleLanguage("tr")',context);
+assert.equal(context.state.projectDetails.customer,'EXAMPLE — Customer organization');
+console.log('Bidirectional example language switching across all five platforms, edited-content protection and legacy samples passed.');
