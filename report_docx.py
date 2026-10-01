@@ -244,9 +244,9 @@ def build_report_docx(project):
     source = lambda value: (("Cihazdan doğrulandı" if value == "device" else "Mühendis girişi" if value == "manual" else "Atama bekliyor") if language == "tr" else ("Verified from device" if value == "device" else "Engineer entry" if value == "manual" else "Awaiting assignment"))
     _table(
         doc,
-        [words["device"], words["role"], words["model"], words["serial"], words["source"]],
-        [1.6, .9, 1.5, 1.4, 1.7],
-        [[device_name(d), ("Envanter cihazı" if language == "tr" else "Inventory device") if d.get("inventoryOnly") else upper if d["tier"] == "upper" else lower, d["model"] or (words["external"] if d.get("external") else words["pending"]), d["serial"] or (words["external"] if d.get("external") else words["pending"]),
+        [words["device"], words["role"], words["model"], words["serial"], "Yazılım sürümü" if language == "tr" else "Software version", words["source"]],
+        [1.4, .7, 1.3, 1.2, 1.1, 1.4],
+        [[device_name(d) + ("\n" + d["observedHostname"] if d.get("observedHostname") and d["observedHostname"] != device_name(d) else ""), ("Envanter cihazı" if language == "tr" else "Inventory device") if d.get("inventoryOnly") else upper if d["tier"] == "upper" else lower, d["model"] or (words["external"] if d.get("external") else words["pending"]), d["serial"] or (words["external"] if d.get("external") else words["pending"]), d.get("softwareVersion") or words["pending"],
           ("Harici eş" if language == "tr" else "External peer") if d.get("external") else f"{source(d['modelSource'])} / {source(d['serialSource'])}" if d["modelSource"] or d["serialSource"] else words["planned"]]
          for d in project["devices"]],
     )
