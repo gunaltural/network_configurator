@@ -576,7 +576,7 @@
       p.devices=p.devices.filter(d=>!d.inventoryOnly);
       for(const d of p.devices){
         for(const key of ["model","serial","softwareVersion","modelSource","serialSource","softwareSource","observedHostname","observedAt","target","sshUsername","sshResultStatus"])d[key]="";
-        d.collectionMethod="manual";d.inventoryChannel="manual";d.inventoryWarnings=[];d.inventoryCommands=[];d.maintenance={};
+        d.collectionMethod="manual";d.inventoryChannel="manual";d.inventoryWarnings=[];d.inventoryCommands=[];
       }
       p.inventoryDeviceIds=[];p.manualVisibleIds=p.devices.filter(d=>!d.external).map(d=>d.id);p.sshVisibleIds=[];
     }
