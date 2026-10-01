@@ -7,7 +7,7 @@ NS = {'s': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
 HEADERS = {'deviceid': 'id', 'hostname': 'hostname', 'serialnumber': 'serial',
            'softwareversion': 'softwareVersion', 'productmodel': 'model',
            'sshtarget': 'target', 'managementaddress': 'target', 'ipaddress': 'target',
-           'port': 'port', 'username': 'username', 'platform': 'platform'}
+           'port': 'port', 'username': 'username', 'password': 'password', 'platform': 'platform'}
 
 
 def parse_inventory_xlsx(data, mode='manual'):
@@ -53,7 +53,7 @@ def parse_inventory_xlsx(data, mode='manual'):
                         text = strings[int(text)]
                     elif cell.get('t') == 'inlineStr':
                         text = ''.join(cell.find('s:is', NS).itertext())
-                    cells[col] = text.strip()
+                    cells[col] = text
                 if any(cells.values()):
                     decoded.append((row.get('r'), cells))
             if not decoded:
@@ -67,10 +67,10 @@ def parse_inventory_xlsx(data, mode='manual'):
                     mapping[col] = key
             required = {'target', 'username'} if mode == 'ssh' else {'hostname', 'serial', 'softwareVersion', 'model'}
             if not required <= set(mapping.values()):
-                raise ValueError('Required headers: SSH Target, Username. Optional: Device ID, Hostname, Port, Platform.' if mode == 'ssh' else 'Required headers: Hostname, Serial Number, Software Version, Product Model. Device ID is optional.')
+                raise ValueError('SSH template columns: SSH Target, Port, Username, Password. SSH Target and Username are required.' if mode == 'ssh' else 'Required headers: Hostname, Serial Number, Software Version, Product Model. Device ID is optional.')
             result = []
             for number, cells in decoded[1:]:
-                record = {key: cells.get(col, '') for col, key in mapping.items()}
+                record = {key: cells.get(col, '') if key == 'password' else cells.get(col, '').strip() for col, key in mapping.items()}
                 if not any(record.values()):
                     continue
                 if any(len(v) > (255 if key == 'target' else 100) for key, v in record.items()):
