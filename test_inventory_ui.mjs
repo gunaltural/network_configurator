@@ -22,3 +22,20 @@ assert.equal($('batchPassword').value,'');
 assert.match($('batchSummary').textContent,/1 collected · 1 failed/);
 assert.equal(JSON.stringify(devices).includes('test-password'),false);
 console.log('Multi-device failure isolation, vendor routing, partial collection and credential exclusion passed.');
+context.fetch=async()=>({ok:true,json:async()=>({rows:[
+  {row:'2',id:'one',hostname:'OBSERVED-SW1',serial:'00012',softwareVersion:'',model:''},
+  {row:'3',hostname:'SW2',serial:'SN2',softwareVersion:'',model:''},
+  {row:'4',id:'one',hostname:'Duplicate',serial:'Wrong',softwareVersion:'',model:''},
+  {row:'5',id:'unknown',hostname:'Unknown',serial:'Wrong',softwareVersion:'',model:''}
+]})});
+await $('inventoryExcel').onchange({target:{files:[{name:'inventory.xlsx',size:100}],value:''}});
+assert.equal(devices[0].serial,undefined,'preview must not mutate inventory');
+assert.match($('excelPreview').innerHTML,/2 matched of 4/);
+$('applyExcel').onclick();
+assert.equal(devices[0].serial,'00012');
+assert.equal(devices[0].hostname,'SW1','planned topology hostname is preserved');
+assert.equal(devices[0].observedHostname,'OBSERVED-SW1');
+assert.equal(devices[0].model,'Keep model','blank cells must retain existing values');
+assert.equal(devices[1].serial,'SN2');
+assert.equal(devices[1].softwareVersion,'4.32.1F');
+console.log('Excel preview, ID/hostname matching, duplicate exclusion and blank retention passed.');
