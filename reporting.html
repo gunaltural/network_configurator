@@ -51,7 +51,7 @@
           <div class="ssh-actions"><button id="selectInventoryAll" class="button small">Select all</button><button id="clearInventoryAll" class="button small">Clear selection</button></div>
           <div class="inventory-scroll"><table><thead><tr><th>Select</th><th>Device / platform</th><th>SSH target</th><th>Port</th><th>Username</th><th>Password</th><th>Enable secret override</th><th>Result</th></tr></thead><tbody id="batchRows"></tbody></table></div>
           <div class="fields"><label>Shared password<input id="batchPassword" type="password" autocomplete="new-password"></label><label>Shared enable secret (optional)<input id="batchSecret" type="password" autocomplete="new-password"></label></div><div class="ssh-actions"><button id="runInventoryBatch" class="button primary">Connect selected devices</button><span id="batchSummary" role="status"></span></div>
-          <h3>Collected inventory</h3><p class="note">Values below also appear in the report. Previous values are retained when a field cannot be collected.</p><div class="inventory-scroll"><table><thead><tr><th>Device / target</th><th>Hostname</th><th>Serial number</th><th>Software version</th><th>Product model</th><th>Last SSH observation</th></tr></thead><tbody id="sshInventoryResults"></tbody></table></div>
+          <h3>Collected inventory</h3><p class="note">Values below also appear in the report. Only the latest successful collection is included in the report. Missing fields remain empty.</p><div class="inventory-scroll"><table><thead><tr><th>Device / target</th><th>Hostname</th><th>Serial number</th><th>Software version</th><th>Product model</th><th>Last SSH observation</th></tr></thead><tbody id="sshInventoryResults"></tbody></table></div>
         </div>
       </div><div class="devices" id="devices"></div></section>
     <section class="panel"><h2>3 · Planned links <span class="count" id="linkCount">8</span></h2><p class="hint" id="linkHelp">Initial design connects each lower-tier device to each upper-tier device. Enter the port used at each end; uncheck a link to remove it from the report.</p><div class="links"><table><thead><tr><th>Use</th><th>Upper device</th><th>Upper port</th><th>Lower device</th><th>Lower port</th><th>Connection</th><th>Speed</th></tr></thead><tbody id="links"></tbody></table></div></section>
@@ -144,9 +144,9 @@
       `<strong>Standalone report.</strong> To include a generated topology and device configurations, open a supported design in <a href="/">Technology Workspaces</a> and choose Maintenance and Reporting in its header.`;
     $("linkHelp").textContent=imported?"Links and ports come from Technology Workspaces. Missing physical ports can be entered here for the document; update the workspace separately before deployment.":"Initial design connects each lower-tier device to each upper-tier device. Enter the port used at each end; uncheck a link to remove it from the report.";
     for(const id of ["vendor","architecture","technology","techPlacement","upperCount","lowerCount"])$(id).disabled=imported;
-    $("deviceCount").textContent=`${state.devices.filter(d=>!d.inventoryOnly).length} topology devices · ${state.devices.filter(d=>d.inventoryOnly).length} additional inventory devices · ${state.devices.length} total inventory records.`;
+    $("deviceCount").textContent=`${state.devices.filter(d=>!d.inventoryOnly).length} topology devices · ${currentReportInventory().filter(d=>d.inventoryOnly).length} current additional inventory devices · ${currentReportInventory().length} current inventory records.`;
     $("linkCount").textContent=state.links.filter(l=>l.enabled).length;
-    $("devices").innerHTML=state.devices.map(deviceCard).join("");
+    $("devices").innerHTML=state.devices.filter(d=>!d.inventoryOnly||currentReportInventory().some(x=>x.id===d.id)).map(deviceCard).join("");
     $("links").innerHTML=state.links.map(l=>{
       const a=state.devices.find(d=>d.id===l.a),b=state.devices.find(d=>d.id===l.b);
       return `<tr><td><input type="checkbox" data-link="${l.id}" data-field="enabled" aria-label="Include ${esc(deviceName(a))} to ${esc(deviceName(b))}" ${l.enabled?"checked":""} ${imported?"disabled":""}></td><td>${esc(deviceName(a))}</td><td><input data-link="${l.id}" data-field="upperPort" aria-label="${esc(deviceName(a))} port to ${esc(deviceName(b))}" placeholder="e.g. Eth1/1" value="${esc(l.upperPort)}" ${imported&&l.upperPort?"disabled":""}></td><td>${esc(deviceName(b))}</td><td><input data-link="${l.id}" data-field="lowerPort" aria-label="${esc(deviceName(b))} port to ${esc(deviceName(a))}" placeholder="e.g. Eth1/49" value="${esc(l.lowerPort)}" ${imported&&l.lowerPort?"disabled":""}></td><td>${esc(l.detail||"Uplink")}</td><td><input data-link="${l.id}" data-field="speed" aria-label="Speed ${l.id}" placeholder="100G" value="${esc(l.speed)}"></td></tr>`;
@@ -465,7 +465,7 @@
       return {r,target,username,port,platform,device:candidates[0]};
     });
     const used=new Set();for(const p of plans)if(p.device){if(used.has(p.device.id))throw Error(`Excel row ${p.r.row}: duplicate device.`);used.add(p.device.id);}
-    state.sshVisibleIds=[];state.inventoryDeviceIds=[];batchSelection.clear();let added=0;sshPasswords.clear();for(const p of plans){const d=p.device||createInventoryDevice(p.r.hostname||p.target);if(!p.device){added++;d.inventoryImportId=p.r.id||"";}Object.assign(d,{target:p.target,sshUsername:p.username,sshPort:p.port,vendor:p.platform,collectionMethod:"automatic",inventoryChannel:"automatic"});if(p.r.password)sshPasswords.set(d.id,p.r.password);if(!state.sshVisibleIds.includes(d.id))state.sshVisibleIds.push(d.id);batchSelection.add(d.id);}
+    state.sshVisibleIds=[];state.inventoryDeviceIds=[];batchSelection.clear();batchResults.clear();let added=0;sshPasswords.clear();for(const p of plans){const d=p.device||createInventoryDevice(p.r.hostname||p.target);if(!p.device){added++;d.inventoryImportId=p.r.id||"";}Object.assign(d,{target:p.target,sshUsername:p.username,sshPort:p.port,vendor:p.platform,collectionMethod:"automatic",inventoryChannel:"automatic"});for(const key of ["model","serial","softwareVersion","modelSource","serialSource","softwareSource","observedHostname","observedAt","sshResultStatus"])d[key]="";d.inventoryWarnings=[];d.inventoryCommands=[];if(d.inventoryOnly)d.hostname=p.r.hostname||p.target;if(p.r.password)sshPasswords.set(d.id,p.r.password);if(!state.sshVisibleIds.includes(d.id))state.sshVisibleIds.push(d.id);batchSelection.add(d.id);}
     renderReport();return added;
   }
   $("sshTargetsExcel").onchange=async e=>{const file=e.target.files[0];if(!file)return;try{
@@ -507,7 +507,7 @@
     sections.forEach((section,i)=>section.hidden=maintenanceView==="inventory"&&!(i===1||i===3&&selectedDevice));
     renderInventoryManager();
     if(!editor.hidden)return;
-    const devices=state.devices.filter(d=>!d.external);
+    const devices=currentReportInventory().filter(d=>!d.external);
     const d=devices.find(x=>x.id===maintenanceDevice)||devices[0];
     if(!d){$("maintenanceArea").textContent="No managed devices in this project.";return;}
     maintenanceDevice=d.id;const m=maintenanceRecord(d), group=maintenanceView;
