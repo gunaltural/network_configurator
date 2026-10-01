@@ -162,6 +162,12 @@ def build_report_docx(project):
                     + f" and uses {project['technology']}.")
     doc.add_paragraph(overview)
     doc.add_paragraph(project["scope"].strip() or words["scope"])
+    if project.get("projectInformation"):
+        doc.add_heading("Proje bilgileri ve gereksinimler" if language == "tr" else "Project information and requirements", level=2)
+        for item in project["projectInformation"]:
+            paragraph = doc.add_paragraph()
+            paragraph.add_run(item["label"] + "\n").bold = True
+            paragraph.add_run(item.get("impact") or item.get("value", ""))
 
     devices = {device["id"]: device for device in project["devices"]}
     active = [link for link in project["links"] if link["enabled"]]
