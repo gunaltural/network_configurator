@@ -22,7 +22,8 @@ from pathlib import Path
 from datetime import datetime, timezone
 from typing import List, Literal
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request as WebRequest
+from inventory_excel import parse_inventory_xlsx
 from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel, Field
 import uvicorn
@@ -816,6 +817,19 @@ def reporting_inventory(p: DeviceRequest):
                 conn.disconnect()
             except Exception:
                 pass
+
+
+@app.post("/api/reporting/inventory-excel")
+async def inventory_excel(request: WebRequest):
+    data = bytearray()
+    async for chunk in request.stream():
+        data.extend(chunk)
+        if len(data) > 5_000_000:
+            raise HTTPException(status_code=413, detail="Excel file must be smaller than 5 MB.")
+    try:
+        return {"rows": parse_inventory_xlsx(bytes(data))}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.post("/api/reporting/word")
