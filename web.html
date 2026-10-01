@@ -3847,7 +3847,7 @@ function evpnGenerate(tab){
  const overlayPeers=(lo,asn,local,remote,remoteAs)=>evModel==="single-dc"?[lo1,lo2,lo3,lo4].filter(x=>ip(x)!==ip(lo)).map(x=>({ip:ip(x),asn:asL})):evModel==="dual-dc-rr"?rrNodes.map(x=>({ip:x.rid,asn:asL})):[{ip:ip(local),asn},{ip:ip(remote),asn:remoteAs}];
  const rrConfig=node=>{
    const peers=[lo1,lo2,lo3,lo4].map(ip);
-   if(p==="Cisco NX-OS")return `hostname ${node.name}\nfeature bgp\ninterface loopback0\n  ip address ${node.lo}\nrouter bgp ${asL}\n  router-id ${node.rid}\n  address-family l2vpn evpn\n${peers.map(peer=>`  neighbor ${peer}\n    remote-as ${asL}\n    update-source loopback0\n    address-family l2vpn evpn\n      route-reflector-client\n      send-community\n      send-community extended`).join("\n")}\n# Control-plane-only RR: underlay reachability is configured separately.`;
+   if(p==="Cisco NX-OS")return `hostname ${node.name}\nfeature bgp\ninterface loopback0\n  ip address ${node.lo}\nrouter bgp ${asL}\n  router-id ${node.rid}\n  address-family l2vpn evpn\n    retain route-target all\n${peers.map(peer=>`  neighbor ${peer}\n    remote-as ${asL}\n    update-source loopback0\n    address-family l2vpn evpn\n      route-reflector-client\n      send-community\n      send-community extended`).join("\n")}\n# Control-plane-only RR: underlay reachability is configured separately.`;
    if(p==="Arista EOS")return `hostname ${node.name}\nip routing\ninterface Loopback0\n   ip address ${node.lo}\nrouter bgp ${asL}\n   router-id ${node.rid}\n${peers.map(peer=>`   neighbor ${peer} remote-as ${asL}\n   neighbor ${peer} update-source Loopback0\n   neighbor ${peer} send-community extended`).join("\n")}\n   address-family evpn\n${peers.map(peer=>`      neighbor ${peer} activate\n      neighbor ${peer} route-reflector-client`).join("\n")}\n! Control-plane-only RR; EVPN next hop remains the originating VTEP.`;
    return `sysname ${node.name}\ninterface LoopBack1\n ip address ${node.rid} 255.255.255.255\nbgp ${asL}\n router-id ${node.rid}\n${peers.map(peer=>` peer ${peer} as-number ${asL}\n peer ${peer} connect-interface LoopBack1`).join("\n")}\n l2vpn-family evpn\n  undo policy vpn-target\n${peers.map(peer=>`  peer ${peer} enable\n  peer ${peer} reflect-client`).join("\n")}\n#\ncommit\n# Control-plane-only RR; no next-hop-local is applied.`;
  };
@@ -5458,7 +5458,7 @@ function deviceOutputUi(){
 }
 
 function renderOutput(){
- const noteControl=document.getElementById("designNotesLanguageControl");if(noteControl)noteControl.hidden=tab!=="notes";
+ const noteControl=document.getElementById("designNotesLanguageControl");if(noteControl){noteControl.hidden=tab!=="notes";noteControl.style.display=tab==="notes"?"inline-flex":"none";}
  if(tech==="BGP")bgpV39ContextUI();
  if(tech==="VPC"){vpcLeafUi();vpcV42ContextUI();} if(tech==="EVPN")evpnV431Ui();
  deviceOutputUi();

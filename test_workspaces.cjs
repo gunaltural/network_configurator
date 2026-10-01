@@ -22,7 +22,7 @@ const reports=[];
   if(key==='SDWAN')assert.equal(options.length,1);
   for(const option of options){
    change('platform',option.value);await pause();click('.tab[data-tab="config"]');await pause();
-   const config=d.getElementById('output').textContent;assert.ok(config.length>100);assert.ok(!config.includes('CONFIGURATOR ERROR'));
+   assert.equal(d.getElementById('designNotesLanguageControl').style.display,'none');const config=d.getElementById('output').textContent;assert.ok(config.length>100);assert.ok(!config.includes('CONFIGURATOR ERROR'));
    click('.tab[data-tab="notes"]');await pause();assert.ok(!d.getElementById('output').textContent.includes('CONFIGURATOR ERROR'));
    const report=w.__audit.reportingDesign();assert.ok(report,`${key}/${option.value}: report`);
    if(key==='SDWAN'&&!d.getElementById('sdHostname').value){assert.equal(report.configurations.length,0);assert.ok(report.parameters.some(p=>p.label==='Configuration pending'));}
