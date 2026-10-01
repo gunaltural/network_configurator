@@ -5,10 +5,12 @@ import xml.etree.ElementTree as ET
 
 NS = {'s': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
 HEADERS = {'deviceid': 'id', 'hostname': 'hostname', 'serialnumber': 'serial',
-           'softwareversion': 'softwareVersion', 'productmodel': 'model'}
+           'softwareversion': 'softwareVersion', 'productmodel': 'model',
+           'sshtarget': 'target', 'managementaddress': 'target', 'ipaddress': 'target',
+           'port': 'port', 'username': 'username', 'platform': 'platform'}
 
 
-def parse_inventory_xlsx(data):
+def parse_inventory_xlsx(data, mode='manual'):
     if len(data) > 5_000_000:
         raise ValueError('Excel file must be smaller than 5 MB.')
     try:
@@ -63,14 +65,15 @@ def parse_inventory_xlsx(data):
                     if key in mapping.values():
                         raise ValueError('Duplicate column: ' + text)
                     mapping[col] = key
-            if not {'hostname', 'serial', 'softwareVersion', 'model'} <= set(mapping.values()):
-                raise ValueError('Required headers: Hostname, Serial Number, Software Version, Product Model. Device ID is optional.')
+            required = {'target', 'username'} if mode == 'ssh' else {'hostname', 'serial', 'softwareVersion', 'model'}
+            if not required <= set(mapping.values()):
+                raise ValueError('Required headers: SSH Target, Username. Optional: Device ID, Hostname, Port, Platform.' if mode == 'ssh' else 'Required headers: Hostname, Serial Number, Software Version, Product Model. Device ID is optional.')
             result = []
             for number, cells in decoded[1:]:
                 record = {key: cells.get(col, '') for col, key in mapping.items()}
                 if not any(record.values()):
                     continue
-                if any(len(v) > 100 for v in record.values()):
+                if any(len(v) > (255 if key == 'target' else 100) for key, v in record.items()):
                     raise ValueError('Row ' + str(number) + ': values must be at most 100 characters.')
                 result.append({'row': number, **record})
             if not result:
