@@ -39,6 +39,18 @@ class InventoryExcelTests(unittest.TestCase):
         self.assertEqual(client.post('/api/reporting/inventory-excel?mode=ssh', content=data).json()['rows'][0]['username'], 'engineer')
         self.assertEqual(client.post('/api/reporting/inventory-excel?mode=ssh', content=fixture([self.headers, ['upper-1', 'SW1', 'SN1', '1', 'Model']])).status_code, 400)
 
+    def test_four_column_ssh_template(self):
+        data = fixture([['SSH Target', 'Port', 'Username', 'Password'], ['device.example.com', '', 'engineer', ' test-only ']])
+        row = parse_inventory_xlsx(data, mode='ssh')[0]
+        self.assertEqual(row['password'], ' test-only ')
+        self.assertEqual(row['port'], '')
+        self.assertNotIn('hostname', row)
+        from fastapi.testclient import TestClient
+        from app import app
+        response = TestClient(app).post('/api/reporting/inventory-excel?mode=ssh', content=data)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['rows'][0]['password'], ' test-only ')
+
     def test_invalid_uploads(self):
         for data in [b'invalid', fixture([['Hostname'], ['SW1']]), fixture([self.headers]), fixture([self.headers, ['x', 'SW1', 'S', '1', 'M']], formula=True), fixture([self.headers, ['x', 'SW1', 'S'*101, '1', 'M']])]:
             with self.subTest(size=len(data)), self.assertRaises(ValueError):
