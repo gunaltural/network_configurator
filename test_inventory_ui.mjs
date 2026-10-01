@@ -259,3 +259,17 @@ assert.equal($('projectDetailFields').innerHTML.includes('Teslimat sınırları 
 context.state.language='en';vm.runInContext('renderProjectDetails()',context);
 assert.equal($('projectDetailFields').innerHTML.includes('Customer / organization'),true);
 console.log('Turkish and English project section headings, labels and status options passed.');
+
+for(const vendor of ['Cisco NX-OS','Cisco IOS-XE','Arista EOS','Huawei_CE_SW','FortiGate']){
+ context.state={language:'tr',vendor,technology:'Test technology',projectDetails:{}};
+ vm.runInContext('state.projectDetails=buildProjectExample("en").fields',context);
+ const rows=vm.runInContext('projectInformation()',context);
+ assert.equal(rows.find(r=>r.label==='Varsayımlar ve bağımlılıklar').impact.startsWith('ÖRNEK VARSAYIMLAR'),true,vendor);
+ context.state.projectDetails.risks='Engineer supplied English text';
+ context.state.language='en';vm.runInContext('renderProjectDetails()',context);
+ assert.equal(context.state.projectDetails.assumptions.startsWith('EXAMPLE ASSUMPTIONS'),true,vendor);
+ assert.equal(context.state.projectDetails.risks,'Engineer supplied English text',vendor);
+ context.state.language='tr';vm.runInContext('renderProjectDetails()',context);
+ assert.equal(context.state.projectDetails.assumptions.startsWith('ÖRNEK VARSAYIMLAR'),true,vendor);
+}
+console.log('Already mismatched saved samples reconcile on report and editor rendering across all vendors.');
