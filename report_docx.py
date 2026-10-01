@@ -112,7 +112,7 @@ def build_report_docx(project):
     styles["Normal"].font.name = "Arial"
     styles["Normal"].font.size = Pt(10)
     styles["Normal"].paragraph_format.space_after = Pt(7)
-    for style_name, size in (("Title", 21), ("Heading 1", 13), ("Heading 2", 12)):
+    for style_name, size in (("Title", 21), ("Heading 1", 13), ("Heading 2", 12), ("Heading 3", 11)):
         style = styles[style_name]
         style.font.name = "Arial"
         style.font.size = Pt(size)
@@ -188,7 +188,12 @@ def build_report_docx(project):
     active = [link for link in project["links"] if link["enabled"]]
     device_name = lambda device: device["hostname"] or f"{upper if device['tier'] == 'upper' else lower}-{device['index']:02d}"
 
+    guide = project.get("technologyGuide")
     doc.add_heading(words["topology"], level=1)
+    if guide:
+        doc.add_heading(guide["topologyTitle"], level=2)
+        for paragraph in guide["topology"]:
+            doc.add_paragraph(paragraph)
     doc.add_paragraph(
         f"{upper} {'katmanı' if language == 'tr' else 'tier'}: " + ", ".join(device_name(d) for d in project["devices"] if not d.get("inventoryOnly") and d["tier"] == "upper")
     )
@@ -246,6 +251,25 @@ def build_report_docx(project):
          if project.get("configurations") else _technology_text(project, placement))
     )
     doc.add_paragraph(words["intent"])
+    if guide:
+        doc.add_heading(guide["title"], level=2)
+        for chapter in guide["sections"]:
+            doc.add_heading(chapter["title"], level=3)
+            for paragraph in chapter["paragraphs"]:
+                doc.add_paragraph(paragraph)
+        doc.add_heading("Teknik kaynaklar" if language == "tr" else "Technical references", level=3)
+        for index, source in enumerate(guide["sources"], 1):
+            paragraph = doc.add_paragraph(f"[{index}] {source['title']}")
+            hyperlink = OxmlElement("w:hyperlink")
+            rel_id = doc.part.relate_to(source["url"], "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink", is_external=True)
+            hyperlink.set(qn("r:id"), rel_id)
+            run = OxmlElement("w:r")
+            text = OxmlElement("w:t")
+            text.text = "Cisco dokümanı" if language == "tr" else "Cisco documentation"
+            run.append(text)
+            hyperlink.append(run)
+            paragraph.add_run(" — ")
+            paragraph._p.append(hyperlink)
     decisions = [item for item in project.get("parameters", []) if item["value"] != "Design boundary"]
     design_notes = [item for item in project.get("parameters", []) if item["value"] == "Design boundary"]
     if decisions:

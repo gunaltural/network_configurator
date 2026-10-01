@@ -239,6 +239,24 @@ class ReportModuleSummary(BaseModel):
     topologyPng: str = Field(default="", max_length=3000000)
 
 
+class ReportGuideSection(BaseModel):
+    title: str = Field(max_length=150)
+    paragraphs: List[str] = Field(max_length=12)
+
+
+class ReportGuideSource(BaseModel):
+    title: str = Field(max_length=150)
+    url: str = Field(pattern=r"^https://www\.cisco\.com/", max_length=600)
+
+
+class ReportTechnologyGuide(BaseModel):
+    title: str = Field(max_length=150)
+    topologyTitle: str = Field(max_length=150)
+    topology: List[str] = Field(max_length=10)
+    sections: List[ReportGuideSection] = Field(max_length=20)
+    sources: List[ReportGuideSource] = Field(max_length=12)
+
+
 class ReportWordRequest(BaseModel):
     language: Literal["tr", "en"] = "en"
     name: str = Field(min_length=1, max_length=120)
@@ -257,6 +275,7 @@ class ReportWordRequest(BaseModel):
     parameters: List[ReportParameter] = Field(default_factory=list)
     configurations: List[ReportConfiguration] = Field(default_factory=list)
     topologyPng: str = Field(default="", max_length=3000000)
+    technologyGuide: ReportTechnologyGuide | None = None
     projectInformation: List[ReportProjectInformation] = Field(default_factory=list, max_length=20)
     maintenanceNotes: List[ReportParameter] = Field(default_factory=list)
     moduleReports: List[ReportModuleSummary] = Field(default_factory=list, max_length=8)
@@ -534,6 +553,11 @@ def reporting():
 @app.get("/engineering-locale.js")
 def engineering_locale():
     return Response((BASE_DIR / "engineering-locale.js").read_text(encoding="utf-8"), media_type="application/javascript", headers={"Cache-Control": "no-cache"})
+
+
+@app.get("/vpc-report.js")
+def vpc_report_guide():
+    return Response((BASE_DIR / "vpc-report.js").read_text(encoding="utf-8"), media_type="application/javascript", headers={"Cache-Control": "no-cache"})
 
 
 @app.get("/api/health")
