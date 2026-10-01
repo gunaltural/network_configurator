@@ -91,6 +91,26 @@ class InventoryExcelTests(unittest.TestCase):
                 tier_line = next(x for x in text if 'tier:' in x)
                 self.assertNotIn('Extra-', tier_line)
 
+    def test_latest_inventory_export(self):
+        from fastapi.testclient import TestClient
+        from app import app
+        from docx import Document
+        payload = dict(language='tr', name='Latest inventory', vendor='Cisco IOS-XE', architecture='module', technology='System', techPlacement='upper', upperCount=1, lowerCount=0, scope='', links=[], inventoryDeviceIds=['inv-latest'], devices=[
+            dict(id='upper-1', tier='upper', index=1, hostname='DESIGN-SW', model='OLD-MODEL', serial='OLD-SERIAL', modelSource='manual', serialSource='manual'),
+            dict(id='inv-old', inventoryOnly=True, tier='upper', index=1, hostname='OLD-HOST', model='OLD-EXTRA', serial='OLD-EXTRA-SERIAL', modelSource='manual', serialSource='manual'),
+            dict(id='inv-latest', inventoryOnly=True, tier='upper', index=1, hostname='LATEST-HOST', model='C9300', serial='LATEST-SERIAL', softwareVersion='17.9.5', modelSource='manual', serialSource='manual')])
+        response=TestClient(app).post('/api/reporting/word',json=payload)
+        self.assertEqual(response.status_code,200)
+        doc=Document(io.BytesIO(response.content))
+        table=next(t for t in doc.tables if len(t.columns)==6)
+        self.assertEqual(len(table.rows),2)
+        text=' '.join(c.text for r in table.rows for c in r.cells)
+        self.assertIn('LATEST-SERIAL',text)
+        self.assertNotIn('OLD-',text)
+        self.assertEqual(table.rows[1].cells[5].text,'Mühendis girişi')
+        payload['inventoryDeviceIds']=['not-a-device']
+        self.assertEqual(TestClient(app).post('/api/reporting/word',json=payload).status_code,400)
+
 
 if __name__ == '__main__':
     unittest.main()
