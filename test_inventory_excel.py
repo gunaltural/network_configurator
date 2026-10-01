@@ -45,6 +45,7 @@ class InventoryExcelTests(unittest.TestCase):
         from app import app
         row = parse_inventory_xlsx(fixture([self.headers, ['upper-1', 'ACTUAL-SW1', '0000123', '17.9.5', 'C9300']]))[0]
         payload = dict(name='Inventory test', vendor='Cisco IOS-XE', architecture='module', technology='System', techPlacement='upper', upperCount=1, lowerCount=0, scope='', links=[], devices=[dict(id=row['id'], tier='upper', index=1, hostname='Planned-SW1', model=row['model'], serial=row['serial'], softwareVersion=row['softwareVersion'], observedHostname=row['hostname'], modelSource='manual', serialSource='manual', softwareSource='manual')])
+        payload['devices'].extend(dict(id=f'inv-{i}', inventoryOnly=True, tier='upper', index=1, hostname=f'Extra-{i}', model='Extra model', serial=f'Extra-SN-{i}', softwareVersion='4.32', modelSource='manual', serialSource='manual') for i in range(20))
         client = TestClient(app)
         for language in ['tr', 'en']:
             payload['language'] = language
@@ -52,8 +53,12 @@ class InventoryExcelTests(unittest.TestCase):
             self.assertEqual(response.status_code, 200)
             with zipfile.ZipFile(io.BytesIO(response.content)) as doc:
                 xml = doc.read('word/document.xml').decode()
-                for value in ['Planned-SW1', 'ACTUAL-SW1', '0000123', '17.9.5', 'C9300']:
+                for value in ['Planned-SW1', 'ACTUAL-SW1', '0000123', '17.9.5', 'C9300', 'Extra-19', 'Extra-SN-19', 'Envanter cihazı' if language == 'tr' else 'Inventory device']:
                     self.assertIn(value, xml)
+                root = __import__('xml.etree.ElementTree', fromlist=['']).fromstring(xml)
+                text = [''.join(p.itertext()) for p in root.findall('.//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}p')]
+                tier_line = next(x for x in text if 'tier:' in x)
+                self.assertNotIn('Extra-', tier_line)
 
 
 if __name__ == '__main__':
