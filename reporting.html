@@ -622,8 +622,27 @@
     if(p.schema!=="network-configurator-report-v1"||!vendors.includes(p.vendor)||!Array.isArray(p.devices)||!Array.isArray(p.links))throw Error("Unsupported project format");
     if(refresh && p.source){
       try{
-        const old=JSON.parse(sessionStorage.getItem(`networkConfigurator.report.edit.${p.source.projectId}.${p.source.module}.${p.vendor}`)||"null");
-        if(old?.source && Array.isArray(old.devices)){
+        const current=JSON.parse(sessionStorage.getItem("networkConfigurator.report.current")||"null");
+        const cached=JSON.parse(sessionStorage.getItem(`networkConfigurator.report.edit.${p.source.projectId}.${p.source.module}.${p.vendor}`)||"null");
+        const compatible=current&&(!current.source||current.source.projectId===p.source.projectId);
+        const old=compatible&&Array.isArray(current.inventoryDeviceIds)?current:cached;
+        if(old&&(!old.source||old.source.module!==p.source.module||old.vendor!==p.vendor)&&Array.isArray(old.inventoryDeviceIds)){
+          normalizeInventoryProject(old);
+          const ids=new Set(old.inventoryDeviceIds);
+          const records=old.devices.filter(d=>ids.has(d.id));
+          const mapping=new Map();
+          for(const record of records){
+            let target=p.devices.find(d=>(record.observedHostname||record.hostname)&&(d.hostname===record.observedHostname||d.hostname===record.hostname));
+            if(!target){target={...record,id:`inventory-${crypto.randomUUID()}`,inventoryOnly:true,tier:"inventory"};p.devices.push(target);}
+            else for(const key of ["model","serial","softwareVersion","modelSource","serialSource","softwareSource","observedHostname","observedAt","target","sshUsername","sshPort","collectionMethod","inventoryChannel","maintenance"])target[key]=record[key];
+            mapping.set(record.id,target.id);
+          }
+          p.inventoryDeviceIds=records.map(d=>mapping.get(d.id));
+          p.manualVisibleIds=(old.manualVisibleIds||[]).map(id=>mapping.get(id)).filter(Boolean);
+          p.sshVisibleIds=(old.sshVisibleIds||[]).map(id=>mapping.get(id)).filter(Boolean);
+          p.inventoryRevision=2;
+        }
+        if(old?.source && old.source.module===p.source.module && old.vendor===p.vendor && Array.isArray(old.devices)){
           normalizeInventoryProject(old);
           const previous=new Map(old.devices.map(d=>[d.id,d]));
           p.inventoryRevision=2;p.inventoryDeviceIds=old.inventoryDeviceIds;p.manualVisibleIds=old.manualVisibleIds;p.sshVisibleIds=old.sshVisibleIds;p.scope=old.scope||"";p.name=p.name||old.name||"";
