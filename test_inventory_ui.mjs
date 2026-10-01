@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
+import {webcrypto} from 'node:crypto';
 const html=fs.readFileSync('reporting.html','utf8');
 const logic=html.slice(html.indexOf('  let inventoryMode='),html.indexOf('  let maintenanceView='));
 const devices=[{id:'one',hostname:'SW1',model:'Keep model',vendor:'Cisco NX-OS'},{id:'two',hostname:'SW2',serial:'Keep serial',vendor:'Arista EOS'}];
@@ -10,7 +11,7 @@ const rows=devices.map(d=>{const inputs={'target':{value:d.id+'.example.test'},s
 $('batchRows').querySelectorAll=()=>rows;
 $('batchPassword').value='test-password';
 let calls=0;
-const context={$,val:id=>$(id).value,state:{devices,vendor:'Cisco NX-OS'},document:{querySelectorAll:()=>[]},deviceName:d=>d.hostname,esc:x=>String(x),vendorLabel:x=>x,renderReport(){},renderEditor(){},fetch:async(url,request)=>{const p=JSON.parse(request.body);assert.equal(p.password,'test-password');assert.equal(p.platform,devices[calls].vendor);calls++;return calls===1?{ok:false,json:async()=>({detail:'Test failure'})}:{ok:true,json:async()=>({hostname:'OBSERVED-SW2',model:'DCS-7050',serial:'',software_version:'4.32.1F',observed_at:'now',warnings:['serial unavailable']})};}};
+const context={crypto:webcrypto,$,val:id=>$(id).value,state:{devices,vendor:'Cisco NX-OS'},document:{querySelectorAll:()=>[]},deviceName:d=>d.hostname,esc:x=>String(x),vendorLabel:x=>x,renderReport(){},renderEditor(){},fetch:async(url,request)=>{const p=JSON.parse(request.body);assert.equal(p.password,'test-password');assert.equal(p.platform,devices[calls].vendor);calls++;return calls===1?{ok:false,json:async()=>({detail:'Test failure'})}:{ok:true,json:async()=>({hostname:'OBSERVED-SW2',model:'DCS-7050',serial:'',software_version:'4.32.1F',observed_at:'now',warnings:['serial unavailable']})};}};
 vm.createContext(context);vm.runInContext(logic,context);
 await $('runInventoryBatch').onclick();
 assert.equal(calls,2,'failure must not stop the next device');
@@ -25,26 +26,37 @@ console.log('Multi-device failure isolation, vendor routing, partial collection 
 context.fetch=async()=>({ok:true,json:async()=>({rows:[
   {row:'2',id:'one',hostname:'OBSERVED-SW1',serial:'00012',softwareVersion:'',model:''},
   {row:'3',hostname:'SW2',serial:'SN2',softwareVersion:'',model:''},
-  {row:'4',id:'one',hostname:'Duplicate',serial:'Wrong',softwareVersion:'',model:''},
-  {row:'5',id:'unknown',hostname:'Unknown',serial:'Wrong',softwareVersion:'',model:''}
+  {row:'4',hostname:'NEW-SW3',serial:'SN3',softwareVersion:'1.0',model:'M3'}
 ]})});
 await $('inventoryExcel').onchange({target:{files:[{name:'inventory.xlsx',size:100}],value:''}});
-assert.equal(devices[0].serial,undefined,'preview must not mutate inventory');
-assert.match($('excelPreview').innerHTML,/2 of 4 rows matched/);
-$('applyExcel').onclick();
-assert.equal(devices[0].serial,'00012');
+assert.equal(devices[0].serial,'00012','Excel imports directly without an Apply action');
 assert.equal(devices[0].hostname,'SW1','planned topology hostname is preserved');
 assert.equal(devices[0].observedHostname,'OBSERVED-SW1');
 assert.equal(devices[0].model,'Keep model','blank cells must retain existing values');
 assert.equal(devices[1].serial,'SN2');
 assert.equal(devices[1].softwareVersion,'4.32.1F');
-console.log('Excel preview, ID/hostname matching, duplicate exclusion and blank retention passed.');
-context.fetch=async()=>({ok:true,json:async()=>({rows:[{row:'2',hostname:'NEW-NAME',serial:'SN-MAPPED',softwareVersion:'1.0',model:'New model'}]})});
-await $('inventoryExcel').onchange({target:{files:[{name:'inventory.xlsx',size:100}],value:''}});
-assert.equal($('applyExcel').hidden,true);
-$('excelPreview').onchange({target:{dataset:{excelRow:'0'},value:'two'}});
-assert.equal($('applyExcel').hidden,false);
-$('applyExcel').onclick();
-assert.equal(devices[1].serial,'SN-MAPPED');
-assert.equal(devices[1].observedHostname,'NEW-NAME');
-console.log('Manual mapping of a new hostname to a planned report device passed.');
+assert.equal(devices[2].inventoryOnly,true);
+assert.equal(devices[2].hostname,'NEW-SW3');
+assert.equal(devices[2].serial,'SN3');
+assert.equal($('excelPreview').innerHTML.includes('Report device'),false);
+vm.runInContext('importExcelRows([{row:"2",hostname:"NEW-SW3",serial:"UPDATED",model:"",softwareVersion:""}])',context);
+assert.equal(devices.length,3,'reimport updates the added inventory device');
+assert.equal(devices[2].serial,'UPDATED');
+assert.throws(()=>vm.runInContext('importExcelRows([{row:"2",hostname:"DUP"},{row:"3",hostname:"DUP"}])',context));
+assert.equal(devices.length,3,'duplicate validation happens before any mutation');
+$('manualRows').querySelectorAll=()=>[];
+$('addInventoryDevice').onclick();
+assert.equal(devices.length,4);
+assert.equal(devices[3].inventoryOnly,true);
+vm.runInContext('inventoryMode="automatic"',context);
+$('addInventoryDevice').onclick();
+assert.equal(devices.length,5);
+assert.equal(devices[4].collectionMethod,'automatic');
+assert.equal(vm.runInContext('batchSelection.has(state.devices[4].id)',context),true);
+context.rawUpper=()=>"Spine";context.rawLower=()=>"Leaf";context.selectedDevice=null;
+context.state.upperCount=1;context.state.lowerCount=1;context.state.links=[];
+vm.runInContext(html.slice(html.indexOf('  function syncTopology(){'),html.indexOf('  function deviceCard(')),context);
+vm.runInContext('syncTopology()',context);
+assert.equal(context.state.devices.filter(d=>d.inventoryOnly).length,3);
+assert.equal(context.state.links.length,1,'inventory additions do not create topology links');
+console.log('Direct Excel imports, new devices, reimports, duplicate rejection, Add device in both modes and topology isolation passed.');
