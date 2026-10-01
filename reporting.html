@@ -28,11 +28,11 @@
     <div class="navlinks"><a class="button link subtle" href="/">← Home</a><label style="margin:0">Report language<select id="reportLanguage" style="display:inline-block;width:auto;margin:0 0 0 6px;padding:7px 28px 7px 9px"><option value="tr">Türkçe</option><option value="en">English</option></select></label><button class="button" id="saveProject">Download project</button><label class="button" for="openProject" style="color:var(--text);font-size:14px">Open project<input type="file" accept=".json,application/json" id="openProject" hidden></label><button class="button" id="downloadWord">Download Word</button><button class="button primary" id="printReport">Print / Save PDF</button></div>
   </nav>
   <div class="intro"><div><div class="eyebrow">Design documentation · Inventory · Maintenance planning</div><h1>Maintenance and Reporting</h1><p>Preserve your design report, verify inventory and prepare an evidence-based maintenance plan.</p></div><span class="status" id="projectStatus">Draft · 6 devices</span></div>
-  <div class="maintenance-tabs" role="tablist" aria-label="Maintenance workspace"><button class="button" role="tab" data-view="design" aria-selected="true">Design Guide and Reporting</button><button class="button" role="tab" data-view="inventory" aria-selected="false">Inventory</button><button class="button" role="tab" data-view="lifecycle" aria-selected="false">Lifecycle and Software</button><button class="button" role="tab" data-view="upgrade" aria-selected="false">Upgrade Planning</button></div>
+  <div class="maintenance-tabs" role="tablist" aria-label="Maintenance workspace"><button class="button" role="tab" data-view="inventory" aria-selected="false">Inventory</button><button class="button" role="tab" data-view="design" aria-selected="true">Design Guide and Reporting</button><button class="button" role="tab" data-view="lifecycle" aria-selected="false">Lifecycle and Software</button><button class="button" role="tab" data-view="upgrade" aria-selected="false">Upgrade Planning</button></div>
   <section id="maintenanceArea" class="panel" hidden></section>
   <div class="editor"><div class="stack">
     <div class="source-banner" id="sourceBanner" hidden></div>
-    <section class="panel"><h2>1 · Project and technology</h2><p class="hint">Select the vendor first. Device records and suitable technology choices follow your selection.</p><div class="fields">
+    <section class="panel"><h2>Project information</h2><p class="hint" id="projectHelp">Enter the project name and design intent. Design inputs come from Technology Workspaces.</p><p class="note" id="designSummary" hidden></p><div class="fields">
       <label class="wide">Project name<input id="projectName" maxlength="120" placeholder="Enter a project name" required></label>
       <label>Primary vendor / platform<select id="vendor"><option>Cisco NX-OS</option><option>Cisco IOS-XE</option><option>Arista EOS</option><option value="Huawei_CE_SW">Huawei CloudEngine</option><option>FortiGate</option></select></label>
       <label>Architecture<select id="architecture"><option value="spine-leaf">Spine–Leaf</option><option value="core-access">Core–Access</option><option value="module">Module topology</option></select></label>
@@ -40,7 +40,7 @@
       <label><span id="upperLabel">Spine count</span><input id="upperCount" type="number" min="1" max="8" value="2"></label><label><span id="lowerLabel">Leaf count</span><input id="lowerCount" type="number" min="1" max="16" value="4"></label>
       <label class="wide">Design intent / project scope<textarea id="scope" maxlength="2000" placeholder="Purpose, locations, services, availability targets…"></textarea></label>
     </div></section>
-    <section class="panel"><h2>2 · Planned device inventory</h2><p class="hint"><span id="deviceCount">2 Spine + 4 Leaf = 6 planned devices.</span> Enter hardware details now or verify them later.</p>
+    <section class="panel"><h2>Device inventory</h2><p class="hint"><span id="deviceCount">2 Spine + 4 Leaf = 6 planned devices.</span> Enter hardware details now or verify them later.</p>
       <div id="inventoryManager" hidden>
         <label>Collection method<select id="inventoryMode"><option value="manual">Manual entry / Excel upload</option><option value="automatic">Automatic · SSH · multiple devices</option></select></label><div class="ssh-actions"><button id="addInventoryDevice" class="button primary" type="button">Add device</button><button id="removeInventoryDevice" class="button" type="button" disabled>Remove device</button></div><p class="note">Additional devices belong to inventory and maintenance; the design topology stays unchanged.</p>
         <div id="manualInventory"><p class="note">Hostname below is the observed device identity. Planned topology names remain unchanged. Changes immediately update the report.</p><div class="inventory-scroll"><table><thead><tr><th>Select</th><th>Device ID / planned name</th><th>Hostname</th><th>Serial number</th><th>Software version</th><th>Product model</th></tr></thead><tbody id="manualRows"></tbody></table></div>
@@ -144,6 +144,10 @@
       `<strong>Standalone report.</strong> To include a generated topology and device configurations, open a supported design in <a href="/">Technology Workspaces</a> and choose Maintenance and Reporting in its header.`;
     $("linkHelp").textContent=imported?"Links and ports come from Technology Workspaces. Missing physical ports can be entered here for the document; update the workspace separately before deployment.":"Initial design connects each lower-tier device to each upper-tier device. Enter the port used at each end; uncheck a link to remove it from the report.";
     for(const id of ["vendor","architecture","technology","techPlacement","upperCount","lowerCount"])$(id).disabled=imported;
+    $("projectHelp").textContent=imported?"Enter project-specific information. Technology and topology are inherited from Technology Workspaces.":"Enter project-specific information. Open a Technology Workspace to include its design, topology and configuration.";
+    $("designSummary").hidden=!imported;
+    $("designSummary").textContent=`${vendorLabel(state.vendor)} · ${state.technology} · ${state.architecture==="spine-leaf"?"Spine–Leaf":state.architecture==="core-access"?"Core–Access":"Module topology"} · ${state.devices.filter(d=>!d.inventoryOnly).length} topology devices`;
+    for(const id of ["vendor","architecture","technology","techPlacement","upperCount","lowerCount"])$(id).parentElement.hidden=imported;
     $("deviceCount").textContent=`${state.devices.filter(d=>!d.inventoryOnly).length} topology devices · ${currentReportInventory().filter(d=>d.inventoryOnly).length} current additional inventory devices · ${currentReportInventory().length} current inventory records.`;
     $("linkCount").textContent=state.links.filter(l=>l.enabled).length;
     $("devices").innerHTML=state.devices.filter(d=>!d.inventoryOnly||currentReportInventory().some(x=>x.id===d.id)).map(deviceCard).join("");
@@ -531,7 +535,7 @@
     const editor=document.querySelector('.editor');editor.hidden=maintenanceView==="lifecycle"||maintenanceView==="upgrade";
     $("maintenanceArea").hidden=!editor.hidden;
     const sections=[...document.querySelectorAll('.editor>.stack>section')];
-    sections.forEach((section,i)=>section.hidden=maintenanceView==="inventory"&&!(i===1||i===3&&selectedDevice));
+    sections.forEach((section,i)=>section.hidden=maintenanceView==="inventory"?!(i===1||i===3&&selectedDevice):(i===1||i===3));
     renderInventoryManager();
     if(!editor.hidden)return;
     const devices=currentReportInventory().filter(d=>!d.external);
