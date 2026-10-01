@@ -252,3 +252,10 @@ context.state={language:'en',name:'',scope:'',vendor:'Cisco NX-OS',technology:'v
 vm.runInContext('const legacySample=buildProjectExample("tr");state.projectDetails=legacySample.fields;state.name=legacySample.name;state.scope=legacySample.scope;updateProjectExampleLanguage("tr")',context);
 assert.equal(context.state.projectDetails.customer,'EXAMPLE — Customer organization');
 console.log('Bidirectional example language switching across all five platforms, edited-content protection and legacy samples passed.');
+
+context.state.language='tr';vm.runInContext('renderProjectDetails()',context);
+assert.equal($('projectDetailFields').innerHTML.includes('Müşteri / kuruluş'),true);
+assert.equal($('projectDetailFields').innerHTML.includes('Teslimat sınırları ve kabul'),true);
+context.state.language='en';vm.runInContext('renderProjectDetails()',context);
+assert.equal($('projectDetailFields').innerHTML.includes('Customer / organization'),true);
+console.log('Turkish and English project section headings, labels and status options passed.');
