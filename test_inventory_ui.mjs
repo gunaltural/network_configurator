@@ -92,7 +92,7 @@ assert.equal(vm.runInContext('sshPageDevices().length',context),1,'upload shows 
 context.maintenanceView='inventory';vm.runInContext('renderInventoryManager()',context);
 assert.equal($('batchRows').innerHTML.includes('MANUAL-ONLY-MODEL'),false);
 assert.equal($('manualRows').innerHTML.includes('SSH-SW1'),false);
-assert.equal($('manualRows').innerHTML.includes('MANUAL-ONLY-MODEL'),true);
+assert.equal($('manualRows').innerHTML.includes('MANUAL-ONLY-MODEL'),false,'the previous manual batch is cleared by a new SSH batch');
 console.log('Manual/SSH data isolation, selected uploaded batch visibility and connection status labels passed.');
 
 vm.runInContext('importSshTargets([{row:"2",target:"four-column.example.com",port:"",username:"engineer",password:"test-only-import"}]);renderInventoryManager()',context);
@@ -126,3 +126,17 @@ assert.equal(vm.runInContext('currentReportInventory()[0].serial',context),'');
 vm.runInContext('importSshTargets([{row:"2",target:"latest-ssh.example.com",username:"engineer"}])',context);
 assert.equal(vm.runInContext('currentReportInventory().length',context),0,'SSH upload must not report earlier manual or collected data');
 console.log('Latest-only manual list and report, blank replacement and SSH batch isolation passed.');
+
+vm.runInContext(html.slice(html.indexOf('  function normalizeInventoryProject('),html.indexOf('  function openReport(')),context);
+context.legacy={devices:[{id:'upper-1',hostname:'DESIGN',model:'OLD-MODEL',serial:'OLD-SERIAL'},{id:'old-extra',inventoryOnly:true,hostname:'OLD-HOST',serial:'OLD-SERIAL'}]};
+vm.runInContext('normalizeInventoryProject(legacy)',context);
+assert.equal(context.legacy.devices.length,1);
+assert.equal(context.legacy.devices[0].hostname,'DESIGN');
+assert.equal(context.legacy.devices[0].serial,'');
+assert.equal(context.legacy.inventoryDeviceIds.length,0);
+context.tracked={inventoryDeviceIds:['latest'],manualVisibleIds:['latest'],sshVisibleIds:[],devices:[{id:'upper-1',hostname:'DESIGN'},{id:'old-extra',inventoryOnly:true,serial:'OLD-SERIAL'},{id:'latest',inventoryOnly:true,serial:'LATEST-SERIAL'}]};
+vm.runInContext('normalizeInventoryProject(tracked);normalizeInventoryProject(tracked)',context);
+assert.equal(context.tracked.devices.length,2);
+assert.equal(context.tracked.devices.find(d=>d.id==='latest').serial,'LATEST-SERIAL');
+assert.equal(context.tracked.devices.some(d=>d.id==='old-extra'),false);
+console.log('Legacy session cleanup, tracked batch preservation, archive pruning and idempotent reopen passed.');
