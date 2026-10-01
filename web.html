@@ -376,7 +376,7 @@ pre{
 </div>
 <section class="v3-dashboard show" id="v3Dashboard">
   <a class="v3-card v3-report-card" href="/reporting">
-    <span class="tag">Design documentation</span><h3>Reporting and Inventory</h3><p>Document your technology design, device configurations and planned inventory. You can also start a standalone report.</p>
+    <span class="tag">Design · Inventory · Maintenance</span><h3>Maintenance and Reporting</h3><p>Create design reports, collect inventory, review lifecycle and software, and prepare upgrade plans.</p>
   </a>
   <div class="v3-section-head"><b>Technology Workspaces</b><span>Open an existing module</span></div>
   <div class="v3-tech-grid" id="v3TechGrid"></div>
@@ -390,7 +390,7 @@ pre{
 
 <div class="v3-workspace-head" id="v3WorkspaceHead" style="display:none">
   <div class="v3-breadcrumb">Project / <strong id="v3CurrentTech">Technology</strong></div>
-  <div class="v3-head-report" id="v3HeadReport" hidden><span class="v3-next-caption">NEXT STEP · DOCUMENTATION</span><button type="button" id="v3WorkspaceReportTopBtn" class="v3-workspace-report-action">Reporting and Inventory <span aria-hidden="true">→</span></button></div>
+  <div class="v3-head-report" id="v3HeadReport" hidden><span class="v3-next-caption">NEXT STEP · DOCUMENTATION</span><button type="button" id="v3WorkspaceReportTopBtn" class="v3-workspace-report-action">Maintenance and Reporting <span aria-hidden="true">→</span></button></div>
 </div>
 <div class="v3-health" id="v3Health" style="display:none">
   <div class="v3-health-card"><b id="v3DeviceCount">—</b><span>DEVICES</span></div>
@@ -450,7 +450,7 @@ pre{
       <section class="card">
         <h3>01 · Parameters</h3>
         <div id="params"></div>
-        <div id="v3ReportNext" class="v3-report-next" hidden><div><strong>Design ready?</strong><p>Carry this topology, connections and device configurations into the report.</p></div><button type="button" id="v3WorkspaceReportBtn" class="v3-workspace-report-action">Reporting and Inventory <span aria-hidden="true">→</span></button></div>
+        <div id="v3ReportNext" class="v3-report-next" hidden><div><strong>Design ready?</strong><p>Carry this topology, connections and device configurations into the report.</p></div><button type="button" id="v3WorkspaceReportBtn" class="v3-workspace-report-action">Maintenance and Reporting <span aria-hidden="true">→</span></button></div>
       </section>
 
       <section class="card">
@@ -5419,7 +5419,7 @@ function enrichedDesignNotes(module){
  const decisions=window.reportEngineeringDecisions?.(tech,read,platform())||[],notes=workspaceDesignNoteParameters(tech),lines=[`${technologyLabel(tech,platform())} · Design Decisions and Engineering Notes`,"",`Platform: ${platform()}`,"Generated from the current Technology Workspace selections.",""];
  if(decisions.length){lines.push("DESIGN DECISIONS AND NETWORK IMPACT","");decisions.forEach((item,index)=>lines.push(`${index+1}. ${item.label}`,`Selected design: ${item.value}`,`Network impact: ${item.impact}`,""));}
  if(notes.length){lines.push("IMPLEMENTATION ASSUMPTIONS, RISKS AND BOUNDARIES","");notes.forEach((item,index)=>lines.push(`${index+1}. ${item.impact}`));}
- lines.push("","These notes form part of the design record and are transferred to Reporting and Inventory. Validate platform and software-release behavior before production deployment.");
+ lines.push("","These notes form part of the design record and are transferred to Maintenance and Reporting. Validate platform and software-release behavior before production deployment.");
  return lines.join("\n");
 }
 
