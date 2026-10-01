@@ -31,7 +31,7 @@
   <div class="maintenance-tabs" role="tablist" aria-label="Maintenance workspace"><button class="button" role="tab" data-view="inventory" aria-selected="false">Inventory</button><button class="button" role="tab" data-view="design" aria-selected="true">Design Guide and Reporting</button><button class="button" role="tab" data-view="lifecycle" aria-selected="false">Lifecycle and Software</button><button class="button" role="tab" data-view="upgrade" aria-selected="false">Upgrade Planning</button></div>
   <section id="maintenanceArea" class="panel" hidden></section>
   <div class="editor"><div class="stack">
-    <div class="source-banner" id="sourceBanner" hidden></div>
+    <div class="source-banner" id="sourceBanner" hidden></div><div class="panel" id="reportInventoryPanel"><h2>Project inventory</h2><p class="hint">Current records from Inventory. This table is also used in the report; edit or collect devices in the Inventory tab.</p><div class="inventory-scroll"><table><thead><tr><th>Device</th><th>Role</th><th>Product model</th><th>Serial number</th><th>Software version</th><th>Source</th></tr></thead><tbody id="reportInventoryRows"></tbody></table></div></div>
     <section class="panel"><h2>Project information</h2><p class="hint" id="projectHelp">Enter the project name and design intent. Design inputs come from Technology Workspaces.</p><p class="note" id="designSummary" hidden></p><p class="note" id="liveInventoryStatus" aria-live="polite"></p><div class="fields">
       <label class="wide">Project name<input id="projectName" maxlength="120" placeholder="Enter a project name" required></label>
       <label>Primary vendor / platform<select id="vendor"><option>Cisco NX-OS</option><option>Cisco IOS-XE</option><option>Arista EOS</option><option value="Huawei_CE_SW">Huawei CloudEngine</option><option>FortiGate</option></select></label>
@@ -341,6 +341,7 @@
   function renderReport(){
     normalizeInventoryProject(state);
     const inventory=currentReportInventory();
+    $("reportInventoryRows").innerHTML=inventory.map(reportRow).join("")||`<tr><td colspan="6">${state.language==="tr"?"Henüz envanter kaydı yok. Inventory sekmesinden cihaz ekleyin veya veri toplayın.":"No inventory records yet. Add or collect devices in the Inventory tab."}</td></tr>`;
     $("liveInventoryStatus").textContent=`Live inventory: ${inventory.length} devices from Inventory. Manual changes and successful SSH collection update this report immediately.`;
     const active=state.links.filter(l=>l.enabled);
     const incomplete=currentReportInventory().filter(d=>!d.external&&(!d.model||!d.serial));
@@ -541,7 +542,8 @@
     const editor=document.querySelector('.editor');editor.hidden=maintenanceView==="lifecycle"||maintenanceView==="upgrade";
     $("maintenanceArea").hidden=!editor.hidden;
     const sections=[...document.querySelectorAll('.editor>.stack>section')];
-    sections.forEach((section,i)=>section.hidden=maintenanceView==="inventory"?!(i===1||i===3&&selectedDevice):(i===1||i===3));
+    sections.forEach((section,i)=>section.hidden=maintenanceView==="inventory"?!(i===1||i===3&&selectedDevice):(i===1||i===2||i===3));
+    $("reportInventoryPanel").hidden=maintenanceView!=="design";
     renderInventoryManager();
     if(!editor.hidden)return;
     const devices=currentReportInventory().filter(d=>!d.external);
