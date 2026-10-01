@@ -40,6 +40,21 @@ class InventoryExcelTests(unittest.TestCase):
         self.assertEqual(response.json()['rows'][0]['id'], 'upper-1')
         self.assertEqual(client.post('/api/reporting/inventory-excel', content=b'invalid').status_code, 400)
 
+    def test_imported_inventory_in_word(self):
+        from fastapi.testclient import TestClient
+        from app import app
+        row = parse_inventory_xlsx(fixture([self.headers, ['upper-1', 'ACTUAL-SW1', '0000123', '17.9.5', 'C9300']]))[0]
+        payload = dict(name='Inventory test', vendor='Cisco IOS-XE', architecture='module', technology='System', techPlacement='upper', upperCount=1, lowerCount=0, scope='', links=[], devices=[dict(id=row['id'], tier='upper', index=1, hostname='Planned-SW1', model=row['model'], serial=row['serial'], softwareVersion=row['softwareVersion'], observedHostname=row['hostname'], modelSource='manual', serialSource='manual', softwareSource='manual')])
+        client = TestClient(app)
+        for language in ['tr', 'en']:
+            payload['language'] = language
+            response = client.post('/api/reporting/word', json=payload)
+            self.assertEqual(response.status_code, 200)
+            with zipfile.ZipFile(io.BytesIO(response.content)) as doc:
+                xml = doc.read('word/document.xml').decode()
+                for value in ['Planned-SW1', 'ACTUAL-SW1', '0000123', '17.9.5', 'C9300']:
+                    self.assertIn(value, xml)
+
 
 if __name__ == '__main__':
     unittest.main()
