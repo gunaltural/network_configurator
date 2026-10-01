@@ -238,6 +238,9 @@ def build_report_docx(project):
 
     doc.add_page_break()
     doc.add_heading(words["inventory"], level=1)
+    for device in project["devices"]:
+        if device.get("softwareVersion") or device.get("observedHostname"):
+            doc.add_paragraph(f"{device_name(device)} · " + ("Gözlenen cihaz adı" if language == "tr" else "Observed hostname") + f": {device.get('observedHostname') or '—'} · " + ("Yazılım" if language == "tr" else "Software") + f": {device.get('softwareVersion') or '—'} · " + ("Son SSH doğrulaması" if language == "tr" else "Last SSH verification") + f": {device.get('observedAt') or '—'}")
     source = lambda value: (("Cihazdan doğrulandı" if value == "device" else "Mühendis girişi" if value == "manual" else "Atama bekliyor") if language == "tr" else ("Verified from device" if value == "device" else "Engineer entry" if value == "manual" else "Awaiting assignment"))
     _table(
         doc,
@@ -249,6 +252,12 @@ def build_report_docx(project):
     )
 
     doc.add_heading(words["confirm"], level=1)
+    if project.get("maintenanceNotes"):
+        doc.add_heading("Bakım değerlendirmesi ve upgrade planı" if language == "tr" else "Maintenance assessment and upgrade plan", level=1)
+        for item in project["maintenanceNotes"]:
+            doc.add_heading(item["label"], level=2)
+            doc.add_paragraph(item["value"])
+            doc.add_paragraph(item.get("impact") or "")
     incomplete = sum(not d.get("external") and (not d["model"] or not d["serial"]) for d in project["devices"])
     missing_ports = sum(not l["upperPort"] or not l["lowerPort"] for l in active)
     doc.add_paragraph(
