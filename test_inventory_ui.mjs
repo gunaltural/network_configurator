@@ -214,3 +214,15 @@ assert.equal(detailRows.find(r=>r.label==='Kabul kriterleri').impact,'Failover e
 context.state.language='en';
 assert.equal(vm.runInContext('projectInformation().find(r=>r.label==="Document status").impact',context),'For review');
 console.log('Project report fields omit blanks, preserve engineer content and localize document status passed.');
+
+context.state={language:'tr',name:'',scope:'',vendor:'Cisco NX-OS',technology:'vPC',projectDetails:{customer:'Existing customer'}};
+vm.runInContext('applyProjectExample()',context);
+assert.equal(context.state.projectDetails.customer,'Existing customer');
+assert.equal(context.state.projectDetails.documentStatus,'For review');
+assert.equal(context.state.name.includes('vPC'),true);
+assert.equal(context.state.scope.includes('Inventory'),true);
+assert.equal(Object.keys(context.state.projectDetails).length,8);
+context.state.projectDetails.reference='CUSTOM-REF';
+vm.runInContext('applyProjectExample()',context);
+assert.equal(context.state.projectDetails.reference,'CUSTOM-REF');
+console.log('Editable identity example fills blanks, preserves customer entries and updates project scope passed.');
