@@ -54,7 +54,7 @@ is retained across page refreshes in the current browser tab and in downloaded p
 Choose **Automatic · SSH · multiple devices** to select inventory devices and supply
 each target, port and username. A shared password and enable secret may be used, with
 per-device overrides. Collection runs sequentially with separate results; a failure
-does not stop remaining devices. Missing returned fields retain previous values.
+does not stop remaining devices. Only the latest successful collection enters the report; missing fields remain empty.
 Passwords and enable secrets are cleared after collection and never saved with the
 project. The tab collects planned and additional inventory devices; it does not discover neighbors.
 
@@ -66,7 +66,7 @@ Choose **Connect selected devices** to collect inventory. Each row reports conne
 success or failure and any collection error. Uploaded passwords are kept temporarily
 on the page, cleared after collection and excluded from saved projects and reports.
 Hostname, serial, software and model appear in **Collected inventory** and the report.
-Previous values are retained when a partial collection cannot retrieve a field.
+A new upload replaces the visible list and report inventory. Previous inventory is excluded; blank cells remain empty.
 
 **Read from device** runs platform-specific read-only SSH commands and records the
 hardware source. It never changes device configuration and never saves SSH passwords
