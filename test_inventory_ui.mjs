@@ -173,3 +173,8 @@ assert.equal(context.state.devices.some(d=>d.id==='upper-1'),true,'removing inve
 assert.equal(context.state.devices.find(d=>d.id==='upper-1').serial,'');
 assert.equal(vm.runInContext('manualPageDevices().length',context),0);
 console.log('Manual and SSH removal, report exclusion, credential cleanup and topology preservation passed.');
+
+context.state.inventoryDeviceIds=[];delete context.state.sshVisibleIds;
+vm.runInContext('inventoryMode="automatic";createInventoryDevice("PENDING-SSH");normalizeInventoryProject(state)',context);
+assert.ok(context.state.devices.some(d=>d.hostname==='PENDING-SSH'),'a new SSH target survives report cache normalization before collection');
+console.log('Automatic Add device survives current inventory normalization passed.');
