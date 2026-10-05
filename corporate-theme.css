@@ -80,6 +80,7 @@ label,.sd-card label{color:#657480;font-size:12px;font-weight:600;letter-spacing
 .bgp-router-lo,.bgp-ip-label,.bgp-legend-text{fill:#587184}
 .vpc-domain-title,.vpc-peer-title,.vpc-po-title{fill:#214d68}.vpc-small,.vpc-legend,.vpc-po-sub{fill:#587184}
 .vpc-peer-label-bg,.vpc-po-badge{fill:#fff;stroke:#80acc3}
+.vpc-svg g:has(rect.vpc-device) .vpc-small,.vpc-svg g:has(rect[style*="bgpNodeGrad"]) .vpc-small{fill:#eaf5fb}
 .sd-controller,.sd-site-card,.sd-wan-cloud{background:#edf5fa;border-color:#a9c5d5;color:#234e67}
 .sd-controller small,.sd-wan-cloud small,.sd-underlay-links small{color:#5b7484}
 .verify-picker-trigger,.verify-picker-panel,.verify-groups,.verify-group,.verify-group-head,.verify-custom-group .verify-group-head,.verify-custom-group .verify-command{background:#f8fbfd;border-color:#d4e2ea;color:#344b5b}
