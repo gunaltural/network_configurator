@@ -1074,7 +1074,9 @@ def live_show(p: LiveCommandRequest):
                 command_ok = not bool(LIVE_CLI_ERROR_RE.search(output))
             except Exception as exc:
                 output, command_ok = str(exc), False
-            results.append({"command": command, "ok": command_ok})
+            record_limit = max(0, min(50000, remaining - len(command) - 4))
+            results.append({"command": command, "ok": command_ok,
+                            "output": output[:record_limit], "truncated": len(output) > record_limit})
             section = f"> {command}\n{output}"
             if remaining:
                 chunk = ("\n\n" if sections else "") + section

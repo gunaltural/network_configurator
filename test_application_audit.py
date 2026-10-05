@@ -82,6 +82,8 @@ class ApplicationAuditTests(unittest.TestCase):
             r=self.client.post('/api/device/show',json=dict(target='test.example',platform='Cisco NX-OS',username='test',password='synthetic',command='show version\nshow clock\nshow inventory'))
         self.assertEqual(r.status_code,200)
         self.assertEqual([x['ok'] for x in r.json()['results']],[True,False,True]);self.assertTrue(conn.disconnected)
+        self.assertEqual([x['output'] for x in r.json()['results']],['TEST OUTPUT','Simulated failure','TEST OUTPUT'])
+        self.assertTrue(all(not x['truncated'] for x in r.json()['results']))
 
     def test_malformed_excel_shared_string(self):
         from inventory_excel import parse_inventory_xlsx

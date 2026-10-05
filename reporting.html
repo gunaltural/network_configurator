@@ -298,18 +298,83 @@
   const reportParameters=()=>(state.parameters||[]).map(localizedParameter).filter((p,i,all)=>p.value!=="Design boundary"||all.findIndex(x=>x.label===p.label&&x.impact===p.impact)===i);
   let verificationSelected='';
   let verificationTechnology="";
+  let verificationConnectionDevice='',verificationBusy=false;
+  const verificationConnections=new Map();
+  function verificationConnection(){if(!verificationConnections.has(verificationConnectionDevice))verificationConnections.set(verificationConnectionDevice,{target:'',port:22,username:'',password:'',secret:''});return verificationConnections.get(verificationConnectionDevice);}
+  function renderVerificationOutputs(){
+    const tr=state.language==='tr',rows=state.verificationPlan.filter(r=>r.included&&(!verificationTechnology||r.technology===verificationTechnology));
+    $("verificationOutputs").innerHTML=rows.length?rows.map(r=>{
+      const index=state.verificationPlan.findIndex(x=>x.id===r.id);
+      return `<section data-plan-record="${index}" style="border:1px solid #304255;border-radius:8px;padding:12px;margin-bottom:12px"><strong>${esc(r.hostname)} · ${esc(r.technology)}</strong><pre style="overflow:auto;white-space:pre">${esc(r.command)}</pre><p class="hint">${esc(VerificationPlan.describe(r,tr))}</p><div class="fields"><label>${tr?'Değerlendirme':'Assessment'}<select data-plan-field="status">${Object.entries(VerificationPlan.statuses).map(([key,labels])=>`<option value="${key}" ${r.status===key?'selected':''}>${labels[tr?0:1]}</option>`).join('')}</select></label><label>${tr?'Kontrol tarihi':'Check date'}<input type="date" data-plan-field="date" value="${esc(r.date)}"></label><label class="wide">${tr?'Mühendis':'Engineer'}<input data-plan-field="engineer" maxlength="200" value="${esc(r.engineer)}"></label><label class="wide">${tr?'Düzenlenebilir CLI çıktısı':'Editable CLI output'}<textarea data-plan-field="output" maxlength="50000" style="font-family:monospace;min-height:150px" placeholder="${tr?'Bu komutun cihaz çıktısını yazın veya yapıştırın':'Type or paste device output for this command'}">${esc(r.output)}</textarea></label><label class="wide">${tr?'Mühendis notu':'Engineer note'}<textarea data-plan-field="note" maxlength="4000">${esc(r.note)}</textarea></label></div></section>`;
+    }).join(''):`<p class="hint">${tr?'Çıktı alanlarını açmak için rapora girecek komutları seçin.':'Select commands for the report to open their output fields.'}</p>`;
+    $("verificationOutputs").querySelectorAll('[data-plan-field]').forEach(input=>input.oninput=()=>{
+      const row=state.verificationPlan[+input.closest('[data-plan-record]').dataset.planRecord];if(!row)return;
+      row[input.dataset.planField]=input.value;renderReport();
+    });
+    $("verificationSelectionCount").textContent=tr?`${rows.length} seçili komut · her komut için ayrı çıktı`:`${rows.length} selected commands · separate output for each command`;
+  }
+  function focusVerificationOutput(id){
+    verificationSelected=id;const index=state.verificationPlan.findIndex(r=>r.id===id);
+    const input=$("verificationOutputs").querySelector(`[data-plan-record="${index}"] [data-plan-field="output"]`);
+    if(input){input.scrollIntoView({behavior:'smooth',block:'center'});input.focus({preventScroll:true});}
+  }
   function renderVerificationEditor(){
-    const tr=state.language==='tr';state.verificationPlan=VerificationPlan.build(state);const technologies=[...new Set(state.verificationPlan.map(r=>r.technology))];if(verificationTechnology&&!technologies.includes(verificationTechnology))verificationTechnology='';const rows=state.verificationPlan.filter(r=>!verificationTechnology||r.technology===verificationTechnology);
+    const tr=state.language==='tr';state.verificationPlan=VerificationPlan.build(state);
+    const technologies=[...new Set(state.verificationPlan.map(r=>r.technology))];
+    if(verificationTechnology&&!technologies.includes(verificationTechnology))verificationTechnology='';
+    const rows=state.verificationPlan.filter(r=>!verificationTechnology||r.technology===verificationTechnology);
     $("verificationTitle").textContent=tr?'Doğrulama planı ve CLI kayıtları':'Verification plan and CLI records';
-    $("verificationHint").textContent=tr?'Kontroller tasarımdan üretilir. Cihazlar hazır olduğunda CLI çıktısını ve mühendis değerlendirmenizi ekleyin. Çıktı eklemek otomatik onay vermez.':'Checks follow the design. Add CLI output and your assessment when devices are available. Pasting output does not automatically pass a check.';
+    $("verificationHint").textContent=tr?'Teknolojiyi ve komutları seçin. Her komutun çıktısını ayrı kaydedin veya erişilebilir cihazda seçili komutları çalıştırın. Çıktı alınması otomatik kabul onayı değildir.':'Select technology and commands. Record each output separately or run selected commands on an accessible device. Receiving output does not automatically pass acceptance.';
     if(!rows.length){$("verificationEditor").textContent=tr?'Komut planını almak için Technology Workspace tasarımını yeniden rapora aktarın.':'Reimport a Technology Workspace design to include its command plan.';return;}
-    if(!rows.some(r=>r.id===verificationSelected))verificationSelected=rows[0].id;const r=rows.find(r=>r.id===verificationSelected);
-    $("verificationEditor").innerHTML=`<label>${tr?'Teknoloji seç':'Select technology'}<select id="verificationTechnology"><option value="">${tr?'Tüm teknolojiler':'All technologies'}</option>${technologies.map(t=>`<option value="${esc(t)}" ${t===verificationTechnology?'selected':''}>${esc(t)}</option>`).join('')}</select></label><p class="hint">${tr?'Rapora eklenecek komutları sağdaki kutucuklardan seçin. Seçili komutun çıktısını aşağıda düzenleyin; rapor otomatik güncellenir.':'Select commands for the report using the checkboxes on the right. Edit the selected command output below; the report updates automatically.'}</p><div style="display:flex;gap:8px"><button class="button small" id="planSelectAll">${tr?'Tümünü seç':'Select all'}</button><button class="button small" id="planClearAll">${tr?'Seçimi temizle':'Clear selection'}</button></div><div style="max-height:250px;overflow:auto;margin:12px 0">${rows.map((row,i)=>`<div style="display:flex;gap:8px;align-items:center;padding:6px;border-bottom:1px solid #304255"><button class="button subtle" data-plan-open="${i}" style="flex:1;min-width:0;text-align:left;font-family:monospace;overflow:auto;white-space:nowrap">${esc(row.hostname)} · ${esc(row.command)}</button><input style="width:18px" type="checkbox" data-plan-include="${i}" aria-label="${esc(row.hostname+' '+row.command)}" ${row.included?'checked':''}></div>`).join('')}</div><strong>${esc(r.hostname)} · ${esc(r.technology)}</strong><pre style="overflow:auto">${esc(r.command)}</pre><p class="hint">${esc(VerificationPlan.describe(r,tr))}</p><div class="fields"><label>${tr?'Değerlendirme':'Assessment'}<select data-plan-field="status">${Object.entries(VerificationPlan.statuses).map(([key,labels])=>`<option value="${key}" ${r.status===key?'selected':''}>${labels[tr?0:1]}</option>`).join('')}</select></label><label>${tr?'Kontrol tarihi':'Check date'}<input type="date" data-plan-field="date" value="${esc(r.date)}"></label><label class="wide">${tr?'Mühendis':'Engineer'}<input data-plan-field="engineer" maxlength="200" value="${esc(r.engineer)}"></label><label class="wide">${tr?'Düzenlenebilir CLI çıktısı':'Editable CLI output'}<textarea data-plan-field="output" maxlength="50000" style="font-family:monospace;min-height:160px" placeholder="${tr?'Cihaz çıktısını daha sonra buraya yapıştırın':'Paste device output here later'}">${esc(r.output)}</textarea></label><label class="wide">${tr?'Mühendis notu':'Engineer note'}<textarea data-plan-field="note" maxlength="4000">${esc(r.note)}</textarea></label></div>`;
+    const devices=[...new Map(rows.map(r=>[r.deviceId,r])).values()];
+    if(!devices.some(r=>r.deviceId===verificationConnectionDevice))verificationConnectionDevice=devices[0].deviceId;
+    const connection=verificationConnection(),device=devices.find(r=>r.deviceId===verificationConnectionDevice);
+    $("verificationEditor").innerHTML=`<label>${tr?'Teknoloji seç':'Select technology'}<select id="verificationTechnology"><option value="">${tr?'Tüm teknolojiler':'All technologies'}</option>${technologies.map(t=>`<option value="${esc(t)}" ${t===verificationTechnology?'selected':''}>${esc(t)}</option>`).join('')}</select></label><p class="hint">${tr?'Rapora eklenecek komutları sağdaki kutucuklardan seçin. Seçilen tüm komutların ayrı çıktı alanları aşağıdaki kaydırılabilir kutuda görünür.':'Use the checkboxes on the right to select report commands. Every selected command has its own editable output in the scrolling panel below.'}</p><div style="display:flex;gap:8px"><button class="button small" id="planSelectAll">${tr?'Tümünü seç':'Select all'}</button><button class="button small" id="planClearAll">${tr?'Seçimi temizle':'Clear selection'}</button></div><div style="max-height:250px;overflow:auto;margin:12px 0">${rows.map((row,i)=>`<div style="display:flex;gap:8px;align-items:center;padding:6px;border-bottom:1px solid #304255"><button class="button subtle" data-plan-open="${i}" style="flex:1;min-width:0;text-align:left;font-family:monospace;overflow:auto;white-space:nowrap">${esc(row.hostname)} · ${esc(row.command)}</button><input style="width:18px" type="checkbox" data-plan-include="${i}" aria-label="${esc(row.hostname+' '+row.command)}" ${row.included?'checked':''}></div>`).join('')}</div><details><summary>${tr?'Canlı cihaz doğrulaması · isteğe bağlı':'Live device verification · optional'}</summary><p class="hint">${tr?'Yalnız aşağıdaki cihaz için seçili komutlar gönderilir. Kimlik bilgileri projeye ve rapora kaydedilmez.':'Only selected commands for the device below are sent. Credentials are excluded from the project and report.'}</p><div class="fields"><label class="wide">${tr?'Bağlanılacak cihaz':'Connection device'}<select id="verificationConnectionDevice">${devices.map(d=>`<option value="${esc(d.deviceId)}" ${d.deviceId===verificationConnectionDevice?'selected':''}>${esc(d.hostname)} · ${esc(d.vendor)}</option>`).join('')}</select></label><label>SSH target<input data-plan-ssh="target" value="${esc(connection.target)}"></label><label>Port<input type="number" min="1" max="65535" data-plan-ssh="port" value="${connection.port}"></label><label>Username<input autocomplete="off" data-plan-ssh="username" value="${esc(connection.username)}"></label><label>Password<input type="password" autocomplete="new-password" data-plan-ssh="password" value="${esc(connection.password)}"></label><label class="wide">Enable secret<input type="password" autocomplete="new-password" data-plan-ssh="secret" value="${esc(connection.secret)}"></label></div><div style="display:flex;gap:8px;margin:12px 0"><button class="button" id="planTestConnection" ${verificationBusy?'disabled':''}>Test Connection</button><button class="button primary" id="planRunCommands" ${verificationBusy?'disabled':''}>Run Selected Commands</button></div><p id="verificationRunStatus" role="status" style="white-space:pre-wrap"></p></details><h3>${tr?'Seçilen komut çıktıları':'Selected command outputs'}</h3><p class="hint" id="verificationSelectionCount"></p><div id="verificationOutputs" style="max-height:560px;overflow:auto"></div>`;
     $("verificationTechnology").onchange=e=>{verificationTechnology=e.target.value;renderVerificationEditor();};
-    $("verificationEditor").querySelectorAll('[data-plan-open]').forEach(el=>el.onclick=()=>{verificationSelected=rows[+el.dataset.planOpen].id;renderVerificationEditor();});
-    $("verificationEditor").querySelectorAll('[data-plan-include]').forEach(el=>el.onchange=()=>{const current=state.verificationPlan.find(r=>r.id===rows[+el.dataset.planInclude].id);if(current)current.included=el.checked;renderReport();});
-    $("verificationEditor").querySelectorAll('[data-plan-field]').forEach(el=>el.oninput=()=>{const current=state.verificationPlan.find(x=>x.id===verificationSelected);current[el.dataset.planField]=el.value;renderReport();});
-    for(const [id,value]of [['planSelectAll',true],['planClearAll',false]])$(id).onclick=()=>{state.verificationPlan.filter(r=>!verificationTechnology||r.technology===verificationTechnology).forEach(r=>r.included=value);renderReport();renderVerificationEditor();};
+    $("verificationConnectionDevice").onchange=e=>{verificationConnectionDevice=e.target.value;renderVerificationEditor();};
+    $("verificationEditor").querySelectorAll('[data-plan-ssh]').forEach(input=>input.oninput=()=>verificationConnection()[input.dataset.planSsh]=input.value);
+    $("planTestConnection").onclick=()=>runReportVerification(true);
+    $("planRunCommands").onclick=()=>runReportVerification(false);
+    $("verificationEditor").querySelectorAll('[data-plan-open]').forEach(button=>button.onclick=()=>{
+      const row=state.verificationPlan.find(r=>r.id===rows[+button.dataset.planOpen].id);if(!row)return;
+      if(!row.included){row.included=true;renderReport();renderVerificationEditor();}
+      focusVerificationOutput(row.id);
+    });
+    $("verificationEditor").querySelectorAll('[data-plan-include]').forEach(input=>input.onchange=()=>{
+      const current=state.verificationPlan.find(r=>r.id===rows[+input.dataset.planInclude].id);if(current)current.included=input.checked;
+      renderReport();renderVerificationOutputs();
+    });
+    for(const [id,value]of [['planSelectAll',true],['planClearAll',false]])$(id).onclick=()=>{
+      state.verificationPlan.filter(r=>!verificationTechnology||r.technology===verificationTechnology).forEach(r=>r.included=value);renderReport();renderVerificationEditor();
+    };
+    renderVerificationOutputs();
+  }
+  async function runReportVerification(testOnly){
+    if(verificationBusy)return;const tr=state.language==='tr',device=state.devices.find(d=>d.id===verificationConnectionDevice);
+    const rows=state.verificationPlan.filter(r=>r.included&&r.deviceId===verificationConnectionDevice&&(!verificationTechnology||r.technology===verificationTechnology));
+    const status=$("verificationRunStatus");
+    if(!testOnly&&!rows.length){status.textContent=tr?'Bu cihaz için en az bir komut seçin.':'Select at least one command for this device.';return;}
+    const connection=verificationConnection(),payload={...connection,port:Number(connection.port),platform:device.vendor==='Huawei CloudEngine'?'Huawei_CE_SW':device.vendor};
+    if(!testOnly)payload.command=[...new Set(rows.map(r=>r.command))].join('\n');
+    verificationBusy=true;$("planTestConnection").disabled=$("planRunCommands").disabled=true;
+    status.textContent=tr?'Cihaza bağlanılıyor…':'Connecting to device…';
+    try{
+      const response=await fetch(testOnly?'/api/device/test':'/api/device/show',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      const data=await response.json();if(!response.ok)throw Error(data.detail?.error||data.error||String(data.detail||response.status));
+      if(testOnly)status.textContent=data.message||(data.ok?(tr?'Bağlantı başarılı.':'Connection successful.'):(tr?'Bağlantı doğrulanamadı.':'Connection test failed.'));
+      else if(data.mock)status.textContent=tr?'Simülasyon çıktısı rapora doğrulama kanıtı olarak eklenmedi.':'Mock output was not added as verification evidence.';
+      else{
+        let imported=0;for(const row of rows){
+          const result=(data.results||[]).find(r=>r.command===row.command);if(!result||typeof result.output!=='string')continue;
+          const current=state.verificationPlan.find(r=>r.id===row.id);if(!current)continue;
+          current.output=result.output.slice(0,50000);current.date=new Date().toISOString().slice(0,10);current.status=result.ok?'pending':'review';
+          if(result.truncated)current.note=tr?'Çıktı boyut sınırı nedeniyle kısaltıldı; tam kayıt ayrıca incelenmelidir.':'Output was truncated by the size limit; review the full record separately.';imported++;
+        }
+        renderReport();renderVerificationOutputs();
+        status.textContent=tr?`${device.hostname}: ${imported}/${rows.length} komut çıktısı rapora aktarıldı. Mühendis değerlendirmesi bekleniyor.`:`${device.hostname}: ${imported}/${rows.length} command outputs added to the report. Engineer assessment pending.`;
+      }
+    }catch(error){status.textContent=(tr?'Doğrulama başarısız: ':'Verification failed: ')+error.message;}
+    finally{verificationBusy=false;if($("planTestConnection"))$("planTestConnection").disabled=$("planRunCommands").disabled=false;}
   }
   function verificationReportHtml(){
     const tr=state.language==='tr',rows=VerificationPlan.exportRows(state);if(!rows.length)return '';
@@ -319,8 +384,7 @@
     const button=event.target.closest("[data-verification-edit]");if(!button)return;
     const row=VerificationPlan.exportRows(state)[+button.dataset.verificationEdit];if(!row)return;
     maintenanceView="design";document.querySelectorAll("[data-view]").forEach(button=>button.setAttribute("aria-selected",String(button.dataset.view==="design")));renderMaintenance();verificationTechnology=row.technology;verificationSelected=row.id;renderVerificationEditor();
-    const input=$("verificationEditor").querySelector('[data-plan-field="output"]');
-    if(input){input.scrollIntoView({behavior:"smooth",block:"center"});input.focus({preventScroll:true});}
+    focusVerificationOutput(row.id);
   });
   function renderReport(){
     state.verificationPlan=VerificationPlan.build(state);
