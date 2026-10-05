@@ -2914,13 +2914,7 @@ end
 
  return `################ ${h1} · MANAGED DEVICE ################
 
-${basicReadableCliBlocks(one(h1,if1,ip1,m1))}
-
-################ SECURITY IMPLEMENTATION NOTES ################
-# CHANGE_ME_* değerlerini production secret/vault entegrasyonu ile değiştirin.
-# CIS IOS XE 17.x hardening kontrolleri yalnız uygulanabilir platform/sürüm bağlamında kullanılmalıdır.
-# NTP authentication bu baseline'da bilinçli olarak üretilmez.
-# Management ACL/AAA değişikliklerinden önce OOB/console rollback erişimini doğrulayın.`;
+${basicReadableCliBlocks(one(h1,if1,ip1,m1))}`;
 }
 function bgpGenerate(tab){
  const p=platform(),ceN=+v("bgpCeCount")||2,ispN=+v("bgpIspCount")||2,internal=v("bgpInternal")||"ibgp",asn=v("bgpCustomerAs")||"65001",edges=bgpEdges();
