@@ -6127,10 +6127,12 @@ renderModule();
    paint(".vpc-peer-line","stroke","#16835f");
    paint(".vpc-ka-line","stroke","#9743ad");
    paint(".vpc-ka-dot","fill","#9743ad");
-   if(!copy.querySelector("#vpcDev"))paint(".vpc-device, .vpc-leaf","fill","#244b69");
-   if(["BASIC","BGP","OSPF","STP","EVPN","QOS"].includes(tech))paint("g .vpc-small","fill","#eaf5fb");
+   paint(".vpc-device, .vpc-leaf","fill","#dcecf5");
+   paint(".vpc-device-name","fill","#173f5d");
+   paint(".vpc-device-mark","stroke","#245a78");
+   if(tech==="BGP")paint('g:has(rect[style*="bgpNodeGrad"]) .vpc-device-name, g:has(rect[style*="bgpNodeGrad"]) .vpc-small',"fill","#eaf5fb");
    if(tech==="BASIC")copy.querySelectorAll("text.vpc-device-name").forEach(el=>{if(el.textContent?.trim()==="OOB Network")el.style.setProperty("fill","#173f5d");});
-   if(tech==="EVPN")copy.querySelectorAll("text.vpc-small").forEach(el=>{if(el.textContent?.trim()==="Border GW")el.style.setProperty("fill","#eaf5fb");});
+
    if(tech==="EVPN")copy.querySelectorAll("text.vpc-device-name").forEach(el=>{if(el.textContent?.trim()==="EVPN RR")el.style.setProperty("fill","#173f5d");});
    if(tech==="VPC" && !["Arista EOS","Cisco IOS-XE"].includes(platform()))paint(".vpc-device-name","fill","#183f59");
    const background=document.createElementNS("http://www.w3.org/2000/svg","rect");
