@@ -2397,7 +2397,7 @@ function basicReadableCliBlocks(text){
 
  return out.join("\n").replace(/\n{3,}/g,"\n\n").trim();
 }
-function basicGenerate(tab){
+function basicGenerate(tab,options={}){
  const p=platform(),
  h1=v("d1host"),if1=v("d1oobif"),ip1=v("d1oobip"),m1=v("d1mask"),
  gw=v("gw"),mgmt=v("mgmtSubnet"),dom=v("domain"),dns1=v("dns1"),dns2=v("dns2"),
@@ -2527,11 +2527,11 @@ service timestamps log datetime msec localtime show-timezone
 ${banner}
 ^C
 `:""}
-interface ${iface}
+${options.omitOob?"":`interface ${iface}
  description OOB-MANAGEMENT
  ip address ${ip} ${mask}
  no shutdown
-ip default-gateway ${gw}
+ip default-gateway ${gw}`}
 
 `;
 
@@ -2646,11 +2646,11 @@ ${c("secCdp")?"feature cdp\n":""}${c("secLldp")?"feature lldp\n":""}${c("secDns"
 ip name-server ${dns1} ${dns2}
 `:""}username ${user} password 5 CHANGE_ME_STRONG_SECRET role network-admin
 ${c("secBanner")?`banner motd #${banner}#
-`:""}interface mgmt0
+`:""}${options.omitOob?"":`interface mgmt0
   description OOB-MANAGEMENT
   ip address ${ip}/${prefix}
 vrf context management
-  ip route 0.0.0.0/0 ${gw}
+  ip route 0.0.0.0/0 ${gw}`}
 `;
    if(c("secAAA") && aaaType!=="LOCAL"){
      if(aaaType==="TACACS+") s+=`feature tacacs+
@@ -2701,10 +2701,10 @@ management ssh
 ${c("secBanner")?`banner login
 ${banner}
 EOF
-`:""}interface Management1
+`:""}${options.omitOob?"":`interface Management1
    description OOB-MANAGEMENT
    ip address ${ip}/${prefix}
-ip route 0.0.0.0/0 ${gw}
+ip route 0.0.0.0/0 ${gw}`}
 `;
    if(c("secAAA") && aaaType!=="LOCAL"){
      if(aaaType==="TACACS+") s+=`tacacs-server host ${aaa1} key CHANGE_ME_TACACS_KEY
@@ -2754,12 +2754,12 @@ stelnet server enable
 rsa local-key-pair create
 ssh server authentication-type keyboard-interactive enable
 ${c("secBanner")?`header login information "${banner}"
-`:""}interface ${iface}
+`:""}${options.omitOob?"":`interface ${iface}
  description OOB-MANAGEMENT
  ip address ${ip} ${mask}
  undo shutdown
 quit
-ip route-static 0.0.0.0 0.0.0.0 ${gw}
+ip route-static 0.0.0.0 0.0.0.0 ${gw}`}
 `;
    if(c("secAAA") && aaaType==="RADIUS") s+=`radius-server template RAD
  radius-server shared-key cipher CHANGE_ME_RADIUS_KEY
@@ -2811,7 +2811,7 @@ user-interface vty 0 4
 ${c("secBanner")?`    set pre-login-banner enable
 `:""}end
 
-config system interface
+${options.omitOob?"":`config system interface
     edit "${iface}"
         set ip ${ip} ${mask}
         set allowaccess ping ssh
@@ -2823,7 +2823,7 @@ config router static
         set gateway ${gw}
         set device "${iface}"
     next
-end
+end`}
 `;
    if(c("secDns")) s+=`config system dns
     set primary ${dns1}
@@ -6161,34 +6161,18 @@ renderModule();
    });
  }
  const moduleLabel=(key,pl)=>technologyLabel(key,pl);
- let pendingManagementReports=null;
  const managementIdentity=d=>`${d.vendor}|${String(d.hostname||d.id).toLowerCase()}`;
- function resetManagementTargets(){pendingManagementReports=null;$("combineManagement").hidden=true;$("combineManagement").innerHTML="";$("combineCreate").textContent="Seçilen Modüllerle Raporu Aç";}
+ function resetManagementTargets(){$("combineManagement").hidden=true;$("combineManagement").innerHTML="";$("combineCreate").textContent="Seçilen Modüllerle Raporu Aç";}
  function managementTargets(reports){
    const seen=new Set();return reports.filter(r=>r.moduleKey!=="BASIC").flatMap(r=>r.devices.filter(d=>!d.external&&(r.configurations||[]).some(c=>c.deviceId===d.id)).map(d=>({...d,vendor:r.vendor}))).filter(d=>{const id=managementIdentity(d);if(seen.has(id))return false;seen.add(id);return true;});
  }
- function showManagementTargets(reports){
-   const targets=managementTargets(reports),base=reports.find(r=>r.moduleKey==="BASIC"),fields=window.__workspaceModuleStates.BASIC?.fields||{};
-   if(!base||!targets.length)return false;
-   pendingManagementReports={reports,targets};const esc=s=>String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-   $("combineManagement").innerHTML=`<h3 style="margin-top:18px">System and Management · Device scope</h3><p class="hint">Select the technology devices that will receive the management baseline. Each selected device will have one configuration containing both its technology and management settings. Enter a unique OOB IP/prefix and gateway for each device; the original management device is not added separately.</p><div style="display:flex;gap:8px;margin:10px 0"><button type="button" class="btn" id="managementSelectAll">Select all</button><button type="button" class="btn" id="managementClearAll">Clear selection</button></div>`+targets.map((d,i)=>{const match=base.vendor===d.vendor&&base.devices.some(x=>managementIdentity(x)===managementIdentity(d)),iface={"Cisco NX-OS":"mgmt0","Cisco IOS-XE":"GigabitEthernet0/0","Arista EOS":"Management1","Huawei_CE_SW":"MEth0/0/0","FortiGate":"port1"}[d.vendor]||fields.d1oobif;return `<div class="management-target" data-index="${i}" style="border:1px solid #29475c;border-radius:10px;padding:12px;margin:8px 0"><label class="check"><input type="checkbox" data-mgmt-check ${match?'checked':''}> ${esc(d.hostname)} · ${esc(d.vendor)}</label><div class="param-grid"><div><label>OOB interface<input data-mgmt-interface value="${esc(match?fields.d1oobif:iface)}"></label></div><div><label>OOB IP / prefix<input data-mgmt-ip placeholder="IP address / prefix" value="${esc(match?fields.d1oobip:'')}"></label></div><div><label>Management gateway<input data-mgmt-gateway value="${esc(fields.gw)}"></label></div></div></div>`;}).join('');
-   $("combineManagement").hidden=false;
-   $("managementSelectAll").onclick=()=>$("combineManagement").querySelectorAll('[data-mgmt-check]').forEach(x=>x.checked=true);
-   $("managementClearAll").onclick=()=>$("combineManagement").querySelectorAll('[data-mgmt-check]').forEach(x=>x.checked=false);
-   $("combineError").textContent="System and Management kapsamını seçin ve cihazların OOB adreslerini girin.";$("combineManagement").scrollIntoView({block:'start',behavior:'smooth'});return true;
- }
- function readManagementTargets(){
-   const addresses=new Set(),rows=[];
-   $("combineManagement").querySelectorAll('.management-target').forEach(row=>{
-     if(!row.querySelector('[data-mgmt-check]').checked)return;
-     const device=pendingManagementReports.targets[+row.dataset.index],value=row.querySelector('[data-mgmt-ip]').value.trim(),iface=row.querySelector('[data-mgmt-interface]').value.trim(),gateway=row.querySelector('[data-mgmt-gateway]').value.trim();
-     const [ip,prefix,...extra]=value.split('/'),octets=ip.split('.');
-     if(!iface||/\s/.test(iface)||octets.length!==4||octets.some(x=>!/^\d{1,3}$/.test(x)||+x>255)||extra.length||(prefix!==undefined&&(!/^\d{1,2}$/.test(prefix)||+prefix>32)))throw Error(`${device.hostname}: enter a valid OOB interface and IPv4 address/prefix.`);
-     if(gateway.split('.').length!==4||gateway.split('.').some(x=>!/^\d{1,3}$/.test(x)||+x>255))throw Error(`${device.hostname}: enter a valid management gateway.`);
-     if(addresses.has(ip))throw Error(`${device.hostname}: OOB addresses must be unique.`);addresses.add(ip);rows.push({device,iface,ip,prefix,gateway});
+ function existingManagementTargets(reports){
+   const base=reports.find(r=>r.moduleKey==='BASIC'),fields=window.__workspaceModuleStates.BASIC?.fields||{};
+   return managementTargets(reports).map(device=>{
+     const matched=base.devices.some(d=>managementIdentity(d)===managementIdentity(device));
+     const iface={"Cisco NX-OS":"mgmt0","Cisco IOS-XE":"GigabitEthernet0/0","Arista EOS":"Management1","Huawei_CE_SW":"MEth0/0/0","FortiGate":"port1"}[device.vendor];
+     return {device,iface:matched?fields.d1oobif:iface,ip:matched?fields.d1oobip:'',prefix:fields.d1mask,gateway:fields.gw,omitOob:!matched||!fields.d1oobip};
    });
-   if(!rows.length)throw Error('Select at least one management target, or remove System and Management from the report scope.');
-   return rows;
  }
  async function applyManagementTargets(reports,rows){
    const saved=JSON.parse(JSON.stringify(window.__workspaceModuleStates)),original=tech,base=reports.find(r=>r.moduleKey==="BASIC"),management={...base,devices:[],configurations:[],links:[],specialLinks:[]};
@@ -6197,7 +6181,9 @@ renderModule();
      for(const [i,row]of rows.entries()){
        const ps=$("platform");if(![...ps.options].some(o=>o.value===row.device.vendor)){const option=document.createElement('option');option.value=row.device.vendor;option.textContent=row.device.vendor;ps.appendChild(option);}ps.value=row.device.vendor;
        $("gw").value=row.gateway||saved.BASIC?.fields?.gw||'';$("d1host").value=row.device.hostname;$("d1oobif").value=row.iface;$("d1oobip").value=row.ip;$("d1mask").value=row.prefix===undefined?(saved.BASIC?.fields?.d1mask||'24'):row.prefix;
-       const result=reportingDesign(),id=`management-${i+1}`,target={...row.device,id,tier:'upper',index:i+1};
+       const originalGenerate=modules.BASIC.generate;let result;
+       try{modules.BASIC.generate=tab=>basicGenerate(tab,{omitOob:row.omitOob});result=reportingDesign();}finally{modules.BASIC.generate=originalGenerate;}
+       const id=`management-${i+1}`,target={...row.device,id,tier:'upper',index:i+1};
        management.devices.push(target);management.configurations.push({...result.configurations[0],deviceId:id});
      }
      management.vendor=rows[0].device.vendor;management.roles={upper:'Managed device',lower:'Managed device'};management.upperCount=rows.length;management.lowerCount=0;management.topologySvg='';management.topologyPng='';
@@ -6246,15 +6232,14 @@ renderModule();
    const button=$("combineCreate"),original=tech,status=$("combineError");button.disabled=true;button.textContent="Rapor hazırlanıyor…";status.className="combine-error progress";
    try{
      let reports;
-     if(pendingManagementReports)reports=await applyManagementTargets(pendingManagementReports.reports,readManagementTargets());
-     else{
+     {
        captureWorkspaceModule(original);reports=[];for(let index=0;index<selected.length;index++){const key=selected[index];status.textContent=`${index+1}/${selected.length} · ${moduleLabel(key,window.__workspaceModuleStates[key]?.platform||platform())} hazırlanıyor…`;reports.push(await collectModuleReport(key,document.querySelector(`[data-report-platform="${key}"]`)?.value));}
-       if(selected.includes('BASIC')&&selected.length>1&&showManagementTargets(reports))return;
+       if(selected.includes('BASIC')&&selected.length>1){const rows=existingManagementTargets(reports);if(rows.length)reports=await applyManagementTargets(reports,rows);}
      }
      status.textContent="Rapor sayfası açılıyor…";const payload=combineReports(reports);payload.topologySvg=NetworkReportGuide.designPresentation(payload).svg;payload.topologyPng=await workspaceTopologyPng(payload.topologySvg);sessionStorage.setItem("networkConfigurator.report.import",JSON.stringify(payload));closeCombineModal();window.location.assign("/reporting");
    }
    catch(err){status.className="combine-error";status.textContent=`Rapor oluşturulamadı: ${err.message}`;openTech(original);document.querySelector("#combineModal .combine-card")?.scrollTo({top:9999,behavior:"smooth"});}
-   finally{button.disabled=false;button.textContent=pendingManagementReports?"Apply Management and Open Report":"Seçilen Modüllerle Raporu Aç";}
+   finally{button.disabled=false;button.textContent="Seçilen Modüllerle Raporu Aç";}
  }
  async function openReporting(event){
    if(event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
