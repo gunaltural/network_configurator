@@ -221,17 +221,17 @@
   function renderEditor(){
     syncOptions();
     renderProjectDetails();
-    const imported=!!state.source;
+    const imported=!!state.source,presentation=NetworkReportGuide.designPresentation(state);
     $("sourceBanner").hidden=false;
-    $("sourceBanner").innerHTML=imported?`<strong>Technology Workspace design imported.</strong> ${esc(state.source.module)} · ${esc(state.source.generatedAt||"")}. Topology, vendor and technology follow the workspace; edit them there and reopen this report to refresh. <a href="/">Technology Workspaces</a>`:
+    $("sourceBanner").innerHTML=imported?`<strong>Technology Workspace design imported.</strong> ${esc(presentation.technology)} · ${esc(state.source.generatedAt||"")}. Topology, vendor and technology follow the workspace; edit them there and reopen this report to refresh. <a href="/">Technology Workspaces</a>`:
       `<strong>Standalone report.</strong> To include a generated topology and device configurations, open a supported design in <a href="/">Technology Workspaces</a> and choose Maintenance and Reporting in its header.`;
     $("linkHelp").textContent=imported?"Links and ports come from Technology Workspaces. Missing physical ports can be entered here for the document; update the workspace separately before deployment.":"Initial design connects each lower-tier device to each upper-tier device. Enter the port used at each end; uncheck a link to remove it from the report.";
     for(const id of ["vendor","architecture","technology","techPlacement","upperCount","lowerCount"])$(id).disabled=imported;
     $("projectHelp").textContent=imported?"Enter project-specific information. Technology and topology are inherited from Technology Workspaces.":"Enter project-specific information. Open a Technology Workspace to include its design, topology and configuration.";
     $("designSummary").hidden=!imported;
-    $("designSummary").textContent=`${vendorLabel(state.vendor)} · ${state.technology} · ${state.architecture==="spine-leaf"?"Spine–Leaf":state.architecture==="core-access"?"Core–Access":"Module topology"} · ${state.devices.filter(d=>!d.inventoryOnly).length} topology devices`;
+    $("designSummary").textContent=`${presentation.vendors} · ${presentation.technology} · ${state.architecture==="spine-leaf"?"Spine–Leaf":state.architecture==="core-access"?"Core–Access":"Network architecture"} · ${state.moduleReports?.length?presentation.physicalCount:state.devices.filter(d=>!d.inventoryOnly).length} topology devices`;
     for(const id of ["vendor","architecture","technology","techPlacement","upperCount","lowerCount"])$(id).parentElement.hidden=imported;
-    $("deviceCount").textContent=`${state.devices.filter(d=>!d.inventoryOnly).length} topology devices · ${currentReportInventory().filter(d=>d.inventoryOnly).length} current additional inventory devices · ${currentReportInventory().length} current inventory records.`;
+    $("deviceCount").textContent=`${state.devices.filter(d=>!d.inventoryOnly).length} design configuration targets · ${currentReportInventory().filter(d=>d.inventoryOnly).length} current additional inventory devices · ${currentReportInventory().length} current inventory records.`;
     $("linkCount").textContent=state.links.filter(l=>l.enabled).length;
     $("devices").innerHTML=state.devices.filter(d=>!d.inventoryOnly||currentReportInventory().some(x=>x.id===d.id)).map(deviceCard).join("");
     $("links").innerHTML=state.links.map(l=>{
@@ -303,7 +303,7 @@
     const active=state.links.filter(l=>l.enabled);
     const incomplete=currentReportInventory().filter(d=>!d.external&&(!d.model||!d.serial));
     const missingPorts=active.filter(l=>!l.upperPort||!l.lowerPort).length;
-    $("projectStatus").textContent=`${state.source?"Workspace design":"Draft"} · ${state.devices.length} ${state.devices.length===1?"device":"devices"} · ${active.length} ${active.length===1?"link":"links"}`;
+    $("projectStatus").textContent=`${state.source?"Workspace design":"Draft"} · ${state.devices.length} ${state.moduleReports?.length?"configuration targets":state.devices.length===1?"device":"devices"} · ${active.length} ${active.length===1?"link":"links"}`;
     $("linkCount").textContent=active.length;
     const presentation=NetworkReportGuide.designPresentation(state),guide=NetworkReportGuide.build(state),topologyNarratives=presentation.narratives;
     const special=state.specialLinks||[],parameters=reportParameters(),configs=state.configurations||[],moduleReports=state.moduleReports||[];
