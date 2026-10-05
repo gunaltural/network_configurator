@@ -56,6 +56,7 @@
           <h3>Collected inventory</h3><p class="note">Values below also appear in the report. Only the latest successful collection is included in the report. Missing fields remain empty.</p><div class="inventory-scroll"><table><thead><tr><th>Device / target</th><th>Hostname</th><th>Serial number</th><th>Software version</th><th>Product model</th><th>Last SSH observation</th></tr></thead><tbody id="sshInventoryResults"></tbody></table></div>
         </div>
       </div><div class="devices" id="devices"></div></section>
+    <section class="panel" id="verificationPanel"><h2 id="verificationTitle"></h2><p class="hint" id="verificationHint"></p><div id="verificationEditor"></div></section>
     <section class="panel"><h2>Planned links <span class="count" id="linkCount">8</span></h2><p class="hint" id="linkHelp">Initial design connects each lower-tier device to each upper-tier device. Enter the port used at each end; uncheck a link to remove it from the report.</p><div class="links"><table><thead><tr><th>Use</th><th>Upper device</th><th>Upper port</th><th>Lower device</th><th>Lower port</th><th>Connection</th><th>Speed</th></tr></thead><tbody id="links"></tbody></table></div></section>
     <section class="panel"><h2>Optional device verification</h2><p class="hint">SSH reads inventory only. Enter credentials for the selected device when it is online; passwords stay in this page and are not saved in the project or report.</p>
       <div class="ssh-box" id="sshBox" hidden><h3 id="sshTitle">Read device inventory</h3><div class="fields"><label>SSH target<input id="sshTarget" placeholder="Public hostname or IP"></label><label>Port<input id="sshPort" type="number" min="1" max="65535" value="22"></label><label>Username<input id="sshUser" autocomplete="off"></label><label>Password<input id="sshPassword" type="password" autocomplete="new-password"></label><label class="wide">Enable secret, if needed<input id="sshSecret" type="password" autocomplete="new-password"></label></div><div class="ssh-actions"><button class="button primary" id="readDevice">Read inventory</button><button class="button subtle" id="cancelRead">Cancel</button><span class="ssh-result" id="sshResult" role="status"></span></div></div>
@@ -65,6 +66,7 @@
 </div>
 <script src="/engineering-locale.js"></script>
 <script src="/vpc-report.js"></script>
+<script src="/verification-plan.js"></script>
 <script>
 (()=>{
   const $=id=>document.getElementById(id);
@@ -239,6 +241,7 @@
       return `<tr><td><input type="checkbox" data-link="${l.id}" data-field="enabled" aria-label="Include ${esc(deviceName(a))} to ${esc(deviceName(b))}" ${l.enabled?"checked":""} ${imported?"disabled":""}></td><td>${esc(deviceName(a))}</td><td><input data-link="${l.id}" data-field="upperPort" aria-label="${esc(deviceName(a))} port to ${esc(deviceName(b))}" placeholder="e.g. Eth1/1" value="${esc(l.upperPort)}" ${imported&&l.upperPort?"disabled":""}></td><td>${esc(deviceName(b))}</td><td><input data-link="${l.id}" data-field="lowerPort" aria-label="${esc(deviceName(b))} port to ${esc(deviceName(a))}" placeholder="e.g. Eth1/49" value="${esc(l.lowerPort)}" ${imported&&l.lowerPort?"disabled":""}></td><td>${esc(l.detail||"Uplink")}</td><td><input data-link="${l.id}" data-field="speed" aria-label="Speed ${l.id}" placeholder="100G" value="${esc(l.speed)}"></td></tr>`;
     }).join("");
     renderReport();
+    renderVerificationEditor();
     renderMaintenance();
   }
   function diagram(){
@@ -293,7 +296,25 @@
   function reportRow(d){const pending=state.language==="tr"?"Atama bekliyor":"Awaiting assignment",external=state.language==="tr"?"Harici":"External",planned=state.language==="tr"?"Planlandı":"Planned",source=x=>state.language==="tr"?(x==="device"?"Cihazdan doğrulandı":x==="manual"?"Mühendis girişi":"Atama bekliyor"):labelSource(x);return `<tr><td>${esc(deviceName(d))}${d.observedHostname&&d.observedHostname!==deviceName(d)?`<br><strong>${esc(d.observedHostname)}</strong>`:""}</td><td>${esc(roleName(d))}</td><td>${esc(d.model||(d.external?external:pending))}</td><td>${esc(d.serial||(d.external?external:pending))}</td><td>${esc(d.softwareVersion||pending)}</td><td>${esc(d.external?(state.language==="tr"?"Harici eş":"External peer"):d.modelSource||d.serialSource?[...new Set([d.modelSource,d.serialSource,d.softwareSource].filter(Boolean).map(source))].join(" / "):planned)}</td></tr>`;}
   const localizedParameter=p=>NetworkLocale.localizeParameter(p,state.language);
   const reportParameters=()=>(state.parameters||[]).map(localizedParameter).filter((p,i,all)=>p.value!=="Design boundary"||all.findIndex(x=>x.label===p.label&&x.impact===p.impact)===i);
+  let verificationSelected='';
+  function renderVerificationEditor(){
+    const tr=state.language==='tr';state.verificationPlan=VerificationPlan.build(state);const rows=state.verificationPlan;
+    $("verificationTitle").textContent=tr?'Doğrulama planı ve CLI kayıtları':'Verification plan and CLI records';
+    $("verificationHint").textContent=tr?'Kontroller tasarımdan üretilir. Cihazlar hazır olduğunda CLI çıktısını ve mühendis değerlendirmenizi ekleyin. Çıktı eklemek otomatik onay vermez.':'Checks follow the design. Add CLI output and your assessment when devices are available. Pasting output does not automatically pass a check.';
+    if(!rows.length){$("verificationEditor").textContent=tr?'Komut planını almak için Technology Workspace tasarımını yeniden rapora aktarın.':'Reimport a Technology Workspace design to include its command plan.';return;}
+    if(!rows.some(r=>r.id===verificationSelected))verificationSelected=rows[0].id;const r=rows.find(r=>r.id===verificationSelected);
+    $("verificationEditor").innerHTML=`<div style="display:flex;gap:8px"><button class="button small" id="planSelectAll">${tr?'Tümünü seç':'Select all'}</button><button class="button small" id="planClearAll">${tr?'Seçimi temizle':'Clear selection'}</button></div><div style="max-height:250px;overflow:auto;margin:12px 0">${rows.map((row,i)=>`<div style="display:flex;gap:8px;align-items:center;padding:6px;border-bottom:1px solid #304255"><button class="button subtle" data-plan-open="${i}" style="flex:1;min-width:0;text-align:left;font-family:monospace;overflow:auto;white-space:nowrap">${esc(row.hostname)} · ${esc(row.command)}</button><input style="width:18px" type="checkbox" data-plan-include="${i}" aria-label="${esc(row.hostname+' '+row.command)}" ${row.included?'checked':''}></div>`).join('')}</div><strong>${esc(r.hostname)} · ${esc(r.technology)}</strong><pre style="overflow:auto">${esc(r.command)}</pre><p class="hint">${esc(VerificationPlan.describe(r,tr))}</p><div class="fields"><label>${tr?'Değerlendirme':'Assessment'}<select data-plan-field="status">${Object.entries(VerificationPlan.statuses).map(([key,labels])=>`<option value="${key}" ${r.status===key?'selected':''}>${labels[tr?0:1]}</option>`).join('')}</select></label><label>${tr?'Kontrol tarihi':'Check date'}<input type="date" data-plan-field="date" value="${esc(r.date)}"></label><label class="wide">${tr?'Mühendis':'Engineer'}<input data-plan-field="engineer" maxlength="200" value="${esc(r.engineer)}"></label><label class="wide">CLI ${tr?'çıktısı':'output'}<textarea data-plan-field="output" maxlength="50000" style="font-family:monospace;min-height:160px" placeholder="${tr?'Cihaz çıktısını daha sonra buraya yapıştırın':'Paste device output here later'}">${esc(r.output)}</textarea></label><label class="wide">${tr?'Mühendis notu':'Engineer note'}<textarea data-plan-field="note" maxlength="4000">${esc(r.note)}</textarea></label></div>`;
+    $("verificationEditor").querySelectorAll('[data-plan-open]').forEach(el=>el.onclick=()=>{verificationSelected=rows[+el.dataset.planOpen].id;renderVerificationEditor();});
+    $("verificationEditor").querySelectorAll('[data-plan-include]').forEach(el=>el.onchange=()=>{rows[+el.dataset.planInclude].included=el.checked;renderReport();});
+    $("verificationEditor").querySelectorAll('[data-plan-field]').forEach(el=>el.oninput=()=>{const current=state.verificationPlan.find(x=>x.id===verificationSelected);current[el.dataset.planField]=el.value;renderReport();});
+    for(const [id,value]of [['planSelectAll',true],['planClearAll',false]])$(id).onclick=()=>{state.verificationPlan.forEach(r=>r.included=value);renderReport();renderVerificationEditor();};
+  }
+  function verificationReportHtml(){
+    const tr=state.language==='tr',rows=VerificationPlan.exportRows(state);if(!rows.length)return '';
+    return `<section class="verification-report"><h2>${tr?'Doğrulama planı ve sonuç özeti':'Verification plan and results summary'}</h2><p>${tr?'Sonuçlar mühendis tarafından kaydedilir. Kontrol edilmedi durumundaki maddeler kabul kanıtı değildir.':'Results are recorded by the engineer. Not checked items are not acceptance evidence.'}</p><table><thead><tr><th>${tr?'Cihaz':'Device'}</th><th>${tr?'Komut':'Command'}</th><th>${tr?'Sonuç':'Result'}</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.hostname)}</td><td style="font-family:monospace">${esc(r.command)}</td><td>${esc(r.statusLabel)}</td></tr>`).join('')}</tbody></table><h3>${tr?'Ek doğrulama kayıtları':'Verification records appendix'}</h3>${rows.map(r=>`<div><h4>${esc(r.hostname)} · ${esc(r.command)}</h4><p>${esc(r.expected)}</p><p>${esc(r.statusLabel)} · ${esc(r.date||'—')} · ${esc(r.engineer||'—')}</p><pre style="white-space:pre-wrap">${esc(r.output||(tr?'CLI çıktısı: sonradan doldurulacak.':'CLI output: to be completed later.'))}</pre>${r.note?`<p style="white-space:pre-wrap">${esc(r.note)}</p>`:''}</div>`).join('')}</section>`;
+  }
   function renderReport(){
+    state.verificationPlan=VerificationPlan.build(state);
     state.technology=NetworkReportGuide.designPresentation(state).technology;
     normalizeInventoryProject(state);
     const inventory=currentReportInventory();
@@ -324,6 +345,7 @@
       <h2 id="reportInventory">${rw("inventory")}</h2><table><thead><tr><th>${rw("device")}</th><th>${rw("role")}</th><th>${rw("model")}</th><th>${rw("serial")}</th><th>${state.language==="tr"?"Yazılım sürümü":"Software version"}</th><th>${rw("source")}</th></tr></thead><tbody>${currentReportInventory().map(reportRow).join("")||`<tr><td colspan="6">${state.language==="tr"?"Henüz envanter kaydı yok; Inventory modülünden veri ekleyin.":"No inventory records yet; add data in Inventory."}</td></tr>`}</tbody></table>
 
       ${maintenanceNotes().length?`<h2>${state.language==="tr"?"Bakım değerlendirmesi ve upgrade planı":"Maintenance assessment and upgrade plan"}</h2>${maintenanceNotes().map(p=>`<div class="decision"><strong>${esc(p.label)}</strong><p>${esc(p.value)}</p><p style="white-space:pre-wrap">${esc(p.impact)}</p></div>`).join("")}`:""}
+      ${verificationReportHtml()}
       <h2>${rw("confirm")}</h2><p>${esc(confirmText)}</p>
       ${configs.length?`<div class="config-section"><h2>${rw("appendix")}</h2><p class="design-note">${rw("configNote")}</p>${state.devices.filter(d=>configs.some(c=>c.deviceId===d.id)).map(d=>{const cfg=configs.find(c=>c.deviceId===d.id);return `<h3>${esc(deviceName(d))} · ${esc(String(cfg.source||"").replace(/\bCombined\b\s*/gi,""))}</h3><pre>${esc(cfg.text)}</pre>`;}).join("")}</div>`:""}
       <div class="report-footer">${rw("footer")}</div>`;
@@ -339,7 +361,7 @@
   $("vendor").addEventListener("change",e=>{state.vendor=e.target.value;for(const d of state.devices)d.vendor=state.vendor;renderEditor();});
   $("architecture").addEventListener("change",e=>{state.architecture=e.target.value;for(const d of state.devices)if(d.hostname.match(/^(?:Spine|Leaf|Core|Access)-\d+$/))d.hostname=`${editorRoleName(d)}-${String(d.index).padStart(2,"0")}`;renderEditor();});
   $("technology").addEventListener("change",e=>{state.technology=e.target.value;renderReport();});
-  $("reportLanguage").addEventListener("change",e=>{const previousLanguage=state.language;state.language=e.target.value==="en"?"en":"tr";updateProjectExampleLanguage(previousLanguage);renderReport();});
+  $("reportLanguage").addEventListener("change",e=>{const previousLanguage=state.language;state.language=e.target.value==="en"?"en":"tr";updateProjectExampleLanguage(previousLanguage);renderReport();renderVerificationEditor();});
   $("techPlacement").addEventListener("change",e=>{state.techPlacement=e.target.value;renderReport();});
   for(const [id,key,max] of [["upperCount","upperCount",8],["lowerCount","lowerCount",16]])$(id).addEventListener("input",e=>{state[key]=count(id,max);syncTopology();renderEditor();});
   $("devices").addEventListener("input",e=>{const field=e.target.dataset.field,id=e.target.dataset.device;if(!field||!id)return;const d=state.devices.find(x=>x.id===id);if(!d)return;d[field]=e.target.value;if(field==="model"||field==="serial")d[`${field}Source`]=d[field]?"manual":"";if(field==="softwareVersion")d.softwareSource=d[field]?"manual":"";renderReport();});
@@ -580,7 +602,7 @@
     });
   }
   document.querySelectorAll('[data-view]').forEach(button=>button.onclick=()=>{maintenanceView=button.dataset.view;document.querySelectorAll('[data-view]').forEach(x=>x.setAttribute('aria-selected',String(x===button)));renderReport();renderMaintenance();});
-  const projectName=()=>{if(!$("projectName").value.trim()){$("projectName").focus();$("projectName").reportValidity();return "";}return $("projectName").value.trim();};
+  const projectName=()=>{if(!$("projectName").value.trim()){$("projectName").focus();$("projectName").reportValidity();alert(state.language==="tr"?"Rapor çıktısı almak için Project information bölümüne proje adını girin.":"Enter a project name in Project information before exporting the report.");return "";}return $("projectName").value.trim();};
 
   function reportInventorySnapshot(){
     return state.devices.map(d=>({id:d.id,tier:d.inventoryOnly?"upper":d.tier,index:d.inventoryOnly?1:d.index,
@@ -590,12 +612,12 @@
   const filename=name=>name.replace(/[^\p{L}\p{N}_-]+/gu,"_").replace(/^_+|_+$/g,"").slice(0,70)||"network-report";
   async function reportTopologyPng(svg){
     if(!svg||typeof CanvasRenderingContext2D==='undefined')return '';
-    return new Promise((resolve,reject)=>{const image=new Image(),url=URL.createObjectURL(new Blob([svg],{type:'image/svg+xml;charset=utf-8'}));
-      image.onload=()=>{try{const canvas=document.createElement('canvas'),scale=Math.min(2,2200/image.width);canvas.width=image.width*scale;canvas.height=image.height*scale;const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(image,0,0,canvas.width,canvas.height);resolve(canvas.toDataURL('image/png'));}catch(e){reject(e);}finally{URL.revokeObjectURL(url);}};
-      image.onerror=()=>{URL.revokeObjectURL(url);reject(Error('Could not render network architecture.'));};image.src=url;
+    return new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error("Topology rendering timed out. Please retry the Word export.")),15000);const image=new Image(),url=URL.createObjectURL(new Blob([svg],{type:'image/svg+xml;charset=utf-8'}));
+      image.onload=()=>{clearTimeout(timer);try{const canvas=document.createElement('canvas'),scale=Math.min(2,2200/image.width);canvas.width=image.width*scale;canvas.height=image.height*scale;const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(image,0,0,canvas.width,canvas.height);resolve(canvas.toDataURL('image/png'));}catch(e){reject(e);}finally{URL.revokeObjectURL(url);}};
+      image.onerror=()=>{clearTimeout(timer);URL.revokeObjectURL(url);reject(Error('Could not render network architecture.'));};image.src=url;
     });
   }
-  const download=(blob,name)=>{const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+  const download=(blob,name)=>{const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);};
   $("printReport").addEventListener("click",()=>{if(projectName()){renderReport();document.querySelector('.editor').hidden=false;window.print();renderMaintenance();}});
   $("saveProject").addEventListener("click",()=>{const name=projectName();if(name)download(new Blob([JSON.stringify({...state,name},null,2)],{type:"application/json"}),filename(name)+".json");});
   $("downloadWord").addEventListener("click",async()=>{
@@ -604,10 +626,10 @@
     const btn=$("downloadWord");btn.disabled=true;btn.textContent="Preparing Word…";
     try{
       const presentation=NetworkReportGuide.designPresentation(state);
-      const payload={projectOverview:presentation.overview,designApproach:presentation.approach,unifiedDesign:!!state.moduleReports?.length,language:state.language,name,vendor:state.vendor,architecture:state.architecture,technology:presentation.technology,techPlacement:state.techPlacement,roles:state.roles||null,upperCount:state.upperCount,lowerCount:state.lowerCount,scope:state.scope,technologyGuide:NetworkReportGuide.build(state),topologyNarratives:NetworkReportGuide.topologyNarratives(state),projectInformation:projectInformation().map(({label,value,impact,group})=>({label,value,impact,group})),devices:reportInventorySnapshot(),inventoryDeviceIds:currentReportInventory().map(d=>d.id),links:state.links.map(({a,b,enabled,upperPort,lowerPort,speed,detail})=>({a,b,enabled,upperPort,lowerPort,speed,detail:detail||""})),specialLinks:state.specialLinks||[],parameters:reportParameters(),configurations:state.configurations||[],maintenanceNotes:maintenanceNotes(),moduleReports:(state.moduleReports||[]).map(({title,vendor,topologyPng})=>({title,vendor,topologyPng:topologyPng||""})),topologyPng:state.topologyPng||""};
-      if(payload.unifiedDesign)payload.topologyPng=await reportTopologyPng(presentation.svg);
+      const payload={verificationPlan:VerificationPlan.exportRows(state),projectOverview:presentation.overview,designApproach:presentation.approach,unifiedDesign:!!state.moduleReports?.length,language:state.language,name,vendor:state.vendor,architecture:state.architecture,technology:presentation.technology,techPlacement:state.techPlacement,roles:state.roles||null,upperCount:state.upperCount,lowerCount:state.lowerCount,scope:state.scope,technologyGuide:NetworkReportGuide.build(state),topologyNarratives:NetworkReportGuide.topologyNarratives(state),projectInformation:projectInformation().map(({label,value,impact,group})=>({label,value,impact,group})),devices:reportInventorySnapshot(),inventoryDeviceIds:currentReportInventory().map(d=>d.id),links:state.links.map(({a,b,enabled,upperPort,lowerPort,speed,detail})=>({a,b,enabled,upperPort,lowerPort,speed,detail:detail||""})),specialLinks:state.specialLinks||[],parameters:reportParameters(),configurations:state.configurations||[],maintenanceNotes:maintenanceNotes(),moduleReports:(state.moduleReports||[]).map(({title,vendor,topologyPng})=>({title,vendor,topologyPng:topologyPng||""})),topologyPng:state.topologyPng||""};
+      if(payload.unifiedDesign){payload.topologyPng=await reportTopologyPng(presentation.svg);payload.moduleReports=payload.moduleReports.map(m=>({...m,topologyPng:""}));}
       const response=await fetch("/api/reporting/word",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
-      if(!response.ok){const err=await response.json().catch(()=>({}));throw Error(typeof err.detail==="string"?err.detail:"Could not create Word report.");}
+      if(!response.ok){const err=await response.json().catch(()=>({}));throw Error(typeof err.detail==="string"?err.detail:Array.isArray(err.detail)?err.detail.map(e=>`${e.loc?.slice(1).join(".")}: ${e.msg}`).join("\n"):"Could not create Word report.");}
       download(await response.blob(),filename(name)+".docx");
     }catch(error){alert(error.message);}finally{btn.disabled=false;btn.textContent="Download Word";}
   });
@@ -655,6 +677,7 @@
           p.sshVisibleIds=(old.sshVisibleIds||[]).map(id=>mapping.get(id)).filter(Boolean);
           p.inventoryRevision=2;p.projectDetails=old.projectDetails||{};p.projectExampleValues=old.projectExampleValues||{fields:{}};p.scope=p.scope||old.scope||"";
         }
+        if(old?.verificationPlan)p.verificationPlan=old.verificationPlan;
         if(old?.source && old.source.module===p.source.module && old.vendor===p.vendor && Array.isArray(old.devices)){
           normalizeInventoryProject(old);
           const previous=new Map(old.devices.map(d=>[d.id,d]));

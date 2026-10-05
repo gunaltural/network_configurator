@@ -257,6 +257,20 @@ class ReportTechnologyGuide(BaseModel):
     sources: List[ReportGuideSource] = Field(max_length=12)
 
 
+class ReportVerificationRecord(BaseModel):
+    hostname: str = Field(max_length=255)
+    vendor: str = Field(max_length=100)
+    technology: str = Field(max_length=500)
+    command: str = Field(max_length=1000)
+    expected: str = Field(max_length=4000)
+    status: Literal["pending", "pass", "review", "fail"] = "pending"
+    statusLabel: str = Field(max_length=100)
+    output: str = Field(default="", max_length=50000)
+    date: str = Field(default="", max_length=30)
+    engineer: str = Field(default="", max_length=200)
+    note: str = Field(default="", max_length=4000)
+
+
 class ReportWordRequest(BaseModel):
     language: Literal["tr", "en"] = "en"
     name: str = Field(min_length=1, max_length=120)
@@ -275,6 +289,7 @@ class ReportWordRequest(BaseModel):
     parameters: List[ReportParameter] = Field(default_factory=list)
     configurations: List[ReportConfiguration] = Field(default_factory=list)
     topologyPng: str = Field(default="", max_length=3000000)
+    verificationPlan: List[ReportVerificationRecord] = Field(default_factory=list, max_length=2000)
     unifiedDesign: bool = False
     projectOverview: str = Field(default="", max_length=20000)
     designApproach: str = Field(default="", max_length=5000)
@@ -557,6 +572,11 @@ def reporting():
 @app.get("/engineering-locale.js")
 def engineering_locale():
     return Response((BASE_DIR / "engineering-locale.js").read_text(encoding="utf-8"), media_type="application/javascript", headers={"Cache-Control": "no-cache"})
+
+
+@app.get("/verification-plan.js")
+def verification_plan_script():
+    return Response((BASE_DIR / "verification-plan.js").read_text(encoding="utf-8"), media_type="application/javascript", headers={"Cache-Control": "no-cache"})
 
 
 @app.get("/vpc-report.js")
@@ -998,14 +1018,15 @@ def reporting_word(p: ReportWordRequest):
     actual = {d.id for d in p.devices}
     topology_devices = [d for d in p.devices if not d.inventoryOnly]
     topology_ids = {d.id for d in topology_devices}
+    scope_count = max(1, len(p.moduleReports)) if p.architecture == "module" else 1
     if (not p.name.strip() or len(p.devices) != len(actual)
             or len(topology_devices) != p.upperCount + p.lowerCount
             or sum(d.tier == "upper" for d in topology_devices) != p.upperCount
             or sum(d.tier == "lower" for d in topology_devices) != p.lowerCount
             or (p.architecture != "module" and (topology_ids != expected
                 or any(d.id != f"{d.tier}-{d.index}" for d in topology_devices)))
-            or len(p.links) > 128 or len(p.specialLinks) > 32
-            or len(p.parameters) > 250 or len(p.configurations) > len(topology_devices)
+            or len(p.links) > 128 * scope_count or len(p.specialLinks) > 32 * scope_count
+            or len(p.parameters) > 250 * scope_count or len(p.configurations) > len(topology_devices)
             or any(l.a not in topology_ids or l.b not in topology_ids
                    or (p.architecture != "module" and (not l.a.startswith("upper-") or not l.b.startswith("lower-"))) for l in p.links)
             or any(l.a not in topology_ids or l.b not in topology_ids for l in p.specialLinks)

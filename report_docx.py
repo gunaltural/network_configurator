@@ -331,6 +331,25 @@ def build_report_docx(project):
          + (f"{missing_ports} active {'link still needs' if missing_ports == 1 else 'links still need'} a port at one or both ends. " if missing_ports else "All active link endpoint ports are assigned. " if active else "No physical links modeled; port mapping is unverified. ")
          + "Compare device-sourced inventory with the intended bill of materials before closeout.")
     )
+    checks = project.get("verificationPlan") or []
+    if checks:
+        tr = language == "tr"
+        doc.add_heading("Doğrulama planı ve sonuç özeti" if tr else "Verification plan and results summary", level=1)
+        doc.add_paragraph("Sonuçlar mühendis tarafından kaydedilir. Kontrol edilmedi durumundaki maddeler kabul kanıtı değildir." if tr else "Results are recorded by the engineer. Not checked items are not acceptance evidence.")
+        _table(doc, ["Cihaz" if tr else "Device", "Komut" if tr else "Command", "Sonuç" if tr else "Result"], [1.3, 4, 1.5], [[r["hostname"], r["command"], r["statusLabel"]] for r in checks])
+        doc.add_heading("Ek doğrulama kayıtları" if tr else "Verification records appendix", level=1)
+        for r in checks:
+            doc.add_heading(r["hostname"] + " · " + r["command"], level=2)
+            doc.add_paragraph(r["expected"])
+            doc.add_paragraph(" · ".join([r["statusLabel"], r.get("date") or "—", r.get("engineer") or "—"]))
+            for line in (r.get("output") or ("CLI çıktısı: sonradan doldurulacak." if tr else "CLI output: to be completed later.")).splitlines():
+                paragraph = doc.add_paragraph()
+                paragraph.paragraph_format.space_after = Pt(0)
+                run = paragraph.add_run(line or " ")
+                run.font.name = "Courier New"
+                run.font.size = Pt(8)
+            if r.get("note"):
+                doc.add_paragraph(r["note"])
     if project.get("configurations"):
         doc.add_page_break()
         doc.add_heading(words["appendix"], level=1)

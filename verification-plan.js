@@ -1,0 +1,25 @@
+(function(root){
+ const statuses={pending:['Kontrol edilmedi','Not checked'],pass:['Uygun','Pass'],review:['İncelenmeli','Needs review'],fail:['Başarısız','Fail']};
+ function describe(record,tr){
+ const command=record.command.toLowerCase(),context=record.context||{},neighbors=context.neighbors||[];
+ if(/bgp.*(summary|peer)|bgp peer/.test(command))return tr?`Tasarımdaki BGP komşuları${neighbors.length?': '+neighbors.join(', '):''} Established durumunda olmalıdır. Remote AS ve adres ailesini cihaz konfigürasyonuyla karşılaştırın; oturum kurulması tek başına doğru rota alışverişini kanıtlamaz.`:`Designed BGP peers${neighbors.length?': '+neighbors.join(', '):''} must be Established. Compare remote AS and address family with the device configuration; an established session alone does not prove correct route exchange.`;
+ if(/vpc|mlag|m-lag|dfs-group/.test(command))return tr?'Peer ilişkisi ve tasarımda tanımlı üye bağlantıları sağlıklı olmalı; consistency kontrollerinde uyumsuzluk bulunmamalıdır. Peer-link ve bağımsız keepalive yollarını ayrı doğrulayın.':'Peer relationship and designed member links must be healthy, with no consistency mismatch. Verify the peer-link and independent keepalive paths separately.';
+ if(/ospf/.test(command))return tr?'Tasarımdaki area ve ağ tipine uygun komşuluk durumunu doğrulayın; tam komşuluk gereken ilişkiler FULL olmalıdır. Broadcast ağlarda DROTHER–DROTHER ilişkisi 2-WAY olabilir.':'Verify adjacency states against designed areas and network types; required full adjacencies must be FULL. DROTHER-to-DROTHER relationships on broadcast networks can remain 2-WAY.';
+ if(/ntp|clock/.test(command))return tr?'Seçilen NTP sunucuları ve saat ayarları konfigürasyonla eşleşmeli; senkronizasyon durumu ve seçilen zaman kaynağı doğrulanmalıdır.':'Configured NTP servers and clock settings must match the design; verify synchronization and the selected time source.';
+ if(/spanning|stp/.test(command))return tr?'Root bridge, STP modu ve port rolleri tasarımla eşleşmeli; blocking/discarding durumunu tasarlanan yedeklilikle birlikte değerlendirin.':'Root bridge, STP mode and port roles must match the design; assess blocking/discarding states against intended redundancy.';
+ if(/evpn|nve|vxlan|vni/.test(command))return tr?'Tasarımdaki VTEP, VNI ve EVPN adres ailesi eşleşmelerini doğrulayın. İlgili segmentler aktif olmalı; beklenen MAC/IP ve prefix rotaları doğru tenant kapsamında bulunmalıdır.':'Verify designed VTEPs, VNIs and EVPN address-family mappings. Relevant segments must be active; expected MAC/IP and prefix routes must belong to the correct tenant.';
+ return tr?`${record.technology} kapsamındaki bu komutun çıktısını ${record.hostname} için üretilen konfigürasyon ve bağlantı planıyla karşılaştırın. İlgili durum, adres ve politika değerlerini mühendis değerlendirmesiyle kaydedin.`:`Compare this ${record.technology} command output with the generated configuration and connection plan for ${record.hostname}. Record the relevant state, address and policy values with an engineer assessment.`;
+ }
+ function build(state){
+ const scopes=state.moduleReports?.length?state.moduleReports:[{module:state.source?.module||state.technology,technology:state.technology,vendor:state.vendor,verificationCommands:state.verificationCommands||[],design:state}];const rows=[];
+ for(const scope of scopes){const design=scope.design||state;for(const device of design.devices||[]){if(device.external)continue;const target=state.devices.find(d=>d.hostname===device.hostname&&d.vendor===(device.vendor||scope.vendor)&&state.configurations?.some(c=>c.deviceId===d.id));if(!target||!state.configurations?.some(c=>c.deviceId===target.id))continue;
+ const config=state.configurations.find(c=>c.deviceId===target.id)?.text||'';const neighbors=[...config.matchAll(/(?:neighbor|peer)\s+(\d+\.\d+\.\d+\.\d+)\s+(?:remote-as|as-number)\s+(\d+)/g)].map(m=>`${m[1]} (AS ${m[2]})`);
+ for(const command of scope.verificationCommands||[]){
+ if(/vpc|mlag|m-lag|dfs-group/i.test(command)&&!/(?:vpc\s+domain|mlag\s+configuration|dfs-group|m-lag)/i.test(config))continue;
+ const id=JSON.stringify([scope.module,target.vendor,target.hostname,command]);rows.push({id,deviceId:target.id,hostname:target.hostname,vendor:target.vendor,technology:scope.technology||scope.title,command,context:{neighbors:[...new Set(neighbors)]},included:true,status:'pending',output:'',date:'',engineer:'',note:''});}}
+ }
+ const old=new Map((state.verificationPlan||[]).map(r=>[r.id,r]));return rows.map(r=>{const saved=old.get(r.id);return saved?{...r,...Object.fromEntries(['included','status','output','date','engineer','note'].filter(k=>saved[k]!==undefined).map(k=>[k,saved[k]]))}:r;});
+ }
+ function exportRows(state){const tr=state.language==='tr';return (state.verificationPlan||[]).filter(r=>r.included).map(r=>({...r,expected:describe(r,tr),statusLabel:(statuses[r.status]||statuses.pending)[tr?0:1]}));}
+ root.VerificationPlan={build,describe,exportRows,statuses};
+})(typeof window==='undefined'?globalThis:window);

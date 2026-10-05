@@ -6154,6 +6154,7 @@ renderModule();
      image.src=url;
    });
  }
+ function reportVerificationCommands(){return [...new Set(String(modules[tech].generate('verify')||'').split(/\r?\n/).map(s=>s.trim()).filter(s=>/^(show|display|get|diagnose)\s/i.test(s)&&!/[<>]/.test(s)))];}
  const moduleLabel=(key,pl)=>technologyLabel(key,pl);
  const managementIdentity=d=>`${d.vendor}|${String(d.hostname||d.id).toLowerCase()}`;
  function resetManagementTargets(){$("combineManagement").hidden=true;$("combineManagement").innerHTML="";$("combineCreate").textContent="Seçilen Modüllerle Raporu Aç";}
@@ -6205,7 +6206,7 @@ renderModule();
    }
    if(key==="BGP")renderBgpDynamicCards();restoreWorkspaceModule(key);renderOutput();syncTopology();await new Promise(resolve=>setTimeout(resolve,40));
    const report=reportingDesign();if(!report)throw Error(`${moduleLabel(key,platform())} could not produce a report.`);
-   report.topologySvg=workspaceTopologySvg();report.topologyPng=await workspaceTopologyPng(report.topologySvg);report.moduleKey=key;report.moduleTitle=moduleLabel(key,report.vendor);return report;
+   report.topologySvg=workspaceTopologySvg();report.topologyPng=await workspaceTopologyPng(report.topologySvg);report.verificationCommands=reportVerificationCommands();report.moduleKey=key;report.moduleTitle=moduleLabel(key,report.vendor);return report;
  }
  function combineReports(reports){
    const project=snapshot(),devices=[],links=[],specialLinks=[],parameters=[],configMap=new Map(),deviceIndex=new Map(),moduleReports=[];
@@ -6216,7 +6217,7 @@ renderModule();
      (report.specialLinks||[]).forEach((link,index)=>specialLinks.push({...link,id:`${prefix}-special-${index+1}`,a:map.get(link.a),b:map.get(link.b),detail:`${report.moduleTitle} · ${link.detail||"control path"}`}));
      (report.parameters||[]).forEach(item=>parameters.push({...item,label:`${report.moduleTitle} · ${item.label}`}));
      (report.configurations||[]).forEach(cfg=>{const id=map.get(cfg.deviceId);if(!id)return;const part=`######## ${report.moduleTitle.toUpperCase()} · ${cfg.source} ########\n${cfg.text}`;configMap.set(id,[configMap.get(id),part].filter(Boolean).join("\n\n"));});
-     moduleReports.push({module:report.moduleKey,title:report.moduleTitle,vendor:report.vendor,technology:report.technology,topologySvg:report.topologySvg,topologyPng:report.topologyPng,parameters:report.parameters||[],design:{architecture:report.architecture,roles:report.roles,techPlacement:report.techPlacement,devices:report.devices,links:report.links,specialLinks:report.specialLinks||[]},deviceCount:report.devices.length,configurationCount:(report.configurations||[]).length});
+     moduleReports.push({module:report.moduleKey,title:report.moduleTitle,vendor:report.vendor,technology:report.technology,topologySvg:report.topologySvg,topologyPng:report.topologyPng,parameters:report.parameters||[],verificationCommands:report.verificationCommands||[],design:{architecture:report.architecture,roles:report.roles,techPlacement:report.techPlacement,devices:report.devices,links:report.links,specialLinks:report.specialLinks||[]},deviceCount:report.devices.length,configurationCount:(report.configurations||[]).length});
    });
    const first=reports[0],configurations=[...configMap].map(([deviceId,text])=>({deviceId,text,source:"Technology Workspaces"}));
    return {schema:"network-configurator-report-v1",language:$("combineLanguage")?.value||"tr",name:project.project.name==="Untitled Network Project"?"":project.project.name,vendor:first.vendor,architecture:"module",technology:reports.map(r=>r.technology).join(" + "),techPlacement:"upper",roles:{upper:"Network device",lower:"Network device"},upperCount:devices.length,lowerCount:0,scope:"",devices:devices.map((d,i)=>({...d,tier:"upper",index:i+1})),links,specialLinks,parameters,configurations,moduleReports,topologySvg:first.topologySvg,topologyPng:first.topologyPng,source:{module:"COMBINED",modules:reports.map(r=>r.moduleKey),projectId:project.project.id||"active",generatedAt:new Date().toISOString()}};
@@ -6241,6 +6242,7 @@ renderModule();
    try{
      const payload=reportingDesign();
      if(payload){
+       payload.verificationCommands=reportVerificationCommands();
        syncTopology();
        payload.topologySvg=workspaceTopologySvg();
        payload.topologyPng=await workspaceTopologyPng(payload.topologySvg);
