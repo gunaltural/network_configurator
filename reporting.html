@@ -368,7 +368,7 @@
           const result=(data.results||[]).find(r=>r.command===row.command);if(!result||typeof result.output!=='string')continue;
           const current=state.verificationPlan.find(r=>r.id===row.id);if(!current)continue;
           current.output=result.output.slice(0,50000);current.date=new Date().toISOString().slice(0,10);current.status=result.ok?'pending':'review';
-          if(result.truncated)current.note=tr?'Çıktı boyut sınırı nedeniyle kısaltıldı; tam kayıt ayrıca incelenmelidir.':'Output was truncated by the size limit; review the full record separately.';imported++;
+          if(result.truncated){const notice=tr?'Çıktı boyut sınırı nedeniyle kısaltıldı; tam kayıt ayrıca incelenmelidir.':'Output was truncated by the size limit; review the full record separately.';if(!current.note.includes(notice))current.note=[current.note,notice].filter(Boolean).join('\n').slice(0,4000);}imported++;
         }
         renderReport();renderVerificationOutputs();
         status.textContent=tr?`${device.hostname}: ${imported}/${rows.length} komut çıktısı rapora aktarıldı. Mühendis değerlendirmesi bekleniyor.`:`${device.hostname}: ${imported}/${rows.length} command outputs added to the report. Engineer assessment pending.`;
