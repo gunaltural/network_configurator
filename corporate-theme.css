@@ -143,3 +143,8 @@ pre,.sd-cli{background:#f5f8fa;color:#214d68;border-color:#dce6ec;box-shadow:non
 @media(max-width:1050px){.nc-dashboard-overview{grid-template-columns:1fr}.nc-dashboard-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:520px){.nc-dashboard-stats{gap:10px}.nc-dashboard-overview{margin-top:20px}.nc-overview-card{padding:17px}}
 @media print{.nc-dashboard-overview,.nc-dashboard-stats{display:none!important}}
+
+/* Lifecycle-oriented navigation: one destination, distinct workspace context. */
+.nc-nav-group>summary{font-size:12px;gap:10px;padding-right:12px}
+.nc-nav-sub.nc-module-context{color:#fff;background:#ffffff0a}
+.nc-nav-group .nc-menu-label{letter-spacing:.09em;color:#9fbdcb;padding-top:15px}

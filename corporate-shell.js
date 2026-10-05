@@ -19,18 +19,16 @@
  const group=(label,icon,key,content)=>'<details class="nc-nav-group" data-nc-group="'+key+'"><summary>'+svg(icon)+'<span>'+label+'</span><span class="nc-chevron">›</span></summary><div>'+content+'</div></details>';
  const viewItem=(key,label,icon)=>item(label,icon,'data-nc-view="'+key+'"','/reporting?view='+key);
  const tabItem=(key,label,icon)=>item(label,icon,'data-nc-tab="'+key+'"','/?workspace=BASIC&tab='+key);
+ const family=(label,keys)=>'<div class="nc-menu-label">'+label+'</div>'+keys.map(key=>{const label=modules.find(([id])=>id===key)[1];return item(label,key==='BASIC'?'settings':'network','data-nc-module="'+key+'"','/?workspace='+key);}).join('');
  sidebar.innerHTML='<a class="nc-brand" href="/"><span class="nc-brand-mark">NC</span><span>Network<br>Configurator<small>Engineering workspace</small></span></a><nav class="nc-menu" aria-label="Main navigation"><a href="/" class="nc-nav-item" data-nc-home>'+svg('home')+'<span>Dashboard</span></a>'
- +group('Network Design','network','design','<div class="nc-menu-label">Technology Workspaces</div>'+modules.map(([key,label])=>item(label,key==='BASIC'?'settings':'network','data-nc-module="'+key+'"','/?workspace='+key)).join('')+planned('Topology Library'))
- +group('Inventory','inventory','inventory',viewItem('inventory','Device Inventory','inventory')+item('SSH Collection','network','data-nc-collection="automatic"','/reporting?view=inventory&collection=automatic')+item('Manual / Excel Import','inventory','data-nc-collection="manual"','/reporting?view=inventory&collection=manual')+planned('Network Discovery'))
- +group('Configuration','settings','configuration',tabItem('config','Device Configuration','settings')+tabItem('deploy','Deploy Configuration','upgrade')+planned('Configuration Backups')+planned('Configuration Comparison'))
- +group('Verification','lifecycle','verification',tabItem('verify','Verification Workspace','lifecycle')+item('CLI Evidence','report','data-nc-evidence','/reporting?view=design')+planned('Acceptance Tests'))
- +group('Troubleshooting','settings','troubleshooting',tabItem('trouble','Troubleshooting Workspace','settings')+planned('Diagnostic History'))
- +group('Reports','report','reports',viewItem('design','Design Guide and Reporting','report')+tabItem('notes','Design Notes','report')+planned('Report Archive'))
- +group('Maintenance','upgrade','maintenance',viewItem('lifecycle','Lifecycle and Software','lifecycle')+viewItem('upgrade','Upgrade Planning','upgrade'))
- +group('Automations','lifecycle','automation',planned('Scheduled Jobs')+planned('Network Workflows'))
- +group('Projects','inventory','projects',item('Recent Projects','inventory','data-nc-projects','/')+planned('Customers and Sites'))
- +group('Administration','settings','administration',planned('Application Settings')+planned('Users and Roles'))
- +'</nav><div class="nc-sidebar-foot">Network Configurator<br>Design · Configure · Verify · Report</div>';
+ +group('Projects','inventory','projects',item('Recent Projects','inventory','data-nc-projects','/?section=projects')+item('Start a Design','network','data-nc-start','/?section=design')+planned('Customers and Sites'))
+ +group('Network Design','network','design',family('Routing & WAN',['BGP','OSPF','SDWAN'])+family('Switching & Fabric',['STP','VPC','EVPN'])+family('Network Services',['BASIC','QOS'])+tabItem('notes','Engineering Design Notes','report')+planned('Topology Library'))
+ +group('Inventory','inventory','inventory',viewItem('inventory','Device Inventory','inventory')+item('Collect via SSH','network','data-nc-collection="automatic"','/reporting?view=inventory&collection=automatic')+item('Manual Entry & Excel','inventory','data-nc-collection="manual"','/reporting?view=inventory&collection=manual')+planned('Network Discovery'))
+ +group('Implementation & Validation','settings','operations',tabItem('config','Device Configurations','settings')+tabItem('deploy','Configuration Deployment','upgrade')+tabItem('verify','Verification Commands','lifecycle')+tabItem('trouble','Troubleshooting','settings')+planned('Configuration Backups')+planned('Configuration Comparison')+planned('Acceptance Tests')+planned('Diagnostic History'))
+ +group('Reporting','report','reports',viewItem('design','Design Guide & Reporting','report')+item('Verification Evidence','lifecycle','data-nc-evidence','/reporting?view=design&section=evidence')+planned('Report Archive'))
+ +group('Lifecycle Management','upgrade','maintenance',viewItem('lifecycle','Lifecycle & Software Review','lifecycle')+viewItem('upgrade','Upgrade Planning','upgrade'))
+ +group('Roadmap','lifecycle','roadmap','<div class="nc-menu-label">Automation</div>'+planned('Scheduled Jobs')+planned('Network Workflows')+'<div class="nc-menu-label">Administration</div>'+planned('Application Settings')+planned('Users and Roles'))
+ +'</nav><div class="nc-sidebar-foot">Network Configurator<br>Design · Deliver · Operate</div>';
  document.body.prepend(sidebar);
  const header=document.querySelector(reporting?'.shell>.nav':'.v3-topbar');
  if(header){
@@ -46,7 +44,7 @@
  }
  const dashboard=document.getElementById('v3Dashboard');
  if(dashboard){
-   const heading=document.createElement('div');heading.className='nc-dashboard-heading';heading.innerHTML='<h1>Dashboard</h1><p>Network engineering · design, configuration and project documentation.</p>';dashboard.prepend(heading);
+   const heading=document.createElement('div');heading.className='nc-dashboard-heading';heading.innerHTML='<h1>Dashboard</h1><p>Project portfolio · network architecture, delivery and lifecycle planning.</p>';dashboard.prepend(heading);
    const overview=document.createElement('section');overview.className='nc-dashboard-overview';overview.innerHTML='<div class="nc-overview-card"><div class="nc-card-heading"><h2>Project overview</h2><span class="nc-overview-tag" id="ncProjectTag">Design</span></div><p class="nc-overview-description" id="ncProjectDescription"></p><div id="ncProjectMetrics"></div></div><div class="nc-overview-card"><h2>Engineering workflow</h2><p class="nc-overview-description">Move from network design to documented delivery.</p><button class="nc-workflow-row" type="button" data-nc-design-start><span class="nc-step">01</span><span><strong>Network Design</strong><small>Build topology and generate vendor-specific configuration.</small></span><span>›</span></button><a class="nc-workflow-row" href="/reporting?view=inventory"><span class="nc-step">02</span><span><strong>Device Inventory</strong><small>Import device records or collect them over SSH.</small></span><span>›</span></a><a class="nc-workflow-row" href="/reporting?view=design"><span class="nc-step">03</span><span><strong>Design and Reporting</strong><small>Record design decisions and selected CLI evidence.</small></span><span>›</span></a><a class="nc-workflow-row" href="/reporting?view=upgrade"><span class="nc-step">04</span><span><strong>Maintenance Planning</strong><small>Review lifecycle, software and upgrade requirements.</small></span><span>›</span></a></div>';
    heading.after(overview);
    const stats=document.createElement('section');stats.className='nc-dashboard-stats';stats.innerHTML=[['saved','Saved projects'],['topology','Topology devices'],['inventory','Inventory records'],['checks','Selected verification commands']].map(([key,label])=>'<div class="nc-overview-card"><span>'+label+'</span><b data-nc-stat="'+key+'">0</b></div>').join('');overview.after(stats);
@@ -86,19 +84,22 @@
    if(reporting)return;e.preventDefault();const key=document.querySelector('.tech.active')?.dataset.tech||'BASIC';openModule(key);document.querySelector('.tab[data-tab="'+link.dataset.ncTab+'"]')?.click();sync();
  });
  sidebar.querySelector('[data-nc-evidence]').onclick=e=>{if(reporting){e.preventDefault();openView('design');document.getElementById('verificationPanel')?.scrollIntoView({behavior:'smooth',block:'start'});}};
+ sidebar.querySelector('[data-nc-start]').onclick=e=>{if(!reporting){e.preventDefault();home.click();sidebar.querySelector('[data-nc-group="design"]').open=true;document.getElementById('v3TechGrid').scrollIntoView({behavior:'smooth',block:'start'});}};
  sidebar.querySelector('[data-nc-projects]').onclick=e=>{if(!reporting){e.preventDefault();home.click();document.getElementById('v3RecentProjects').scrollIntoView({behavior:'smooth',block:'center'});}};
+ let lastActiveGroup;
  function sync(){
    const onDashboard=!!dashboard?.classList.contains('show'),activeModule=document.querySelector('.tech.active')?.dataset.tech;
    const view=document.querySelector('.maintenance-tabs [aria-selected="true"]')?.dataset.view;
    const tab=document.querySelector('.tab.active')?.dataset.tab;
    sidebar.querySelectorAll('.nc-nav-item').forEach(item=>{
-     const active=item.hasAttribute('data-nc-home')?onDashboard:item.hasAttribute('data-nc-module')?!reporting&&!onDashboard&&item.dataset.ncModule===activeModule:item.hasAttribute('data-nc-view')?reporting&&item.dataset.ncView===view:item.hasAttribute('data-nc-tab')?!reporting&&!onDashboard&&item.dataset.ncTab===tab:false;
+     const active=item.hasAttribute('data-nc-home')?onDashboard:item.hasAttribute('data-nc-module')?false:item.hasAttribute('data-nc-view')?reporting&&item.dataset.ncView===view:item.hasAttribute('data-nc-tab')?!reporting&&!onDashboard&&item.dataset.ncTab===tab:false;
      if(active&&item.getAttribute('aria-current')!=='page')item.setAttribute('aria-current','page');else if(!active&&item.hasAttribute('aria-current'))item.removeAttribute('aria-current');
    });
    sidebar.querySelectorAll('.nc-nav-group').forEach(group=>{
-     const active=!!group.querySelector('[aria-current="page"]');group.classList.toggle('nc-group-active',active);if(active)group.open=true;
+     const active=!!group.querySelector('[aria-current="page"]');group.classList.toggle('nc-group-active',active);if(active&&lastActiveGroup!==group.dataset.ncGroup){sidebar.querySelectorAll('.nc-nav-group').forEach(other=>{other.open=other===group;});lastActiveGroup=group.dataset.ncGroup;}
    });
-   if(onDashboard)updateDashboard();
+   if(onDashboard){if(lastActiveGroup){sidebar.querySelectorAll('.nc-nav-group').forEach(group=>group.open=false);lastActiveGroup=null;}updateDashboard();}
+   sidebar.querySelectorAll('[data-nc-module]').forEach(link=>link.classList.toggle('nc-module-context',!reporting&&!onDashboard&&link.dataset.ncModule===activeModule));
  }
  const observer=new MutationObserver(sync);
  if(dashboard)observer.observe(dashboard,{attributes:true,attributeFilter:['class']});
@@ -107,9 +108,12 @@
  document.querySelectorAll('.maintenance-tabs [data-view]').forEach(el=>observer.observe(el,{attributes:true,attributeFilter:['aria-selected']}));
  sync();
  const params=new URLSearchParams(location.search);
+ if(!reporting&&params.get('section')==='projects')sidebar.querySelector('[data-nc-projects]').click();
+ if(!reporting&&params.get('section')==='design')sidebar.querySelector('[data-nc-start]').click();
  if(reporting&&maintenance.some(([key])=>key===params.get('view'))){
    openView(params.get('view'));const collection=params.get('collection');
    if(['manual','automatic'].includes(collection)){const field=document.getElementById('inventoryMode');field.value=collection;field.dispatchEvent(new Event('change',{bubbles:true}));}
  }
+ if(reporting&&params.get('section')==='evidence'){openView('design');document.getElementById('verificationPanel')?.scrollIntoView({block:'start'});}
  if(!reporting){const requested=new URLSearchParams(location.search).get('workspace');if(modules.some(([key])=>key===requested))openModule(requested);const tab=params.get('tab');if(['config','deploy','verify','trouble','notes'].includes(tab)){if(!requested)openModule('BASIC');document.querySelector('.tab[data-tab="'+tab+'"]')?.click();}}
 })();
