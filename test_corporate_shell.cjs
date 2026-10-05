@@ -1,6 +1,6 @@
 const fs=require('fs'),assert=require('assert/strict'),{JSDOM,VirtualConsole}=require('jsdom');
 const errors=[],vc=new VirtualConsole();vc.on('jsdomError',e=>errors.push(e.message));const shell=fs.readFileSync('corporate-shell.js','utf8');
-const options=url=>({url,runScripts:'dangerously',virtualConsole:vc,beforeParse(w){w.scrollTo=()=>{};for(const f of ['engineering-locale.js','vpc-report.js','verification-plan.js'])w.eval(fs.readFileSync(f,'utf8'));w.fetch=async()=>({ok:true,json:async()=>({platforms:{}})});}});
+const options=url=>({url,runScripts:'dangerously',virtualConsole:vc,beforeParse(w){w.eval(fs.readFileSync("huawei-istack.js","utf8"));w.scrollTo=()=>{};for(const f of ['engineering-locale.js','vpc-report.js','verification-plan.js'])w.eval(fs.readFileSync(f,'utf8'));w.fetch=async()=>({ok:true,json:async()=>({platforms:{}})});}});
 (async()=>{
  const main=new JSDOM(fs.readFileSync('web.html','utf8'),options('https://test.invalid/'));const w=main.window,d=w.document;w.eval(shell);
  try{

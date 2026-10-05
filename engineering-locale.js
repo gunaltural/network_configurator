@@ -163,6 +163,7 @@
     return result.replace(/ authentication/gi," kimlik doğrulaması").replace(/ enabled/gi," etkin");
   };
   const localizeParameter=(p,language="en")=>{
+    if(p.impactTr)return {...p,label:language==="tr"?p.labelTr:p.label,impact:language==="tr"?p.impactTr:p.impact,value:language==="tr"?(p.valueTr||p.value):p.value};
     const parts=String(p.label||"").split(" · "),rawBase=parts.pop(),base=classifyLegacyNote(rawBase,p.impact),prefix=parts.join(" · ");
     if(language==="en")return {...p,label:[prefix,base].filter(Boolean).join(" · "),impact:p.value==="Design boundary"?(noteImpacts.en[base]||p.impact):p.impact};
     const translated=trDecisionLabels[base]||noteLabels.tr[base]||base.replace(/ implementation consideration$/i," uygulama değerlendirmesi"),label=[prefix,translated].filter(Boolean).join(" · ");

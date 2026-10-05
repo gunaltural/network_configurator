@@ -82,6 +82,31 @@ editable DOCX report. **Download project** / **Open project** save and restore
 the editable design as JSON. The report documents design intent and optional
 inventory verification; it does not crawl neighbors or claim operational validation.
 
+## Huawei iStack workspace
+
+Choose **Technology Workspaces → vPC / MLAG → Huawei iStack**. This is an
+additional S-series service-port stacking profile; the existing Huawei CloudEngine
+M-LAG implementation remains available separately. Verify the exact product,
+software release and interface numbering against the manufacturer's guide.
+
+The workspace models two physical members and 2–8 dual-attached leaves. Configure
+member IDs/priorities, ring or chain links, direct MAD, STP, VLAN policy and every
+core/leaf port. Output selection separates standalone member preparation from
+shared logical-stack service configuration and individual leaf configurations.
+Member preparation belongs to a console formation procedure with planned
+save/restart; the application does not perform a restart. Deploy Config supports
+the shared service and leaf phases. The Huawei adapter handles the direct MAD
+confirmation specifically and stops on unexpected interactive prompts.
+
+Design notes, report parameters and technology-guide text support English and
+Turkish. Reports retain the physical member model; multi-module configuration and
+verification evidence use the logical hostname once. Verification and
+troubleshooting include stack, MAD, physical-link, STP and Eth-Trunk commands.
+
+Regression coverage includes 2/4/8 leaves, unique IDs/ports, Save/Open, shared
+configuration deduplication, TR/EN Word export and the SSH adapter with simulated
+responses. Actual formation and failure convergence require target-device testing.
+
 ## Verification and Troubleshooting
 No local installation is required. The Verification and Troubleshooting tabs expose
 the read-only SSH engine; there is no separate Live CLI tab. Connection details can

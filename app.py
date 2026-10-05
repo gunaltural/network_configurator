@@ -57,9 +57,10 @@ PLATFORM_MAP = {
     "Arista EOS": "arista_eos",
     "Huawei_CE_SW": "huawei_vrpv8",
     "Huawei": "huawei_vrpv8",
+    "Huawei iStack": "huawei",
 }
 LIVE_PLATFORM_MAP = {**PLATFORM_MAP, "FortiGate": "fortinet"}
-LIVE_PLATFORM_ALIASES = {"Cisco_StackWise": "Cisco IOS-XE", "Huawei": "Huawei_CE_SW"}
+LIVE_PLATFORM_ALIASES = {"Cisco_StackWise": "Cisco IOS-XE", "Huawei": "Huawei_CE_SW", "Huawei iStack": "Huawei_CE_SW"}
 
 INVENTORY_COMMANDS = {
     "Cisco NX-OS": ("show version", "show inventory", "show running-config | include ^hostname"),
@@ -75,6 +76,7 @@ RUNNING_COMMAND = {
     "arista_eos": "show running-config",
     "fortinet": "show full-configuration",
     "huawei_vrpv8": "display current-configuration",
+    "huawei": "display current-configuration",
 }
 
 READONLY_PREFIXES = ("show ", "display ", "get ", "diagnose ")
@@ -235,7 +237,7 @@ class ReportTierLabels(BaseModel):
 
 class ReportModuleSummary(BaseModel):
     title: str = Field(max_length=100)
-    vendor: Literal["Cisco NX-OS", "Cisco IOS-XE", "Arista EOS", "Huawei_CE_SW", "FortiGate"]
+    vendor: Literal["Cisco NX-OS", "Cisco IOS-XE", "Arista EOS", "Huawei_CE_SW", "Huawei iStack", "FortiGate"]
     topologyPng: str = Field(default="", max_length=3000000)
 
 
@@ -246,7 +248,7 @@ class ReportGuideSection(BaseModel):
 
 class ReportGuideSource(BaseModel):
     title: str = Field(max_length=150)
-    url: str = Field(pattern=r"^https://www\.cisco\.com/", max_length=600)
+    url: str = Field(pattern=r"^https://(?:[A-Za-z0-9-]+\.)*(?:cisco\.com|huawei\.com|arista\.com|fortinet\.com)/", max_length=600)
 
 
 class ReportTechnologyGuide(BaseModel):
@@ -274,7 +276,7 @@ class ReportVerificationRecord(BaseModel):
 class ReportWordRequest(BaseModel):
     language: Literal["tr", "en"] = "en"
     name: str = Field(min_length=1, max_length=120)
-    vendor: Literal["Cisco NX-OS", "Cisco IOS-XE", "Arista EOS", "Huawei_CE_SW", "FortiGate"]
+    vendor: Literal["Cisco NX-OS", "Cisco IOS-XE", "Arista EOS", "Huawei_CE_SW", "Huawei iStack", "FortiGate"]
     architecture: Literal["spine-leaf", "core-access", "module"]
     technology: str = Field(max_length=500)
     techPlacement: Literal["upper", "lower"]
@@ -451,6 +453,10 @@ def checks(payload: DeviceRequest, include_config: bool = True, live: bool = Fal
         commands = clean_commands(payload.config)
         add("Configuration", "PASS" if commands else "FAIL", f"{len(commands)} command(s) · {payload.block_label}")
 
+        if payload.platform == "Huawei iStack":
+            preparation = any(re.match(r"(?:stack slot \d+ renumber|interface stack-port|port interface .* enable)", cmd, re.I) for cmd in commands)
+            add("Stack execution phase", "FAIL" if preparation else "PASS", "Run standalone member preparation using console access in the planned formation/restart procedure; deploy the shared service output after the stack forms." if preparation else "Shared service / leaf configuration")
+
         unresolved = sorted(set(re.findall(r"CHANGE_ME_[A-Za-z0-9_]+", payload.config)))
         add("Placeholders", "FAIL" if unresolved else "PASS", ", ".join(unresolved) if unresolved else "none")
 
@@ -584,6 +590,11 @@ def vpc_report_guide():
     return Response((BASE_DIR / "vpc-report.js").read_text(encoding="utf-8"), media_type="application/javascript", headers={"Cache-Control": "no-cache"})
 
 
+@app.get("/huawei-istack.js")
+def huawei_istack_script():
+    return Response((BASE_DIR / "huawei-istack.js").read_text(encoding="utf-8"), media_type="application/javascript", headers={"Cache-Control": "no-cache"})
+
+
 @app.get("/corporate-theme.css")
 def corporate_theme():
     return Response((BASE_DIR / "corporate-theme.css").read_text(encoding="utf-8"), media_type="text/css", headers={"Cache-Control": "no-cache"})
@@ -619,7 +630,7 @@ class MaintenanceSourceRequest(BaseModel):
 @app.post("/api/reporting/vendor-source")
 def maintenance_vendor_source(p: MaintenanceSourceRequest):
     domains = {"Cisco NX-OS": ("cisco.com",), "Cisco IOS-XE": ("cisco.com",),
-               "Arista EOS": ("arista.com",), "Huawei_CE_SW": ("huawei.com",),
+               "Arista EOS": ("arista.com",), "Huawei_CE_SW": ("huawei.com",), "Huawei iStack": ("huawei.com",),
                "FortiGate": ("fortinet.com",)}
     def validate(url):
         u = urlparse(url)
@@ -1109,6 +1120,27 @@ def live_show(p: LiveCommandRequest):
                 pass
 
 
+def apply_istack_configuration(conn, commands):
+    """Apply the S-series service phase; acknowledge only MAD's known prompt."""
+    conn.config_mode()
+    output = []
+    try:
+        for command in commands:
+            if command.lower() in ("system-view", "return"):
+                continue
+            result = conn.send_command_timing(command, read_timeout=120)
+            if re.search(r"(?:\[?Y/N\]?|yes/no)", result, re.I):
+                if command.lower() != "mad detect mode direct":
+                    raise RuntimeError("Unexpected interactive prompt; review this command manually.")
+                result += conn.send_command_timing("y", read_timeout=120)
+            output.append(result)
+            if ERROR_RE.search(result):
+                raise RuntimeError("Huawei CLI error detected; stop and review the service configuration.")
+    finally:
+        conn.exit_config_mode()
+    return "\n".join(output)
+
+
 @app.post("/api/device/deploy")
 def deploy(p: DeviceRequest):
     items = checks(p, include_config=True)
@@ -1208,7 +1240,7 @@ def deploy(p: DeviceRequest):
                 "status": "WARN",
                 "detail": "Pre-change running-config captured; no automatic transactional rollback in this MVP",
             })
-            cfgout = conn.send_config_set(commands, cmd_verify=False, read_timeout=120)
+            cfgout = apply_istack_configuration(conn, commands) if p.platform == "Huawei iStack" else conn.send_config_set(commands, cmd_verify=False, read_timeout=120)
             if ERROR_RE.search(cfgout):
                 raise RuntimeError("CLI error detected. Manual review may be required.")
 

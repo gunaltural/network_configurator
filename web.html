@@ -362,6 +362,7 @@ pre{
 </style>
 <link rel="stylesheet" href="/corporate-theme.css">
 <script src="/corporate-shell.js" defer></script>
+<script src="/huawei-istack.js"></script>
 </head>
 <body>
 <div class="v3-topbar">
@@ -549,7 +550,7 @@ pre{
             <div class="sd-grid">
               <div><label for="verifyTarget">Device IP / Host</label><input id="verifyTarget" placeholder="Device IP or hostname" autocomplete="off"></div>
               <div><label for="verifyPort">SSH Port</label><input id="verifyPort" type="number" min="1" max="65535" value="22"></div>
-              <div><label for="verifyPlatform">Device platform</label><select id="verifyPlatform"><option>Cisco IOS-XE</option><option>Cisco NX-OS</option><option>Arista EOS</option><option>Huawei_CE_SW</option><option>FortiGate</option></select></div>
+              <div><label for="verifyPlatform">Device platform</label><select id="verifyPlatform"><option>Cisco IOS-XE</option><option>Cisco NX-OS</option><option>Arista EOS</option><option>Huawei_CE_SW</option><option>Huawei iStack</option><option>FortiGate</option></select></div>
               <div><label for="verifyUsername">Username</label><input id="verifyUsername" autocomplete="username"></div>
               <div><label for="verifyPassword">Password</label><input id="verifyPassword" type="password" autocomplete="current-password"></div>
               <div><label for="verifySecret">Enable Secret (optional)</label><input id="verifySecret" type="password" autocomplete="off"></div>
@@ -583,7 +584,7 @@ pre{
             <div class="sd-grid">
               <div><label for="troubleTarget">Device IP / Host</label><input id="troubleTarget" placeholder="Device IP or hostname" autocomplete="off"></div>
               <div><label for="troublePort">SSH Port</label><input id="troublePort" type="number" min="1" max="65535" value="22"></div>
-              <div><label for="troublePlatform">Device platform</label><select id="troublePlatform"><option>Cisco IOS-XE</option><option>Cisco NX-OS</option><option>Arista EOS</option><option>Huawei_CE_SW</option><option>FortiGate</option></select></div>
+              <div><label for="troublePlatform">Device platform</label><select id="troublePlatform"><option>Cisco IOS-XE</option><option>Cisco NX-OS</option><option>Arista EOS</option><option>Huawei_CE_SW</option><option>Huawei iStack</option><option>FortiGate</option></select></div>
               <div><label for="troubleUsername">Username</label><input id="troubleUsername" autocomplete="username"></div>
               <div><label for="troublePassword">Password</label><input id="troublePassword" type="password" autocomplete="current-password"></div>
               <div><label for="troubleSecret">Enable Secret (optional)</label><input id="troubleSecret" type="password" autocomplete="off"></div>
@@ -1843,6 +1844,7 @@ function vpcV42WorkspaceUI(){
  if(tech!=="VPC")return;
  if(platform()==="Cisco IOS-XE"){stackWiseWorkspaceUI();ensureDesignLinkSpeed();return;}
  if(platform()==="Arista EOS"){aristaMlagWorkspaceUI();ensureDesignLinkSpeed();return;}
+ if(platform()==="Huawei iStack"){if(!document.getElementById("isHost"))HuaweiIStack.ui(()=>{syncTopology();renderOutput();});ensureDesignLinkSpeed();return;}
  if(platform()==="Huawei_CE_SW"){huaweiMlagWorkspaceUI();ensureDesignLinkSpeed();return;}
  const root=document.getElementById("params");if(!root)return;
  if(root.dataset.vpc46==="1"){vpcV42ContextUI();return;}
@@ -1862,7 +1864,7 @@ function vpcV42WorkspaceUI(){
  const design=card("1 · Topology & Platform","Common physical topology. Technology-specific controls change with vendor.","COMMON");
  move(sSpine,design);
 
- const peer=card("2 · Peer & Control Plane","Cisco vPC, Arista MLAG and Huawei M-LAG expose their own native control-plane parameters.","VENDOR");
+ const peer=card("2 · Peer & Control Plane","Cisco vPC / StackWise, Arista MLAG and Huawei M-LAG / iStack expose their own native control-plane parameters.","VENDOR");
  move(sPeer,peer);
  const cPeer=document.createElement("div");cPeer.className="vpc-vendor-only";cPeer.dataset.vendor="cisco";move(sKeep,cPeer);peer.appendChild(cPeer);
  const aPeer=document.createElement("div");aPeer.className="vpc-vendor-only";aPeer.dataset.vendor="arista";move(sAr,aPeer);peer.appendChild(aPeer);
@@ -1915,6 +1917,7 @@ function vpcV42WorkspaceUI(){
 }
 function vpcV42ContextUI(){
  if(tech!=="VPC")return;
+ if(platform()==="Huawei iStack"){if(!document.getElementById("isHost"))HuaweiIStack.ui(()=>{syncTopology();renderOutput();});return;}
  if(platform()==="Cisco IOS-XE"&&document.getElementById("swvDomain"))return;
  if(platform()==="Arista EOS"&&document.getElementById("arDomain"))return;
  if(platform()==="Huawei_CE_SW"&&document.getElementById("hwHost1"))return;
@@ -1973,7 +1976,8 @@ function syncTopologyControls(){
  if(tech==="BGP") ids.push("bgpCeCount","bgpIspCount","bgpConnectivity","bgpInternal");
  else if(tech==="STP") ids.push("stpLeafCount");
  else if(tech==="VPC"){
-   if(platform()==="Huawei_CE_SW") ids.push("hwLeafCount");
+   if(platform()==="Huawei iStack")ids.push("isLeafCount");
+   else if(platform()==="Huawei_CE_SW") ids.push("hwLeafCount");
    else if(platform()==="Cisco IOS-XE") ids.push("swvLeafCount");
    else if(platform()==="Arista EOS") ids.push("arLeafCount");
    else ids.push("vpcLeafCount");
@@ -2004,6 +2008,7 @@ function syncTopologyControls(){
 }
 
 function syncTopology(){
+ if(tech==="VPC"&&platform()==="Huawei iStack"){document.getElementById("topologyArea").innerHTML=HuaweiIStack.topology();return;}
  const area=document.getElementById("topologyArea");
 
  /* v4.2.5: each workspace owns and replaces its topology DOM */
@@ -2400,7 +2405,7 @@ function basicReadableCliBlocks(text){
  return out.join("\n").replace(/\n{3,}/g,"\n\n").trim();
 }
 function basicGenerate(tab,options={}){
- const p=platform(),
+ const p=platform()==="Huawei iStack"?"Huawei_CE_SW":platform(),
  h1=v("d1host"),if1=v("d1oobif"),ip1=v("d1oobip"),m1=v("d1mask"),
  gw=v("gw"),mgmt=v("mgmtSubnet"),dom=v("domain"),dns1=v("dns1"),dns2=v("dns2"),
  tz=v("timezone"),user=v("adminuser"),aaaType=v("aaaType"),aaa1=v("aaa1"),aaa2=v("aaa2"),
@@ -3409,6 +3414,7 @@ ${leafCfgs.join("\n\n")}
 
 function vpcGenerate(tab){
  const p=platform();
+ if(p==="Huawei iStack")return HuaweiIStack.generate(tab);
  if(p==="Cisco IOS-XE"&&document.getElementById("swvDomain")) return stackWiseGenerate(tab);
  if(p==="Arista EOS"&&document.getElementById("arDomain")) return aristaMlagGenerate(tab);
  if(p==="Huawei_CE_SW"&&document.getElementById("hwHost1")) return huaweiMlagGenerate(tab);
@@ -4938,6 +4944,7 @@ function syncPlatformListForModule(){
     ["Cisco NX-OS","Cisco NX-OS"],
     ["Cisco IOS-XE","Cisco_StackWise"],
     ["Huawei_CE_SW","Huawei_CE_SW"],
+    ["Huawei iStack","Huawei iStack"],
     ["Arista EOS","Arista EOS"]
    ];
  }
@@ -4984,7 +4991,7 @@ function safeProjectFields(fields){
 function technologyLabel(key,pl){
  const labels={BASIC:"System and Management",BGP:"BGP",OSPF:"OSPF",STP:"STP",EVPN:"EVPN / VXLAN",QOS:"QoS",SDWAN:"SD-WAN"};
  if(key!=="VPC")return labels[key]||key;
- return pl==="Cisco NX-OS"?"vPC":pl==="Cisco IOS-XE"?"StackWise Virtual":pl==="Arista EOS"?"MLAG":pl==="Huawei_CE_SW"?"M-LAG":"Multi-Chassis Redundancy";
+ return pl==="Cisco NX-OS"?"vPC":pl==="Cisco IOS-XE"?"StackWise Virtual":pl==="Arista EOS"?"MLAG":pl==="Huawei_CE_SW"?"M-LAG":pl==="Huawei iStack"?"Huawei iStack":"Multi-Chassis Redundancy";
 }
 function renderModule(){
  syncPlatformListForModule();
@@ -5003,7 +5010,7 @@ function renderModule(){
  }
  document.getElementById("moduleTitle").textContent=technologyLabel(tech,platform());
  if(document.getElementById("v3CurrentTech"))document.getElementById("v3CurrentTech").textContent=technologyLabel(tech,platform());
- document.getElementById("moduleSubtitle").textContent=tech==="VPC"?(platform()==="Cisco NX-OS"?"Cisco Nexus vPC · Dual Spine / Dynamic 2–8 Leaf":platform()==="Cisco IOS-XE"?"Cisco StackWise Virtual · Dual Chassis / Dynamic 2–8 Leaf":platform()==="Arista EOS"?"Arista EOS MLAG · Dual Core / Dynamic 2–8 Leaf":"Huawei CloudEngine M-LAG · Dual Core / Dynamic 2–8 Leaf"):m.subtitle;
+ document.getElementById("moduleSubtitle").textContent=tech==="VPC"?(platform()==="Huawei iStack"?"Huawei iStack · Single Logical Core / Dual Physical Member / Dynamic 2–8 Leaf":platform()==="Cisco NX-OS"?"Cisco Nexus vPC · Dual Spine / Dynamic 2–8 Leaf":platform()==="Cisco IOS-XE"?"Cisco StackWise Virtual · Dual Chassis / Dynamic 2–8 Leaf":platform()==="Arista EOS"?"Arista EOS MLAG · Dual Core / Dynamic 2–8 Leaf":"Huawei CloudEngine M-LAG · Dual Core / Dynamic 2–8 Leaf"):m.subtitle;
  document.getElementById("topologyControls").replaceChildren();
  document.getElementById("params").innerHTML=m.params();
  document.getElementById("params").classList.toggle("bgp-v39",tech==="BGP");
@@ -5235,7 +5242,7 @@ window.SimpleDeployEngine=SimpleDeployEngine;
 const VerificationEngine=(()=>{
  const el=id=>document.getElementById(id);
  let catalog=null,loading=null,lastSignature="",lastOutput="",lastCommands=[],lastRun=null,connectionWorkspace="";
- const canonical=p=>p==="Cisco_StackWise"?"Cisco IOS-XE":p==="Huawei"?"Huawei_CE_SW":p;
+ const canonical=p=>p==="Cisco_StackWise"?"Cisco IOS-XE":(p==="Huawei"||p==="Huawei iStack")?"Huawei_CE_SW":p;
  const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
  function status(message,kind="neutral"){const box=el("verifyStatus");box.textContent=message;box.className=`sd-result ${kind}`;}
  function moduleCommands(){
@@ -5246,7 +5253,7 @@ const VerificationEngine=(()=>{
  function category(command){
    const c=command.toLowerCase();
    if(/running-config|current-configuration|configuration|config-sanity/.test(c))return "Configuration & Consistency Evidence";
-   if(/\b(?:vpc|mlag|m-lag|dfs-group|stackwise|peer-keepalive|ha status)\b/.test(c))return "Redundancy & Multi-Chassis State";
+   if(/\b(?:vpc|mlag|m-lag|dfs-group|stackwise|stack|mad|peer-keepalive|ha status)\b/.test(c))return "Redundancy & Multi-Chassis State";
    if(/\b(?:nve|vxlan|evpn|l2route|l2vpn|omp|sdwan|app-route|vpn tunnel|ipsec tunnel)\b/.test(c))return "Overlay, Tunnels & Data Plane";
    if(/\b(?:qos|policy-map|class-map|queuing|queue|wred|mtu)\b/.test(c))return "QoS, Policy & MTU";
    if(/\b(?:bgp|ospf)\b/.test(c)&&/\b(?:summary|neighbor|neighbors|peer|peers|interface)\b/.test(c))return "Protocol Adjacencies & Sessions";
@@ -5278,6 +5285,7 @@ const VerificationEngine=(()=>{
      const key=command.toLowerCase();if(!seen.has(key)){seen.add(key);items.push({command,recommended:true,source:"Workspace"});}
    }
    for(const list of Object.values(catalog?.[vendor]||{}))for(const command of list){
+     if(platform()==="Huawei iStack"&&/dfs|m-lag|evpn|vxlan/i.test(command))continue;
      const key=command.toLowerCase();if(!seen.has(key)){seen.add(key);items.push({command,recommended:relevant(command),source:"Platform"});}
    }
    return items;
@@ -5324,7 +5332,7 @@ const VerificationEngine=(()=>{
    for(const ids of pairs){const value=ids.map(id=>el(id)?.value).find(Boolean)||"";ids.forEach(id=>{if(el(id))el(id).value=value;});}
  }
  async function activate(){
-   syncConnection();const workspace=canonical(platform()),workspaceKey=`${tech}|${workspace}`;if(connectionWorkspace!==workspaceKey){if([...el("verifyPlatform").options].some(x=>x.value===workspace))el("verifyPlatform").value=workspace;connectionWorkspace=workspaceKey;}
+   syncConnection();const workspace=canonical(platform()),workspaceKey=`${tech}|${platform()}`;if(connectionWorkspace!==workspaceKey){if([...el("verifyPlatform").options].some(x=>x.value===platform()))el("verifyPlatform").value=platform();connectionWorkspace=workspaceKey;}
    if(!catalog){
      if(loading)return loading;status("Loading verification command catalog…","busy");el("verifyRun").disabled=true;
      loading=(async()=>{try{const response=await fetch("/api/device/commands");if(!response.ok)throw new Error(`HTTP ${response.status}`);const data=await response.json();catalog=data.platforms;render();}catch(error){status(`Verification catalog unavailable: ${error.message}`,"fail");}finally{loading=null;}})();return loading;
@@ -5361,7 +5369,7 @@ const VerificationEngine=(()=>{
 VerificationEngine.bind();
 
 const TroubleshootingEngine=(()=>{
- const el=id=>document.getElementById(id),canonical=p=>p==="Cisco_StackWise"?"Cisco IOS-XE":p==="Huawei"?"Huawei_CE_SW":p;
+ const el=id=>document.getElementById(id),canonical=p=>p==="Cisco_StackWise"?"Cisco IOS-XE":(p==="Huawei"||p==="Huawei iStack")?"Huawei_CE_SW":p;
  let catalog=null,loading=null,lastOutput="",lastCommands=[],signature="",connectionWorkspace="";
  const symptomCatalog={
    BGP:[
@@ -5385,15 +5393,15 @@ const TroubleshootingEngine=(()=>{
  const patterns={session_down:/summary|neighbor|peer|interface|route.*peer|tcp|bfd|logging/,no_received:/received|neighbor|peer|route-map|policy|prefix|maximum|bgp.*route/,no_advertised:/advertised|network|route-map|policy|prefix|running-config|bgp.*route/,wrong_exit:/bgp|route|local.preference|weight|as.path|med|community|route-map|forwarding/,inbound_te:/advertised|as.path|med|community|route-map|policy|bgp/,bfd_down:/bfd|interface|route|neighbor|logging/,rib_fib:/bgp|route|forwarding|fib|cef|arp|adjacency/,flap:/neighbor|peer|interface|counter|bfd|logging|clock/,adjacency:/ospf|interface|bfd|logging/,route:/ospf|route|database|policy|prefix|forwarding/,peer:/vpc|mlag|m-lag|dfs|peer|keepalive|interface|lacp|logging/,suspended:/consistency|interface|port-channel|eth-trunk|lacp|vlan|trunk/,split:/vpc|mlag|m-lag|dfs|peer|keepalive|role|logging/,vlan:/vlan|trunk|spanning|mac|interface/,root:/spanning|stp|root|bridge|interface/,blocked:/spanning|stp|interface|cost|role/,guard:/spanning|stp|guard|udld|logging/,vni:/nve|vxlan|vni|interface|route/,mac:/evpn|l2route|mac|arp|route-type 2/,type5:/evpn|vrf|route-type 5|bgp|route/,forwarding:/route|forwarding|fib|cef|arp|mac|interface/,control:/sdwan|control|system|certificate|ntp|dns|interface|route/,bfd:/bfd|tunnel|interface|route/,omp:/omp|route|policy|vpn/,sla:/app-route|sla|bfd|loss|latency|jitter|policy/,classification:/qos|class-map|policy-map|dscp|counter/,drops:/qos|queue|drop|wred|polic|shap|counter|interface/,marking:/qos|class-map|policy-map|dscp|mark|remark/,ssh:/ssh|management|mgmt|interface|route|access-list|aaa/,aaa:/aaa|tacacs|radius|user|login|management/,ntp:/ntp|clock|route|management/,logging:/logging|snmp|management|route|clock/,physical:/interface|transceiver|counter|lldp|cdp/,reachability:/route|arp|interface|forwarding/,policy:/policy|route-map|prefix|access-list|filter/};
  function status(message,kind="neutral"){const box=el("troubleStatus");box.textContent=message;box.className=`sd-result ${kind}`;}
  function moduleVerify(){if(canonical(platform())!==canonical(el("troublePlatform").value))return [];const m=modules[tech];return String(m?.generate?.("verify")||"").split(/\r?\n/).map(x=>x.trim()).filter(x=>/^(?:show|display|get|diagnose)\s/i.test(x));}
- function allPlatformCommands(){const vendor=canonical(el("troublePlatform")?.value||platform());return Object.values(catalog?.[vendor]||{}).flat();}
+ function allPlatformCommands(){const vendor=canonical(el("troublePlatform")?.value||platform());return Object.values(catalog?.[vendor]||{}).flat().filter(cmd=>platform()!=="Huawei iStack"||!/dfs|m-lag|evpn|vxlan/i.test(cmd));}
  function selected(){return [...document.querySelectorAll("#troubleCommandGroups .verify-command")].filter(row=>row.querySelector(".verify-select")?.checked).map(row=>row.querySelector(".verify-command-editor")?.value.trim()).filter(Boolean);}
  function updateSelection(){const cmds=selected(),all=[...document.querySelectorAll("#troubleCommandGroups .verify-select")].filter(x=>!x.disabled);el("troubleSelectedCount").textContent=`${cmds.length} of ${all.length} selected`;el("troubleSelectedPreview").textContent=cmds.length?cmds.join("\n"):"No commands selected.";el("troubleRun").disabled=!cmds.length;}
  function commandRow(command,recommended=true,custom=false){const row=document.createElement("div");row.className="verify-command";const editor=document.createElement("input");editor.type="text";editor.className="verify-command-editor";editor.value=command;editor.placeholder=custom?"Enter a read-only show / display / get command":"";editor.setAttribute("aria-label",custom?"User-defined troubleshooting command":`Edit diagnostic command: ${command}`);const box=document.createElement("input");box.type="checkbox";box.className="verify-select";box.checked=!!command&&recommended;box.disabled=custom&&!command;box.setAttribute("aria-label",custom?"Select user-defined troubleshooting command":`Select diagnostic command: ${command}`);editor.addEventListener("input",()=>{if(custom){box.disabled=!editor.value.trim();box.checked=!!editor.value.trim();}updateSelection();});box.addEventListener("change",updateSelection);row.append(editor,box);return row;}
  function addGroup(root,name,commands,recommended=true,custom=false){const section=document.createElement("section");section.className=`verify-group${custom?" verify-custom-group":""}`;const head=document.createElement("div");head.className="verify-group-head";const label=document.createElement("label");label.textContent=name;const count=document.createElement("span");count.textContent=custom?"editable":`${commands.length} commands`;head.append(label,count);const list=document.createElement("div");list.className="verify-command-list";(custom?[""]:commands).forEach(command=>list.append(commandRow(command,recommended,custom)));section.append(head,list);root.append(section);}
  function renderCommands(){const key=el("troubleSymptom").value,match=patterns[key]||/.*/,base=moduleVerify(),extra=allPlatformCommands().filter(command=>match.test(command.toLowerCase())).slice(0,35),seen=new Set(),unique=list=>list.filter(command=>{const k=command.toLowerCase();if(seen.has(k))return false;seen.add(k);return true;}),root=el("troubleCommandGroups");root.replaceChildren();addGroup(root,"User-defined command",[],false,true);const topology=unique(base);if(topology.length)addGroup(root,"Topology-aware baseline",topology,true);const diagnostic=unique(extra);if(diagnostic.length)addGroup(root,"Symptom-focused diagnostics",diagnostic,true);updateSelection();}
  function renderEvidence(){const snap=VerificationEngine.snapshot(),runbook=String(modules[tech]?.generate?.("trouble")||"").trim();if(snap&&snap.module===tech){const failed=snap.results.filter(x=>!x.ok).map(x=>`✗ ${x.command}`),passed=snap.results.filter(x=>x.ok).length;el("troubleDevice").textContent=snap.target||"Unknown device";el("troubleEvidenceState").textContent=`${passed} passed · ${failed.length} command errors`;el("troubleEvidence").textContent=[`Device: ${snap.target}\nPlatform: ${snap.platform}\nObserved: ${snap.observedAt}`,failed.length?`\nFailed commands:\n${failed.join("\n")}`:"\nNo command-level errors reported.",snap.truncated?"\nOutput was truncated.":"",`\nVerification output:\n${snap.output||"No output returned."}`].join("\n");}else{el("troubleDevice").textContent=el("troubleTarget")?.value.trim()||"Not connected";el("troubleEvidenceState").textContent="No live result imported";el("troubleEvidence").textContent=`No live Verification result is available for this module.\n\nModule runbook:\n${runbook||"Start with physical, reachability, control-plane, policy and data-plane checks."}`;}}
- function renderSymptom(){const list=symptomCatalog[tech]||genericSymptoms,select=el("troubleSymptom"),old=select.value;select.innerHTML=list.map(([value,label])=>`<option value="${value}">${label}</option>`).join("");if(list.some(x=>x[0]===old))select.value=old;const item=list.find(x=>x[0]===select.value)||list[0];el("troubleGuidance").textContent=item?.[2]||"";el("troubleSymptomState").textContent=item?.[1]||"Not selected";}
- async function activate(){const workspace=canonical(platform()),workspaceKey=`${tech}|${workspace}`;if(connectionWorkspace!==workspaceKey){if([...el("troublePlatform").options].some(x=>x.value===workspace))el("troublePlatform").value=workspace;connectionWorkspace=workspaceKey;}const vendor=canonical(el("troublePlatform").value),nextSignature=`${tech}|${vendor}`;[["sdTarget","verifyTarget","troubleTarget"],["sdPort","verifyPort","troublePort"],["sdUsername","verifyUsername","troubleUsername"],["sdPassword","verifyPassword","troublePassword"],["sdSecret","verifySecret","troubleSecret"]].forEach(ids=>{const value=ids.map(id=>el(id)?.value).find(Boolean)||"";ids.forEach(id=>{if(el(id))el(id).value=value;});});el("troublePlatformTitle").textContent=vendor.toUpperCase();el("troubleModuleBadge").textContent=modules[tech]?.title||tech;renderEvidence();renderSymptom();if(!catalog){if(loading)return loading;status("Loading diagnostic command catalog…","busy");loading=(async()=>{try{const response=await fetch("/api/device/commands");if(!response.ok)throw new Error(`HTTP ${response.status}`);catalog=(await response.json()).platforms;signature=nextSignature;renderCommands();status("Select the commands required for this diagnostic step.");}catch(error){status(`Diagnostic catalog unavailable: ${error.message}`,"fail");}finally{loading=null;}})();return loading;}if(signature!==nextSignature){signature=nextSignature;renderCommands();}status("Select the commands required for this diagnostic step.");}
+ function renderSymptom(){const list=(tech==="VPC"&&platform()==="Huawei iStack")?[["peer","Stack member or interconnect missing","Compare planned member IDs, election priorities, stack-port state and physical cabling. A ring path failure differs from a stack split."],["split","Stack split / multi-active suspicion","Inspect display stack, display stack topology and display mad. Confirm that MAD isolates the losing partition before service restoration."],["suspended","Cross-member Eth-Trunk failure","Compare LACP members, selected ports, VLAN allowance and stack member availability."],["vlan","VLAN or STP forwarding mismatch","Confirm the single logical bridge/root and consistent VLAN membership on the stack and leaves."]]:symptomCatalog[tech]||genericSymptoms,select=el("troubleSymptom"),old=select.value;select.innerHTML=list.map(([value,label])=>`<option value="${value}">${label}</option>`).join("");if(list.some(x=>x[0]===old))select.value=old;const item=list.find(x=>x[0]===select.value)||list[0];el("troubleGuidance").textContent=item?.[2]||"";el("troubleSymptomState").textContent=item?.[1]||"Not selected";}
+ async function activate(){const workspace=canonical(platform()),workspaceKey=`${tech}|${platform()}`;if(connectionWorkspace!==workspaceKey){if([...el("troublePlatform").options].some(x=>x.value===platform()))el("troublePlatform").value=platform();connectionWorkspace=workspaceKey;}const vendor=canonical(el("troublePlatform").value),nextSignature=`${tech}|${vendor}`;[["sdTarget","verifyTarget","troubleTarget"],["sdPort","verifyPort","troublePort"],["sdUsername","verifyUsername","troubleUsername"],["sdPassword","verifyPassword","troublePassword"],["sdSecret","verifySecret","troubleSecret"]].forEach(ids=>{const value=ids.map(id=>el(id)?.value).find(Boolean)||"";ids.forEach(id=>{if(el(id))el(id).value=value;});});el("troublePlatformTitle").textContent=el("troublePlatform").value.toUpperCase();el("troubleModuleBadge").textContent=modules[tech]?.title||tech;renderEvidence();renderSymptom();if(!catalog){if(loading)return loading;status("Loading diagnostic command catalog…","busy");loading=(async()=>{try{const response=await fetch("/api/device/commands");if(!response.ok)throw new Error(`HTTP ${response.status}`);catalog=(await response.json()).platforms;signature=nextSignature;renderCommands();status("Select the commands required for this diagnostic step.");}catch(error){status(`Diagnostic catalog unavailable: ${error.message}`,"fail");}finally{loading=null;}})();return loading;}if(signature!==nextSignature){signature=nextSignature;renderCommands();}status("Select the commands required for this diagnostic step.");}
  function connectionPayload(){return {target:el("troubleTarget").value.trim(),port:Number(el("troublePort").value),platform:el("troublePlatform").value,username:el("troubleUsername").value.trim(),password:el("troublePassword").value,secret:el("troubleSecret").value};}
  async function testConnection(){const button=el("troubleTest"),p=connectionPayload();button.disabled=true;button.textContent="Testing…";status(`Connecting to ${p.target||"device"}…`,"busy");try{const response=await fetch("/api/device/test",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(p)});const data=await response.json();if(!response.ok)throw new Error(data.detail?.error||data.error||`HTTP ${response.status}`);const lines=(data.steps||[]).map(x=>`${x.status==="PASS"?"✓":x.status==="WARN"?"!":"✗"} ${x.name}${x.detail?`: ${x.detail}`:""}`);status(lines.join("\n")||"Connection test successful.","pass");}catch(error){status(`✗ Connection failed\n${error.message}`,"fail");}finally{button.disabled=false;button.textContent="Test Connection";}}
  async function run(){const commands=selected();if(!commands.length)return;lastOutput="";lastCommands=[];el("troubleCopy").disabled=true;el("troubleDownload").disabled=true;const p={...connectionPayload(),command:commands.join("\n")},button=el("troubleRun");button.disabled=true;button.textContent="Running Diagnostics…";status(`Running ${commands.length} diagnostic commands on ${p.target}…`,"busy");try{const response=await fetch("/api/device/show",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(p)});const data=await response.json();if(!response.ok)throw new Error(data.detail?.error||data.error||`HTTP ${response.status}`);lastOutput=data.output||"";lastCommands=commands;el("troubleOutput").textContent=lastOutput||"(Commands returned no output.)";el("troubleCopy").disabled=!lastOutput;el("troubleDownload").disabled=!lastOutput;const failed=(data.results||[]).filter(x=>!x.ok).length;status(`${data.mock?"MOCK output · ":""}${data.device} · ${commands.length} diagnostics · ${commands.length-failed} completed${failed?` · ${failed} command errors`:""}${data.truncated?" · output truncated at 1 MB":""}`,failed||data.truncated?"warn":"pass");}catch(error){el("troubleOutput").textContent="No diagnostic output received.";status(`Troubleshooting failed: ${error.message}`,"fail");}finally{button.disabled=false;button.textContent="Run Selected Commands";}}
@@ -5403,6 +5411,7 @@ const TroubleshootingEngine=(()=>{
 TroubleshootingEngine.bind();
 
 function workspaceDesignNoteParameters(kind=tech){
+ if(kind==="VPC"&&platform()==="Huawei iStack")return [];
  const raw=String(modules[kind]?.generate?.("notes")||"").trim();
  if(!raw)return [];
  const title=modules[kind]?.title||kind,seen=new Set();
@@ -5563,7 +5572,7 @@ renderModule();
   ["BGP","⇄","Routing","iBGP/eBGP topology, policy and traffic engineering"],
   ["OSPF","◎","Routing","IGP adjacency and area design"],
   ["STP","⌁","Layer 2","Spanning-tree roles and protection"],
-  ["VPC","⧉","Redundancy","Cisco vPC, Arista MLAG and Huawei M-LAG"],
+  ["VPC","⧉","Redundancy","Cisco vPC / StackWise, Arista MLAG and Huawei M-LAG / iStack"],
   ["EVPN","◇","Data Center","EVPN/VXLAN overlay and segmentation"],
   ["SDWAN","⌘","WAN","Excel-driven SD-WAN site configuration"],
   ["QOS","≋","Policy","MTU, classification, policing, shaping and WRED"]
@@ -5599,7 +5608,7 @@ renderModule();
    $("v3PlatformHealth").textContent=plat?plat.value:"—";
    const active=(window.activeTech||window.currentTech||"").toString().toUpperCase();
    const read=id=>Number(document.getElementById(id)?.value)||0,pl=platform();
-   const leafField=pl==="Arista EOS"?"arLeafCount":pl==="Huawei_CE_SW"?"hwLeafCount":pl==="Cisco IOS-XE"?"swvLeafCount":"vpcLeafCount";
+   const leafField=pl==="Huawei iStack"?"isLeafCount":pl==="Arista EOS"?"arLeafCount":pl==="Huawei_CE_SW"?"hwLeafCount":pl==="Cisco IOS-XE"?"swvLeafCount":"vpcLeafCount";
    const n={BASIC:1,BGP:read("bgpCeCount")+read("bgpIspCount"),OSPF:2,STP:2+read("stpLeafCount"),VPC:2+read(leafField),EVPN:["multisite","dual-dc-rr"].includes(document.getElementById("evFabricModel")?.value)?6:4,SDWAN:1,QOS:2}[active]||"—";
    $("v3DeviceCount").textContent=n;
  }
@@ -5745,6 +5754,7 @@ renderModule();
  // forwarding, resilience or operational controls. Device identities and ports
  // belong to inventory and the connection schedule, not this narrative.
  function reportEngineeringDecisions(kind,read,pl){
+ if(kind==="VPC"&&pl==="Huawei iStack")return HuaweiIStack.decisions();
    const r=id=>String(read(id)||"").trim(),on=id=>r(id)==="Enabled";
    const decisions=[];
    const add=(label,value,impact)=>decisions.push({label,value:String(value).slice(0,500),impact:impact.slice(0,1200)});
@@ -5974,6 +5984,23 @@ renderModule();
  }
  // Export a typed design from the active workspace. Do not derive links from SVG;
  // use device selection for VPC and the STP generator's explicit device sections.
+ function iStackReportingDesign(project){
+   HuaweiIStack.validate();
+   const get=id=>document.getElementById(id)?.value||"",vendor="Huawei iStack";
+   const devices=[1,2].map((side,i)=>({id:`upper-${side}`,tier:"upper",index:side,hostname:get(`isName${side}`),model:get("isModel"),serial:"",target:"",modelSource:"planned",serialSource:"",observedAt:"",vendor,logicalHostname:get("isHost"),stackMemberId:get(`isId${side}`)}));
+   const configurations=devices.map(d=>({deviceId:d.id,text:HuaweiIStack.service(),source:"Shared iStack logical configuration · apply once after member preparation"}));
+   const links=[],specialLinks=[];
+   for(const l of HuaweiIStack.leaves()){
+     devices.push({id:`lower-${l.id}`,tier:"lower",index:l.id,hostname:l.name,model:"",serial:"",target:"",modelSource:"",serialSource:"",observedAt:"",vendor});
+     configurations.push({deviceId:`lower-${l.id}`,text:HuaweiIStack.service(l),source:"Technology Workspaces"});
+     for(const side of [1,2])links.push({id:`upper-${side}--lower-${l.id}`,a:`upper-${side}`,b:`lower-${l.id}`,enabled:true,upperPort:HuaweiIStack.finalPort(side,`isCore${side}_${l.id}`),lowerPort:side===1?l.u1:l.u2,speed:get("designUplinkSpeed"),detail:`Cross-member LACP · Eth-Trunk ${l.po}`});
+   }
+   const add=(kind,aPort,bPort,detail)=>specialLinks.push({kind,a:"upper-1",b:"upper-2",aPort,bPort,detail});
+   add("Stack interconnect",HuaweiIStack.finalPort(1,'isLink1a'),HuaweiIStack.finalPort(2,get('isTopology')==='ring'?'isLink2b':'isLink2a'),`Stack-Port ${get('isId1')}/1 · ${get('isStackSpeed')}`);
+   if(get('isTopology')==='ring')add("Stack interconnect",HuaweiIStack.finalPort(1,'isLink1b'),HuaweiIStack.finalPort(2,'isLink2a'),`Stack-Port ${get('isId1')}/2 · ${get('isStackSpeed')}`);
+   if(document.getElementById('isMad').checked)add("Direct MAD",HuaweiIStack.finalPort(1,'isMad1'),HuaweiIStack.finalPort(2,'isMad2'),"Dedicated multi-active detection");
+   return {schema:"network-configurator-report-v1",name:project.project.name==="Untitled Network Project"?"":project.project.name,vendor,technology:"Huawei iStack",architecture:"core-access",roles:{upper:"Stack member",lower:"Leaf"},techPlacement:"upper",upperCount:2,lowerCount:HuaweiIStack.count(),scope:"",devices,links,specialLinks,configurations,parameters:HuaweiIStack.decisions(),source:{module:"VPC",projectId:project.project.id||"active",generatedAt:new Date().toISOString()}};
+ }
  function reportingDesign(){
    if(!["VPC","STP"].includes(tech))return moduleReportingDesign();
    const get=id=>document.getElementById(id)?.value||"";
@@ -5981,7 +6008,8 @@ renderModule();
    const list=id=>get(id).split(",").map(x=>x.trim()).filter(Boolean);
    const n=id=>Math.max(2,Math.min(8,Number(get(id))||4));
    const pl=platform(), isVpc=tech==="VPC";
-   if(!["Cisco NX-OS","Cisco IOS-XE","Arista EOS","Huawei_CE_SW"].includes(pl))return null;
+   if(!["Cisco NX-OS","Cisco IOS-XE","Arista EOS","Huawei_CE_SW","Huawei iStack"].includes(pl))return null;
+   if(isVpc&&pl==="Huawei iStack")return iStackReportingDesign(snapshot());
    const swv=isVpc&&pl==="Cisco IOS-XE";
    const kind=isVpc?(pl==="Cisco NX-OS"?"vPC":pl==="Arista EOS"?"MLAG":pl==="Huawei_CE_SW"?"M-LAG":"StackWise Virtual"):"STP";
    const project=snapshot();
@@ -6163,13 +6191,13 @@ renderModule();
  const managementIdentity=d=>`${d.vendor}|${String(d.hostname||d.id).toLowerCase()}`;
  function resetManagementTargets(){$("combineManagement").hidden=true;$("combineManagement").innerHTML="";$("combineCreate").textContent="Seçilen Modüllerle Raporu Aç";}
  function managementTargets(reports){
-   const seen=new Set();return reports.filter(r=>r.moduleKey!=="BASIC").flatMap(r=>r.devices.filter(d=>!d.external&&(r.configurations||[]).some(c=>c.deviceId===d.id)).map(d=>({...d,vendor:r.vendor}))).filter(d=>{const id=managementIdentity(d);if(seen.has(id))return false;seen.add(id);return true;});
+   const seen=new Set();return reports.filter(r=>r.moduleKey!=="BASIC").flatMap(r=>r.devices.filter(d=>!d.external&&(r.configurations||[]).some(c=>c.deviceId===d.id)).map(d=>({...d,hostname:d.logicalHostname||d.hostname,vendor:r.vendor}))).filter(d=>{const id=managementIdentity(d);if(seen.has(id))return false;seen.add(id);return true;});
  }
  function existingManagementTargets(reports){
    const base=reports.find(r=>r.moduleKey==='BASIC'),fields=window.__workspaceModuleStates.BASIC?.fields||{};
    return managementTargets(reports).map(device=>{
      const matched=base.devices.some(d=>managementIdentity(d)===managementIdentity(device));
-     const iface={"Cisco NX-OS":"mgmt0","Cisco IOS-XE":"GigabitEthernet0/0","Arista EOS":"Management1","Huawei_CE_SW":"MEth0/0/0","FortiGate":"port1"}[device.vendor];
+     const iface={"Cisco NX-OS":"mgmt0","Cisco IOS-XE":"GigabitEthernet0/0","Arista EOS":"Management1","Huawei_CE_SW":"MEth0/0/0","Huawei iStack":"Vlanif100","FortiGate":"port1"}[device.vendor];
      return {device,iface:matched?fields.d1oobif:iface,ip:matched?fields.d1oobip:'',prefix:fields.d1mask,gateway:fields.gw,omitOob:!matched||!fields.d1oobip};
    });
  }
@@ -6179,7 +6207,7 @@ renderModule();
      openTech('BASIC');await new Promise(r=>setTimeout(r,60));restoreWorkspaceModule('BASIC');
      for(const [i,row]of rows.entries()){
        const ps=$("platform");if(![...ps.options].some(o=>o.value===row.device.vendor)){const option=document.createElement('option');option.value=row.device.vendor;option.textContent=row.device.vendor;ps.appendChild(option);}ps.value=row.device.vendor;
-       $("gw").value=row.gateway||saved.BASIC?.fields?.gw||'';$("d1host").value=row.device.hostname;$("d1oobif").value=row.iface;$("d1oobip").value=row.ip;$("d1mask").value=row.prefix===undefined?(saved.BASIC?.fields?.d1mask||'24'):row.prefix;
+       $("gw").value=row.gateway||saved.BASIC?.fields?.gw||'';$("d1host").value=row.device.logicalHostname||row.device.hostname;$("d1oobif").value=row.iface;$("d1oobip").value=row.ip;$("d1mask").value=row.prefix===undefined?(saved.BASIC?.fields?.d1mask||'24'):row.prefix;
        const originalGenerate=modules.BASIC.generate;let result;
        try{modules.BASIC.generate=tab=>basicGenerate(tab,{omitOob:row.omitOob});result=reportingDesign();}finally{modules.BASIC.generate=originalGenerate;}
        const id=`management-${i+1}`,target={...row.device,id,tier:'upper',index:i+1};
@@ -6194,7 +6222,7 @@ renderModule();
  function showCombineModal(){
    resetManagementTargets();captureWorkspaceModule(tech);const modal=$("combineModal"),list=$("combineModuleList");
    const activePlatform=platform();
-   const supportedPlatforms=key=>key==='SDWAN'?['Cisco IOS-XE']:key==='EVPN'?['Cisco NX-OS','Arista EOS','Huawei_CE_SW']:['BASIC','VPC','STP'].includes(key)?['Cisco NX-OS','Cisco IOS-XE','Arista EOS','Huawei_CE_SW']:['Cisco NX-OS','Cisco IOS-XE','Arista EOS','Huawei_CE_SW','FortiGate'];
+   const supportedPlatforms=key=>key==='VPC'?['Cisco NX-OS','Cisco IOS-XE','Arista EOS','Huawei_CE_SW','Huawei iStack']:key==='SDWAN'?['Cisco IOS-XE']:key==='EVPN'?['Cisco NX-OS','Arista EOS','Huawei_CE_SW']:['BASIC','VPC','STP'].includes(key)?['Cisco NX-OS','Cisco IOS-XE','Arista EOS','Huawei_CE_SW']:['Cisco NX-OS','Cisco IOS-XE','Arista EOS','Huawei_CE_SW','FortiGate'];
    list.innerHTML=COMBINABLE_MODULES.map(key=>{const saved=window.__workspaceModuleStates[key],current=key===tech,options=supportedPlatforms(key),pl=current?activePlatform:saved?.platform||activePlatform,effective=options.includes(pl)?pl:options[0];return `<div class="combine-option"><label><input type="checkbox" value="${key}" ${current?"checked":""}><span><b data-module-title="${key}">${moduleLabel(key,effective)}</b><small>${current?"Current workspace":saved?.configured?"Saved workspace parameters":"Current platform with default parameters"}</small></span></label><select data-report-platform="${key}" aria-label="${moduleLabel(key,effective)} report platform">${options.map(v=>`<option value="${v}" ${v===effective?'selected':''}>${v==='Huawei_CE_SW'?'Huawei CloudEngine':v}</option>`).join('')}</select></div>`;}).join("");
    const update=()=>{const count=list.querySelectorAll("input:checked").length;$("combineCreate").disabled=!count;$("combineError").className="combine-error progress";$("combineError").textContent=count?`${count} modül seçildi. Modüllerin platformlarını kontrol ederek raporu oluşturun.`:"En az bir modül seçin.";};
    list.querySelectorAll("input,select").forEach(input=>input.addEventListener("change",()=>{resetManagementTargets();if(input.matches('select'))list.querySelector(`[data-module-title="${input.dataset.reportPlatform}"]`).textContent=moduleLabel(input.dataset.reportPlatform,input.value);update();}));modal.hidden=false;modal.querySelector(".combine-card").scrollTop=0;update();
@@ -6216,11 +6244,11 @@ renderModule();
    const project=snapshot(),devices=[],links=[],specialLinks=[],parameters=[],configMap=new Map(),deviceIndex=new Map(),moduleReports=[];
    reports.forEach((report,moduleNo)=>{
      const map=new Map(),prefix=report.moduleKey.toLowerCase();
-     report.devices.forEach(device=>{const identity=`${device.vendor}|${String(device.hostname||device.id).toLowerCase()}`,existing=deviceIndex.get(identity);let id=existing;if(!id){id=`${prefix}-${device.id}`;deviceIndex.set(identity,id);devices.push({...device,id,tier:moduleNo===0?device.tier:"upper",index:devices.length+1});}map.set(device.id,id);});
+     report.devices.forEach(device=>{const identity=`${device.vendor}|${String(device.logicalHostname||device.hostname||device.id).toLowerCase()}`,existing=deviceIndex.get(identity);let id=existing;if(!id){id=`${prefix}-${device.id}`;deviceIndex.set(identity,id);devices.push({...device,hostname:device.logicalHostname||device.hostname,id,tier:moduleNo===0?device.tier:"upper",index:devices.length+1});}map.set(device.id,id);});
      report.links.forEach((link,index)=>links.push({...link,id:`${prefix}-link-${index+1}`,a:map.get(link.a),b:map.get(link.b),detail:`${report.moduleTitle} · ${link.detail||"physical connection"}`}));
      (report.specialLinks||[]).forEach((link,index)=>specialLinks.push({...link,id:`${prefix}-special-${index+1}`,a:map.get(link.a),b:map.get(link.b),detail:`${report.moduleTitle} · ${link.detail||"control path"}`}));
      (report.parameters||[]).forEach(item=>parameters.push({...item,label:`${report.moduleTitle} · ${item.label}`}));
-     (report.configurations||[]).forEach(cfg=>{const id=map.get(cfg.deviceId);if(!id)return;const part=`######## ${report.moduleTitle.toUpperCase()} · ${cfg.source} ########\n${cfg.text}`;configMap.set(id,[configMap.get(id),part].filter(Boolean).join("\n\n"));});
+     (report.configurations||[]).forEach(cfg=>{const id=map.get(cfg.deviceId);if(!id)return;if(report.vendor==="Huawei iStack"&&configMap.get(id)?.includes(cfg.text))return;const part=`######## ${report.moduleTitle.toUpperCase()} · ${cfg.source} ########\n${cfg.text}`;configMap.set(id,[configMap.get(id),part].filter(Boolean).join("\n\n"));});
      moduleReports.push({module:report.moduleKey,title:report.moduleTitle,vendor:report.vendor,technology:report.technology,topologySvg:report.topologySvg,topologyPng:report.topologyPng,parameters:report.parameters||[],verificationCommands:report.verificationCommands||[],design:{architecture:report.architecture,roles:report.roles,techPlacement:report.techPlacement,devices:report.devices,links:report.links,specialLinks:report.specialLinks||[]},deviceCount:report.devices.length,configurationCount:(report.configurations||[]).length});
    });
    const first=reports[0],configurations=[...configMap].map(([deviceId,text])=>({deviceId,text,source:"Technology Workspaces"}));

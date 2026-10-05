@@ -43,6 +43,14 @@
   function build(state){
     const tr=state.language==='tr', pick=(a,b)=>tr?a:b;
     const modules=state.moduleReports||[];
+    const istack=modules.find(m=>m.vendor==='Huawei iStack'&&/istack/i.test(m.technology||m.title));
+    if((!modules.length&&state.vendor==='Huawei iStack'&&/istack/i.test(state.technology))||(istack&&!modules.some(m=>m.vendor==='Cisco NX-OS'&&m.technology==='vPC'))){
+      const d=istack?.design||state,params=istack?.parameters||state.parameters||[],members=(d.devices||[]).filter(x=>x.tier==='upper'),leaves=(d.devices||[]).filter(x=>x.tier==='lower');
+      const paths=(d.links||[]).filter(x=>x.enabled),rates=[...new Set(paths.map(x=>x.speed).filter(Boolean))].join(' / ');
+      const topology=[pick(`Tasarım, tek mantıksal Huawei iStack switch olarak çalışan ${members.length} fiziksel stack üyesi ve bunlara çapraz üye LACP bağlantılarıyla bağlı ${leaves.length} leaf switch içerir.`,`The design comprises ${members.length} physical stack members operating as one logical Huawei iStack switch and ${leaves.length} leaf switches using cross-member LACP attachments.`)];
+      if(rates)topology.push(pick(`Leaf–stack bağlantıları ${rates} hızında planlanmıştır.`,`Leaf-to-stack connections are planned at ${rates}.`));
+      return {title:pick('Huawei iStack teknoloji rehberi','Huawei iStack technology guide'),topologyTitle:pick('iStack mimarisi ve bağlantı modeli','iStack architecture and connectivity model'),topology,sections:params.filter(p=>p.impact).map(p=>({title:pick(p.labelTr||p.label,p.label),paragraphs:[pick(p.impactTr||p.impact,p.impact)]})).concat([{title:pick('Kurulum ve kabul sırası','Formation and acceptance sequence'),paragraphs:[pick('Üye hazırlık çıktıları stack kurulmadan önce her cihazda ayrı uygulanır. Planlanan ID değişikliği için kaydetme ve yeniden başlatma bakım planına dahil edilir. Stack kurulduktan sonra ortak servis konfigürasyonu yalnız bir kez uygulanır. Üyeler, stack portları, MAD ve Eth-Trunk üyeleri doğrulanır; kontrollü bağlantı ve üye kaybında kalan kapasite ve trafik kesintisi ölçülür.','Apply member preparation outputs separately before forming the stack. Plan save/restart for member ID changes within the maintenance procedure. After formation, apply the shared service configuration once. Verify members, stack ports, MAD and Eth-Trunk members; measure surviving capacity and traffic interruption during controlled link/member failures.')]}]),sources:[['Huawei · S-series stack configuration', 'https://info.support.huawei.com/network/ptmngsys/Web/tsrev_s/en/content/s/07_Failed_to_Set_Up_a_Stack/edesk_Failed_to_Set_Up_a_Stack_edesk002.html'],['Huawei · Direct-mode MAD example','https://support.huawei.com/enterprise/en/doc/EDOC1100410521/ae875312/example-for-configuring-mad-in-direct-mode']]};
+    }
     const module=modules.find(m=>m.vendor==='Cisco NX-OS'&&m.technology==='vPC');
     if(modules.length?!module:state.vendor!=='Cisco NX-OS'||state.technology!=='vPC')return null;
     const design=module?(module.design||null):state;
@@ -84,7 +92,7 @@
   }
   function separateTopologyNarratives(state){
     const tr=state.language==='tr',pick=(a,b)=>tr?a:b;
-    const rolesTr={'Device':'ağ cihazı','Peer':'eş cihaz','Router':'yönlendirici','CE router':'CE yönlendirici','ISP router':'ISP yönlendirici','Network device':'ağ cihazı','Managed device':'yönetilen cihaz','Edge router':'uç yönlendirici','External endpoint':'harici uç','DC-1 node':'DC-1 düğümü','DC-2 node':'DC-2 düğümü','Fabric VTEP':'Fabric VTEP'};
+    const rolesTr={'Stack member':'stack üyesi','Device':'ağ cihazı','Peer':'eş cihaz','Router':'yönlendirici','CE router':'CE yönlendirici','ISP router':'ISP yönlendirici','Network device':'ağ cihazı','Managed device':'yönetilen cihaz','Edge router':'uç yönlendirici','External endpoint':'harici uç','DC-1 node':'DC-1 düğümü','DC-2 node':'DC-2 düğümü','Fabric VTEP':'Fabric VTEP'};
     const modules=state.moduleReports||[];
     const scopes=modules.length?modules.filter(m=>m.design).map(m=>({...m,design:{...m.design,vendor:m.vendor,technology:m.technology}})):[{title:state.technology,design:state}];
     return scopes.map(scope=>{
@@ -122,7 +130,7 @@
     if(!modules.length)return {technology,vendors,narratives:separateTopologyNarratives(state),overview:'',approach:'',svg:state.topologySvg||''};
     const physical=modules.filter(m=>!isService(m)&&m.design);
     const scopes=physical.length?physical:modules.filter(m=>m.design&&!isService(m));
-    const rank=m=>/vPC|MLAG|M-LAG|EVPN|VXLAN|STP/i.test(m.technology||m.title)?0:/BGP|OSPF|SD-WAN/i.test(m.technology||m.title)?1:2;
+    const rank=m=>/vPC|MLAG|M-LAG|iStack|StackWise|EVPN|VXLAN|STP/i.test(m.technology||m.title)?0:/BGP|OSPF|SD-WAN/i.test(m.technology||m.title)?1:2;
     const ordered=[...scopes].sort((a,b)=>rank(a)-rank(b));
     const paragraphs=[];
     for(const m of ordered){

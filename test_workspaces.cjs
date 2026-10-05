@@ -7,7 +7,7 @@ const errors=[];const vc=new VirtualConsole();vc.on('jsdomError',e=>errors.push(
 const catalog=JSON.parse(execFileSync('python',['-c','import app,json;print(json.dumps(app.live_commands()))'],{encoding:'utf8'}));
 let html=fs.readFileSync('web.html','utf8');
 html=html.replace(/\}\)\(\);\s*<\/script>\s*<\/body>/,'window.__audit={snapshot,applyProject,reportingDesign,combineReports};})();</script></body>');
-const dom=new JSDOM(html,{url:'https://test.invalid/',runScripts:'dangerously',virtualConsole:vc,beforeParse(w){w.eval(fs.readFileSync("engineering-locale.js","utf8"));w.scrollTo=()=>{};w.fetch=async()=>({ok:true,json:async()=>catalog});w.SVGElement.prototype.getBBox=()=>({x:0,y:0,width:720,height:300});w.SVGElement.prototype.getComputedTextLength=()=>80;}});
+const dom=new JSDOM(html,{url:'https://test.invalid/',runScripts:'dangerously',virtualConsole:vc,beforeParse(w){w.eval(fs.readFileSync("huawei-istack.js","utf8"));w.eval(fs.readFileSync("engineering-locale.js","utf8"));w.scrollTo=()=>{};w.fetch=async()=>({ok:true,json:async()=>catalog});w.SVGElement.prototype.getBBox=()=>({x:0,y:0,width:720,height:300});w.SVGElement.prototype.getComputedTextLength=()=>80;}});
 const w=dom.window,d=w.document;
 const pause=()=>new Promise(r=>setTimeout(r,80));
 const click=selector=>{assert.ok(d.querySelector(selector),selector);d.querySelector(selector).click();};
@@ -55,7 +55,7 @@ const reports=[];
    pairs++;
   }
  }
- assert.equal(pairs,31);
+ assert.equal(pairs,32);
  const combined=w.__audit.combineReports(reports.filter(r=>r.vendor==='Cisco NX-OS'&&['BASIC','BGP','VPC'].includes(r.moduleKey)));
  assert.ok(combined.technology.length>32);assert.equal(combined.moduleReports.length,3);
  fs.writeFileSync(process.env.AUDIT_PAYLOAD_PATH||'/tmp/network-configurator-audit-payload.json',JSON.stringify(combined));

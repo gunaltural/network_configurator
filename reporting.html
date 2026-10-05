@@ -37,7 +37,7 @@
     <div class="source-banner" id="sourceBanner" hidden></div>
     <section class="panel"><div class="project-heading"><div><span class="eyebrow">PROJECT BRIEF · DOCUMENT CONTROL</span><h2 id="projectInformationTitle">Project information</h2></div><span class="status" id="projectCompletion">0 / 16 fields</span></div><p class="hint" id="projectHelp">Enter the project name and design intent. Design inputs come from Technology Workspaces.</p><p class="note" id="designSummary" hidden></p><p class="note" id="liveInventoryStatus" aria-live="polite"></p><div class="fields">
       <label class="wide"><span id="projectNameLabel">Project name</span><input id="projectName" maxlength="120" placeholder="Enter a project name" required></label>
-      <label>Primary vendor / platform<select id="vendor"><option>Cisco NX-OS</option><option>Cisco IOS-XE</option><option>Arista EOS</option><option value="Huawei_CE_SW">Huawei CloudEngine</option><option>FortiGate</option></select></label>
+      <label>Primary vendor / platform<select id="vendor"><option>Cisco NX-OS</option><option>Cisco IOS-XE</option><option>Arista EOS</option><option value="Huawei_CE_SW">Huawei CloudEngine</option><option>Huawei iStack</option><option>FortiGate</option></select></label>
       <label>Architecture<select id="architecture"><option value="spine-leaf">Spine–Leaf</option><option value="core-access">Core–Access</option><option value="module">Module topology</option></select></label>
       <label>Technology<select id="technology"></select></label><label>Technology placement<select id="techPlacement"><option value="lower">Leaf / Access tier</option><option value="upper">Spine / Core tier</option></select></label>
       <label><span id="upperLabel">Spine count</span><input id="upperCount" type="number" min="1" max="8" value="2"></label><label><span id="lowerLabel">Leaf count</span><input id="lowerCount" type="number" min="1" max="16" value="4"></label>
@@ -72,9 +72,9 @@
 <script>
 (()=>{
   const $=id=>document.getElementById(id);
-  const vendors=["Cisco NX-OS","Cisco IOS-XE","Arista EOS","Huawei_CE_SW","FortiGate"];
+  const vendors=["Cisco NX-OS","Cisco IOS-XE","Arista EOS","Huawei_CE_SW","Huawei iStack","FortiGate"];
   const vendorLabel=v=>v==="Huawei_CE_SW"?"Huawei CloudEngine":v;
-  const technologyByVendor={"Cisco NX-OS":["vPC","STP","EVPN/VXLAN","None"],"Cisco IOS-XE":["STP","None"],"Arista EOS":["MLAG","STP","EVPN/VXLAN","None"],"Huawei_CE_SW":["M-LAG","STP","EVPN/VXLAN","None"],"FortiGate":["None"]};
+  const technologyByVendor={"Cisco NX-OS":["vPC","STP","EVPN/VXLAN","None"],"Cisco IOS-XE":["STP","None"],"Arista EOS":["MLAG","STP","EVPN/VXLAN","None"],"Huawei_CE_SW":["M-LAG","STP","EVPN/VXLAN","None"],"Huawei iStack":["Huawei iStack","None"],"FortiGate":["None"]};
   const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   const val=(id,fallback="")=>$(id)?.value??fallback;
   const count=(id,max)=>Math.max(1,Math.min(max,Number.parseInt(val(id),10)||1));

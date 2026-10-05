@@ -1,6 +1,6 @@
 const fs=require('fs'),assert=require('assert/strict'),{JSDOM,VirtualConsole}=require('jsdom');
 const html=fs.readFileSync('web.html','utf8').replace('</head>','<style>'+fs.readFileSync('corporate-theme.css','utf8')+'</style></head>');
-const dom=new JSDOM(html,{url:'https://test.invalid',runScripts:'dangerously',virtualConsole:new VirtualConsole(),beforeParse(w){w.scrollTo=()=>{};w.eval(fs.readFileSync('engineering-locale.js','utf8'));w.fetch=async()=>({ok:true,json:async()=>({platforms:{}})});}});
+const dom=new JSDOM(html,{url:'https://test.invalid',runScripts:'dangerously',virtualConsole:new VirtualConsole(),beforeParse(w){w.eval(fs.readFileSync("huawei-istack.js","utf8"));w.scrollTo=()=>{};w.eval(fs.readFileSync('engineering-locale.js','utf8'));w.fetch=async()=>({ok:true,json:async()=>({platforms:{}})});}});
 const w=dom.window,d=w.document;
 const luminance=hex=>{const a=hex.match(/[a-f\d]{2}/gi).map(x=>parseInt(x,16)/255).map(x=>x<=.04045?x/12.92:((x+.055)/1.055)**2.4);return .2126*a[0]+.7152*a[1]+.0722*a[2];};
 let pairs=0,labels=0;
