@@ -34,7 +34,7 @@ import uvicorn
 from report_docx import build_report_docx
 from docx.image.exceptions import UnrecognizedImageError
 
-VERSION = "5.15.0"
+VERSION = "5.16.0"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
 REPORTING_HTML = (BASE_DIR / "reporting.html").read_text(encoding="utf-8")
@@ -275,6 +275,9 @@ class ReportWordRequest(BaseModel):
     parameters: List[ReportParameter] = Field(default_factory=list)
     configurations: List[ReportConfiguration] = Field(default_factory=list)
     topologyPng: str = Field(default="", max_length=3000000)
+    unifiedDesign: bool = False
+    projectOverview: str = Field(default="", max_length=20000)
+    designApproach: str = Field(default="", max_length=5000)
     topologyNarratives: List[ReportGuideSection] = Field(default_factory=list, max_length=8)
     technologyGuide: ReportTechnologyGuide | None = None
     projectInformation: List[ReportProjectInformation] = Field(default_factory=list, max_length=20)

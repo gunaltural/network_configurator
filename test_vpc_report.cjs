@@ -25,7 +25,7 @@ for(const vendor of ['Cisco NX-OS','Cisco IOS-XE','Arista EOS','Huawei_CE_SW','F
  assert.match(text,/CE routers/);assert.match(text,/ISP routers/);assert.ok(!/upper-tier|unspecified|specified rate/.test(text));assert.match(text,/100G/);
  const blank=guide.topologyNarratives({...s,links:s.links.map(l=>({...l,speed:''}))}).map(x=>x.paragraphs.join(' ')).join(' ');assert.ok(!/100G|link rates/.test(blank));
 }
-const mixed=guide.topologyNarratives({...design,moduleReports:[{title:'BGP',vendor:'Arista EOS',technology:'BGP',design:{...design,roles:{upper:'CE router',lower:'ISP router'}}},{title:'vPC',vendor:'Cisco NX-OS',technology:'vPC',design}]});assert.equal(mixed.length,2);assert.match(mixed[0].paragraphs[0],/Arista EOS/);assert.match(mixed[1].paragraphs[0],/Spine/);
+const mixed=guide.topologyNarratives({...design,moduleReports:[{title:'BGP',vendor:'Arista EOS',technology:'BGP',design:{...design,roles:{upper:'CE router',lower:'ISP router'}}},{title:'vPC',vendor:'Cisco NX-OS',technology:'vPC',design}]});assert.equal(mixed.length,1);assert.match(mixed[0].paragraphs.join(" "),/Arista EOS/);assert.match(mixed[0].paragraphs[0],/Spine/);
 assert.match(guide.build(combined).topology[0],/2 adet Spine ve 8 adet Leaf/);
 assert.equal(guide.build({...combined,moduleReports:[{vendor:'Cisco NX-OS',technology:'vPC'}]}).topology.length,0);
 const errors=[],vc=new VirtualConsole();vc.on('jsdomError',e=>errors.push(e.message));

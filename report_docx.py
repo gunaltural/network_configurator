@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from io import BytesIO
 import base64
 import binascii
+import re
 
 from docx import Document
 from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT
@@ -140,17 +141,17 @@ def build_report_docx(project):
     if language == "tr":
         role_names = {"Device":"Cihaz", "Peer":"Eş cihaz", "Router":"Yönlendirici", "CE router":"CE yönlendirici", "ISP router":"ISP yönlendirici", "Network device": "Ağ cihazı", "Managed device": "Yönetilen cihaz", "Edge router": "Uç yönlendirici", "External endpoint": "Harici uç", "DC-1 node": "DC-1 düğümü", "DC-2 node": "DC-2 düğümü"}
         upper, lower = role_names.get(upper, upper), role_names.get(lower, lower)
-    vendor = "Huawei CloudEngine" if project["vendor"] == "Huawei_CE_SW" else project["vendor"]
+    vendor = ", ".join(dict.fromkeys("Huawei CloudEngine" if m["vendor"] == "Huawei_CE_SW" else m["vendor"] for m in project["moduleReports"])) if project.get("unifiedDesign") else ("Huawei CloudEngine" if project["vendor"] == "Huawei_CE_SW" else project["vendor"])
     now = datetime.now(timezone.utc)
     months_tr = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
     report_date = f"{now.day} {months_tr[now.month-1]} {now.year}" if language == "tr" else now.strftime("%d %B %Y")
     doc.add_paragraph(f"{words['draft']}  |  {report_date}  |  {vendor}")
 
     doc.add_heading(words["overview"], level=1)
-    architecture = ("Module topology" if project["architecture"] == "module" else
+    architecture = ("Network architecture" if project["architecture"] == "module" else
                     "Core Access" if project["architecture"] == "core-access" else "Spine Leaf")
     if language == "tr":
-        architecture = {"Module topology": "Modül topolojisi", "Core Access": "Core–Access", "Spine Leaf": "Spine–Leaf"}[architecture]
+        architecture = {"Network architecture": "Ağ mimarisi", "Core Access": "Core–Access", "Spine Leaf": "Spine–Leaf"}[architecture]
     if language == "tr":
         overview = (f"Planlanan {architecture} mimarisinde {project['upperCount']} {upper}"
                     + (f" ve {project['lowerCount']} {lower}" if project["lowerCount"] else "")
@@ -161,7 +162,7 @@ def build_report_docx(project):
                     + (f" and {project['lowerCount']} {lower.lower()} "
                        + ("device" if project["lowerCount"] == 1 else "devices") if project["lowerCount"] else "")
                     + f" and uses {project['technology']}.")
-    doc.add_paragraph(overview)
+    doc.add_paragraph(project.get("projectOverview") or overview)
     doc.add_paragraph(project["scope"].strip() or words["scope"])
     if project.get("projectInformation"):
         identity_labels = {"Customer / organization", "Müşteri / kuruluş", "Project reference", "Proje referansı", "Sites and locations", "Sahalar ve lokasyonlar", "Prepared by", "Hazırlayan", "Reviewer / approver", "İnceleyen / onaylayan", "Document revision", "Doküman revizyonu", "Document status", "Doküman durumu", "Document date", "Doküman tarihi"}
@@ -195,10 +196,11 @@ def build_report_docx(project):
         doc.add_heading(narrative["title"], level=2)
         for paragraph in narrative["paragraphs"]:
             doc.add_paragraph(paragraph)
-    doc.add_paragraph(
-        f"{upper} {'katmanı' if language == 'tr' else 'tier'}: " + ", ".join(device_name(d) for d in project["devices"] if not d.get("inventoryOnly") and d["tier"] == "upper")
-    )
-    if project["lowerCount"]:
+    if not project.get("unifiedDesign"):
+        doc.add_paragraph(
+            f"{upper} {'katmanı' if language == 'tr' else 'tier'}: " + ", ".join(device_name(d) for d in project["devices"] if not d.get("inventoryOnly") and d["tier"] == "upper")
+        )
+    if project["lowerCount"] and not project.get("unifiedDesign"):
         doc.add_paragraph(
             f"{lower} {'katmanı' if language == 'tr' else 'tier'}: " + ", ".join(device_name(d) for d in project["devices"] if not d.get("inventoryOnly") and d["tier"] == "lower")
         )
@@ -215,7 +217,9 @@ def build_report_docx(project):
         if len(picture) > 2250000 or not picture.startswith(b"\x89PNG\r\n\x1a\n"):
             raise ValueError("Invalid topology PNG")
         doc.add_picture(BytesIO(picture), width=Inches(6.9))
-    if project.get("moduleReports"):
+    if project.get("unifiedDesign"):
+        add_topology_image(project.get("topologyPng", ""))
+    elif project.get("moduleReports"):
         for module in project["moduleReports"]:
             doc.add_heading(module["title"] + " · " + ("Huawei CloudEngine" if module["vendor"] == "Huawei_CE_SW" else module["vendor"]), level=2)
             add_topology_image(module.get("topologyPng", ""))
@@ -224,7 +228,7 @@ def build_report_docx(project):
     doc.add_heading(words["schedule"], level=1)
     _table(
         doc,
-        [f"{upper} {words['device'].lower()}", words["port"], f"{lower} {words['device'].lower()}", words["port"], words["connection"]],
+        ["Cihaz A" if language == "tr" else "Device A", words["port"], "Cihaz B" if language == "tr" else "Device B", words["port"], words["connection"]],
         [1.55, 1.1, 1.55, 1.1, 1.65],
         [[device_name(devices[l["a"]]), l["upperPort"] or ("Belirlenecek" if language == "tr" else "TBD"), device_name(devices[l["b"]]), l["lowerPort"] or ("Belirlenecek" if language == "tr" else "TBD"), " · ".join(filter(None, [l.get("detail"), l["speed"]])) or "TBD"] for l in active]
         or [[words["none"], "", "", "", ""]],
@@ -244,13 +248,13 @@ def build_report_docx(project):
 
     doc.add_heading(words["approach"], level=1)
     placement = upper if project["techPlacement"] == "upper" else lower
-    doc.add_paragraph(
+    doc.add_paragraph(project.get("designApproach") or (
         (f"Planlanan {project['technology']} tasarımı {vendor} platformunu kullanır. Cihaz konfigürasyon önerileri ekte sunulmuştur."
          if project.get("configurations") else f"Seçilen {project['technology']} teknolojisi devreye alma öncesinde ayrıntılı mühendislik ve arıza senaryosu doğrulaması gerektirir.")
         if language == "tr" else
         (f"The planned {project['technology']} design uses {vendor}. Device configuration proposals are included in the appendix."
          if project.get("configurations") else _technology_text(project, placement))
-    )
+    ))
     doc.add_paragraph(words["intent"])
     if guide:
         doc.add_heading(guide["title"], level=2)
@@ -336,7 +340,7 @@ def build_report_docx(project):
         for index, device in enumerate(configured_devices):
             config = configurations[device["id"]]
             doc.add_heading(device_name(device), level=2)
-            doc.add_paragraph(config["source"])
+            doc.add_paragraph(re.sub(r"\bCombined\b\s*", "", config["source"], flags=re.I))
             for line in config["text"].splitlines():
                 paragraph = doc.add_paragraph(style="Normal")
                 paragraph.paragraph_format.space_after = Pt(0)

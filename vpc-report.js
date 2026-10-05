@@ -82,7 +82,7 @@
     return {title:pick('Cisco vPC teknoloji rehberi','Cisco vPC technology guide'),topologyTitle:pick('Seçilen vPC topolojisi ve bağlantı modeli','Selected vPC topology and connectivity model'),topology,
       sections:[...chapters.map(([a,b,c,d])=>({title:pick(a,b),paragraphs:[pick(c,d)]})),{title:pick('Bu projede seçilen özellikler','Features selected in this project'),paragraphs:choices},{title:pick('Platform ve sürüm değerlendirmesi','Platform and release assessment'),paragraphs:[pick('Rehber klasik fiziksel peer-link tasarımını açıklar. Fabric peering, EVPN/VXLAN ve ISSU için ayrı koşullar geçerlidir. Kaynaklardaki eski Nexus örnekleri kavramsal referanstır; komut ve varsayılanlar hedef model/NX-OS sürümüyle doğrulanmalıdır. Seçim durumu üretilen konfigürasyondan okunmuştur; canlı cihaz doğrulaması değildir.','This guide describes a conventional physical peer-link design. Fabric peering, EVPN/VXLAN and ISSU have additional conditions. Older Nexus examples provide conceptual context; commands and defaults require target model/NX-OS validation. Selection status comes from generated configuration and is not live device verification.')]}],sources};
   }
-  function topologyNarratives(state){
+  function separateTopologyNarratives(state){
     const tr=state.language==='tr',pick=(a,b)=>tr?a:b;
     const rolesTr={'Device':'ağ cihazı','Peer':'eş cihaz','Router':'yönlendirici','CE router':'CE yönlendirici','ISP router':'ISP yönlendirici','Network device':'ağ cihazı','Managed device':'yönetilen cihaz','Edge router':'uç yönlendirici','External endpoint':'harici uç','DC-1 node':'DC-1 düğümü','DC-2 node':'DC-2 düğümü','Fabric VTEP':'Fabric VTEP'};
     const modules=state.moduleReports||[];
@@ -102,7 +102,7 @@
       if(links.length){
         const names=[...new Set(devices.filter(d=>links.some(l=>l.a===d.id||l.b===d.id)).map(d=>labels[d.tier]))].filter(Boolean);
         const roleText=names.map(role=>tr?rolesTr[role]||role:role).join(' / ');
-        paragraphs.push(pick(`${roleText} bağlantı planı ${links.length} fiziksel bağlantıdan oluşur.`,`The ${roleText} connection plan contains ${links.length} physical connections.`));
+        paragraphs.push(pick(`${roleText} bağlantı planı ${links.length} fiziksel bağlantıdan oluşur.`,`The ${roleText} connection plan contains ${links.length} physical ${links.length===1?'connection':'connections'}.`));
         if(links.every(l=>String(l.speed||'').trim())){
           const speeds=[...new Set(links.map(l=>l.speed.trim()))];
           paragraphs.push(pick(`Bu bağlantılar ${speeds.join(', ')} hızında tasarlanmıştır.`,`These connections are designed for ${speeds.join(', ')} link rates.`));
@@ -113,7 +113,53 @@
       return {title:pick(`${scope.title} topolojisi ve bağlantı modeli`,`${scope.title} topology and connectivity model`),paragraphs};
     }).filter(section=>section.paragraphs.length);
   }
-  root.NetworkReportGuide={build,topologyNarratives};
+  const isService=m=>/^(BASIC|QOS)$/.test(m.module||'')||/System and Management|^QoS$/i.test(m.technology||m.title||'');
+  const cleanLabel=text=>String(text||'').replace(/\bCombined\b\s*[·:+-]?\s*/gi,'').trim();
+  function designPresentation(state){
+    const modules=state.moduleReports||[],tr=state.language==='tr',pick=(a,b)=>tr?a:b;
+    const technology=modules.length?modules.map(m=>cleanLabel(m.technology||m.title)).join(' + '):cleanLabel(state.technology);
+    const vendors=[...new Set(modules.length?modules.map(m=>m.vendor):[state.vendor])].map(v=>v==='Huawei_CE_SW'?'Huawei CloudEngine':v).join(', ');
+    if(!modules.length)return {technology,vendors,narratives:separateTopologyNarratives(state),overview:'',approach:'',svg:state.topologySvg||''};
+    const physical=modules.filter(m=>!isService(m)&&m.design);
+    const scopes=physical.length?physical:modules.filter(m=>m.design&&!isService(m));
+    const rank=m=>/vPC|MLAG|M-LAG|EVPN|VXLAN|STP/i.test(m.technology||m.title)?0:/BGP|OSPF|SD-WAN/i.test(m.technology||m.title)?1:2;
+    const ordered=[...scopes].sort((a,b)=>rank(a)-rank(b));
+    const paragraphs=[];
+    for(const m of ordered){
+      const sections=separateTopologyNarratives({...m.design,language:state.language,vendor:m.vendor,technology:m.technology,moduleReports:[]});
+      const domain=rank(m)===0?pick('Veri merkezi ve anahtarlama yapısı','In the data centre and switching architecture'):rank(m)===1?pick('Yönlendirme ve WAN bağlantı yapısı','In the routing and WAN architecture'):pick('Ağ bağlantı yapısı','In the network connectivity architecture');
+      const text=sections.flatMap(x=>x.paragraphs).join(' ').replace(/^Tasarım /,`${domain} `).replace(/^The design /,`${domain}, the design `);
+      if(text)paragraphs.push(text);
+    }
+    const serviceParts=modules.filter(isService).map(m=>{
+      const targets=[...new Set((m.design?.devices||[]).filter(d=>!d.inventoryOnly&&!d.inventoryRecord).map(d=>d.hostname).filter(Boolean))];
+      const label=/QoS/i.test(m.technology||m.title)?pick('QoS politikaları','QoS policies'):pick('Sistem ve yönetim ayarları','System and management settings');
+      return pick(`${label}${targets.length?` ${targets.join(', ')} için hazırlanmıştır`:' tasarımın işletim kapsamını tanımlar'}.`,`${label}${targets.length?` are prepared for ${targets.join(', ')}`:' define the operational scope of the design'}.`);
+    });
+    paragraphs.push(...serviceParts);
+    const overview=paragraphs.map(p=>p.split(/(?<=\.)\s/)[0]).join(' ');
+    const identities=new Set(ordered.flatMap(m=>(m.design?.devices||[]).filter(d=>!d.inventoryOnly&&!d.inventoryRecord).map(d=>`${m.vendor}|${d.hostname||m.module+'|'+d.id}`)));
+    const physicalCount=identities.size;
+    const approach=pick(`Tasarımın teknoloji kapsamı ${technology}; platform kapsamı ${vendors} olarak belirlenmiştir. Bağlantı yedekliliği, yönlendirme politikaları ve işletim ayarları aşağıdaki tasarım kararlarıyla açıklanır. Cihaz konfigürasyonları ve bağlantı çizelgeleri aynı proje kapsamında sunulur.`,`The technology scope is ${technology}, using ${vendors}. The design decisions below explain link resilience, routing policies and operational settings. Device configurations and connection schedules are presented within the same project.`);
+    return {technology,vendors,overview,approach,physicalCount,narratives:paragraphs.length?[{title:pick('Ağ mimarisi ve bağlantı modeli','Network architecture and connectivity model'),paragraphs}]:[],svg:architectureSvg(state,ordered,serviceParts)};
+  }
+  function architectureSvg(state,modules,serviceParts){
+    const tr=state.language==='tr',escape=s=>String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
+    const panels=modules.filter(m=>m.topologySvg),height=panels.length*340+(serviceParts.length?75:0)+55;
+    if(!panels.length)return '';
+    let svg=`<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="${height}" viewBox="0 0 1100 ${height}"><rect width="1100" height="${height}" fill="#f6f9fc"/><text x="30" y="32" font-family="Arial" font-size="22" fill="#17324d">${tr?'Ağ mimarisi':'Network architecture'}</text>`;
+    panels.forEach((m,i)=>{
+      const label=/BGP|OSPF|SD-WAN/i.test(m.technology||m.title)?(tr?'Yönlendirme ve WAN':'Routing and WAN'):(tr?'Anahtarlama ve ağ bağlantıları':'Switching and network connectivity');
+      const y=50+i*340;
+      svg+=`<rect x="15" y="${y}" width="1070" height="330" rx="12" fill="#fff" stroke="#d4e0ec"/><text x="30" y="${y+26}" font-family="Arial" font-size="17" fill="#17324d">${escape(label+' · '+cleanLabel(m.technology||m.title)+' · '+m.vendor)}</text>`;
+      const nested=m.topologySvg.replace(/<\?xml[^>]*\?>/g,'').replace(/<svg\b[^>]*>/,tag=>tag.replace(/\s(?:x|y|width|height)="[^"]*"/g,'').replace('<svg',`<svg x="25" y="${y+40}" width="1050" height="280"`));
+      svg+=nested;
+    });
+    if(serviceParts.length)svg+=`<rect x="15" y="${50+panels.length*340}" width="1070" height="60" rx="12" fill="#e8f0f7"/><text x="30" y="${86+panels.length*340}" font-family="Arial" font-size="17" fill="#17324d">${tr?'İşletim kapsamı: Sistem yönetimi ve hizmet politikaları':'Operational scope: System management and service policies'}</text>`;
+    return svg+'</svg>';
+  }
+  function topologyNarratives(state){return designPresentation(state).narratives;}
+  root.NetworkReportGuide={build,topologyNarratives,designPresentation};
 
   if(typeof module!=='undefined'&&module.exports)module.exports=root.NetworkReportGuide;
 })(typeof window==='undefined'?globalThis:window);
