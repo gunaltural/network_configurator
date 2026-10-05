@@ -318,7 +318,7 @@
   $("reportPreview").addEventListener("click",event=>{
     const button=event.target.closest("[data-verification-edit]");if(!button)return;
     const row=VerificationPlan.exportRows(state)[+button.dataset.verificationEdit];if(!row)return;
-    verificationTechnology=row.technology;verificationSelected=row.id;renderVerificationEditor();
+    maintenanceView="design";document.querySelectorAll("[data-view]").forEach(button=>button.setAttribute("aria-selected",String(button.dataset.view==="design")));renderMaintenance();verificationTechnology=row.technology;verificationSelected=row.id;renderVerificationEditor();
     const input=$("verificationEditor").querySelector('[data-plan-field="output"]');
     if(input){input.scrollIntoView({behavior:"smooth",block:"center"});input.focus({preventScroll:true});}
   });
@@ -566,7 +566,8 @@
   function renderMaintenance(){
     const editor=document.querySelector('.editor');editor.hidden=maintenanceView==="lifecycle"||maintenanceView==="upgrade";
     $("maintenanceArea").hidden=!editor.hidden;
-    const sections=[...document.querySelectorAll('.editor>.stack>section')];
+    const sections=[...document.querySelectorAll('.editor>.stack>section')].filter(section=>section.id!=="verificationPanel");
+    $("verificationPanel").hidden=maintenanceView!=="design";
     sections.forEach((section,i)=>section.hidden=maintenanceView==="inventory"?!(i===1||i===3&&selectedDevice):(i===1||i===2||i===3));
     $("reportInventoryPanel").hidden=maintenanceView!=="design";
     renderInventoryManager();
