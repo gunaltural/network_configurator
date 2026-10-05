@@ -584,6 +584,16 @@ def vpc_report_guide():
     return Response((BASE_DIR / "vpc-report.js").read_text(encoding="utf-8"), media_type="application/javascript", headers={"Cache-Control": "no-cache"})
 
 
+@app.get("/corporate-theme.css")
+def corporate_theme():
+    return Response((BASE_DIR / "corporate-theme.css").read_text(encoding="utf-8"), media_type="text/css", headers={"Cache-Control": "no-cache"})
+
+
+@app.get("/corporate-shell.js")
+def corporate_shell():
+    return Response((BASE_DIR / "corporate-shell.js").read_text(encoding="utf-8"), media_type="application/javascript", headers={"Cache-Control": "no-cache"})
+
+
 @app.get("/api/health")
 def health():
     mode = "MOCK" if MOCK_SSH else ("DEPLOY ENABLED" if REAL_DEPLOY else "READ-ONLY")
