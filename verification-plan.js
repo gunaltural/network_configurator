@@ -16,7 +16,7 @@
  const config=state.configurations.find(c=>c.deviceId===target.id)?.text||'';const neighbors=[...config.matchAll(/(?:neighbor|peer)\s+(\d+\.\d+\.\d+\.\d+)\s+(?:remote-as|as-number)\s+(\d+)/g)].map(m=>`${m[1]} (AS ${m[2]})`);
  for(const command of scope.verificationCommands||[]){
  if(/vpc|mlag|m-lag|dfs-group/i.test(command)&&!/(?:vpc\s+domain|mlag\s+configuration|dfs-group|m-lag)/i.test(config))continue;
- const id=JSON.stringify([scope.module,target.vendor,target.hostname,command]);rows.push({id,deviceId:target.id,hostname:target.hostname,vendor:target.vendor,technology:scope.technology||scope.title,command,context:{neighbors:[...new Set(neighbors)]},included:true,status:'pending',output:'',date:'',engineer:'',note:''});}}
+ const id=JSON.stringify([scope.module,target.vendor,target.hostname,command]);rows.push({id,deviceId:target.id,hostname:target.hostname,vendor:target.vendor,technology:scope.technology||scope.title,command,context:{neighbors:[...new Set(neighbors)]},included:false,status:'pending',output:'',date:'',engineer:'',note:''});}}
  }
  const old=new Map((state.verificationPlan||[]).map(r=>[r.id,r]));return rows.map(r=>{const saved=old.get(r.id);return saved?{...r,...Object.fromEntries(['included','status','output','date','engineer','note'].filter(k=>saved[k]!==undefined).map(k=>[k,saved[k]]))}:r;});
  }
