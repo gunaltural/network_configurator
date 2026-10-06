@@ -215,3 +215,6 @@ body.nc-pane-resizing{cursor:col-resize;user-select:none}
 .layout .topbar,.layout .card:has(.tabs),.layout .card:has(#output){background:#cbd9e3;border-color:#afc3d0}
 .layout .topology-toolbar,.layout .simple-deploy-head,.layout .sd-card,.layout .trouble-context div{background:#e0e9ef!important;border-color:#b6cad7!important}
 .layout .sd-card input[readonly]{background:#d2e3ed!important;color:#173f5d!important}
+.layout .simple-deploy{grid-template-columns:minmax(0,1fr)}
+.layout .simple-deploy>*,.layout .sd-grid>*{min-width:0}
+.layout .simple-deploy-head,.layout .sd-card-head{flex-wrap:wrap}
