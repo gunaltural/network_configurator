@@ -286,7 +286,9 @@ Without DATABASE_URL, or if the database is unavailable, Library indicates the
 connection state while existing local/file workflows keep working. Each saved
 project is limited to 4 MB; large projects can still be exported as files. Normal Save updates the current revision in place; Create revision retains the
 previous revision and adds a new one. Delete removes a project and all its saved
-revisions after exact-name confirmation. Export a backup before deleting if needed.
+revisions after an Are you sure confirmation. Export a backup before deleting if needed.
+History also supports deleting individual older revisions with confirmation. The
+current revision is protected; remaining revision numbers are never renumbered.
 Existing historical revisions are retained through this update. Monitor storage during testing. Provider limits,
 pricing and retention must be checked before choosing an account plan.
 
@@ -302,6 +304,6 @@ substitute for a real PostgreSQL integration check after DATABASE_URL is configu
 `python -m unittest test_project_store.py`.
 
 Normal Save keeps the visible revision number unchanged. A separate timestamp check
-still rejects stale updates and deletes from another tab. Previously saved revision
+still rejects stale updates and project deletes from another tab. Previously saved revision
 numbers are preserved. Opening older history as a working copy creates a separate
 project on save; it does not overwrite the active saved project.

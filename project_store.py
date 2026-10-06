@@ -154,13 +154,13 @@ class ProjectRepository:
                 db.execute('INSERT INTO nc_project_revisions(project_id,revision,created_at,note,payload) VALUES(%s,%s,%s,%s,%s)',(project_id,next_version,now,note.strip(),encoded))
         return self.metadata({'id':project_id,'name':document['name'],'created_at':created,'updated_at':now,'version':next_version,'payload':encoded})
 
-    def delete(self, owner, project_id, confirmation_name, expected_updated_at):
+    def delete(self, owner, project_id, confirmed, expected_updated_at):
         self.ensure_schema()
         with self.connect() as db:
             row=db.execute('SELECT * FROM nc_projects WHERE owner=%s AND id=%s',(owner,project_id)).fetchone()
             if not row: raise HTTPException(404,'Project not found.')
-            if confirmation_name != row['name']:
-                raise HTTPException(400,'Enter the project name to confirm deletion.')
+            if not confirmed:
+                raise HTTPException(400,'Confirm project deletion.')
             if expected_updated_at != row['updated_at']:
                 raise HTTPException(409,'Project changed. Refresh the list before deleting.')
             # Claim the current record before removing its history, in the same transaction.
@@ -170,11 +170,26 @@ class ProjectRepository:
             db.execute('DELETE FROM nc_projects WHERE owner=%s AND id=%s',(owner,project_id))
         return {'deleted':True,'id':project_id}
 
+    def delete_revision(self, owner, project_id, revision, confirmed):
+        if not confirmed: raise HTTPException(400,'Confirm revision deletion.')
+        self.ensure_schema()
+        with self.connect() as db:
+            row=db.execute('SELECT * FROM nc_projects WHERE owner=%s AND id=%s',(owner,project_id)).fetchone()
+            if not row: raise HTTPException(404,'Project not found.')
+            if revision >= row['version']:
+                raise HTTPException(400,'The current revision is protected and cannot be deleted separately.')
+            # Lock the parent without changing its edit timestamp or current content.
+            claim=db.execute('UPDATE nc_projects SET version=version WHERE owner=%s AND id=%s AND version=%s',(owner,project_id,row['version']))
+            if claim.rowcount != 1: raise HTTPException(409,'Project changed. Refresh its history.')
+            deleted=db.execute('DELETE FROM nc_project_revisions WHERE project_id=%s AND revision=%s',(project_id,revision))
+            if deleted.rowcount != 1: raise HTTPException(404,'Revision not found.')
+        return {'deleted':True,'id':project_id,'revision':revision}
+
     def revisions(self, owner, project_id):
-        self.get(owner,project_id)
+        project=self.get(owner,project_id)
         with self.connect() as db:
             rows=db.execute('SELECT revision,created_at,note FROM nc_project_revisions WHERE project_id=%s ORDER BY revision DESC LIMIT 100',(project_id,)).fetchall()
-        return {'revisions':[dict(row) for row in rows]}
+        return {'current_revision':project['version'],'revisions':[dict(row) for row in rows]}
 
     def revision(self, owner, project_id, revision):
         self.get(owner,project_id)
@@ -192,8 +207,11 @@ class SaveProjectRequest(BaseModel):
     expected_updated_at: str | None = Field(default=None,max_length=64)
 
 
-class DeleteProjectRequest(BaseModel):
-    confirmation_name: str = Field(max_length=120)
+class DeleteRevisionRequest(BaseModel):
+    confirmed: bool = False
+
+
+class DeleteProjectRequest(DeleteRevisionRequest):
     expected_updated_at: str = Field(max_length=64)
 
 
@@ -242,11 +260,15 @@ def install_project_store(app, repository=None):
 
     @app.delete('/api/projects/{project_id}')
     def delete(project_id: uuid.UUID,data: DeleteProjectRequest,request: Request):
-        return run(lambda:repository.delete(owner(request),str(project_id),data.confirmation_name,data.expected_updated_at))
+        return run(lambda:repository.delete(owner(request),str(project_id),data.confirmed,data.expected_updated_at))
 
     @app.get('/api/projects/{project_id}/revisions')
     def history(project_id: uuid.UUID,request: Request):
         return run(lambda:repository.revisions(owner(request),str(project_id)))
+
+    @app.delete('/api/projects/{project_id}/revisions/{revision}')
+    def delete_revision(project_id: uuid.UUID,revision: int,data: DeleteRevisionRequest,request: Request):
+        return run(lambda:repository.delete_revision(owner(request),str(project_id),revision,data.confirmed))
 
     @app.get('/api/projects/{project_id}/revisions/{revision}')
     def revision(project_id: uuid.UUID,revision: int,request: Request):

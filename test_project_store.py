@@ -56,14 +56,29 @@ class ProjectStoreTests(unittest.TestCase):
         self.assertEqual(len(self.repo.revisions('one',first['id'])['revisions']),2)
     def test_delete_confirmation_ownership_and_history_cleanup(self):
         first=self.repo.save('one',document());second=self.repo.save('one',document(),first['id'],1,create_revision=True,expected_updated_at=first['updated_at'])
-        for who,name,stamp,code in [('two',second['name'],second['updated_at'],404),('one','wrong',second['updated_at'],400),('one',second['name'],first['updated_at'],409)]:
+        for who,name,stamp,code in [('two',True,second['updated_at'],404),('one',False,second['updated_at'],400),('one',True,first['updated_at'],409)]:
             with self.assertRaises(HTTPException) as caught:self.repo.delete(who,first['id'],name,stamp)
             self.assertEqual(caught.exception.status_code,code)
-        self.assertTrue(self.repo.delete('one',first['id'],second['name'],second['updated_at'])['deleted'])
+        self.assertTrue(self.repo.delete('one',first['id'],True,second['updated_at'])['deleted'])
         self.assertEqual(self.repo.listing('one')['total'],0)
         with self.repo.connect() as db:
             self.assertEqual(db.execute('SELECT COUNT(*) AS total FROM nc_project_revisions').fetchone()['total'],0)
         with self.assertRaises(HTTPException):self.repo.get('one',first['id'])
+
+    def test_old_revision_deletion_preserves_current_and_numbering(self):
+        current=self.repo.save('one',document())
+        for revision in range(2,5):
+            current=self.repo.save('one',document('Revision '+str(revision)),current['id'],current['version'],create_revision=True,expected_updated_at=current['updated_at'])
+        for owner,revision,confirmed,code in [('two',1,True,404),('one',1,False,400),('one',4,True,400)]:
+            with self.assertRaises(HTTPException) as caught:self.repo.delete_revision(owner,current['id'],revision,confirmed)
+            self.assertEqual(caught.exception.status_code,code)
+        self.repo.delete_revision('one',current['id'],2,True)
+        self.assertEqual([x['revision'] for x in self.repo.revisions('one',current['id'])['revisions']],[4,3,1])
+        after=self.repo.get('one',current['id']);self.assertEqual(after['version'],4);self.assertEqual(after['updated_at'],current['updated_at'])
+        self.assertEqual(after['document']['name'],'Revision 4')
+        updated=self.repo.save('one',document('Still revision 4'),current['id'],4,expected_updated_at=current['updated_at'])
+        next_revision=self.repo.save('one',document('Revision 5'),current['id'],4,create_revision=True,expected_updated_at=updated['updated_at'])
+        self.assertEqual(next_revision['version'],5)
 
     def test_literal_search_and_account_listing(self):
         self.repo.save('one',document('Lab 100%'));self.repo.save('one',document('Other'));self.repo.save('two',document('Lab 100%'))
@@ -94,7 +109,11 @@ class ProjectStoreTests(unittest.TestCase):
             self.assertEqual(updated.status_code,200);self.assertEqual(updated.json()['version'],1)
             revised=client.put('/api/projects/'+pid,json={'document':document('Changed'),'version':1,'expected_updated_at':updated.json()['updated_at'],'create_revision':True})
             self.assertEqual(revised.json()['version'],2)
-            deleted=client.request('DELETE','/api/projects/'+pid,json={'confirmation_name':'Changed','expected_updated_at':revised.json()['updated_at']})
+            self.assertEqual(client.request('DELETE','/api/projects/'+pid+'/revisions/2',json={'confirmed':True}).status_code,400)
+            self.assertEqual(client.request('DELETE','/api/projects/'+pid+'/revisions/1',json={'confirmed':False}).status_code,400)
+            self.assertEqual(client.request('DELETE','/api/projects/'+pid+'/revisions/1',json={'confirmed':True}).status_code,200)
+            self.assertEqual(client.get('/api/projects/'+pid+'/revisions/1').status_code,404)
+            deleted=client.request('DELETE','/api/projects/'+pid,json={'confirmed':True,'expected_updated_at':revised.json()['updated_at']})
             self.assertEqual(deleted.status_code,200);self.assertEqual(client.get('/api/projects/'+pid).status_code,404)
         app=FastAPI();app.state.authentication=SimpleNamespace(enabled=False);install_project_store(app,ProjectRepository(database_url=''))
         with TestClient(app) as client:
