@@ -5671,7 +5671,8 @@ renderModule();
      design:{},
      moduleStates:Object.fromEntries(Object.entries(window.__workspaceModuleStates).map(([key,value])=>[key,{...value,fields:safeProjectFields(value.fields)}])),
      fields,
-     pathDiagnostics:window.NetworkPathDiagnostics?.snapshot()||null
+     pathDiagnostics:window.NetworkPathDiagnostics?.snapshot()||null,
+     networkDiscovery:window.__networkDiscoveryState||null
    };
 
    // Human-readable technology sections. "fields" remains the lossless restore layer.
@@ -5725,6 +5726,7 @@ renderModule();
  function store(){try{return JSON.parse(localStorage.getItem(STORE)||"{}")}catch(e){return {}}}
  function writeStore(s){localStorage.setItem(STORE,JSON.stringify(s));renderRecent();}
  function applyProject(data){
+   window.__networkDiscoveryState=data.networkDiscovery||null;
    window.__diagnosticEpoch=(window.__diagnosticEpoch||0)+1;
    window.__latestDiagnosticResult=null;
    if(window.NetworkPathDiagnostics)window.NetworkPathDiagnostics.restore(data.pathDiagnostics||null);else window.__pendingPathDiagnostics=data.pathDiagnostics||null;

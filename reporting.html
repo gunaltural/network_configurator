@@ -67,6 +67,7 @@
     </section>
   </div><section class="panel preview-panel"><h2>Report preview</h2><article class="paper" id="reportPreview" aria-label="Project report preview"></article></section></div>
 </div>
+<script src="/discovery-inventory.js"></script>
 <script src="/engineering-locale.js"></script>
 <script src="/vpc-report.js"></script>
 <script src="/engineering-report.js"></script>
@@ -297,7 +298,7 @@
     if(!Array.isArray(state.inventoryDeviceIds))return state.devices.filter(isInventoryRecord);
     const ids=new Set(state.inventoryDeviceIds);return state.devices.filter(d=>ids.has(d.id)&&isInventoryRecord(d));
   }
-  function reportRow(d){const pending=state.language==="tr"?"Atama bekliyor":"Awaiting assignment",external=state.language==="tr"?"Harici":"External",planned=state.language==="tr"?"Planlandı":"Planned",source=x=>state.language==="tr"?(x==="device"?"Cihazdan doğrulandı":x==="manual"?"Mühendis girişi":"Atama bekliyor"):labelSource(x);return `<tr><td>${esc(deviceName(d))}${d.observedHostname&&d.observedHostname!==deviceName(d)?`<br><strong>${esc(d.observedHostname)}</strong>`:""}</td><td>${esc(roleName(d))}</td><td>${esc(d.model||(d.external?external:pending))}</td><td>${esc(d.serial||(d.external?external:pending))}</td><td>${esc(d.softwareVersion||pending)}</td><td>${esc(d.external?(state.language==="tr"?"Harici eş":"External peer"):d.modelSource||d.serialSource?[...new Set([d.modelSource,d.serialSource,d.softwareSource].filter(Boolean).map(source))].join(" / "):planned)}</td></tr>`;}
+  function reportRow(d){const pending=state.language==="tr"?"Atama bekliyor":"Awaiting assignment",external=state.language==="tr"?"Harici":"External",planned=state.language==="tr"?"Planlandı":"Planned",source=x=>state.language==="tr"?(x==="device"?"Cihazdan doğrulandı":x==="manual"?"Mühendis girişi":"Atama bekliyor"):labelSource(x);return `<tr><td>${esc(deviceName(d))}${d.observedHostname&&d.observedHostname!==deviceName(d)?`<br><strong>${esc(d.observedHostname)}</strong>`:""}</td><td>${esc(roleName(d))}</td><td>${esc(d.model||(d.external?external:pending))}</td><td>${esc(d.serial||(d.external?external:pending))}</td><td>${esc(d.softwareVersion||pending)}</td><td>${esc(d.external?(state.language==="tr"?"Harici eş":"External peer"):d.modelSource||d.serialSource?[...new Set([d.modelSource,d.serialSource,d.softwareSource].filter(Boolean).map(source)) ].join(" / "):d.discoveryId?(state.language==="tr"?"Keşif · komşuluk kaydı":"Discovery · neighbor record"):planned)}</td></tr>`;}
   const localizedParameter=p=>NetworkLocale.localizeParameter(p,state.language);
   const reportParameters=()=>(state.parameters||[]).map(localizedParameter).filter((p,i,all)=>p.value!=="Design boundary"||all.findIndex(x=>x.label===p.label&&x.impact===p.impact)===i);
   let verificationSelected='';
@@ -686,7 +687,7 @@
 
   function reportInventorySnapshot(){
     return state.devices.map(d=>({id:d.id,tier:d.inventoryOnly?"upper":d.tier,index:d.inventoryOnly?1:d.index,
-      ...Object.fromEntries(["hostname","model","serial","modelSource","serialSource","softwareVersion","softwareSource","observedHostname","observedAt"].map(key=>[key,String(d[key]||"")])),
+      ...Object.fromEntries(["hostname","model","serial","modelSource","serialSource","softwareVersion","softwareSource","observedHostname","observedAt","discoveryId","discoveryIdentitySource"].map(key=>[key,String(d[key]||"")])),
       external:!!d.external,inventoryOnly:!!d.inventoryOnly}));
   }
   const filename=name=>name.replace(/[^\p{L}\p{N}_-]+/gu,"_").replace(/^_+|_+$/g,"").slice(0,70)||"network-report";
@@ -751,7 +752,7 @@
           for(const record of records){
             let target=p.devices.find(d=>(record.observedHostname||record.hostname)&&(d.hostname===record.observedHostname||d.hostname===record.hostname));
             if(!target){target={...record,id:`inventory-${crypto.randomUUID()}`,inventoryOnly:true,tier:"inventory"};p.devices.push(target);}
-            else for(const key of ["model","serial","softwareVersion","modelSource","serialSource","softwareSource","observedHostname","observedAt","target","sshUsername","sshPort","collectionMethod","inventoryChannel","maintenance"])target[key]=record[key];
+            else for(const key of ["model","serial","softwareVersion","modelSource","serialSource","softwareSource","observedHostname","observedAt","target","sshUsername","sshPort","collectionMethod","inventoryChannel","maintenance","discoveryId","discoveryIdentitySource"])target[key]=record[key];
             mapping.set(record.id,target.id);
           }
           p.inventoryDeviceIds=records.map(d=>mapping.get(d.id));
@@ -764,7 +765,7 @@
           normalizeInventoryProject(old);
           const previous=new Map(old.devices.map(d=>[d.id,d]));
           p.inventoryRevision=2;p.inventoryDeviceIds=old.inventoryDeviceIds;p.manualVisibleIds=old.manualVisibleIds;p.sshVisibleIds=old.sshVisibleIds;p.scope=old.scope||"";p.projectDetails=old.projectDetails||{};p.projectExampleValues=old.projectExampleValues||{fields:{}};p.name=p.name||old.name||"";
-          p.devices.forEach(d=>{const saved=previous.get(d.id);if(!saved)return;for(const k of ["inventoryRecord","inventoryChannel","model","serial","modelSource","serialSource","target","observedAt","softwareVersion","softwareSource","observedHostname","collectionMethod","sshUsername","sshPort"])d[k]=saved[k]||"";d.maintenance=saved.maintenance||{};d.inventoryWarnings=saved.inventoryWarnings||[];d.inventoryCommands=saved.inventoryCommands||[];});
+          p.devices.forEach(d=>{const saved=previous.get(d.id);if(!saved)return;for(const k of ["inventoryRecord","inventoryChannel","model","serial","modelSource","serialSource","target","observedAt","softwareVersion","softwareSource","observedHostname","collectionMethod","sshUsername","sshPort","discoveryId","discoveryIdentitySource"])d[k]=saved[k]||"";d.maintenance=saved.maintenance||{};d.inventoryWarnings=saved.inventoryWarnings||[];d.inventoryCommands=saved.inventoryCommands||[];});
           p.devices.push(...old.devices.filter(d=>d.inventoryOnly&&!p.devices.some(x=>x.id===d.id)));
           const priorLinks=new Map(old.links.map(l=>[l.id,l]));
           p.links.forEach(l=>{const saved=priorLinks.get(l.id);if(!saved)return;l.speed=saved.speed||"";if(!l.upperPort)l.upperPort=saved.upperPort||"";if(!l.lowerPort)l.lowerPort=saved.lowerPort||"";});
@@ -785,6 +786,10 @@
       else{state.inventoryRevision=2;syncTopology();renderEditor();}
     }
   }catch(err){console.error("Workspace report import failed",err);sessionStorage.removeItem("networkConfigurator.report.current");syncTopology();renderEditor();}
+  if(new URLSearchParams(location.search).get('discovery')==='1'){
+    const imported=sessionStorage.getItem('networkConfigurator.discovery.inventoryImport');
+    if(imported){try{const payload=JSON.parse(imported);const result=window.NetworkDiscoveryInventory.apply(state,payload);if(!state.name){const draft=JSON.parse(sessionStorage.getItem('networkConfigurator.workflow.design')||'null');state.name=draft?.project?.name||'';$("projectName").value=state.name;}inventoryMode="manual";$("inventoryMode").value="manual";renderEditor();renderReport();$("liveInventoryStatus").textContent=`Discovery: ${result.added} inventory records added · ${result.retained} existing discovery records retained.`;sessionStorage.removeItem('networkConfigurator.discovery.inventoryImport');}catch(error){$("liveInventoryStatus").textContent='Discovery import not applied: '+error.message;}}
+  }
 window.NetworkReportProject={snapshot:()=>JSON.parse(JSON.stringify(state)),apply:p=>openReport(p),rename:name=>{state.name=name;$("projectName").value=name;renderReport();}};
 })();
 </script>

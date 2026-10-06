@@ -28,6 +28,7 @@ from typing import List, Literal
 
 from fastapi import FastAPI, HTTPException, Request as WebRequest
 from inventory_excel import parse_inventory_xlsx
+from network_discovery import COMMANDS as DISCOVERY_COMMANDS, build_graph as build_discovery_graph
 from fastapi.responses import HTMLResponse, StreamingResponse, Response, JSONResponse
 from pydantic import BaseModel, Field
 import uvicorn
@@ -37,7 +38,7 @@ from authentication import install_authentication
 from project_store import install_project_store
 from config_compare import install_config_compare
 
-VERSION = "5.20.1"
+VERSION = "5.21.0"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
 # Keep the diagnostic entry point available with the authenticated page itself.
@@ -178,11 +179,37 @@ class DeviceRequest(BaseModel):
     verification_commands: str = ""
 
 
+
+class DiscoveryIdentity(BaseModel):
+    hostname: str = Field(default="", max_length=300)
+    model: str = Field(default="", max_length=300)
+    serial: str = Field(default="", max_length=300)
+    software_version: str = Field(default="", max_length=300)
+
+class DiscoverySource(BaseModel):
+    platform: Literal['Cisco IOS-XE', 'Cisco NX-OS', 'Arista EOS', 'Huawei_CE_SW', 'Huawei iStack']
+    protocol: Literal['lldp', 'cdp'] = 'lldp'
+    deviceName: str = Field(min_length=1, max_length=200)
+    target: str = Field(default='', max_length=253)
+    output: str = Field(max_length=200000)
+    observedAt: str = Field(default='', max_length=80)
+    origin: Literal['CLI import', 'SSH inventory / neighbors'] = 'CLI import'
+    identity: DiscoveryIdentity | None = None
+
+class DiscoveryParseRequest(BaseModel):
+    sources: List[DiscoverySource] = Field(min_length=1, max_length=50)
+
+class DiscoverySSHRequest(DeviceRequest):
+    protocol: Literal['lldp', 'cdp', 'both'] = 'lldp'
+
+
 class LiveCommandRequest(DeviceRequest):
     command: str = ""
 
 
 class ReportDevice(BaseModel):
+    discoveryId: str = Field(default="", max_length=100)
+    discoveryIdentitySource: str = Field(default="", max_length=500)
     inventoryOnly: bool = False
     id: str = Field(max_length=100)
     tier: Literal["upper", "lower"]
@@ -596,6 +623,79 @@ app = FastAPI(
     redoc_url=None,
 )
 install_authentication(app, BASE_DIR)
+
+@app.get('/network-discovery', response_class=HTMLResponse)
+def network_discovery_page():
+    page = (BASE_DIR / 'network-discovery.html').read_text(encoding='utf-8')
+    return HTMLResponse(page, headers={'Cache-Control':'no-store'})
+
+@app.get('/network-discovery.js')
+def network_discovery_script():
+    return Response((BASE_DIR / 'network-discovery.js').read_text(encoding='utf-8'), media_type='application/javascript', headers={'Cache-Control':'no-store'})
+
+@app.get('/discovery-inventory.js')
+def discovery_inventory_script():
+    return Response((BASE_DIR / 'discovery-inventory.js').read_text(encoding='utf-8'), media_type='application/javascript', headers={'Cache-Control':'no-store'})
+
+@app.post('/api/discovery/parse')
+def discovery_parse(p: DiscoveryParseRequest):
+    sources = [s.model_dump() for s in p.sources]
+    if sum(len(s['output']) for s in sources)>1500000:
+        raise HTTPException(400, 'Reduce imported discovery outputs to 1.5 million characters.')
+    now = datetime.now(timezone.utc).isoformat()
+    for s in sources:
+        s['observedAt'] = s['observedAt'] or now
+        if s['origin']=='CLI import': s['identity']=None
+    try:
+        graph = build_discovery_graph(sources)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    return {'graph':graph, 'sources':sources}
+
+@app.post('/api/discovery/collect')
+def discovery_collect(p: DiscoverySSHRequest):
+    if p.platform not in DISCOVERY_COMMANDS:
+        raise HTTPException(400, 'Discovery supports Cisco IOS-XE/NX-OS, Arista EOS and Huawei VRP/iStack.')
+    methods = list(DISCOVERY_COMMANDS[p.platform]) if p.protocol=='both' else [p.protocol]
+    if any(method not in DISCOVERY_COMMANDS[p.platform] for method in methods):
+        raise HTTPException(400, 'This platform does not support the selected discovery protocol.')
+    items = checks(p, include_config=False, live=True)
+    if not ok(items):
+        raise HTTPException(400, {'error':'SSH parameters are incomplete or target is blocked.', 'checks':items})
+    now = datetime.now(timezone.utc).isoformat()
+    if MOCK_SSH:
+        return {'sources':[], 'warnings':['Mock SSH: no neighbor data collected.'], 'mock':True}
+    conn = None
+    try:
+        conn, _ = connect(p, live=True)
+        outputs, warnings, truncated = {}, [], False
+        canonical = LIVE_PLATFORM_ALIASES.get(p.platform, p.platform)
+        # Fixed read-only commands; discovery never changes protocol configuration.
+        command_list = list(DISCOVERY_COMMANDS[p.platform][m] for m in methods) + list(INVENTORY_COMMANDS[canonical])
+        remaining = 300000
+        for command in dict.fromkeys(command_list):
+            try:
+                output = conn.send_command(command, read_timeout=30)
+                if LIVE_CLI_ERROR_RE.search(output): warnings.append(command+': command reported an error.')
+                limit = min(100000, remaining)
+                if len(output)>limit: truncated=True
+                outputs[command] = output[:limit]
+                remaining -= min(len(output), limit)
+            except Exception:
+                outputs[command] = ''
+                warnings.append(command+': command did not complete.')
+        identity = parse_inventory(canonical, outputs)
+        sources = [{'platform':p.platform,'protocol':m,'deviceName':identity.get('hostname') or p.target,'target':p.target,'output':outputs.get(DISCOVERY_COMMANDS[p.platform][m],''),'identity':identity,'origin':'SSH inventory / neighbors','observedAt':now} for m in methods]
+        if truncated: warnings.append('CLI output was truncated; discovery may be incomplete.')
+        return {'sources':sources,'warnings':warnings,'mock':False}
+    except Exception as exc:
+        raise HTTPException(502, {'error':'Discovery SSH connection failed: '+str(exc)}) from exc
+    finally:
+        if conn:
+            try: conn.disconnect()
+            except Exception: pass
+
+
 install_project_store(app)
 install_config_compare(app, BASE_DIR)
 

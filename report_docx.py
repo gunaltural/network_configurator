@@ -323,7 +323,7 @@ def build_report_docx(project):
         [words["device"], words["role"], words["model"], words["serial"], "Yazılım sürümü" if language == "tr" else "Software version", words["source"]],
         [1.4, .7, 1.3, 1.2, 1.1, 1.4],
         [[device_name(d) + ("\n" + d["observedHostname"] if d.get("observedHostname") and d["observedHostname"] != device_name(d) else ""), ("Envanter cihazı" if language == "tr" else "Inventory device") if d.get("inventoryOnly") else upper if d["tier"] == "upper" else lower, d["model"] or (words["external"] if d.get("external") else words["pending"]), d["serial"] or (words["external"] if d.get("external") else words["pending"]), d.get("softwareVersion") or words["pending"],
-          ("Harici eş" if language == "tr" else "External peer") if d.get("external") else " / ".join(dict.fromkeys(source(d.get(k)) for k in ("modelSource", "serialSource", "softwareSource") if d.get(k))) if d["modelSource"] or d["serialSource"] else words["planned"]]
+          ("Harici eş" if language == "tr" else "External peer") if d.get("external") else " / ".join(dict.fromkeys(source(d.get(k)) for k in ("modelSource", "serialSource", "softwareSource") if d.get(k))) if d["modelSource"] or d["serialSource"] else ("Keşif · komşuluk kaydı" if language == "tr" else "Discovery · neighbor record") if d.get("discoveryId") else words["planned"]]
          for d in inventory] or [["Henüz envanter kaydı yok; Inventory modülünden veri ekleyin." if language == "tr" else "No inventory records yet; add data in Inventory.", "", "", "", "", ""]],
     )
 
