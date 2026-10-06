@@ -37,7 +37,7 @@ from authentication import install_authentication
 from project_store import install_project_store
 from config_compare import install_config_compare
 
-VERSION = "5.19.1"
+VERSION = "5.19.2"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
 REPORTING_HTML = (BASE_DIR / "reporting.html").read_text(encoding="utf-8")

@@ -1,6 +1,6 @@
 # Config Compare
 
-Open **Projects → Config Compare**, or **Compare Config** beside the Technology Workspace configuration output. The menu item is active; no revision or lab is required.
+Open **Implementation & Validation → Config Compare**, or **Compare Config** beside the Technology Workspace configuration output. The menu item is active; no revision or lab is required.
 
 Each side accepts pasted/editable text, a UTF-8/UTF-16 configuration file, a current generated device configuration, or a device configuration stored in a Project Library revision. Old running/startup configs, exported backups and third-party configs can be compared independently of our project format and vendor. Saved revisions without stored reporting configurations can still be compared by uploading their exported CLI text. Loading a revision here does not restore or modify the active project.
 
