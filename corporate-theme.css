@@ -198,7 +198,7 @@ body.nc-pane-resizing{cursor:col-resize;user-select:none}
 @container nc-parameters (max-width:740px){
  #params.bgp-v39 .bgp-link-card{grid-template-columns:repeat(2,minmax(0,1fr))}
  #params.bgp-v39 .bgp-link-card h4{grid-column:1/-1;margin-bottom:6px}
- #params :is(.te-v39-grid,.evpn-vrf-grid,.evpn-feature-grid,.vpc-v42-two){grid-template-columns:minmax(0,1fr)}
+ #params :is(.te-v39-grid,.evpn-vrf-grid,.evpn-feature-grid,.vpc-v42-two),#params.bgp-v39 .te-v39-grid,#params.vpc-v42 .vpc-v42-two{grid-template-columns:minmax(0,1fr)}
 }
 @container nc-parameters (max-width:360px){
  #params :is(.param-grid,.mini-grid,.checks,.sd-grid,.bgp-card-grid){grid-template-columns:minmax(0,1fr)}
