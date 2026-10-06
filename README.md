@@ -93,6 +93,9 @@ The workspace models two physical members and 2–8 dual-attached leaves. Config
 member IDs/priorities, ring or chain links, direct MAD, STP, VLAN policy and every
 core/leaf port. Output selection separates standalone member preparation from
 shared logical-stack service configuration and individual leaf configurations.
+The core design output and report include both members’ stack-port bindings using
+planned IDs. Standalone preparation uses each current ID before renumbering.
+Deploy Config sends service configuration only after stack formation.
 Member preparation belongs to a console formation procedure with planned
 save/restart; the application does not perform a restart. Deploy Config supports
 the shared service and leaf phases. The Huawei adapter handles the direct MAD

@@ -5072,7 +5072,7 @@ const SimpleDeployEngine=(()=>{
 
   function generatedConfig(){
     const m=modules[tech];
-    return (m&&typeof m.generate==="function")?String(m.generate("config")||""):"";
+    return (m&&typeof m.generate==="function")?String(m.generate(tech==="VPC"&&platform()==="Huawei iStack"?"deploy":"config")||""):"";
   }
 
   function verificationCommands(){

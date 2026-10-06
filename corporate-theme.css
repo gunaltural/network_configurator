@@ -151,3 +151,12 @@ pre,.sd-cli{background:#f5f8fa;color:#214d68;border-color:#dce6ec;box-shadow:non
 .nc-nav-group>summary{font-size:12px;gap:10px;padding-right:12px}
 .nc-nav-sub.nc-module-context{color:#fff;background:#ffffff0a}
 .nc-nav-group .nc-menu-label{letter-spacing:.09em;color:#9fbdcb;padding-top:15px}
+
+/* Approved blue-gray direction: technology parameter entry panels only. */
+.layout .card:has(> #params){background:#cbd9e3;border-color:#afc3d0}
+#params :is(.device,.bgp-device-card,.bgp-link-card,.evpn-v431-card,.evpn-vrf-card,.vpc-v42-card,.te-v39-card,.sd-card,.check){background:#e0e9ef!important;border-color:#b6cad7!important}
+#params .section-title{background:#d5e2eb!important;color:#173f5d;border-color:#b6cad7}
+#params :is(label,.vpc-v42-sub,.vpc-leaf-th),#params details.vpc-v42-details summary{color:#455e70}
+#params :is(input:not([type=checkbox]),select,textarea){background:#fff;color:#343c44;border-color:#aebfcd}
+#params :is(input,select,textarea):focus{outline:2px solid #668da6;outline-offset:1px;border-color:#426f87}
+#params :is(input,select,textarea):disabled{background:#eff3f6;color:#637787}
