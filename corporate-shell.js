@@ -43,12 +43,57 @@
    document.addEventListener('click',e=>{if(small()&&document.body.classList.contains('nc-menu-open')&&!sidebar.contains(e.target)&&!toggle.contains(e.target)){document.body.classList.remove('nc-menu-open');updateToggle();}});
  }
  const dashboard=document.getElementById('v3Dashboard');
+ const workflowSteps=[
+  ['network','Network Design','Select technologies and vendor platforms. Define topology, links and engineering parameters.','Topology · device configurations · design decisions'],
+  ['inventory','Inventory','Add device records manually, from Excel or over SSH. Green-field inventory can be completed later.','Hostname · product model · serial number · software'],
+  ['design','Design and Reporting','Review the project brief, technology scope and selected verification evidence.','Customer report · Word / PDF'],
+  ['upgrade','Maintenance and Planning','Review lifecycle and software evidence, then prepare the upgrade and recovery plan.','Lifecycle review · maintenance window · upgrade / rollback plan']
+ ];
+ const workflowPanels=[];
+ function workflowPanel(){
+  const panel=document.createElement('section');panel.className='nc-project-flow';panel.setAttribute('aria-label','Project workflow');
+  const heading=document.createElement('div');heading.className='nc-flow-heading';heading.innerHTML='<div><span class="nc-flow-kicker">PROJECT WORKFLOW</span><h2>From network design to maintenance planning</h2></div><span class="nc-flow-note">Guided steps · move freely</span>';
+  const nav=document.createElement('nav');nav.className='nc-flow-steps';nav.setAttribute('aria-label','Project steps');
+  workflowSteps.forEach(([key,label],index)=>{const link=document.createElement('a');link.className='nc-flow-step';link.dataset.ncFlowStep=key;link.href=key==='network'?(reporting?'/?resume=1':'/?section=design'):'/reporting?view='+key;
+   if(!reporting&&key!=='network')link.dataset.ncWorkflowView=key;
+   link.innerHTML='<span class="nc-step">0'+(index+1)+'</span><span><strong>'+label+'</strong><small data-nc-flow-status></small></span>';
+   link.addEventListener('click',e=>{if(e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;if(key==='network'&&!reporting){e.preventDefault();startDesign();}else if(reporting&&key!=='network'){e.preventDefault();openView(key);}});nav.append(link);
+  });
+  const detail=document.createElement('div');detail.className='nc-flow-detail';detail.innerHTML='<div><strong data-nc-flow-title></strong><p data-nc-flow-purpose></p><small data-nc-flow-output></small></div><a class="nc-flow-next"></a>';
+  panel.append(heading,nav,detail);workflowPanels.push(panel);return panel;
+ }
+ let startGuidance=false;
+ if(reporting){document.querySelector('.maintenance-tabs')?.before(workflowPanel());}
+ else{
+  const chooser=workflowPanel();chooser.hidden=true;document.getElementById('v3TechGrid')?.before(chooser);
+  const workspaceFlow=workflowPanel();workspaceFlow.hidden=true;document.getElementById('v3WorkspaceHead')?.before(workspaceFlow);
+ }
+ function startDesign(){
+  if(reporting)return;
+  home.click();startGuidance=true;sidebar.querySelector('[data-nc-group="design"]').open=true;sync();
+  workflowPanels[0]?.scrollIntoView({behavior:'smooth',block:'start'});
+ }
+ function syncWorkflow(onDashboard,view){
+  const step=reporting?(view==='lifecycle'?'upgrade':view||'inventory'):'network';
+  let project;try{project=JSON.parse(sessionStorage.getItem('networkConfigurator.report.current')||'null');}catch{}
+  const ids=new Set(project?.inventoryDeviceIds||[]),records=(project?.devices||[]).filter(d=>ids.has(d.id));
+  const maintenanceRecords=records.filter(d=>Object.values(d.maintenance||{}).some(v=>typeof v==='string'&&v.trim()));
+  const statuses={network:!reporting&&!onDashboard?'Editing design':project?.source?'Design imported':'Choose technologies',inventory:records.length?records.length+' inventory records':'No inventory records',design:project?.source?'Design inputs available':'Report draft',upgrade:maintenanceRecords.length?maintenanceRecords.length+' planning records':'Planning available'};
+  workflowPanels.forEach((panel,index)=>{
+   panel.hidden=!reporting&&(index===0?!(onDashboard&&startGuidance):onDashboard);
+   panel.querySelectorAll('[data-nc-flow-step]').forEach(link=>{const active=link.dataset.ncFlowStep===step;if(active)link.setAttribute('aria-current','step');else link.removeAttribute('aria-current');link.querySelector('[data-nc-flow-status]').textContent=statuses[link.dataset.ncFlowStep];});
+   const position=workflowSteps.findIndex(([key])=>key===step),current=workflowSteps[position];
+   panel.querySelector('[data-nc-flow-title]').textContent='0'+(position+1)+' · '+current[1];panel.querySelector('[data-nc-flow-purpose]').textContent=current[2];panel.querySelector('[data-nc-flow-output]').textContent='Output: '+current[3];
+   const next=panel.querySelector('.nc-flow-next');next.hidden=position===3;const nextStep=workflowSteps[position+1];
+   if(nextStep){next.textContent='Continue to '+nextStep[1]+' →';next.href='/reporting?view='+nextStep[0];if(!reporting)next.dataset.ncWorkflowView=nextStep[0];next.onclick=reporting?e=>{e.preventDefault();openView(nextStep[0]);}:null;}
+  });
+ }
  if(dashboard){
    const heading=document.createElement('div');heading.className='nc-dashboard-heading';heading.innerHTML='<h1>Dashboard</h1><p>Project portfolio · network architecture, delivery and lifecycle planning.</p>';dashboard.prepend(heading);
    const overview=document.createElement('section');overview.className='nc-dashboard-overview';overview.innerHTML='<div class="nc-overview-card"><div class="nc-card-heading"><h2>Project overview</h2><span class="nc-overview-tag" id="ncProjectTag">Design</span></div><p class="nc-overview-description" id="ncProjectDescription"></p><div id="ncProjectMetrics"></div></div><div class="nc-overview-card"><h2>Engineering workflow</h2><p class="nc-overview-description">Move from network design to documented delivery.</p><button class="nc-workflow-row" type="button" data-nc-design-start><span class="nc-step">01</span><span><strong>Network Design</strong><small>Build topology and generate vendor-specific configuration.</small></span><span>›</span></button><a class="nc-workflow-row" href="/reporting?view=inventory"><span class="nc-step">02</span><span><strong>Device Inventory</strong><small>Import device records or collect them over SSH.</small></span><span>›</span></a><a class="nc-workflow-row" href="/reporting?view=design"><span class="nc-step">03</span><span><strong>Design and Reporting</strong><small>Record design decisions and selected CLI evidence.</small></span><span>›</span></a><a class="nc-workflow-row" href="/reporting?view=upgrade"><span class="nc-step">04</span><span><strong>Maintenance Planning</strong><small>Review lifecycle, software and upgrade requirements.</small></span><span>›</span></a></div>';
    heading.after(overview);
    const stats=document.createElement('section');stats.className='nc-dashboard-stats';stats.innerHTML=[['saved','Saved projects'],['topology','Topology devices'],['inventory','Inventory records'],['checks','Selected verification commands']].map(([key,label])=>'<div class="nc-overview-card"><span>'+label+'</span><b data-nc-stat="'+key+'">0</b></div>').join('');overview.after(stats);
-   dashboard.querySelector('[data-nc-design-start]').onclick=()=>{sidebar.querySelector('[data-nc-group="design"]').open=true;document.getElementById('v3TechGrid').scrollIntoView({behavior:'smooth',block:'start'});};
+   dashboard.querySelector('[data-nc-design-start]').onclick=startDesign;
  }
  function updateDashboard(){
    if(!dashboard)return;
@@ -84,13 +129,14 @@
    if(reporting)return;e.preventDefault();const key=document.querySelector('.tech.active')?.dataset.tech||'BASIC';openModule(key);document.querySelector('.tab[data-tab="'+link.dataset.ncTab+'"]')?.click();sync();
  });
  sidebar.querySelector('[data-nc-evidence]').onclick=e=>{if(reporting){e.preventDefault();openView('design');document.getElementById('verificationPanel')?.scrollIntoView({behavior:'smooth',block:'start'});}};
- sidebar.querySelector('[data-nc-start]').onclick=e=>{if(!reporting){e.preventDefault();home.click();sidebar.querySelector('[data-nc-group="design"]').open=true;document.getElementById('v3TechGrid').scrollIntoView({behavior:'smooth',block:'start'});}};
+ sidebar.querySelector('[data-nc-start]').onclick=e=>{if(!reporting){e.preventDefault();startDesign();}};
  sidebar.querySelector('[data-nc-projects]').onclick=e=>{if(!reporting){e.preventDefault();home.click();document.getElementById('v3RecentProjects').scrollIntoView({behavior:'smooth',block:'center'});}};
  let lastActiveGroup;
  function sync(){
    const onDashboard=!!dashboard?.classList.contains('show'),activeModule=document.querySelector('.tech.active')?.dataset.tech;
    const view=document.querySelector('.maintenance-tabs [aria-selected="true"]')?.dataset.view;
    const tab=document.querySelector('.tab.active')?.dataset.tab;
+   syncWorkflow(onDashboard,view);
    sidebar.querySelectorAll('.nc-nav-item').forEach(item=>{
      const active=item.hasAttribute('data-nc-home')?onDashboard:item.hasAttribute('data-nc-module')?false:item.hasAttribute('data-nc-view')?reporting&&item.dataset.ncView===view:item.hasAttribute('data-nc-tab')?!reporting&&!onDashboard&&item.dataset.ncTab===tab:false;
      if(active&&item.getAttribute('aria-current')!=='page')item.setAttribute('aria-current','page');else if(!active&&item.hasAttribute('aria-current'))item.removeAttribute('aria-current');
@@ -107,6 +153,7 @@
  document.querySelectorAll('.tech').forEach(el=>observer.observe(el,{attributes:true,attributeFilter:['class']}));
  document.querySelectorAll('.maintenance-tabs [data-view]').forEach(el=>observer.observe(el,{attributes:true,attributeFilter:['aria-selected']}));
  sync();
+ document.addEventListener('input',e=>{if(reporting&&!e.target.closest('.nc-project-flow'))syncWorkflow(false,document.querySelector('.maintenance-tabs [aria-selected="true"]')?.dataset.view);});
  const params=new URLSearchParams(location.search);
  if(!reporting&&params.get('section')==='projects')sidebar.querySelector('[data-nc-projects]').click();
  if(!reporting&&params.get('section')==='design')sidebar.querySelector('[data-nc-start]').click();

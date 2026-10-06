@@ -6232,6 +6232,7 @@ renderModule();
    }
  }
  function showCombineModal(){
+   workflowDestination="";
    resetManagementTargets();captureWorkspaceModule(tech);const modal=$("combineModal"),list=$("combineModuleList");
    const activePlatform=platform();
    const supportedPlatforms=key=>key==='VPC'?['Cisco NX-OS','Cisco IOS-XE','Arista EOS','Huawei_CE_SW','Huawei iStack']:key==='SDWAN'?['Cisco IOS-XE']:key==='EVPN'?['Cisco NX-OS','Arista EOS','Huawei_CE_SW']:['BASIC','VPC','STP'].includes(key)?['Cisco NX-OS','Cisco IOS-XE','Arista EOS','Huawei_CE_SW']:['Cisco NX-OS','Cisco IOS-XE','Arista EOS','Huawei_CE_SW','FortiGate'];
@@ -6266,16 +6267,23 @@ renderModule();
    const first=reports[0],configurations=[...configMap].map(([deviceId,text])=>({deviceId,text,source:"Technology Workspaces"}));
    return {schema:"network-configurator-report-v1",language:$("combineLanguage")?.value||"tr",name:project.project.name==="Untitled Network Project"?"":project.project.name,vendor:first.vendor,architecture:"module",technology:reports.map(r=>r.technology).join(" + "),techPlacement:"upper",roles:{upper:"Network device",lower:"Network device"},upperCount:devices.length,lowerCount:0,scope:"",devices:devices.map((d,i)=>({...d,tier:"upper",index:i+1})),links,specialLinks,parameters,configurations,moduleReports,topologySvg:first.topologySvg,topologyPng:first.topologyPng,source:{module:"COMBINED",modules:reports.map(r=>r.moduleKey),projectId:project.project.id||"active",generatedAt:new Date().toISOString()}};
  }
+ let workflowDestination="";
+ document.addEventListener("click",event=>{
+   const link=event.target.closest("[data-nc-workflow-view]");
+   if(!link||event.button!==0||event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;
+   event.preventDefault();showCombineModal();workflowDestination=link.dataset.ncWorkflowView;
+ });
  async function createCombinedReport(){
    const selected=[...document.querySelectorAll("#combineModuleList input:checked")].map(x=>x.value);if(!selected.length){$("combineError").textContent="Select at least one module.";return;}
    const button=$("combineCreate"),original=tech,status=$("combineError");button.disabled=true;button.textContent="Rapor hazırlanıyor…";status.className="combine-error progress";
    try{
+     sessionStorage.setItem("networkConfigurator.workflow.design",JSON.stringify(snapshot()));
      let reports;
      {
        captureWorkspaceModule(original);reports=[];for(let index=0;index<selected.length;index++){const key=selected[index];status.textContent=`${index+1}/${selected.length} · ${moduleLabel(key,window.__workspaceModuleStates[key]?.platform||platform())} hazırlanıyor…`;reports.push(await collectModuleReport(key,document.querySelector(`[data-report-platform="${key}"]`)?.value));}
        if(selected.includes('BASIC')&&selected.length>1){const rows=existingManagementTargets(reports);if(rows.length)reports=await applyManagementTargets(reports,rows);}
      }
-     status.textContent="Rapor sayfası açılıyor…";const payload=combineReports(reports);payload.topologySvg=NetworkReportGuide.designPresentation(payload).svg;payload.topologyPng=await workspaceTopologyPng(payload.topologySvg);sessionStorage.setItem("networkConfigurator.report.import",JSON.stringify(payload));closeCombineModal();window.location.assign("/reporting");
+     status.textContent="Rapor sayfası açılıyor…";const payload=combineReports(reports);payload.topologySvg=NetworkReportGuide.designPresentation(payload).svg;payload.topologyPng=await workspaceTopologyPng(payload.topologySvg);sessionStorage.setItem("networkConfigurator.report.import",JSON.stringify(payload));closeCombineModal();window.location.assign(workflowDestination?"/reporting?view="+workflowDestination:"/reporting");
    }
    catch(err){status.className="combine-error";status.textContent=`Rapor oluşturulamadı: ${err.message}`;openTech(original);document.querySelector("#combineModal .combine-card")?.scrollTo({top:9999,behavior:"smooth"});}
    finally{button.disabled=false;button.textContent="Seçilen Modüllerle Raporu Aç";}
@@ -6284,6 +6292,7 @@ renderModule();
    if(event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
    event.preventDefault();
    try{
+     sessionStorage.setItem("networkConfigurator.workflow.design",JSON.stringify(snapshot()));
      const payload=reportingDesign();
      if(payload){
        payload.verificationCommands=reportVerificationCommands();
@@ -6301,7 +6310,7 @@ renderModule();
      toast("Report import failed: "+err.message);
    }
  }
- $("combineCancel").addEventListener("click",closeCombineModal);$("combineCreate").addEventListener("click",createCombinedReport);$("combineModal").addEventListener("click",event=>{if(event.target===$("combineModal"))closeCombineModal();});
+ $("combineCancel").addEventListener("click",()=>{workflowDestination="";closeCombineModal();});$("combineCreate").addEventListener("click",createCombinedReport);$("combineModal").addEventListener("click",event=>{if(event.target===$("combineModal")){workflowDestination="";closeCombineModal();}});
  $("v3Dashboard").querySelector(".v3-report-card").addEventListener("click",openReporting);
  $("v3WorkspaceReportTopBtn").addEventListener("click",showCombineModal);
  $("v3WorkspaceReportBtn").addEventListener("click",showCombineModal);
@@ -6351,6 +6360,16 @@ renderModule();
  };
  // Save downloads a readable .json project file to the user's PC; browser storage is only for Recent Projects.
  renderRecent();
+ if(new URLSearchParams(location.search).get("resume")==="1"){
+   try{
+     const saved=JSON.parse(sessionStorage.getItem("networkConfigurator.workflow.design")||"null");
+     const report=JSON.parse(sessionStorage.getItem("networkConfigurator.report.current")||"null");
+     if(saved?.schema==="network-configurator-v3"){
+       if(report?.name&&report.source?.projectId===(saved.project?.id||"active"))saved.project.name=report.name;
+       applyProject(saved);
+     }
+   }catch(error){console.warn("Design resume unavailable",error);}
+ }
 
  // Keep V3 status current when legacy module buttons are used.
  document.addEventListener("click",e=>{
