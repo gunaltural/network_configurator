@@ -208,3 +208,20 @@ body.nc-pane-resizing{cursor:col-resize;user-select:none}
 .nc-panes-stacked .nc-pane-divider{display:none}
 @media(max-width:1099px){.nc-pane-divider{display:none}}
 @media print{.nc-pane-divider{display:none}}
+
+/* Unified light-blue application surfaces; dark navigation stays unchanged. */
+@media screen{
+:root{--bg:#cbd9e3;--panel:#e0e9ef;--panel2:#d6e3ec;--surface:#e0e9ef;--surface2:#d6e3ec;--line:#b5c9d6;--border:#b5c9d6}
+body>.v3-topbar,.shell>.nav{background:#e0e9ef}
+.v3-card,.v3-card:hover,.v3-recent-card,.panel,.card,.v3-health-card,.v3-empty,.topology,.nc-overview-card,.nc-dashboard-stats .nc-overview-card,.nc-workflow-row,.nc-workflow-row:hover{background:#e0e9ef}
+.v3-card .icon,.v3-report-next,.v3-report-card,.source-banner,.project-example,.project-group{background:#d6e3ec}
+.check,.device,.bgp-device-card,.bgp-link-card,.evpn-v431-card,.evpn-vrf-card,.vpc-v42-card,.te-v39-card,.topology-toolbar,.simple-deploy-head,.sd-card,.trouble-context div,.ssh-box{background:#d6e3ec!important}
+.bgp-svg-wrap,.vpc-svg-wrap{background:#e0e9ef}
+.bgp-site-box,.vpc-domain-box{fill:#edf4f8}
+button.btn,button.tab,.v3-btn,.button,.verify-picker-trigger{background:#edf4f8}
+input,select,textarea,.sd-card input,.sd-card select,.sd-card textarea,.topology-toolbar select,#params :is(input:not([type=checkbox]),select,textarea){background:#edf4f8}
+.verify-picker-trigger,.verify-picker-panel,.verify-groups,.verify-group,.verify-group-head,.verify-custom-group .verify-group-head,.verify-custom-group .verify-command,.verify-command-list{background:#e0e9ef}
+.inventory-scroll th,.source-banner,.combine-card,.combine-actions,.paper{background:#e0e9ef}
+.layout .card:has(.tab[data-tab="config"].active) #output,.layout .sd-cli,pre{background:#d6e3ec;color:#173f5d;border-color:#9fb9ca;box-shadow:inset 3px 0 0 #4382a6;scrollbar-color:#7c9caf #d6e3ec}
+.layout #output::selection,.layout .sd-cli::selection{background:#356783;color:#fff}
+}
