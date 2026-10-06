@@ -270,11 +270,31 @@ def build_report_docx(project):
             hyperlink.set(qn("r:id"), rel_id)
             run = OxmlElement("w:r")
             text = OxmlElement("w:t")
-            text.text = "Cisco dokümanı" if language == "tr" else "Cisco documentation"
+            text.text = "Üretici dokümanı" if language == "tr" else "Vendor documentation"
             run.append(text)
             hyperlink.append(run)
             paragraph.add_run(" — ")
             paragraph._p.append(hyperlink)
+    engineering = project.get("engineeringPlan")
+    if engineering:
+        doc.add_heading(engineering["title"], level=2)
+        doc.add_paragraph(engineering["introduction"])
+        headers = (["Arıza / işletim senaryosu", "Hizmet etkisi", "Kabul kriteri", "Seçilen kanıt / durum"]
+                   if language == "tr" else ["Failure / operational scenario", "Service impact", "Acceptance criterion", "Selected evidence / status"])
+        for section in engineering["sections"]:
+            doc.add_heading(section["title"], level=3)
+            for paragraph in section["paragraphs"]:
+                doc.add_paragraph(paragraph)
+            if section["scenarios"]:
+                _table(doc, headers, [1.3, 1.8, 2.1, 1.7],
+                       [(row["title"], row["impact"], row["acceptance"], row["evidence"] + "\n" + row["status"])
+                        for row in section["scenarios"]])
+
+        if engineering.get("sources"):
+            doc.add_heading("Protokol ve platform kaynakları" if language == "tr" else "Protocol and platform references", level=3)
+            for source in engineering["sources"]:
+                doc.add_paragraph(source["title"] + " — " + source["url"])
+
     decisions = [item for item in project.get("parameters", []) if item["value"] != "Design boundary"]
     design_notes = [item for item in project.get("parameters", []) if item["value"] == "Design boundary"]
     if decisions:

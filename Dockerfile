@@ -3,5 +3,5 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-COPY config_compare.py config-compare.html config-compare.js project_store.py project-library.js app.py authentication.py login.html report_docx.py inventory_excel.py web.html reporting.html engineering-locale.js design-checks.js vpc-report.js verification-plan.js corporate-theme.css corporate-shell.js huawei-istack.js ./
+COPY config_compare.py config-compare.html config-compare.js project_store.py project-library.js app.py authentication.py login.html report_docx.py inventory_excel.py web.html reporting.html engineering-locale.js engineering-report.js design-checks.js vpc-report.js verification-plan.js corporate-theme.css corporate-shell.js huawei-istack.js ./
 CMD ["python", "app.py"]

@@ -1,6 +1,6 @@
 # Rapor içeriği için kaynak ve örnek değerlendirmesi
 
-İnceleme tarihi: 6 Ekim 2026. Bu belge araştırma ve geliştirme önerisidir; aşağıdaki yeni rapor bölümleri henüz uygulamaya eklenmemiştir. Mevcut Reporting yapısı korunmaktadır.
+İnceleme tarihi: 6 Ekim 2026. Bu belge araştırma ve geliştirme değerlendirmesidir. 5.19.1 sürümünde A/B önerilerinin ilk uygulaması olan teknolojiye özgü işletim değerlendirmesi ve arıza/kabul matrisi eklendi. Adresleme/hizmet planı genişletmesi sonraki aşamadır. Mevcut Reporting yapısı korunmaktadır.
 
 ## Önerilen yön
 
@@ -128,4 +128,10 @@ Alanlar ilgili teknolojiye göre gösterilir; STP tasarımına VNI sütunu eklen
 
 Her aşamada TR/EN tutarlılığı, vendor doğruluğu, tek proje anlatımı, kullanıcı metinlerinin korunması, Save/Open geri yükleme ve Word tablo yapısı kontrol edilmelidir. Bir parametre değiştiğinde açıklama, çizelge ve kabul planı birlikte güncellenmelidir. Ürün/model/sürüm desteği kaynakla doğrulanmadan kesin uyumluluk iddiası yazılmamalıdır.
 
-Bu öneriler bir sonraki rapor geliştirmesinin kapsamını belirlemek içindir. Kaynakların metinleri rapora topluca kopyalanmayacak; proje girdilerinden üretilecek özgün içerik için referans olarak kullanılacaktır.
+Bu öneriler aşamalı rapor geliştirmesinin kapsamını belirlemek içindir. Kaynakların metinleri rapora topluca kopyalanmayacak; proje girdilerinden üretilecek özgün içerik için referans olarak kullanılacaktır.
+
+## 5.19.1 uygulama notu
+
+Sekiz modül ve desteklenen platformlar için üretilmiş konfigürasyon/model verisinden işletim açıklamaları ve kabul senaryoları oluşturulur. BGP Local Preference değerleri, ISP sayısı, OSPF area/ağ tipi, VNI sayısı, peer/stack bağlantıları ve seçili koruma ayarları açıklamayı etkiler. Mevcut parametre gerekçeleri ve kullanıcı proje metinleri korunur. Kabul matrisi yalnız seçilmiş Verification komutlarını kanıt olarak listeler; arıza testinin yapılmış olduğu iddia edilmez. Aynı veri modeli ekran/PDF görünümü ve Word tablolarında kullanılır. Yeni raporların ve rapor birleştirme ekranının varsayılan dili English'tir; açıkça kaydedilmiş Türkçe seçimi korunur.
+
+Ek protokol/platform kaynakları: [RFC 4271](https://www.rfc-editor.org/rfc/rfc4271), [RFC 2328](https://www.rfc-editor.org/rfc/rfc2328), [RFC 2474](https://www.rfc-editor.org/rfc/rfc2474), [RFC 7432](https://www.rfc-editor.org/rfc/rfc7432), [RFC 5905](https://www.rfc-editor.org/rfc/rfc5905), [Arista MLAG](https://www.arista.com/en/um-eos/eos-multi-chassis-link-aggregation), [Huawei M-LAG](https://info.support.huawei.com/info-finder/encyclopedia/en/M-LAG.html). Protokol temeli, belirli ürün/sürüm desteğinin onayı yerine geçmez.

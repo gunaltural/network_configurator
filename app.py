@@ -37,7 +37,7 @@ from authentication import install_authentication
 from project_store import install_project_store
 from config_compare import install_config_compare
 
-VERSION = "5.19.0"
+VERSION = "5.19.1"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
 REPORTING_HTML = (BASE_DIR / "reporting.html").read_text(encoding="utf-8")
@@ -262,6 +262,32 @@ class ReportTechnologyGuide(BaseModel):
     sources: List[ReportGuideSource] = Field(max_length=12)
 
 
+class ReportAcceptanceScenario(BaseModel):
+    title: str = Field(max_length=300)
+    impact: str = Field(max_length=2000)
+    acceptance: str = Field(max_length=2000)
+    evidence: str = Field(max_length=100000)
+    status: str = Field(max_length=100)
+
+
+class ReportEngineeringSection(BaseModel):
+    title: str = Field(max_length=300)
+    paragraphs: List[str] = Field(max_length=8)
+    scenarios: List[ReportAcceptanceScenario] = Field(max_length=8)
+
+
+class ReportEngineeringSource(BaseModel):
+    title: str = Field(max_length=300)
+    url: str = Field(pattern=r"^https://(?:[A-Za-z0-9-]+\.)*(?:rfc-editor\.org|cisco\.com|huawei\.com|arista\.com|fortinet\.com)/", max_length=600)
+
+
+class ReportEngineeringPlan(BaseModel):
+    title: str = Field(max_length=300)
+    introduction: str = Field(max_length=2000)
+    sections: List[ReportEngineeringSection] = Field(max_length=8)
+    sources: List[ReportEngineeringSource] = Field(default_factory=list, max_length=12)
+
+
 class ReportVerificationRecord(BaseModel):
     hostname: str = Field(max_length=255)
     vendor: str = Field(max_length=100)
@@ -300,6 +326,7 @@ class ReportWordRequest(BaseModel):
     designApproach: str = Field(default="", max_length=5000)
     topologyNarratives: List[ReportGuideSection] = Field(default_factory=list, max_length=8)
     technologyGuide: ReportTechnologyGuide | None = None
+    engineeringPlan: ReportEngineeringPlan | None = None
     projectInformation: List[ReportProjectInformation] = Field(default_factory=list, max_length=20)
     maintenanceNotes: List[ReportParameter] = Field(default_factory=list)
     moduleReports: List[ReportModuleSummary] = Field(default_factory=list, max_length=8)
@@ -583,6 +610,11 @@ def root():
 @app.get("/reporting", response_class=HTMLResponse)
 def reporting():
     return HTMLResponse(REPORTING_HTML, headers={"Cache-Control": "no-store"})
+
+
+@app.get('/engineering-report.js')
+def engineering_report_script():
+    return Response((BASE_DIR / 'engineering-report.js').read_text(encoding='utf-8'), media_type='application/javascript', headers={'Cache-Control':'no-store'})
 
 
 @app.get("/design-checks.js")
