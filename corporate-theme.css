@@ -220,3 +220,8 @@ body.nc-pane-resizing{cursor:col-resize;user-select:none}
 .layout .simple-deploy,.layout .verification-cli{grid-template-columns:minmax(0,1fr)}
 .layout .simple-deploy>*,.layout .verification-cli>*,.layout .sd-grid>*{min-width:0}
 .layout .simple-deploy-head,.layout .sd-card-head{flex-wrap:wrap}
+.layout #verifySelectedPreview{white-space:normal}
+.layout .verify-selected-editor{display:block;width:100%;min-width:0;box-sizing:border-box;background:transparent;color:#e2eff8;border:1px solid #365d74;border-radius:5px;padding:8px 9px;margin:0 0 7px;font:14px/1.65 Consolas,"Courier New",monospace}
+.layout .verify-selected-editor:last-child{margin-bottom:0}
+.layout .verify-selected-editor:hover{background:#1b3c51}
+.layout .verify-selected-editor:focus{background:#0c2130;border-color:#74b9df;outline:2px solid #74b9df;outline-offset:1px}

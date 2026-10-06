@@ -571,7 +571,8 @@ pre{
               </div>
             </div>
             <label for="verifySelectedPreview">Selected Commands</label>
-            <pre id="verifySelectedPreview" class="sd-cli verify-selected-preview" aria-label="Selected verification commands">No commands selected.</pre>
+            <div id="verifySelectedPreview" class="sd-cli verify-selected-preview" aria-label="Selected verification commands">No commands selected.</div>
+            <small class="live-help">Edit any selected command below, including IP addresses and interface names, before running.</small>
           </div>
           <div class="sd-actions"><button class="btn" id="verifyTest" type="button">Test Connection</button><button class="btn primary" id="verifyRun" type="button">Run Selected Commands</button><button class="btn" id="verifyCopy" type="button" disabled>Copy Output</button><button class="btn" id="verifyDownload" type="button" disabled>Download TXT</button></div>
           <div id="verifyStatus" class="sd-result neutral" role="status" aria-live="polite">Select the checks required for this validation window.</div>
@@ -5291,7 +5292,18 @@ const VerificationEngine=(()=>{
    return items;
  }
  function selectedCommands(){return [...document.querySelectorAll("#verifyGroups .verify-command")].filter(row=>row.querySelector(".verify-select")?.checked).map(row=>row.querySelector(".verify-command-editor")?.value.trim()).filter(Boolean);}
- function updatePreview(){const selected=selectedCommands();el("verifySelectedPreview").textContent=selected.length?selected.join("\n"):"No commands selected.";}
+ function updatePreview(){
+   const preview=el("verifySelectedPreview");preview.replaceChildren();
+   const rows=[...document.querySelectorAll("#verifyGroups .verify-command")].filter(row=>row.querySelector(".verify-select")?.checked);
+   if(!rows.length){preview.textContent="No commands selected.";return;}
+   for(const row of rows){
+     const source=row.querySelector(".verify-command-editor"),editor=document.createElement("input");
+     editor.type="text";editor.className="verify-selected-editor";editor.value=source.value;editor.spellcheck=false;
+     editor.setAttribute("aria-label",`Edit selected command: ${source.value}`);editor.title="Edit IP addresses or other command parameters";
+     editor.addEventListener("input",()=>{source.value=editor.value;row.querySelector(".verify-select").setAttribute("aria-label",`Select command: ${editor.value}`);clearOutput();el("verifyRun").disabled=!selectedCommands().length;});
+     preview.append(editor);
+   }
+ }
  function updateCount(){
    const all=[...document.querySelectorAll("#verifyGroups .verify-command .verify-select")],checked=all.filter(x=>x.checked);
    el("verifySelectedCount").textContent=`${checked.length} of ${all.length} selected`;
