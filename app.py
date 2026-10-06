@@ -37,9 +37,11 @@ from authentication import install_authentication
 from project_store import install_project_store
 from config_compare import install_config_compare
 
-VERSION = "5.20.0"
+VERSION = "5.20.1"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
+# Keep the diagnostic entry point available with the authenticated page itself.
+HTML = HTML.replace('<script src="/path-diagnostics.js" defer></script>', "").replace("</body>", "<script>" + (BASE_DIR / "path-diagnostics.js").read_text(encoding="utf-8") + "</script></body>")
 REPORTING_HTML = (BASE_DIR / "reporting.html").read_text(encoding="utf-8")
 
 REAL_DEPLOY = os.getenv("ENABLE_REAL_DEPLOY", "0").strip().lower() in {"1", "true", "yes", "on"}

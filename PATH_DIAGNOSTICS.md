@@ -1,6 +1,6 @@
 # Path Diagnostics — first draft (5.20.0)
 
-Open a Technology Workspace, choose **Troubleshooting**, and expand **Path Diagnostics** near the top. This is a flow-evidence workflow inspired by Cisco NWPI, not a connected NWPI implementation.
+Open a Technology Workspace, choose **Troubleshooting**, and click **Path Diagnostics · Open flow case** in the header. Direct entry: `/?workspace=BGP&tab=trouble&path=1`. This is a flow-evidence workflow inspired by Cisco NWPI, not a connected NWPI implementation.
 
 1. Start a flow case. Enter source, destination, protocol/ports, VRF/VPN, incident time/timezone and application symptom.
 2. Refresh planned connections to view current workspace design intent, including device names, ports and rates where modeled. This does not infer the forwarding path of the entered flow.
