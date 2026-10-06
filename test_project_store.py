@@ -75,6 +75,10 @@ class ProjectStoreTests(unittest.TestCase):
             with self.assertRaises(ValueError):normalize_document({**document(),**changes})
         payload=document();payload['design']['fields']['large']='a'*(4*1024*1024)
         with self.assertRaises(ValueError):normalize_document(payload)
+    def test_standalone_report_accepts_no_technology_source(self):
+        payload=document();payload['design']=None;payload['reporting']['source']=None
+        result=self.repo.save('one',payload)
+        self.assertTrue(result['has_reporting']);self.assertFalse(result['has_design'])
     def test_repository_survives_new_instance(self):
         first=self.repo.save('one',document());other=ProjectRepository(connect_factory=self.repo.connect_factory)
         self.assertEqual(other.get('one',first['id'])['name'],'Synthetic lab')

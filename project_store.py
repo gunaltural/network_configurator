@@ -36,7 +36,7 @@ def normalize_document(value):
     for part, keys in ((design,('workspace','moduleStates','fields')),(report,('source','projectDetails'))):
         if part:
             for key in keys:
-                if key in part and not isinstance(part[key],dict):
+                if key in part and not isinstance(part[key],dict) and not (key == 'source' and part[key] is None):
                     raise ValueError('Invalid project structure.')
     if report:
         for key in ('devices','moduleReports','inventoryDeviceIds'):

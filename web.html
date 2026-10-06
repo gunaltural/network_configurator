@@ -375,6 +375,7 @@ pre{
     <input id="v3ProjectName" class="v3-project" placeholder="Project name" aria-label="Project name">
     <button class="v3-btn" id="v3DashboardBtn">Home</button>
     <button class="v3-btn primary" id="v3SaveBtn">Save</button>
+    <button class="v3-btn" id="v3DownloadBtn">Download</button>
     <label class="v3-btn" style="margin:0">Open<input id="v3OpenFile" type="file" accept=".json,application/json" style="display:none"></label>
   </div>
 </div>
@@ -5750,7 +5751,7 @@ renderModule();
    const data=snapshot();data.project.id=currentProjectId;
    const s=store();s[currentProjectId]=data;writeStore(s);toast("Project saved: "+name);
  }
- function save(){
+ async function save(){
    let name=$("v3ProjectName").value.trim();
    if(!name || name==="Untitled Network Project"){
      name=prompt("Project name","Network Project");
@@ -5759,9 +5760,12 @@ renderModule();
    }
    if(!currentProjectId) currentProjectId="p_"+Date.now()+"_"+Math.random().toString(36).slice(2,7);
    const data=snapshot(); data.project.id=currentProjectId;
-   const s=store(); s[currentProjectId]=data; writeStore(s);
-   downloadProject(data,"json");
-   toast("JSON project saved to your PC");
+   const button=$("v3SaveBtn");button.disabled=true;
+   try{
+     if(!window.NetworkProjects)throw Error("Project storage is loading. Please retry.");
+     const result=await window.NetworkProjects.saveCurrent(data);
+     if(result){const s=store();s[currentProjectId]=data;writeStore(s);toast("Project saved · Revision "+result.version);}
+   }catch(error){alert("Project save failed: "+error.message);}finally{button.disabled=false;}
  }
  // Customer-facing design assessment: group only choices that materially affect
  // forwarding, resilience or operational controls. Device identities and ports
@@ -6335,7 +6339,7 @@ renderModule();
    });
  }
  $("v3SaveBtn").onclick=save;
- $("v3ProjectName").addEventListener("change",()=>{if(currentProjectId)save();});
+ $("v3DownloadBtn").onclick=()=>{try{window.NetworkProjects.downloadCurrent(snapshot());toast("Project downloaded to your PC");}catch(error){alert(error.message);}};
 
  function downloadProject(data,ext="ncproject"){
    const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
@@ -6360,7 +6364,7 @@ renderModule();
    }
    catch(err){alert("Project open failed: "+err.message);} e.target.value="";
  };
- // Save downloads a readable .json project file to the user's PC; browser storage is only for Recent Projects.
+ // Save updates server storage; Download exports a full project JSON file.
  renderRecent();
  document.addEventListener("nc-auth-expired",()=>{
    try{sessionStorage.setItem("networkConfigurator.workflow.design",JSON.stringify(snapshot()));}catch(error){console.warn("Draft checkpoint unavailable",error);}

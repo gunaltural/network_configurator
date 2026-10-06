@@ -260,8 +260,10 @@ as a working copy. Saves use optimistic version checks: an older browser tab can
 silently overwrite a newer saved revision. Records belong to the authenticated
 username; this initial release still uses the single configured account.
 
-Existing Save/Download project, Open project and browser Recent Projects remain
-available. Library saves are explicit, using **Project Library → Save**.
+Save in the design and reporting headers updates the server project in place,
+without increasing its revision number. Download exports a project JSON file to
+the local computer. Open project and browser Recent Projects remain available.
+Library saves are also available using **Project Library → Save**.
 Existing browser projects can be imported there without deleting local copies.
 Full project JSON export/import includes both design and reporting. Password,
 credential, secret and token fields are excluded; configuration and manually entered
