@@ -1,6 +1,8 @@
 (function(){
  'use strict';
  const reporting=!!document.getElementById('reportLanguage');
+ const comparison=!!document.getElementById('configCompare');
+ const main=!reporting&&!comparison;
  const icons={
  home:'<path d="M3 10 12 3l9 7v10H4V10"/><path d="M9 20v-7h6v7"/>',
  network:'<rect x="8" y="2" width="8" height="6" rx="1"/><rect x="2" y="16" width="7" height="6" rx="1"/><rect x="15" y="16" width="7" height="6" rx="1"/><path d="M12 8v5M5 16v-3h14v3"/>',
@@ -21,7 +23,7 @@
  const tabItem=(key,label,icon)=>item(label,icon,'data-nc-tab="'+key+'"','/?workspace=BASIC&tab='+key);
  const family=(label,keys)=>'<div class="nc-menu-label">'+label+'</div>'+keys.map(key=>{const label=modules.find(([id])=>id===key)[1];return item(label,key==='BASIC'?'settings':'network','data-nc-module="'+key+'"','/?workspace='+key);}).join('');
  sidebar.innerHTML='<a class="nc-brand" href="/"><span class="nc-brand-mark">NC</span><span>Network<br>Configurator<small>Engineering workspace</small></span></a><nav class="nc-menu" aria-label="Main navigation"><a href="/" class="nc-nav-item" data-nc-home>'+svg('home')+'<span>Dashboard</span></a>'
- +group('Projects','inventory','projects',item('Recent Projects','inventory','data-nc-projects','/?section=projects')+planned('Config Compare')+item('Start a Design','network','data-nc-start','/?section=design')+planned('Customers and Sites'))
+ +group('Projects','inventory','projects',item('Recent Projects','inventory','data-nc-projects','/?section=projects')+item('Config Compare','settings','data-nc-compare','/config-compare')+item('Start a Design','network','data-nc-start','/?section=design')+planned('Customers and Sites'))
  +group('Network Design','network','design',family('Routing & WAN',['BGP','OSPF','SDWAN'])+family('Switching & Fabric',['STP','VPC','EVPN'])+family('Network Services',['BASIC','QOS'])+tabItem('notes','Engineering Design Notes','report')+planned('Topology Library'))
  +group('Inventory','inventory','inventory',viewItem('inventory','Device Inventory','inventory')+item('Collect via SSH','network','data-nc-collection="automatic"','/reporting?view=inventory&collection=automatic')+item('Manual Entry & Excel','inventory','data-nc-collection="manual"','/reporting?view=inventory&collection=manual')+planned('Network Discovery'))
  +group('Implementation & Validation','settings','operations',tabItem('config','Device Configurations','settings')+tabItem('deploy','Configuration Deployment','upgrade')+tabItem('verify','Verification Commands','lifecycle')+tabItem('trouble','Troubleshooting','settings')+planned('Configuration Backups')+planned('Acceptance Tests')+planned('Diagnostic History'))
@@ -30,7 +32,7 @@
  +group('Roadmap','lifecycle','roadmap','<div class="nc-menu-label">Automation</div>'+planned('Scheduled Jobs')+planned('Network Workflows')+'<div class="nc-menu-label">Administration</div>'+planned('Application Settings')+planned('Users and Roles'))
  +'</nav><div class="nc-sidebar-foot">Network Configurator<br>Design · Deliver · Operate</div>';
  document.body.prepend(sidebar);
- const header=document.querySelector(reporting?'.shell>.nav':'.v3-topbar');
+ const header=document.querySelector(comparison?'.compare-topbar':reporting?'.shell>.nav':'.v3-topbar');
  const originalFetch=window.fetch.bind(window);
  let expiredNotice;
  window.fetch=async(...args)=>{
@@ -75,21 +77,21 @@
   const heading=document.createElement('div');heading.className='nc-flow-heading';heading.innerHTML='<div><span class="nc-flow-kicker">PROJECT WORKFLOW</span><h2>From network design to maintenance planning</h2></div><span class="nc-flow-note">Guided steps · move freely</span>';
   const nav=document.createElement('nav');nav.className='nc-flow-steps';nav.setAttribute('aria-label','Project steps');
   workflowSteps.forEach(([key,label],index)=>{const link=document.createElement('a');link.className='nc-flow-step';link.dataset.ncFlowStep=key;link.href=key==='network'?(reporting?'/?resume=1':'/?section=design'):'/reporting?view='+key;
-   if(!reporting&&key!=='network')link.dataset.ncWorkflowView=key;
+   if(main&&key!=='network')link.dataset.ncWorkflowView=key;
    link.innerHTML='<span class="nc-step">0'+(index+1)+'</span><span><strong>'+label+'</strong><small data-nc-flow-status></small></span>';
-   link.addEventListener('click',e=>{if(e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;if(key==='network'&&!reporting){e.preventDefault();startDesign();}else if(reporting&&key!=='network'){e.preventDefault();openView(key);}});nav.append(link);
+   link.addEventListener('click',e=>{if(e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;if(key==='network'&&main){e.preventDefault();startDesign();}else if(reporting&&key!=='network'){e.preventDefault();openView(key);}});nav.append(link);
   });
   const detail=document.createElement('div');detail.className='nc-flow-detail';detail.innerHTML='<div><strong data-nc-flow-title></strong><p data-nc-flow-purpose></p><small data-nc-flow-output></small></div><a class="nc-flow-next"></a>';
   panel.append(heading,nav,detail);workflowPanels.push(panel);return panel;
  }
  let startGuidance=false;
  if(reporting){document.querySelector('.maintenance-tabs')?.before(workflowPanel());}
- else{
+ else if(main){
   const chooser=workflowPanel();chooser.hidden=true;document.getElementById('v3TechGrid')?.before(chooser);
   const workspaceFlow=workflowPanel();workspaceFlow.hidden=true;document.getElementById('v3WorkspaceHead')?.before(workspaceFlow);
  }
  function startDesign(){
-  if(reporting)return;
+  if(!main)return;
   home.click();startGuidance=true;sidebar.querySelector('[data-nc-group="design"]').open=true;sync();
   workflowPanels[0]?.scrollIntoView({behavior:'smooth',block:'start'});
  }
@@ -98,14 +100,14 @@
   let project;try{project=JSON.parse(sessionStorage.getItem('networkConfigurator.report.current')||'null');}catch{}
   const ids=new Set(project?.inventoryDeviceIds||[]),records=(project?.devices||[]).filter(d=>ids.has(d.id));
   const maintenanceRecords=records.filter(d=>Object.values(d.maintenance||{}).some(v=>typeof v==='string'&&v.trim()));
-  const statuses={network:!reporting&&!onDashboard?'Editing design':project?.source?'Design imported':'Choose technologies',inventory:records.length?records.length+' inventory records':'No inventory records',design:project?.source?'Design inputs available':'Report draft',upgrade:maintenanceRecords.length?maintenanceRecords.length+' planning records':'Planning available'};
+  const statuses={network:main&&!onDashboard?'Editing design':project?.source?'Design imported':'Choose technologies',inventory:records.length?records.length+' inventory records':'No inventory records',design:project?.source?'Design inputs available':'Report draft',upgrade:maintenanceRecords.length?maintenanceRecords.length+' planning records':'Planning available'};
   workflowPanels.forEach((panel,index)=>{
-   panel.hidden=!reporting&&(index===0?!(onDashboard&&startGuidance):onDashboard);
+   panel.hidden=main&&(index===0?!(onDashboard&&startGuidance):onDashboard);
    panel.querySelectorAll('[data-nc-flow-step]').forEach(link=>{const active=link.dataset.ncFlowStep===step;if(active)link.setAttribute('aria-current','step');else link.removeAttribute('aria-current');link.querySelector('[data-nc-flow-status]').textContent=statuses[link.dataset.ncFlowStep];});
    const position=workflowSteps.findIndex(([key])=>key===step),current=workflowSteps[position];
    panel.querySelector('[data-nc-flow-title]').textContent='0'+(position+1)+' · '+current[1];panel.querySelector('[data-nc-flow-purpose]').textContent=current[2];panel.querySelector('[data-nc-flow-output]').textContent='Output: '+current[3];
    const next=panel.querySelector('.nc-flow-next');next.hidden=position===3;const nextStep=workflowSteps[position+1];
-   if(nextStep){next.textContent='Continue to '+nextStep[1]+' →';next.href='/reporting?view='+nextStep[0];if(!reporting)next.dataset.ncWorkflowView=nextStep[0];next.onclick=reporting?e=>{e.preventDefault();openView(nextStep[0]);}:null;}
+   if(nextStep){next.textContent='Continue to '+nextStep[1]+' →';next.href='/reporting?view='+nextStep[0];if(main)next.dataset.ncWorkflowView=nextStep[0];next.onclick=reporting?e=>{e.preventDefault();openView(nextStep[0]);}:null;}
   });
  }
  if(dashboard){
@@ -131,13 +133,14 @@
    for(const [label,value]of rows){const row=document.createElement('div');row.className='nc-project-metric';const key=document.createElement('span');key.textContent=label;const val=document.createElement('strong');val.textContent=String(value);row.append(key,val);metrics.append(row);}
  }
  function openModule(key){
-   if(reporting)return;
+   if(!main)return;
    const index=modules.findIndex(([id])=>id===key),card=document.querySelectorAll('#v3TechGrid>.v3-card')[index];if(card)card.click();
    document.body.classList.remove('nc-menu-open');sync();
  }
- sidebar.querySelectorAll('[data-nc-module]').forEach(link=>link.onclick=e=>{if(!reporting){e.preventDefault();openModule(link.dataset.ncModule);}});
+ sidebar.querySelectorAll('[data-nc-module]').forEach(link=>link.onclick=e=>{if(main){e.preventDefault();openModule(link.dataset.ncModule);}});
+ sidebar.querySelector('[data-nc-compare]').addEventListener('click',()=>{if(main)window.NetworkWorkspaceProject?.prepareCompare?.();else if(reporting){try{sessionStorage.setItem('networkConfigurator.compare.current',JSON.stringify(window.NetworkReportProject?.snapshot()));}catch{}}});
  const home=sidebar.querySelector('[data-nc-home]');
- if(!reporting)home.onclick=e=>{e.preventDefault();document.getElementById('v3DashboardBtn').click();document.body.classList.remove('nc-menu-open');sync();};
+ if(main)home.onclick=e=>{e.preventDefault();document.getElementById('v3DashboardBtn').click();document.body.classList.remove('nc-menu-open');sync();};
  function openView(key){
    const button=document.querySelector('[data-view="'+key+'"]');if(button)button.click();document.body.classList.remove('nc-menu-open');sync();
  }
@@ -146,11 +149,11 @@
    if(!reporting)return;e.preventDefault();openView('inventory');const field=document.getElementById('inventoryMode');field.value=link.dataset.ncCollection;field.dispatchEvent(new Event('change',{bubbles:true}));
  });
  sidebar.querySelectorAll('[data-nc-tab]').forEach(link=>link.onclick=e=>{
-   if(reporting)return;e.preventDefault();const key=document.querySelector('.tech.active')?.dataset.tech||'BASIC';openModule(key);document.querySelector('.tab[data-tab="'+link.dataset.ncTab+'"]')?.click();sync();
+   if(!main)return;e.preventDefault();const key=document.querySelector('.tech.active')?.dataset.tech||'BASIC';openModule(key);document.querySelector('.tab[data-tab="'+link.dataset.ncTab+'"]')?.click();sync();
  });
  sidebar.querySelector('[data-nc-evidence]').onclick=e=>{if(reporting){e.preventDefault();openView('design');document.getElementById('verificationPanel')?.scrollIntoView({behavior:'smooth',block:'start'});}};
- sidebar.querySelector('[data-nc-start]').onclick=e=>{if(!reporting){e.preventDefault();startDesign();}};
- sidebar.querySelector('[data-nc-projects]').onclick=e=>{if(!reporting){e.preventDefault();home.click();document.getElementById('v3RecentProjects').scrollIntoView({behavior:'smooth',block:'center'});}};
+ sidebar.querySelector('[data-nc-start]').onclick=e=>{if(main){e.preventDefault();startDesign();}};
+ sidebar.querySelector('[data-nc-projects]').onclick=e=>{if(main){e.preventDefault();home.click();document.getElementById('v3RecentProjects').scrollIntoView({behavior:'smooth',block:'center'});}};
  let lastActiveGroup;
  function sync(){
    const onDashboard=!!dashboard?.classList.contains('show'),activeModule=document.querySelector('.tech.active')?.dataset.tech;
@@ -158,14 +161,14 @@
    const tab=document.querySelector('.tab.active')?.dataset.tab;
    syncWorkflow(onDashboard,view);
    sidebar.querySelectorAll('.nc-nav-item').forEach(item=>{
-     const active=item.hasAttribute('data-nc-home')?onDashboard:item.hasAttribute('data-nc-module')?false:item.hasAttribute('data-nc-view')?reporting&&item.dataset.ncView===view:item.hasAttribute('data-nc-tab')?!reporting&&!onDashboard&&item.dataset.ncTab===tab:false;
+     const active=item.hasAttribute('data-nc-compare')?comparison:item.hasAttribute('data-nc-home')?onDashboard:item.hasAttribute('data-nc-module')?false:item.hasAttribute('data-nc-view')?reporting&&item.dataset.ncView===view:item.hasAttribute('data-nc-tab')?main&&!onDashboard&&item.dataset.ncTab===tab:false;
      if(active&&item.getAttribute('aria-current')!=='page')item.setAttribute('aria-current','page');else if(!active&&item.hasAttribute('aria-current'))item.removeAttribute('aria-current');
    });
    sidebar.querySelectorAll('.nc-nav-group').forEach(group=>{
      const active=!!group.querySelector('[aria-current="page"]');group.classList.toggle('nc-group-active',active);if(active&&lastActiveGroup!==group.dataset.ncGroup){sidebar.querySelectorAll('.nc-nav-group').forEach(other=>{other.open=other===group;});lastActiveGroup=group.dataset.ncGroup;}
    });
    if(onDashboard){if(lastActiveGroup){sidebar.querySelectorAll('.nc-nav-group').forEach(group=>group.open=false);lastActiveGroup=null;}updateDashboard();}
-   sidebar.querySelectorAll('[data-nc-module]').forEach(link=>link.classList.toggle('nc-module-context',!reporting&&!onDashboard&&link.dataset.ncModule===activeModule));
+   sidebar.querySelectorAll('[data-nc-module]').forEach(link=>link.classList.toggle('nc-module-context',main&&!onDashboard&&link.dataset.ncModule===activeModule));
  }
  const observer=new MutationObserver(sync);
  if(dashboard)observer.observe(dashboard,{attributes:true,attributeFilter:['class']});
@@ -175,17 +178,17 @@
  sync();
  document.addEventListener('input',e=>{if(reporting&&!e.target.closest('.nc-project-flow'))syncWorkflow(false,document.querySelector('.maintenance-tabs [aria-selected="true"]')?.dataset.view);});
  const params=new URLSearchParams(location.search);
- if(!reporting&&params.get('section')==='projects')sidebar.querySelector('[data-nc-projects]').click();
- if(!reporting&&params.get('section')==='design')sidebar.querySelector('[data-nc-start]').click();
+ if(main&&params.get('section')==='projects')sidebar.querySelector('[data-nc-projects]').click();
+ if(main&&params.get('section')==='design')sidebar.querySelector('[data-nc-start]').click();
  if(reporting&&maintenance.some(([key])=>key===params.get('view'))){
    openView(params.get('view'));const collection=params.get('collection');
    if(['manual','automatic'].includes(collection)){const field=document.getElementById('inventoryMode');field.value=collection;field.dispatchEvent(new Event('change',{bubbles:true}));}
  }
  if(reporting&&params.get('section')==='evidence'){openView('design');document.getElementById('verificationPanel')?.scrollIntoView({block:'start'});}
- if(!reporting){const requested=new URLSearchParams(location.search).get('workspace');if(modules.some(([key])=>key===requested))openModule(requested);const tab=params.get('tab');if(['config','deploy','verify','trouble','notes'].includes(tab)){if(!requested)openModule('BASIC');document.querySelector('.tab[data-tab="'+tab+'"]')?.click();}}
+ if(main){const requested=new URLSearchParams(location.search).get('workspace');if(modules.some(([key])=>key===requested))openModule(requested);const tab=params.get('tab');if(['config','deploy','verify','trouble','notes'].includes(tab)){if(!requested)openModule('BASIC');document.querySelector('.tab[data-tab="'+tab+'"]')?.click();}}
 
  // Keep technology panes adjustable without changing module controls or reports.
- if(!reporting){
+ if(main){
   const pane=document.getElementById('params')?.parentElement,grid=pane?.parentElement;
   if(grid?.classList.contains('grid')){
    grid.classList.add('nc-workspace-split');pane.id='ncParameterPane';

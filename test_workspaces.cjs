@@ -27,6 +27,7 @@ const reports=[];
    const report=w.__audit.reportingDesign();assert.ok(report,`${key}/${option.value}: report`);
    if(key==='SDWAN'&&!d.getElementById('sdHostname').value){assert.equal(report.configurations.length,0);assert.ok(report.parameters.some(p=>p.label==='Configuration pending'));}
    else assert.equal(report.configurations.length,report.devices.filter(x=>!x.external).length,`${key}/${option.value}: per-device configurations`);
+   const beforeCompare=w.__audit.snapshot();assert.equal(w.NetworkWorkspaceProject.prepareCompare(),true);const transferred=JSON.parse(w.sessionStorage.getItem('networkConfigurator.compare.current'));assert.deepEqual(transferred.configurations,JSON.parse(JSON.stringify(report.configurations)));assert.equal(w.__audit.snapshot().workspace.technology,beforeCompare.workspace.technology);assert.equal(d.getElementById('platform').value,option.value);
    reports.push({...report,moduleKey:key,moduleTitle:report.technology});
    for(const parameter of report.parameters||[])if(parameter.impact)assert.notEqual(w.NetworkLocale.localizeParameter(parameter,'tr').impact,parameter.impact,`${key}/${option.value}: untranslated ${parameter.label}`);
    change('designNotesLanguage','tr');await pause();assert.ok(d.getElementById('output').textContent.includes('Tasarım kararları ve mühendislik notları'));assert.ok(!d.getElementById('output').textContent.includes('Selected design:'));

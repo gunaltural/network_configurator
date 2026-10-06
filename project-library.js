@@ -55,6 +55,7 @@ $('[data-library-export]').onclick=()=>{try{exportFile();}catch(error){status(er
 function restore(document,{destination,workingCopy=false}={}){
  validateBundle(document);
  document=clean(document);
+ sessionStorage.removeItem('networkConfigurator.compare.current');
  for(const key of Object.keys(sessionStorage)){if(key.startsWith("networkConfigurator.report.edit."))sessionStorage.removeItem(key);}
  if(document.design?.project)document.design.project.name=document.name;if(document.reporting)document.reporting.name=document.name;
  if(workingCopy){reset();independentIdentity(document);}

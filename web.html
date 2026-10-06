@@ -617,6 +617,7 @@ pre{
         <pre id="output"></pre>
         <div class="actions" id="outputActions">
           <button class="btn" onclick="copyOut()">Copy</button>
+          <button class="btn" type="button" onclick="if(window.NetworkWorkspaceProject.prepareCompare())location.assign('/config-compare')">Compare Config</button>
           <button class="btn" onclick="downloadOut()">TXT indir</button>
         </div>
       </section>
@@ -5722,6 +5723,7 @@ renderModule();
  function store(){try{return JSON.parse(localStorage.getItem(STORE)||"{}")}catch(e){return {}}}
  function writeStore(s){localStorage.setItem(STORE,JSON.stringify(s));renderRecent();}
  function applyProject(data){
+   sessionStorage.removeItem("networkConfigurator.compare.current");
    const meta=data.project&&typeof data.project==="object"?data.project:null;
    $("v3ProjectName").value=meta?.name||data.project||"Untitled Network Project";
    currentProjectId=meta?.id||data.id||null;
@@ -6391,7 +6393,15 @@ renderModule();
    if(!b)return;
    setTimeout(()=>{dashboard.classList.remove("show");workspace.style.display="flex";health.style.display="grid";$("v3CurrentTech").textContent=technologyLabel(b.dataset.tech,platform());updateHealth();},0);
  });
-window.NetworkWorkspaceProject={snapshot,apply:applyProject,rename:name=>{$("v3ProjectName").value=name;}};
+function prepareCompare(){
+ try{
+  const design=snapshot(),report=reportingDesign();
+  sessionStorage.setItem("networkConfigurator.workflow.design",JSON.stringify(design));
+  sessionStorage.setItem("networkConfigurator.compare.current",JSON.stringify({name:design.project.name,vendor:report.vendor,devices:report.devices,configurations:report.configurations}));
+  return true;
+ }catch(error){sessionStorage.removeItem("networkConfigurator.compare.current");toast("Unable to prepare configurations: "+error.message);return false;}
+}
+window.NetworkWorkspaceProject={snapshot,apply:applyProject,prepareCompare,rename:name=>{$("v3ProjectName").value=name;}};
 })();
 </script>
 

@@ -35,8 +35,9 @@ from report_docx import build_report_docx
 from docx.image.exceptions import UnrecognizedImageError
 from authentication import install_authentication
 from project_store import install_project_store
+from config_compare import install_config_compare
 
-VERSION = "5.18.6"
+VERSION = "5.19.0"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
 REPORTING_HTML = (BASE_DIR / "reporting.html").read_text(encoding="utf-8")
@@ -567,6 +568,7 @@ app = FastAPI(
 )
 install_authentication(app, BASE_DIR)
 install_project_store(app)
+install_config_compare(app, BASE_DIR)
 
 @app.get('/project-library.js')
 def project_library_script():

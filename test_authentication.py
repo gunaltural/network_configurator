@@ -25,9 +25,10 @@ class AuthenticationTests(unittest.TestCase):
         return self.client.post('/auth/login', headers=self.origin, json={'username':'engineer','password':password, **extra})
 
     def test_gate_and_health(self):
-        for route in ('/', '/reporting', '/corporate-shell.js', '/openapi.json'):
+        for route in ('/', '/reporting', '/config-compare', '/config-compare.js', '/corporate-shell.js', '/openapi.json'):
             self.assertEqual(self.client.get(route).status_code,303)
         self.assertEqual(self.client.post('/api/device/show', headers=self.origin).status_code,401)
+        self.assertEqual(self.client.post('/api/config-compare', headers=self.origin).status_code,401)
         self.assertEqual(self.client.get('/healthz').json(), {'ok':True})
         self.assertEqual(self.client.get('/login').status_code,200)
 
