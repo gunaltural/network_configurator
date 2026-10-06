@@ -395,7 +395,6 @@ pre{
 
 <div class="v3-workspace-head" id="v3WorkspaceHead" style="display:none">
   <div class="v3-breadcrumb">Project / <strong id="v3CurrentTech">Technology</strong></div>
-  <div class="v3-head-report" id="v3HeadReport" hidden><span class="v3-next-caption">NEXT STEP · DOCUMENTATION</span><button type="button" id="v3WorkspaceReportTopBtn" class="v3-workspace-report-action">Maintenance and Reporting <span aria-hidden="true">→</span></button></div>
 </div>
 <div class="v3-health" id="v3Health" style="display:none">
   <div class="v3-health-card"><b id="v3DeviceCount">—</b><span>DEVICES</span></div>
@@ -455,7 +454,6 @@ pre{
       <section class="card">
         <h3>01 · Parameters</h3>
         <div id="params"></div>
-        <div id="v3ReportNext" class="v3-report-next" hidden><div><strong>Design ready?</strong><p>Carry this topology, connections and device configurations into the report.</p></div><button type="button" id="v3WorkspaceReportBtn" class="v3-workspace-report-action">Maintenance and Reporting <span aria-hidden="true">→</span></button></div>
       </section>
 
       <section class="card">
@@ -5602,9 +5600,6 @@ renderModule();
    b.click();
    dashboard.classList.remove("show"); workspace.style.display="flex"; health.style.display="grid";
    $("v3CurrentTech").textContent=technologyLabel(normalized,platform());
-   const reportable=["BASIC","BGP","OSPF","STP","VPC","EVPN","QOS","SDWAN"].includes(normalized);
-   $("v3HeadReport").hidden=!reportable;
-   $("v3ReportNext").hidden=!reportable;
    updateHealth();
    window.scrollTo({top:0,behavior:"smooth"});
  }
@@ -6317,8 +6312,6 @@ renderModule();
  }
  $("combineCancel").addEventListener("click",()=>{workflowDestination="";closeCombineModal();});$("combineCreate").addEventListener("click",createCombinedReport);$("combineModal").addEventListener("click",event=>{if(event.target===$("combineModal")){workflowDestination="";closeCombineModal();}});
  $("v3Dashboard").querySelector(".v3-report-card").addEventListener("click",openReporting);
- $("v3WorkspaceReportTopBtn").addEventListener("click",showCombineModal);
- $("v3WorkspaceReportBtn").addEventListener("click",showCombineModal);
  function renderRecent(){
    const box=$("v3RecentProjects");if(!box)return;
    const arr=Object.values(store()).sort((a,b)=>{
