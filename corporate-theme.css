@@ -89,10 +89,12 @@ label,.sd-card label{color:#657480;font-size:12px;font-weight:600;letter-spacing
 .verify-picker-trigger,.verify-picker-panel,.verify-groups,.verify-group,.verify-group-head,.verify-custom-group .verify-group-head,.verify-custom-group .verify-command{background:#f8fbfd;border-color:#d4e2ea;color:#344b5b}
 .verify-picker-trigger:hover,.verify-picker-trigger[aria-expanded=true]{background:#edf5f9;border-color:#7ba8bf}
 .verify-picker-panel{box-shadow:0 12px 28px #193c5024}.verify-picker-label,.verify-picker-summary,.verify-group-head label,.verify-group-head span,.verify-toolbar .verify-count{color:#456579}
-.sd-card .verify-command{background:#fff;color:#184e68}.sd-card .verify-command:hover{background:#eff5f8}
-.sd-card .verify-command-editor,.sd-card .verify-command-editor::placeholder{background:transparent;color:#214d68;font-family:Consolas,"Courier New",monospace;font-size:14px}
-.verify-command-editor:hover,.verify-command-editor:focus{background:#edf5f9}
-.verify-command-list{background:#e5edf2}.verify-select{accent-color:#0c6587}
+.sd-card .verify-command{background:#112b3c;color:#e2eff8}.sd-card .verify-command:hover{background:#1b3c51}
+.sd-card .verify-command-editor,.sd-card .verify-command-editor::placeholder{background:transparent;color:#e2eff8;font-family:Consolas,"Courier New",monospace;font-size:14px}
+.sd-card .verify-command-editor::placeholder{opacity:.8}
+.sd-card .verify-command-editor:hover,.sd-card .verify-command-editor:focus{background:#0c2130;border-color:#74b9df}
+.verify-command-list{background:#365d74}.verify-select{accent-color:#0c6587}
+.sd-card .verify-command .verify-select{accent-color:#67c6ed}
 .verify-groups::-webkit-scrollbar-track{background:#eff4f7}.verify-groups::-webkit-scrollbar-thumb{background:#b8cbd7;border-color:#eff4f7}
 pre,.sd-cli{background:#f5f8fa;color:#214d68;border-color:#dce6ec;box-shadow:none;font-family:Consolas,"Courier New",monospace;font-size:14px;border-radius:9px;padding:18px}
 .sd-result{background:#f5f8fa;color:#496477;border-color:var(--line)}
