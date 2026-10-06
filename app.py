@@ -37,7 +37,7 @@ from authentication import install_authentication
 from project_store import install_project_store
 from config_compare import install_config_compare
 
-VERSION = "5.19.2"
+VERSION = "5.20.0"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
 REPORTING_HTML = (BASE_DIR / "reporting.html").read_text(encoding="utf-8")
@@ -610,6 +610,11 @@ def root():
 @app.get("/reporting", response_class=HTMLResponse)
 def reporting():
     return HTMLResponse(REPORTING_HTML, headers={"Cache-Control": "no-store"})
+
+
+@app.get('/path-diagnostics.js')
+def path_diagnostics_script():
+    return Response((BASE_DIR / 'path-diagnostics.js').read_text(encoding='utf-8'), media_type='application/javascript', headers={'Cache-Control':'no-store'})
 
 
 @app.get('/engineering-report.js')

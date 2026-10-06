@@ -362,6 +362,7 @@ pre{
 </style>
 <link rel="stylesheet" href="/corporate-theme.css">
 <script src="/corporate-shell.js" defer></script>
+<script src="/path-diagnostics.js" defer></script>
 <script src="/project-library.js" defer></script>
 <script src="/huawei-istack.js"></script>
 </head>
@@ -5427,7 +5428,7 @@ const TroubleshootingEngine=(()=>{
  async function activate(){const workspace=canonical(platform()),workspaceKey=`${tech}|${platform()}`;if(connectionWorkspace!==workspaceKey){if([...el("troublePlatform").options].some(x=>x.value===platform()))el("troublePlatform").value=platform();connectionWorkspace=workspaceKey;}const vendor=canonical(el("troublePlatform").value),nextSignature=`${tech}|${vendor}`;[["sdTarget","verifyTarget","troubleTarget"],["sdPort","verifyPort","troublePort"],["sdUsername","verifyUsername","troubleUsername"],["sdPassword","verifyPassword","troublePassword"],["sdSecret","verifySecret","troubleSecret"]].forEach(ids=>{const value=ids.map(id=>el(id)?.value).find(Boolean)||"";ids.forEach(id=>{if(el(id))el(id).value=value;});});el("troublePlatformTitle").textContent=el("troublePlatform").value.toUpperCase();el("troubleModuleBadge").textContent=modules[tech]?.title||tech;renderEvidence();renderSymptom();if(!catalog){if(loading)return loading;status("Loading diagnostic command catalog…","busy");loading=(async()=>{try{const response=await fetch("/api/device/commands");if(!response.ok)throw new Error(`HTTP ${response.status}`);catalog=(await response.json()).platforms;signature=nextSignature;renderCommands();status("Select the commands required for this diagnostic step.");}catch(error){status(`Diagnostic catalog unavailable: ${error.message}`,"fail");}finally{loading=null;}})();return loading;}if(signature!==nextSignature){signature=nextSignature;renderCommands();}status("Select the commands required for this diagnostic step.");}
  function connectionPayload(){return {target:el("troubleTarget").value.trim(),port:Number(el("troublePort").value),platform:el("troublePlatform").value,username:el("troubleUsername").value.trim(),password:el("troublePassword").value,secret:el("troubleSecret").value};}
  async function testConnection(){const button=el("troubleTest"),p=connectionPayload();button.disabled=true;button.textContent="Testing…";status(`Connecting to ${p.target||"device"}…`,"busy");try{const response=await fetch("/api/device/test",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(p)});const data=await response.json();if(!response.ok)throw new Error(data.detail?.error||data.error||`HTTP ${response.status}`);const lines=(data.steps||[]).map(x=>`${x.status==="PASS"?"✓":x.status==="WARN"?"!":"✗"} ${x.name}${x.detail?`: ${x.detail}`:""}`);status(lines.join("\n")||"Connection test successful.","pass");}catch(error){status(`✗ Connection failed\n${error.message}`,"fail");}finally{button.disabled=false;button.textContent="Test Connection";}}
- async function run(){const commands=selected();if(!commands.length)return;lastOutput="";lastCommands=[];el("troubleCopy").disabled=true;el("troubleDownload").disabled=true;const p={...connectionPayload(),command:commands.join("\n")},button=el("troubleRun");button.disabled=true;button.textContent="Running Diagnostics…";status(`Running ${commands.length} diagnostic commands on ${p.target}…`,"busy");try{const response=await fetch("/api/device/show",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(p)});const data=await response.json();if(!response.ok)throw new Error(data.detail?.error||data.error||`HTTP ${response.status}`);lastOutput=data.output||"";lastCommands=commands;el("troubleOutput").textContent=lastOutput||"(Commands returned no output.)";el("troubleCopy").disabled=!lastOutput;el("troubleDownload").disabled=!lastOutput;const failed=(data.results||[]).filter(x=>!x.ok).length;status(`${data.mock?"MOCK output · ":""}${data.device} · ${commands.length} diagnostics · ${commands.length-failed} completed${failed?` · ${failed} command errors`:""}${data.truncated?" · output truncated at 1 MB":""}`,failed||data.truncated?"warn":"pass");}catch(error){el("troubleOutput").textContent="No diagnostic output received.";status(`Troubleshooting failed: ${error.message}`,"fail");}finally{button.disabled=false;button.textContent="Run Selected Commands";}}
+ async function run(){const commands=selected();if(!commands.length)return;window.__latestDiagnosticResult=null;lastOutput="";lastCommands=[];el("troubleCopy").disabled=true;el("troubleDownload").disabled=true;const runEpoch=window.__diagnosticEpoch||0,runModule=tech,p={...connectionPayload(),command:commands.join("\n")},button=el("troubleRun");button.disabled=true;button.textContent="Running Diagnostics…";status(`Running ${commands.length} diagnostic commands on ${p.target}…`,"busy");try{const response=await fetch("/api/device/show",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(p)});const data=await response.json();if(!response.ok)throw new Error(data.detail?.error||data.error||`HTTP ${response.status}`);if((window.__diagnosticEpoch||0)===runEpoch)window.__latestDiagnosticResult={module:runModule,platform:p.platform,target:p.target,observedAt:new Date().toISOString(),results:data.results||[],mock:!!data.mock,truncated:!!data.truncated};lastOutput=data.output||"";lastCommands=commands;el("troubleOutput").textContent=lastOutput||"(Commands returned no output.)";el("troubleCopy").disabled=!lastOutput;el("troubleDownload").disabled=!lastOutput;const failed=(data.results||[]).filter(x=>!x.ok).length;status(`${data.mock?"MOCK output · ":""}${data.device} · ${commands.length} diagnostics · ${commands.length-failed} completed${failed?` · ${failed} command errors`:""}${data.truncated?" · output truncated at 1 MB":""}`,failed||data.truncated?"warn":"pass");}catch(error){el("troubleOutput").textContent="No diagnostic output received.";status(`Troubleshooting failed: ${error.message}`,"fail");}finally{button.disabled=false;button.textContent="Run Selected Commands";}}
  function bind(){el("troubleSymptom").addEventListener("change",()=>{const list=symptomCatalog[tech]||genericSymptoms,item=list.find(x=>x[0]===el("troubleSymptom").value);el("troubleGuidance").textContent=item?.[2]||"";el("troubleSymptomState").textContent=item?.[1]||"Not selected";renderCommands();});[["sdTarget","verifyTarget","troubleTarget"],["sdPort","verifyPort","troublePort"],["sdUsername","verifyUsername","troubleUsername"],["sdPassword","verifyPassword","troublePassword"],["sdSecret","verifySecret","troubleSecret"]].forEach(ids=>ids.forEach(id=>el(id)?.addEventListener("input",()=>{const value=el(id).value;ids.forEach(other=>{if(other!==id&&el(other))el(other).value=value;});if(id==="troubleTarget")el("troubleDevice").textContent=value.trim()||"Not connected";})));el("troublePlatform").addEventListener("change",()=>{el("verifyPlatform").value=el("troublePlatform").value;el("troublePlatformTitle").textContent=el("troublePlatform").value.toUpperCase();signature="";renderCommands();});el("troubleSelectAll").addEventListener("click",()=>{document.querySelectorAll("#troubleCommandGroups .verify-select:not(:disabled)").forEach(x=>x.checked=true);updateSelection();});el("troubleClearAll").addEventListener("click",()=>{document.querySelectorAll("#troubleCommandGroups .verify-select").forEach(x=>x.checked=false);updateSelection();});el("troubleTest").addEventListener("click",testConnection);el("troubleRun").addEventListener("click",run);el("troubleCopy").addEventListener("click",async()=>{if(lastOutput)try{await navigator.clipboard.writeText(lastOutput);status("Diagnostic output copied.","pass");}catch{status("Copy failed.","fail");}});el("troubleDownload").addEventListener("click",()=>{if(!lastOutput)return;const notes=`Probable cause: ${el("troubleProbableCause").value}\nRoot cause: ${el("troubleRootCause").value}\nCorrective action: ${el("troubleCorrectiveAction").value}\nPost-check: ${el("troublePostCheck").value}\nNotes: ${el("troubleNotes").value}`;const blob=new Blob([`${notes}\n\nCommands:\n${lastCommands.join("\n")}\n\nOutput:\n${lastOutput}\n`],{type:"text/plain;charset=utf-8"}),url=URL.createObjectURL(blob),link=document.createElement("a");link.href=url;link.download=`${tech}_${canonical(platform()).replace(/[^a-z0-9]+/gi,"_")}_troubleshooting.txt`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});}
  return {bind,activate};
 })();
@@ -5647,7 +5648,7 @@ renderModule();
    captureWorkspaceModule(tech);
    const fields={};
    document.querySelectorAll("input[id],select[id],textarea[id]").forEach(el=>{
-     if(el.type==="file"||el.type==="password"||el.id==="v3ProjectName"||el.id.startsWith("sd")||el.id.startsWith("ncLibrary"))return;
+     if(el.type==="file"||el.type==="password"||el.id==="v3ProjectName"||el.id.startsWith("sd")||el.id.startsWith("ncLibrary")||el.id.startsWith("pd"))return;
      fields[el.id]=el.type==="checkbox"?el.checked:el.value;
    });
    const get=id=>document.getElementById(id)?.value??"";
@@ -5669,7 +5670,8 @@ renderModule();
      },
      design:{},
      moduleStates:Object.fromEntries(Object.entries(window.__workspaceModuleStates).map(([key,value])=>[key,{...value,fields:safeProjectFields(value.fields)}])),
-     fields
+     fields,
+     pathDiagnostics:window.NetworkPathDiagnostics?.snapshot()||null
    };
 
    // Human-readable technology sections. "fields" remains the lossless restore layer.
@@ -5723,6 +5725,9 @@ renderModule();
  function store(){try{return JSON.parse(localStorage.getItem(STORE)||"{}")}catch(e){return {}}}
  function writeStore(s){localStorage.setItem(STORE,JSON.stringify(s));renderRecent();}
  function applyProject(data){
+   window.__diagnosticEpoch=(window.__diagnosticEpoch||0)+1;
+   window.__latestDiagnosticResult=null;
+   if(window.NetworkPathDiagnostics)window.NetworkPathDiagnostics.restore(data.pathDiagnostics||null);else window.__pendingPathDiagnostics=data.pathDiagnostics||null;
    sessionStorage.removeItem("networkConfigurator.compare.current");
    const meta=data.project&&typeof data.project==="object"?data.project:null;
    $("v3ProjectName").value=meta?.name||data.project||"Untitled Network Project";
@@ -6401,7 +6406,7 @@ function prepareCompare(){
   return true;
  }catch(error){sessionStorage.removeItem("networkConfigurator.compare.current");toast("Unable to prepare configurations: "+error.message);return false;}
 }
-window.NetworkWorkspaceProject={snapshot,apply:applyProject,prepareCompare,rename:name=>{$("v3ProjectName").value=name;}};
+window.NetworkWorkspaceProject={snapshot,apply:applyProject,prepareCompare,diagnosticScope:()=>({module:tech,platform:platform()}),diagnosticDesign:reportingDesign,diagnosticResult:()=>window.__latestDiagnosticResult||null,rename:name=>{$("v3ProjectName").value=name;}};
 })();
 </script>
 
