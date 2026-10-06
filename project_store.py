@@ -38,17 +38,22 @@ def normalize_document(value):
             for key in keys:
                 if key in part and not isinstance(part[key],dict) and not (key == 'source' and part[key] is None):
                     raise ValueError('Invalid project structure.')
+    if design:
+        if not isinstance(design.get('project'),dict):raise ValueError('Invalid project structure.')
+        if any(not isinstance(module,dict) or ('fields' in module and not isinstance(module['fields'],dict)) for module in design.get('moduleStates',{}).values()):raise ValueError('Invalid project structure.')
     if report:
-        for key in ('devices','moduleReports','inventoryDeviceIds'):
+        for key in ('devices','links','moduleReports','parameters','configurations','specialLinks','verificationPlan','inventoryDeviceIds','manualVisibleIds','sshVisibleIds'):
             if key in report and not isinstance(report[key],list): raise ValueError('Invalid project structure.')
-        if any(not isinstance(row,dict) for key in ('devices','moduleReports') for row in report.get(key,[])):
+        if any(not isinstance(row,dict) for key in ('devices','links','moduleReports','parameters','configurations','specialLinks','verificationPlan') for row in report.get(key,[])):
             raise ValueError('Invalid project structure.')
-        if any(not isinstance(item,str) for item in report.get('inventoryDeviceIds',[])):
+        if any(not isinstance(item,str) for key in ('inventoryDeviceIds','manualVisibleIds','sshVisibleIds') for item in report.get(key,[])):
             raise ValueError('Invalid project structure.')
     name = str(value.get('name','')).strip()
     if not name or len(name) > 120:
         raise ValueError('Enter a project name of at most 120 characters.')
     document = clean_document({'schema':value['schema'],'name':name,'design':design,'reporting':report})
+    if isinstance((document.get('design') or {}).get('project'),dict):document['design']['project']['name']=name
+    if document.get('reporting'):document['reporting']['name']=name
     encoded = json.dumps(document,ensure_ascii=False,separators=(',',':'))
     if len(encoded.encode()) > MAX_DOCUMENT_BYTES:
         raise ValueError('Project exceeds the 4 MB document limit. Export it to a file instead.')

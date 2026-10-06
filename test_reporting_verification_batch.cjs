@@ -26,6 +26,8 @@ async function test(vendor){
  assert.ok(d.querySelector('.verification-report').textContent.includes('manual CE-2 output'));
  d.querySelector('[data-plan-include]').checked=false;d.querySelector('[data-plan-include]').dispatchEvent(new w.window.Event('change'));
  assert.equal(d.querySelectorAll('[data-plan-field="output"]').length,3);assert.equal(d.querySelectorAll('.verification-report tbody tr').length,3);
+ w.window.NetworkReportProject.apply({...source,name:'Other synthetic project'});
+ assert.equal(d.querySelector('[data-plan-ssh="password"]').value,'');assert.equal(d.querySelector('[data-plan-ssh="target"]').value,'');
  assert.deepEqual(errors,[]);
  }finally{w.window.close();}
 }

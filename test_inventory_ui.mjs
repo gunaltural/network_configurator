@@ -159,6 +159,7 @@ assert.equal(context.tracked.devices.some(d=>d.id==='old-extra'),false);
 console.log('Legacy session cleanup, tracked batch preservation, archive pruning and idempotent reopen passed.');
 context.cachedLegacy={schema:'network-configurator-report-v1',vendor:'Cisco NX-OS',source:{projectId:'project',module:'vpc'},scope:'Keep design scope',links:[],devices:[{id:'upper-1',hostname:'SPINE',serial:'OLD-CACHED-SERIAL',model:'OLD-MODEL'},{id:'inv-old-cache',inventoryOnly:true,hostname:'OLD-CACHED-HOST',serial:'OLD-SERIAL'}]};
 context.sessionStorage={getItem:()=>JSON.stringify(context.cachedLegacy)};
+context.verificationConnections=new Map();context.verificationConnectionDevice='';context.verificationSelected='';context.verificationTechnology='';
 context.freshDesign={schema:'network-configurator-report-v1',vendor:'Cisco NX-OS',name:'Project',architecture:'module',technology:'vPC',techPlacement:'upper',upperCount:1,lowerCount:0,source:{projectId:'project',module:'vpc'},links:[],devices:[{id:'upper-1',tier:'upper',index:1,hostname:'SPINE',model:'',serial:''}],parameters:[{label:'Keep engineering decision'}],configurations:[{deviceId:'upper-1',text:'Keep configuration'}]};
 vm.runInContext(html.slice(html.indexOf('  function openReport('),html.indexOf('  $("openProject").addEventListener')),context);
 vm.runInContext('openReport(freshDesign,true)',context);

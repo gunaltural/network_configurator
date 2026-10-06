@@ -5631,6 +5631,7 @@ renderModule();
  let currentProjectId=null;
  const toast=msg=>{const t=$("v3Toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),1800);};
  function snapshot(){
+   if(!currentProjectId)currentProjectId="p_"+(crypto.randomUUID?crypto.randomUUID():Date.now()+"_"+Math.random().toString(36).slice(2));
    captureWorkspaceModule(tech);
    const fields={};
    document.querySelectorAll("input[id],select[id],textarea[id]").forEach(el=>{
@@ -6379,7 +6380,7 @@ renderModule();
    if(!b)return;
    setTimeout(()=>{dashboard.classList.remove("show");workspace.style.display="flex";health.style.display="grid";$("v3CurrentTech").textContent=technologyLabel(b.dataset.tech,platform());updateHealth();},0);
  });
-window.NetworkWorkspaceProject={snapshot,apply:applyProject};
+window.NetworkWorkspaceProject={snapshot,apply:applyProject,rename:name=>{$("v3ProjectName").value=name;}};
 })();
 </script>
 

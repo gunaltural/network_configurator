@@ -16,11 +16,12 @@ const reports=[];
 (async()=>{
  try{
   await pause();d.getElementById('v3ProjectName').value='Synthetic save test';
+  const initial=w.NetworkWorkspaceProject.snapshot();assert.ok(initial.project.id);assert.equal(w.NetworkWorkspaceProject.snapshot().project.id,initial.project.id);
   let saved=null,downloaded=null,downloads=0;
   w.URL.createObjectURL=()=>{downloads++;return 'blob:synthetic';};
   w.NetworkProjects={saveCurrent:async data=>{saved=data;return {version:4};},downloadCurrent:data=>{downloaded=data;}};
   d.getElementById('v3SaveBtn').click();await pause();
-  assert.equal(saved.project.name,'Synthetic save test');assert.equal(downloads,0);assert.equal(downloaded,null);
+  assert.equal(saved.project.name,'Synthetic save test');assert.equal(saved.project.id,initial.project.id);assert.equal(downloads,0);assert.equal(downloaded,null);
   d.getElementById('v3DownloadBtn').click();assert.equal(downloaded.project.name,'Synthetic save test');
   assert.equal(d.getElementById('v3SaveBtn').disabled,false);assert.deepEqual(errors,[]);
   console.log('Main Save calls server storage without downloading; Download uses export separately');

@@ -29,7 +29,7 @@ class ProjectStoreTests(unittest.TestCase):
     def test_roundtrip_revision_ownership_and_conflict(self):
         first=self.repo.save('engineer',document(),note='initial')
         self.assertEqual(first['inventory_count'],1);self.assertEqual(first['vendors'],['Huawei VRP'])
-        stored=self.repo.get('engineer',first['id']);self.assertNotIn('sshPassword',stored['document']['design']['fields'])
+        stored=self.repo.get('engineer',first['id']);self.assertEqual(stored['document']['design']['project']['name'],first['name']);self.assertNotIn('sshPassword',stored['document']['design']['fields'])
         with self.assertRaises(HTTPException) as caught:self.repo.get('other',first['id'])
         self.assertEqual(caught.exception.status_code,404)
         second=self.repo.save('engineer',document('Updated lab'),first['id'],1,'updated',True,first['updated_at'])
@@ -88,6 +88,12 @@ class ProjectStoreTests(unittest.TestCase):
     def test_invalid_documents_and_size(self):
         for changes in ({'name':''},{'schema':'invalid'},{'design':None,'reporting':None},{'reporting':{'schema':'network-configurator-report-v1','devices':'bad'}}):
             with self.assertRaises(ValueError):normalize_document({**document(),**changes})
+        for key in ('links','parameters','configurations','verificationPlan','specialLinks'):
+            for bad in ('invalid',[None]):
+                payload=document();payload['reporting'][key]=bad
+                with self.assertRaises(ValueError):normalize_document(payload)
+        payload=document();payload['design']['moduleStates']['BGP']=None
+        with self.assertRaises(ValueError):normalize_document(payload)
         payload=document();payload['design']['fields']['large']='a'*(4*1024*1024)
         with self.assertRaises(ValueError):normalize_document(payload)
     def test_standalone_report_accepts_no_technology_source(self):

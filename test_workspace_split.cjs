@@ -7,6 +7,7 @@ let width=1000,frameWidth=1400;
 Object.defineProperty(w,'innerWidth',{get:()=>frameWidth});
 const grid=doc.querySelector('.grid'),pane=doc.querySelector('.card');
 grid.getBoundingClientRect=()=>({width,left:10});pane.getBoundingClientRect=()=>({width:parseFloat(grid.style.getPropertyValue('--nc-param-width'))||0});
+w.fetch=async()=>({ok:true,json:async()=>({enabled:false,authenticated:false})});
 w.eval(fs.readFileSync('corporate-shell.js','utf8'));
 const split=doc.querySelector('[role="separator"]');assert.ok(split);assert.equal(split.getAttribute('aria-orientation'),'vertical');assert.equal(parseFloat(grid.style.getPropertyValue('--nc-param-width')),491);
 split.dispatchEvent(new w.KeyboardEvent('keydown',{key:'ArrowLeft'}));assert.equal(parseFloat(grid.style.getPropertyValue('--nc-param-width')),481);assert.ok(Number(w.localStorage.getItem('nc-workspace-pane-share'))<.5);
