@@ -116,4 +116,33 @@
  }
  if(reporting&&params.get('section')==='evidence'){openView('design');document.getElementById('verificationPanel')?.scrollIntoView({block:'start'});}
  if(!reporting){const requested=new URLSearchParams(location.search).get('workspace');if(modules.some(([key])=>key===requested))openModule(requested);const tab=params.get('tab');if(['config','deploy','verify','trouble','notes'].includes(tab)){if(!requested)openModule('BASIC');document.querySelector('.tab[data-tab="'+tab+'"]')?.click();}}
+
+ // Keep technology panes adjustable without changing module controls or reports.
+ if(!reporting){
+  const pane=document.getElementById('params')?.parentElement,grid=pane?.parentElement;
+  if(grid?.classList.contains('grid')){
+   grid.classList.add('nc-workspace-split');pane.id='ncParameterPane';
+   const divider=document.createElement('div');divider.className='nc-pane-divider';divider.tabIndex=0;
+   divider.setAttribute('role','separator');divider.setAttribute('aria-orientation','vertical');divider.setAttribute('aria-label','Resize parameters and output');divider.setAttribute('aria-controls','ncParameterPane');divider.title='Drag to resize · Arrow keys to adjust · Double-click to reset';grid.appendChild(divider);
+   let share=.5,dragging=false,grab=0;
+   try{const saved=Number(localStorage.getItem('nc-workspace-pane-share'));if(Number.isFinite(saved)&&saved>=.2&&saved<=.8)share=saved;}catch{}
+   const save=()=>{try{localStorage.setItem('nc-workspace-pane-share',String(share));}catch{}};
+   function layout(){
+    const width=grid.getBoundingClientRect().width;if(!width)return;
+    const stacked=window.innerWidth<1100||width<758;grid.classList.toggle('nc-panes-stacked',stacked);divider.hidden=stacked;
+    if(stacked){grid.style.removeProperty('--nc-param-width');return;}
+    const total=width-18,min=360,max=total-360,pixels=Math.max(min,Math.min(max,total*share));
+    grid.style.setProperty('--nc-param-width',pixels+'px');divider.setAttribute('aria-valuemin',String(Math.round(min/total*100)));divider.setAttribute('aria-valuemax',String(Math.round(max/total*100)));divider.setAttribute('aria-valuenow',String(Math.round(pixels/total*100)));divider.setAttribute('aria-valuetext',Math.round(pixels/total*100)+'% parameters');
+   }
+   function move(pixels){const total=grid.getBoundingClientRect().width-18;if(total<=720)return;share=Math.max(360/total,Math.min(1-360/total,pixels/total));layout();}
+   divider.addEventListener('pointerdown',e=>{if(e.button!==0||divider.hidden)return;e.preventDefault();dragging=true;grab=e.clientX-grid.getBoundingClientRect().left-pane.getBoundingClientRect().width;divider.setPointerCapture?.(e.pointerId);document.body.classList.add('nc-pane-resizing');});
+   divider.addEventListener('pointermove',e=>{if(dragging)move(e.clientX-grid.getBoundingClientRect().left-grab);});
+   const finish=()=>{if(!dragging)return;dragging=false;document.body.classList.remove('nc-pane-resizing');save();};
+   divider.addEventListener('pointerup',finish);divider.addEventListener('pointercancel',finish);divider.addEventListener('lostpointercapture',finish);
+   divider.addEventListener('dblclick',()=>{share=.5;layout();save();});
+   divider.addEventListener('keydown',e=>{const current=pane.getBoundingClientRect().width,step=e.shiftKey?40:10,total=grid.getBoundingClientRect().width-18;if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();move(current+(e.key==='ArrowLeft'?-step:step));save();}else if(e.key==='Home'||e.key==='End'){e.preventDefault();move(e.key==='Home'?360:total-360);save();}else if(e.key==='Enter'){e.preventDefault();share=.5;layout();save();}});
+   if(typeof ResizeObserver!=='undefined')new ResizeObserver(layout).observe(grid);
+   window.addEventListener('resize',layout);layout();
+  }
+ }
 })();

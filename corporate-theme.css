@@ -163,7 +163,7 @@ pre,.sd-cli{background:#f5f8fa;color:#214d68;border-color:#dce6ec;box-shadow:non
 
 /* Give device output more room while preserving usable parameter fields. */
 @media(min-width:1100px){
- .layout .grid:has(> .card > #params){grid-template-columns:minmax(0,.84fr) minmax(0,1.16fr)}
+ .layout .grid:has(> .card > #params){grid-template-columns:minmax(0,var(--nc-param-width,50%)) minmax(0,1fr)}
 }
 @media(max-width:1099px){
  .layout .grid:has(> .card > #params){grid-template-columns:minmax(0,1fr)}
@@ -181,3 +181,30 @@ pre,.sd-cli{background:#f5f8fa;color:#214d68;border-color:#dce6ec;box-shadow:non
  padding:18px 20px;tab-size:2;scrollbar-color:#61869c #112b3c;
 }
 .layout #output::selection,.layout .sd-cli::selection{background:#356783;color:#fff}
+
+/* Resizable workspace panes; field layout follows the pane, not viewport width. */
+.nc-workspace-split{position:relative;align-items:start}
+.nc-pane-divider{position:absolute;top:0;bottom:0;left:calc(var(--nc-param-width,50%) + 3px);width:12px;cursor:col-resize;touch-action:none;border-radius:6px;z-index:5;outline:none}
+.nc-pane-divider:before{content:"";position:absolute;left:5px;top:0;bottom:0;width:2px;background:#b1c6d3;border-radius:3px}
+.nc-pane-divider:after{content:"⋮";position:sticky;top:48vh;display:grid;place-items:center;height:44px;background:#e1eaf0;color:#356079;border:1px solid #9fb9c9;border-radius:5px;font-size:18px}
+.nc-pane-divider:hover:before,.nc-pane-divider:focus-visible:before{background:#286b91;width:3px}
+.nc-pane-divider:focus-visible{box-shadow:0 0 0 2px #468bb4}
+body.nc-pane-resizing{cursor:col-resize;user-select:none}
+#params{container-type:inline-size;container-name:nc-parameters;min-width:0}
+#params :is(input,select,textarea){min-width:0;max-width:100%;box-sizing:border-box}
+#params :is(.param-grid,.mini-grid,.bgp-card-grid,.te-v39-grid,.evpn-vrf-grid,.evpn-feature-grid,.vpc-v42-two,.vpc-leaf-table)>*{min-width:0}
+#params .param-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+#params .vpc-leaf-table{max-width:100%;overflow-x:auto}
+@container nc-parameters (max-width:740px){
+ #params.bgp-v39 .bgp-link-card{grid-template-columns:repeat(2,minmax(0,1fr))}
+ #params.bgp-v39 .bgp-link-card h4{grid-column:1/-1;margin-bottom:6px}
+ #params :is(.te-v39-grid,.evpn-vrf-grid,.evpn-feature-grid,.vpc-v42-two){grid-template-columns:minmax(0,1fr)}
+}
+@container nc-parameters (max-width:360px){
+ #params :is(.param-grid,.mini-grid,.checks,.sd-grid,.bgp-card-grid){grid-template-columns:minmax(0,1fr)}
+ #params.bgp-v39 .bgp-link-card{grid-template-columns:minmax(0,1fr)}
+}
+.layout .grid.nc-panes-stacked{grid-template-columns:minmax(0,1fr)}
+.nc-panes-stacked .nc-pane-divider{display:none}
+@media(max-width:1099px){.nc-pane-divider{display:none}}
+@media print{.nc-pane-divider{display:none}}
