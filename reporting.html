@@ -67,7 +67,7 @@
     </section>
   </div><section class="panel preview-panel"><h2>Report preview</h2><article class="paper" id="reportPreview" aria-label="Project report preview"></article></section></div>
 </div>
-<script src="/discovery-inventory.js"></script>
+
 <script src="/engineering-locale.js"></script>
 <script src="/vpc-report.js"></script>
 <script src="/engineering-report.js"></script>
@@ -786,10 +786,7 @@
       else{state.inventoryRevision=2;syncTopology();renderEditor();}
     }
   }catch(err){console.error("Workspace report import failed",err);sessionStorage.removeItem("networkConfigurator.report.current");syncTopology();renderEditor();}
-  if(new URLSearchParams(location.search).get('discovery')==='1'){
-    const imported=sessionStorage.getItem('networkConfigurator.discovery.inventoryImport');
-    if(imported){try{const payload=JSON.parse(imported);const result=window.NetworkDiscoveryInventory.apply(state,payload);if(!state.name){const draft=JSON.parse(sessionStorage.getItem('networkConfigurator.workflow.design')||'null');state.name=draft?.project?.name||'';$("projectName").value=state.name;}inventoryMode="manual";$("inventoryMode").value="manual";renderEditor();renderReport();$("liveInventoryStatus").textContent=`Discovery: ${result.added} inventory records added · ${result.retained} existing discovery records retained.`;sessionStorage.removeItem('networkConfigurator.discovery.inventoryImport');}catch(error){$("liveInventoryStatus").textContent='Discovery import not applied: '+error.message;}}
-  }
+  sessionStorage.removeItem('networkConfigurator.discovery.inventoryImport');
 window.NetworkReportProject={snapshot:()=>JSON.parse(JSON.stringify(state)),apply:p=>openReport(p),rename:name=>{state.name=name;$("projectName").value=name;renderReport();}};
 })();
 </script>

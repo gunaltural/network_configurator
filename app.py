@@ -38,7 +38,7 @@ from authentication import install_authentication
 from project_store import install_project_store
 from config_compare import install_config_compare
 
-VERSION = "5.21.0"
+VERSION = "5.21.1"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
 # Keep the diagnostic entry point available with the authenticated page itself.
@@ -632,10 +632,6 @@ def network_discovery_page():
 @app.get('/network-discovery.js')
 def network_discovery_script():
     return Response((BASE_DIR / 'network-discovery.js').read_text(encoding='utf-8'), media_type='application/javascript', headers={'Cache-Control':'no-store'})
-
-@app.get('/discovery-inventory.js')
-def discovery_inventory_script():
-    return Response((BASE_DIR / 'discovery-inventory.js').read_text(encoding='utf-8'), media_type='application/javascript', headers={'Cache-Control':'no-store'})
 
 @app.post('/api/discovery/parse')
 def discovery_parse(p: DiscoveryParseRequest):

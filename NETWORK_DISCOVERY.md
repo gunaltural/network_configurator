@@ -1,10 +1,10 @@
-# Network Discovery — 5.21.0
+# Network Discovery — 5.21.1
 
 Open **Inventory → Network Discovery** in the sidebar. This is a separate existing-network module; Technology Workspaces retain their planned topology and configuration.
 
 ## Inputs
 
-- **SSH**: add starting devices or choose current Inventory records. Select platform and LLDP/CDP, enter target/port/username/password, test the connections and discover selected devices. The queue contacts only selected starting devices. Advertised neighbors are not contacted automatically.
+- **SSH**: add starting devices  Select platform and LLDP/CDP, enter target/port/username/password, test the connections and discover selected devices. The queue contacts only selected starting devices. Advertised neighbors are not contacted automatically.
 - **CLI import**: enter the local device name/platform, optional management address/capture time and paste or upload detailed LLDP/CDP text. Text is parsed, never executed. UTF-8 and BOM-marked UTF-16 text are accepted. The upload picker accepts any filename extension; binary files are rejected.
 - **Synthetic example**: loads documentation-range addresses and synthetic hostnames into the import editor. Click Import to build the demonstration graph. No SSH is initiated by this example.
 
@@ -12,7 +12,7 @@ Supported initial platforms: Cisco IOS-XE/NX-OS (LLDP or CDP), Arista EOS (LLDP)
 
 ## Outputs and interpretation
 
-A draggable, zoomable topology, selectable device table, connection schedule and inspector are derived from collected sources. Each connection retains local/remote ports, protocol, collection origin and capture time. Reciprocal matching observations collapse into one link. Parallel port pairs remain separate. A solid line indicates both ends were observed; a dashed line indicates one-sided neighbor evidence. Neither establishes traffic forwarding, a measured application path or operational health.
+A draggable, zoomable topology, device table, connection schedule and inspector are derived from collected sources. Each connection retains local/remote ports, protocol, collection origin and capture time. Reciprocal matching observations collapse into one link. Parallel port pairs remain separate. A solid line indicates both ends were observed; a dashed line indicates one-sided neighbor evidence. Neither establishes traffic forwarding, a measured application path or operational health.
 
 Neighbor advertisements populate candidate names, chassis IDs and advertised management addresses. Their advertised vendor description may suggest a platform; the engineer can choose or correct it. Model/serial/software fields are populated only from direct SSH inventory collection on the corresponding starting device. Empty management information stays empty. Unidentified platforms require assignment before Inventory transfer.
 
@@ -20,13 +20,11 @@ New observations replace the same starting-device/platform/protocol source. The 
 
 Download map SVG, connections CSV or discovery JSON. Discovery state (including source evidence) is part of normal project Save/Download/Open. Save retains the existing revision behavior. Seed credentials are transient, cleared after collection and excluded from saved state. The stopping control completes the current request before stopping queued work.
 
-## Inventory and reporting integration
+## Brownfield scope
 
-Select devices, then **Add selected devices to Inventory**. Imported records appear in Manual Inventory, remain editable and feed the same report Inventory table. Direct SSH identity values retain device verification provenance; neighbor-only records remain incomplete and are labeled discovery records in English/Turkish preview and Word.
+Discovery is an independent module for existing-network (brownfield) projects. Its records and map remain in Discovery and its exports. There is no import from greenfield Inventory, no transfer into Inventory and no injection into Design and Reporting. Existing design devices, connections, configurations and reporting stay unchanged.
 
-The transfer does not alter design devices, planned connections or generated configurations. Previously imported discovery records are retained rather than silently overwritten. A name/management-address collision with another Inventory record blocks the transfer and leaves existing records unchanged; resolve the duplicate explicitly. A transfer associated with another design project is rejected.
-
-The discovered map is exported separately. It does not replace the customer's planned topology in the existing Design and Reporting output. No subnet sweep, automatic recursive collection, scheduled polling, SNMP, L3 route/subnet inference, performance metrics or automatic failure classification is included in this first release. Private-network collection requires actual server routing/access; a target policy exception alone does not create connectivity.
+No subnet sweep, recursive collection, scheduled polling, SNMP or traffic-path inference is included in this first release. Private-network SSH requires server routing/access.
 
 ## Research references
 
