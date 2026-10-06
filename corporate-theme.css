@@ -160,3 +160,24 @@ pre,.sd-cli{background:#f5f8fa;color:#214d68;border-color:#dce6ec;box-shadow:non
 #params :is(input:not([type=checkbox]),select,textarea){background:#fff;color:#343c44;border-color:#aebfcd}
 #params :is(input,select,textarea):focus{outline:2px solid #668da6;outline-offset:1px;border-color:#426f87}
 #params :is(input,select,textarea):disabled{background:#eff3f6;color:#637787}
+
+/* Give device output more room while preserving usable parameter fields. */
+@media(min-width:1100px){
+ .layout .grid:has(> .card > #params){grid-template-columns:minmax(0,.84fr) minmax(0,1.16fr)}
+}
+@media(max-width:1099px){
+ .layout .grid:has(> .card > #params){grid-template-columns:minmax(0,1fr)}
+}
+@media(min-width:1100px) and (max-width:1249px){
+ #params .param-grid{grid-template-columns:minmax(0,1fr)}
+}
+.layout .grid > .card{min-width:0}
+.layout .card:has(.tab[data-tab="config"].active) #output,
+.layout .sd-cli{
+ background:#112b3c;color:#e2eff8;border:1px solid #365d74;
+ box-shadow:inset 3px 0 0 #4b98bd;
+ font-family:Consolas,"Courier New",monospace;font-size:14px;line-height:1.65;
+ white-space:pre;overflow:auto;max-width:100%;box-sizing:border-box;
+ padding:18px 20px;tab-size:2;scrollbar-color:#61869c #112b3c;
+}
+.layout #output::selection,.layout .sd-cli::selection{background:#356783;color:#fff}
