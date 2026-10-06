@@ -129,7 +129,8 @@ class ProjectRepository:
             raise HTTPException(404,'Project not found.')
         return {**self.metadata(row),'document':json.loads(row['payload'])}
 
-    def save(self, owner, document, project_id=None, version=None, note=''):
+    def save(self, owner, document, project_id=None, version=None, note='', create_revision=False, expected_updated_at=None):
+        new_project=project_id is None
         document, encoded=normalize_document(document)
         self.ensure_schema()
         now=datetime.now(timezone.utc).isoformat()
@@ -137,17 +138,37 @@ class ProjectRepository:
             if project_id:
                 row=db.execute('SELECT * FROM nc_projects WHERE owner=%s AND id=%s',(owner,project_id)).fetchone()
                 if not row: raise HTTPException(404,'Project not found.')
-                if row['version'] != version:
-                    raise HTTPException(409,'A newer project version exists. Open the latest version or save a new copy.')
-                updated=db.execute('UPDATE nc_projects SET name=%s,updated_at=%s,version=version+1,payload=%s WHERE owner=%s AND id=%s AND version=%s',(document['name'],now,encoded,owner,project_id,version))
+                if row['version'] != version or row['updated_at'] != expected_updated_at:
+                    raise HTTPException(409,'This project changed in another session. Open the latest record or save a new copy.')
+                next_version=version+1 if create_revision else version
+                updated=db.execute('UPDATE nc_projects SET name=%s,updated_at=%s,version=%s,payload=%s WHERE owner=%s AND id=%s AND version=%s AND updated_at=%s',(document['name'],now,next_version,encoded,owner,project_id,version,expected_updated_at))
                 if updated.rowcount != 1:
-                    raise HTTPException(409,'A newer project version exists. Open the latest version or save a new copy.')
-                next_version=version+1; created=row['created_at']
+                    raise HTTPException(409,'This project changed in another session. Open the latest record or save a new copy.')
+                created=row['created_at']
+                if not create_revision:
+                    db.execute('UPDATE nc_project_revisions SET created_at=%s,note=%s,payload=%s WHERE project_id=%s AND revision=%s',(now,note.strip(),encoded,project_id,next_version))
             else:
                 project_id=str(uuid.uuid4());next_version=1;created=now
                 db.execute('INSERT INTO nc_projects(id,owner,name,created_at,updated_at,version,payload) VALUES(%s,%s,%s,%s,%s,%s,%s)',(project_id,owner,document['name'],now,now,1,encoded))
-            db.execute('INSERT INTO nc_project_revisions(project_id,revision,created_at,note,payload) VALUES(%s,%s,%s,%s,%s)',(project_id,next_version,now,note.strip(),encoded))
+            if new_project or create_revision:
+                db.execute('INSERT INTO nc_project_revisions(project_id,revision,created_at,note,payload) VALUES(%s,%s,%s,%s,%s)',(project_id,next_version,now,note.strip(),encoded))
         return self.metadata({'id':project_id,'name':document['name'],'created_at':created,'updated_at':now,'version':next_version,'payload':encoded})
+
+    def delete(self, owner, project_id, confirmation_name, expected_updated_at):
+        self.ensure_schema()
+        with self.connect() as db:
+            row=db.execute('SELECT * FROM nc_projects WHERE owner=%s AND id=%s',(owner,project_id)).fetchone()
+            if not row: raise HTTPException(404,'Project not found.')
+            if confirmation_name != row['name']:
+                raise HTTPException(400,'Enter the project name to confirm deletion.')
+            if expected_updated_at != row['updated_at']:
+                raise HTTPException(409,'Project changed. Refresh the list before deleting.')
+            # Claim the current record before removing its history, in the same transaction.
+            claim=db.execute('UPDATE nc_projects SET updated_at=%s WHERE owner=%s AND id=%s AND updated_at=%s',(datetime.now(timezone.utc).isoformat(),owner,project_id,expected_updated_at))
+            if claim.rowcount != 1: raise HTTPException(409,'Project changed. Refresh before deleting.')
+            db.execute('DELETE FROM nc_project_revisions WHERE project_id=%s',(project_id,))
+            db.execute('DELETE FROM nc_projects WHERE owner=%s AND id=%s',(owner,project_id))
+        return {'deleted':True,'id':project_id}
 
     def revisions(self, owner, project_id):
         self.get(owner,project_id)
@@ -167,6 +188,13 @@ class SaveProjectRequest(BaseModel):
     document: dict[str, Any]
     version: int | None = Field(default=None,ge=1)
     note: str = Field(default='',max_length=500)
+    create_revision: bool = False
+    expected_updated_at: str | None = Field(default=None,max_length=64)
+
+
+class DeleteProjectRequest(BaseModel):
+    confirmation_name: str = Field(max_length=120)
+    expected_updated_at: str = Field(max_length=64)
 
 
 def install_project_store(app, repository=None):
@@ -210,7 +238,11 @@ def install_project_store(app, repository=None):
 
     @app.put('/api/projects/{project_id}')
     def save(project_id: uuid.UUID,data: SaveProjectRequest,request: Request):
-        return run(lambda:repository.save(owner(request),data.document,str(project_id),data.version,data.note))
+        return run(lambda:repository.save(owner(request),data.document,str(project_id),data.version,data.note,data.create_revision,data.expected_updated_at))
+
+    @app.delete('/api/projects/{project_id}')
+    def delete(project_id: uuid.UUID,data: DeleteProjectRequest,request: Request):
+        return run(lambda:repository.delete(owner(request),str(project_id),data.confirmation_name,data.expected_updated_at))
 
     @app.get('/api/projects/{project_id}/revisions')
     def history(project_id: uuid.UUID,request: Request):

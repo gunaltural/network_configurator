@@ -32,13 +32,39 @@ class ProjectStoreTests(unittest.TestCase):
         stored=self.repo.get('engineer',first['id']);self.assertNotIn('sshPassword',stored['document']['design']['fields'])
         with self.assertRaises(HTTPException) as caught:self.repo.get('other',first['id'])
         self.assertEqual(caught.exception.status_code,404)
-        second=self.repo.save('engineer',document('Updated lab'),first['id'],1,'updated')
+        second=self.repo.save('engineer',document('Updated lab'),first['id'],1,'updated',True,first['updated_at'])
         self.assertEqual(second['version'],2)
         with self.assertRaises(HTTPException) as caught:self.repo.save('engineer',document('Stale'),first['id'],1)
         self.assertEqual(caught.exception.status_code,409)
         self.assertEqual(self.repo.get('engineer',first['id'])['name'],'Updated lab')
         self.assertEqual(len(self.repo.revisions('engineer',first['id'])['revisions']),2)
         self.assertEqual(self.repo.revision('engineer',first['id'],1)['document']['name'],'Synthetic lab')
+    def test_save_keeps_revision_and_blocks_stale_tabs(self):
+        first=self.repo.save('one',document())
+        updated=self.repo.save('one',document('Edited'),first['id'],1,expected_updated_at=first['updated_at'])
+        self.assertEqual(updated['version'],1)
+        self.assertEqual(len(self.repo.revisions('one',first['id'])['revisions']),1)
+        self.assertEqual(self.repo.revision('one',first['id'],1)['document']['name'],'Edited')
+        with self.assertRaises(HTTPException) as caught:
+            self.repo.save('one',document('Stale'),first['id'],1,expected_updated_at=first['updated_at'])
+        self.assertEqual(caught.exception.status_code,409)
+        next_revision=self.repo.save('one',document('Revision 2'),first['id'],1,create_revision=True,expected_updated_at=updated['updated_at'])
+        self.assertEqual(next_revision['version'],2)
+        self.assertEqual(self.repo.revision('one',first['id'],1)['document']['name'],'Edited')
+        for index in range(4):
+            next_revision=self.repo.save('one',document('Edited revision 2'),first['id'],2,expected_updated_at=next_revision['updated_at'])
+        self.assertEqual(len(self.repo.revisions('one',first['id'])['revisions']),2)
+    def test_delete_confirmation_ownership_and_history_cleanup(self):
+        first=self.repo.save('one',document());second=self.repo.save('one',document(),first['id'],1,create_revision=True,expected_updated_at=first['updated_at'])
+        for who,name,stamp,code in [('two',second['name'],second['updated_at'],404),('one','wrong',second['updated_at'],400),('one',second['name'],first['updated_at'],409)]:
+            with self.assertRaises(HTTPException) as caught:self.repo.delete(who,first['id'],name,stamp)
+            self.assertEqual(caught.exception.status_code,code)
+        self.assertTrue(self.repo.delete('one',first['id'],second['name'],second['updated_at'])['deleted'])
+        self.assertEqual(self.repo.listing('one')['total'],0)
+        with self.repo.connect() as db:
+            self.assertEqual(db.execute('SELECT COUNT(*) AS total FROM nc_project_revisions').fetchone()['total'],0)
+        with self.assertRaises(HTTPException):self.repo.get('one',first['id'])
+
     def test_literal_search_and_account_listing(self):
         self.repo.save('one',document('Lab 100%'));self.repo.save('one',document('Other'));self.repo.save('two',document('Lab 100%'))
         self.assertEqual(self.repo.listing('one','%')['total'],1)
@@ -59,6 +85,13 @@ class ProjectStoreTests(unittest.TestCase):
             created=client.post('/api/projects',json={'document':document()});self.assertEqual(created.status_code,201)
             pid=created.json()['id'];self.assertEqual(client.put('/api/projects/'+pid,json={'document':document(),'version':99}).status_code,409)
             self.assertEqual(client.get('/api/projects?q='+('x'*121)).status_code,400)
+            first=created.json()
+            updated=client.put('/api/projects/'+pid,json={'document':document('Changed'),'version':1,'expected_updated_at':first['updated_at']})
+            self.assertEqual(updated.status_code,200);self.assertEqual(updated.json()['version'],1)
+            revised=client.put('/api/projects/'+pid,json={'document':document('Changed'),'version':1,'expected_updated_at':updated.json()['updated_at'],'create_revision':True})
+            self.assertEqual(revised.json()['version'],2)
+            deleted=client.request('DELETE','/api/projects/'+pid,json={'confirmation_name':'Changed','expected_updated_at':revised.json()['updated_at']})
+            self.assertEqual(deleted.status_code,200);self.assertEqual(client.get('/api/projects/'+pid).status_code,404)
         app=FastAPI();app.state.authentication=SimpleNamespace(enabled=False);install_project_store(app,ProjectRepository(database_url=''))
         with TestClient(app) as client:
             self.assertFalse(client.get('/api/projects/status').json()['configured'])

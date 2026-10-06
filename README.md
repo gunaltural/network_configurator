@@ -261,7 +261,7 @@ silently overwrite a newer saved revision. Records belong to the authenticated
 username; this initial release still uses the single configured account.
 
 Existing Save/Download project, Open project and browser Recent Projects remain
-available. Library saves are explicit, using **Project Library → Save to Library**.
+available. Library saves are explicit, using **Project Library → Save**.
 Existing browser projects can be imported there without deleting local copies.
 Full project JSON export/import includes both design and reporting. Password,
 credential, secret and token fields are excluded; configuration and manually entered
@@ -278,12 +278,14 @@ project with your chosen provider (for example Neon), then:
    the URL as its secret value. Save and redeploy. Retain the existing AUTH variables.
 3. Sign in again and open **Project Library**. Confirm “PostgreSQL storage connected”.
 4. Save a synthetic project, refresh, and reopen it. Check that the design and report
-   retain the selected parameters and inventory. Save another revision and test History.
+   retain the selected parameters and inventory. Use Create revision and test History.
 
 Without DATABASE_URL, or if the database is unavailable, Library indicates the
 connection state while existing local/file workflows keep working. Each saved
-project is limited to 4 MB; large projects can still be exported as files. Every save
-retains a full revision, so monitor database storage during testing. Provider limits,
+project is limited to 4 MB; large projects can still be exported as files. Normal Save updates the current revision in place; Create revision retains the
+previous revision and adds a new one. Delete removes a project and all its saved
+revisions after exact-name confirmation. Export a backup before deleting if needed.
+Existing historical revisions are retained through this update. Monitor storage during testing. Provider limits,
 pricing and retention must be checked before choosing an account plan.
 
 For on-prem migration, use PostgreSQL's normal backup/restore tools (`pg_dump` and
@@ -296,3 +298,8 @@ Project storage tests use an injected transactional SQLite adapter to verify doc
 round trips, revision history, account scoping and stale-save protection. They do not
 substitute for a real PostgreSQL integration check after DATABASE_URL is configured:
 `python -m unittest test_project_store.py`.
+
+Normal Save keeps the visible revision number unchanged. A separate timestamp check
+still rejects stale updates and deletes from another tab. Previously saved revision
+numbers are preserved. Opening older history as a working copy creates a separate
+project on save; it does not overwrite the active saved project.
