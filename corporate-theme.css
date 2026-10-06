@@ -210,3 +210,8 @@ body.nc-pane-resizing{cursor:col-resize;user-select:none}
 @media print{.nc-pane-divider{display:none}}
 
 /* Balanced contrast: neutral canvas, blue-gray parameters, dark CLI. */
+
+/* Consistent workspace frame and operational output surfaces. */
+.layout .topbar,.layout .card:has(.tabs),.layout .card:has(#output){background:#cbd9e3;border-color:#afc3d0}
+.layout .topology-toolbar,.layout .simple-deploy-head,.layout .sd-card,.layout .trouble-context div{background:#e0e9ef!important;border-color:#b6cad7!important}
+.layout .sd-card input[readonly]{background:#d2e3ed!important;color:#173f5d!important}
