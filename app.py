@@ -36,7 +36,7 @@ from docx.image.exceptions import UnrecognizedImageError
 from authentication import install_authentication
 from project_store import install_project_store
 
-VERSION = "5.18.5"
+VERSION = "5.18.6"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
 REPORTING_HTML = (BASE_DIR / "reporting.html").read_text(encoding="utf-8")
@@ -581,6 +581,11 @@ def root():
 @app.get("/reporting", response_class=HTMLResponse)
 def reporting():
     return HTMLResponse(REPORTING_HTML, headers={"Cache-Control": "no-store"})
+
+
+@app.get("/design-checks.js")
+def design_checks_script():
+    return Response((BASE_DIR / "design-checks.js").read_text(encoding="utf-8"), media_type="application/javascript", headers={"Cache-Control": "no-cache"})
 
 
 @app.get("/engineering-locale.js")

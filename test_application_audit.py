@@ -21,6 +21,13 @@ class ApplicationAuditTests(unittest.TestCase):
     def setUp(self):
         self.client=TestClient(app.app)
 
+    def test_design_check_asset_is_served(self):
+        response = self.client.get('/design-checks.js')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('application/javascript', response.headers['content-type'])
+        self.assertIn('NetworkDesignChecks', response.text)
+        self.assertEqual(response.headers['cache-control'], 'no-store')
+
     def test_combined_word_and_inventory_transfer(self):
         p=project(); p['devices'].append(device('inventory-12345678-1234-1234-1234-123456789012',inventoryOnly=True,observedHostname='ACTUAL-SW',softwareVersion='10.5(3)'))
         p['inventoryDeviceIds']=[p['devices'][-1]['id']]
