@@ -34,8 +34,9 @@ import uvicorn
 from report_docx import build_report_docx
 from docx.image.exceptions import UnrecognizedImageError
 from authentication import install_authentication
+from project_store import install_project_store
 
-VERSION = "5.17.0"
+VERSION = "5.18.0"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
 REPORTING_HTML = (BASE_DIR / "reporting.html").read_text(encoding="utf-8")
@@ -565,6 +566,11 @@ app = FastAPI(
     redoc_url=None,
 )
 install_authentication(app, BASE_DIR)
+install_project_store(app)
+
+@app.get('/project-library.js')
+def project_library_script():
+    return Response((BASE_DIR / 'project-library.js').read_text(encoding='utf-8'), media_type='application/javascript', headers={'Cache-Control':'no-store'})
 
 
 @app.get("/", response_class=HTMLResponse)

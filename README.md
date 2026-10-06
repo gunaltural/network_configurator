@@ -241,8 +241,8 @@ shared session storage and project ownership before enabling multiple accounts.
 
 Unsafe requests require a matching Origin header. A separate login throttle limits
 password attempts. A session-expiry notice lets an engineer save before signing in
-again. Existing project storage remains browser-based; adding authentication does
-not migrate it into a database.
+again. Authentication alone does not migrate browser projects. The optional Project Library
+adds PostgreSQL storage as described below. Existing project files remain supported.
 
 For isolated local regression tests only, set `AUTH_ENABLED=0`. Do not use that
 setting on the public Render service. Run authentication tests separately:
@@ -250,3 +250,49 @@ setting on the public Render service. Run authentication tests separately:
 
 References: [OWASP password storage](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html),
 [OWASP session management](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html).
+
+### Project Library (optional PostgreSQL)
+
+Project Library saves a named project containing its technology workspace snapshot,
+current inventory/report document, and explicit revision history. It supports name
+search, opening the design or report, duplication, and opening an earlier revision
+as a working copy. Saves use optimistic version checks: an older browser tab cannot
+silently overwrite a newer saved revision. Records belong to the authenticated
+username; this initial release still uses the single configured account.
+
+Existing Save/Download project, Open project and browser Recent Projects remain
+available. Library saves are explicit, using **Project Library → Save to Library**.
+Existing browser projects can be imported there without deleting local copies.
+Full project JSON export/import includes both design and reporting. Password,
+credential, secret and token fields are excluded; configuration and manually entered
+CLI text are retained. Use synthetic lab data during acceptance testing.
+
+The application uses standard PostgreSQL through psycopg, without a provider SDK.
+No database is provisioned automatically and no paid infrastructure is required by
+this feature. For a temporary external test database, create a free PostgreSQL
+project with your chosen provider (for example Neon), then:
+
+1. Copy the provider's PostgreSQL connection URL, including its required TLS setting
+   (normally `sslmode=require`). Do not post this URL in chat or commit it.
+2. In **Render → network-configurator → Environment**, add **DATABASE_URL** and paste
+   the URL as its secret value. Save and redeploy. Retain the existing AUTH variables.
+3. Sign in again and open **Project Library**. Confirm “PostgreSQL storage connected”.
+4. Save a synthetic project, refresh, and reopen it. Check that the design and report
+   retain the selected parameters and inventory. Save another revision and test History.
+
+Without DATABASE_URL, or if the database is unavailable, Library indicates the
+connection state while existing local/file workflows keep working. Each saved
+project is limited to 4 MB; large projects can still be exported as files. Every save
+retains a full revision, so monitor database storage during testing. Provider limits,
+pricing and retention must be checked before choosing an account plan.
+
+For on-prem migration, use PostgreSQL's normal backup/restore tools (`pg_dump` and
+`pg_restore`) for the database and change DATABASE_URL to the internal PostgreSQL
+server. Back up both `nc_projects` and `nc_project_revisions`. Keep the account name
+stable or explicitly migrate record ownership. Shared login sessions and individual
+accounts remain separate future work.
+
+Project storage tests use an injected transactional SQLite adapter to verify document
+round trips, revision history, account scoping and stale-save protection. They do not
+substitute for a real PostgreSQL integration check after DATABASE_URL is configured:
+`python -m unittest test_project_store.py`.

@@ -150,7 +150,7 @@ def install_authentication(app, base_dir):
     @app.get('/auth/status')
     def auth_status(request: Request):
         user = auth.user(request.cookies.get(COOKIE))
-        return {'enabled': auth.enabled, 'configured': auth.configured, 'authenticated': bool(user), 'username': user}
+        return {'version': app.version, 'enabled': auth.enabled, 'configured': auth.configured, 'authenticated': bool(user), 'username': user}
 
     @app.post('/auth/login')
     def login(data: LoginRequest, request: Request):

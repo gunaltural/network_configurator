@@ -362,6 +362,7 @@ pre{
 </style>
 <link rel="stylesheet" href="/corporate-theme.css">
 <script src="/corporate-shell.js" defer></script>
+<script src="/project-library.js" defer></script>
 <script src="/huawei-istack.js"></script>
 </head>
 <body>
@@ -5637,7 +5638,7 @@ renderModule();
    captureWorkspaceModule(tech);
    const fields={};
    document.querySelectorAll("input[id],select[id],textarea[id]").forEach(el=>{
-     if(el.type==="file"||el.type==="password"||el.id==="v3ProjectName"||el.id.startsWith("sd"))return;
+     if(el.type==="file"||el.type==="password"||el.id==="v3ProjectName"||el.id.startsWith("sd")||el.id.startsWith("ncLibrary"))return;
      fields[el.id]=el.type==="checkbox"?el.checked:el.value;
    });
    const get=id=>document.getElementById(id)?.value??"";
@@ -6330,7 +6331,7 @@ renderModule();
      const pname=pm?.name||p.project||"Untitled";
      const ptech=p.workspace?.technology||p.activeTech||"Network Project";
      d.innerHTML=`<b>${String(pname).replace(/[<>]/g,"")}</b><span>${String(ptech).replace(/[<>]/g,"")} · ${when}</span>`;
-     d.onclick=()=>applyProject(p);box.appendChild(d);
+     d.onclick=()=>{window.NetworkProjects?.reset();applyProject(p);};box.appendChild(d);
    });
  }
  $("v3SaveBtn").onclick=save;
@@ -6348,11 +6349,12 @@ renderModule();
    const f=e.target.files&&e.target.files[0];if(!f)return;
    try{
      const data=JSON.parse(await f.text());
+     if(data.schema==="network-configurator-project-v1"){window.NetworkProjects.openFile(data);e.target.value="";return;}
      if(data.schema!=="network-configurator-v3")throw new Error("Unsupported project file");
      const meta=data.project&&typeof data.project==="object"?data.project:null;
      const pid=meta?.id||data.id||("p_"+Date.now()+"_"+Math.random().toString(36).slice(2,7));
      if(meta)meta.id=pid;else data.id=pid;
-     applyProject(data);
+     window.NetworkProjects?.reset();applyProject(data);
      const s=store();s[pid]=data;writeStore(s);
      toast("Project opened");
    }
@@ -6380,6 +6382,7 @@ renderModule();
    if(!b)return;
    setTimeout(()=>{dashboard.classList.remove("show");workspace.style.display="flex";health.style.display="grid";$("v3CurrentTech").textContent=technologyLabel(b.dataset.tech,platform());updateHealth();},0);
  });
+window.NetworkWorkspaceProject={snapshot,apply:applyProject};
 })();
 </script>
 
