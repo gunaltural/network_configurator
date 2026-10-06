@@ -33,8 +33,9 @@ from pydantic import BaseModel, Field
 import uvicorn
 from report_docx import build_report_docx
 from docx.image.exceptions import UnrecognizedImageError
+from authentication import install_authentication
 
-VERSION = "5.16.0"
+VERSION = "5.17.0"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
 REPORTING_HTML = (BASE_DIR / "reporting.html").read_text(encoding="utf-8")
@@ -563,6 +564,7 @@ app = FastAPI(
     docs_url=None,
     redoc_url=None,
 )
+install_authentication(app, BASE_DIR)
 
 
 @app.get("/", response_class=HTMLResponse)

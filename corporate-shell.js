@@ -31,6 +31,26 @@
  +'</nav><div class="nc-sidebar-foot">Network Configurator<br>Design · Deliver · Operate</div>';
  document.body.prepend(sidebar);
  const header=document.querySelector(reporting?'.shell>.nav':'.v3-topbar');
+ const originalFetch=window.fetch.bind(window);
+ let expiredNotice;
+ window.fetch=async(...args)=>{
+  const response=await originalFetch(...args);
+  const url=typeof args[0]==='string'?args[0]:args[0]?.url||'';
+  if(response.status===401&&url.startsWith('/api/')&&!expiredNotice){
+   document.dispatchEvent(new Event('nc-auth-expired'));
+   expiredNotice=document.createElement('div');expiredNotice.className='nc-auth-expired';expiredNotice.setAttribute('role','alert');
+   expiredNotice.textContent='Your session has expired. Save your work, then sign in again. ';
+   const link=document.createElement('a');link.textContent='Sign in';link.href='/login?next='+encodeURIComponent(location.pathname+location.search);expiredNotice.append(link);header?.after(expiredNotice);
+  }
+  return response;
+ };
+ originalFetch('/auth/status').then(r=>r.json()).then(status=>{
+  if(!status.authenticated||!header)return;
+  const account=document.createElement('span');account.className='nc-account';account.textContent=status.username;
+  const logout=document.createElement('button');logout.type='button';logout.className='nc-signout';logout.textContent='Sign out';
+  logout.onclick=async()=>{logout.disabled=true;try{const response=await originalFetch('/auth/logout',{method:'POST'});if(!response.ok&&response.status!==401)throw Error('Sign-out failed');location.assign('/login');}catch{logout.textContent='Retry sign out';logout.disabled=false;}};
+  header.append(account,logout);
+ }).catch(()=>{});
  if(header){
    const toggle=document.createElement('button');toggle.type='button';toggle.className='nc-menu-toggle';toggle.setAttribute('aria-label','Toggle navigation');toggle.setAttribute('aria-controls','ncSidebar');toggle.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>';header.prepend(toggle);
    const metadata=document.createElement('div');metadata.className='nc-header-meta';const date=document.createElement('time');date.dateTime=new Date().toISOString().slice(0,10);date.textContent=new Intl.DateTimeFormat('en-GB').format(new Date()).replaceAll('/','.');metadata.append(date);

@@ -207,3 +207,46 @@ as Live CLI. A failed TCP probe indicates that Render cannot reach that device a
 - Regression tests use synthetic output and mocked SSH; real-device/platform validation is still required.
 
 EVPN references: [Cisco NX-OS guide](https://www.cisco.com/c/en/us/td/docs/dcn/nx-os/nexus9000/105x/configuration/vxlan/cisco-nexus-9000-series-nx-os-vxlan-configuration-guide-release-105x/m_configuring_vxlan_bgp_evpn.html), [Arista EVPN guide](https://www.arista.com/en/um-eos/eos-configuring-evpn?searchword=eos+29+2+configuring+bgp), [Huawei CloudEngine distributed-gateway example](https://support.huawei.com/enterprise/en/doc/EDOC1000039339/5e782f6/example-for-configuring-nfvi-distributed-gateways-symmetric-mode).
+
+### v5.17.0 — Application sign-in
+
+All workspaces, shared scripts and API endpoints require a session. Authentication is
+**enabled by default**, including when credentials are missing. Missing/invalid
+credentials leave the application locked, with a setup message on `/login`; there is
+no default password or public registration. `/healthz` is the public Render health
+check and exposes no project, SSH target or environment details. The existing
+`/api/health` path also returns only `{ "ok": true }` to unauthenticated probes,
+preserving Render health checks configured before this release.
+
+Before deploying, set these **Render → Environment** variables:
+
+- `AUTH_ENABLED=1`
+- `AUTH_USERNAME`: the initial administrator username.
+- `AUTH_PASSWORD`: a unique password of at least 12 characters, entered only in
+  Render's secret environment settings. It is converted to a salted password hash
+  at process startup and never returned by the API, included in project files, or
+  committed to the repository.
+
+Alternatively, omit `AUTH_PASSWORD` and set `AUTH_PASSWORD_HASH`. Generate its value
+locally with `python authentication.py`; the command prompts without echoing the
+password and prints a PBKDF2-SHA256 hash. A hash takes precedence over a raw password.
+Never enter passwords in chat, source files, URL parameters or screenshots.
+
+Use HTTPS. The session cookie is Secure, HttpOnly, SameSite=Strict, host-only and
+expires after eight hours. Sign-out revokes the session on the server. Sessions and
+login rate limits are process-local: run **one application process** for this first
+stage; service restart/deployment requires signing in again. Credential changes
+also require restart. The next database phase should introduce individual users,
+shared session storage and project ownership before enabling multiple accounts.
+
+Unsafe requests require a matching Origin header. A separate login throttle limits
+password attempts. A session-expiry notice lets an engineer save before signing in
+again. Existing project storage remains browser-based; adding authentication does
+not migrate it into a database.
+
+For isolated local regression tests only, set `AUTH_ENABLED=0`. Do not use that
+setting on the public Render service. Run authentication tests separately:
+`python -m unittest test_authentication.py`.
+
+References: [OWASP password storage](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html),
+[OWASP session management](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html).

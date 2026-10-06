@@ -6360,6 +6360,9 @@ renderModule();
  };
  // Save downloads a readable .json project file to the user's PC; browser storage is only for Recent Projects.
  renderRecent();
+ document.addEventListener("nc-auth-expired",()=>{
+   try{sessionStorage.setItem("networkConfigurator.workflow.design",JSON.stringify(snapshot()));}catch(error){console.warn("Draft checkpoint unavailable",error);}
+ });
  if(new URLSearchParams(location.search).get("resume")==="1"){
    try{
      const saved=JSON.parse(sessionStorage.getItem("networkConfigurator.workflow.design")||"null");
