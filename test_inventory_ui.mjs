@@ -298,3 +298,22 @@ assert.equal(context.state.projectDetails.assumptions.startsWith('Güç, rack'),
 assert.equal(/ÖRNEK|EXAMPLE/.test(JSON.stringify(context.state.projectDetails)),false);
 assert.equal(/ÖRNEK|EXAMPLE/.test(context.state.name+context.state.scope),false);
 console.log('Legacy labelled templates clean up and reconcile in the selected language.');
+
+// Selecting Automatic SSH exposes credentials immediately, even with no targets.
+vm.runInContext(html.slice(html.indexOf("  function renderInventoryManager(){"),html.indexOf("  function updateRemoveDeviceButton(){")),context);
+context.state={devices:[],vendor:'Cisco NX-OS',inventoryDeviceIds:[],sshVisibleIds:[],manualVisibleIds:[]};
+context.maintenanceView='inventory';
+vm.runInContext('maintenanceView="inventory";inventoryMode="manual";batchRunning=false;batchSelection.clear()',context);
+$('inventoryMode').onchange({target:{value:'automatic'}});
+assert.equal(context.state.devices.length,1);
+assert.match($('batchRows').innerHTML,/data-key="sshUsername"/);
+assert.match($('batchRows').innerHTML,/data-key="password" type="password"/);
+assert.match($('batchRows').innerHTML,/data-key="target"/);
+assert.equal($('batchInventory').hidden,false);
+assert.equal(context.state.inventoryDeviceIds.length,0,'blank target must not enter report inventory');
+$('inventoryMode').onchange({target:{value:'automatic'}});
+assert.equal(context.state.devices.length,1,'existing SSH targets must not be duplicated');
+vm.runInContext('removeInventoryDevices(sshPageDevices().map(d=>d.id),"automatic");renderInventoryManager()',context);
+assert.equal(context.state.devices.length,0,'Remove all remains empty until an explicit mode selection or Add device');
+assert.equal($('batchRows').innerHTML,'');
+console.log('Automatic SSH first target exposes username/password; no duplicates, report pollution or Remove all regression.');

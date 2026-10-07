@@ -28,6 +28,7 @@ from typing import List, Literal
 
 from fastapi import FastAPI, HTTPException, Request as WebRequest
 from inventory_excel import parse_inventory_xlsx
+from sdwan_excel import parse_sdwan_excel
 from network_discovery import COMMANDS as DISCOVERY_COMMANDS, build_graph as build_discovery_graph
 from fastapi.responses import HTMLResponse, StreamingResponse, Response, JSONResponse
 from pydantic import BaseModel, Field
@@ -38,7 +39,7 @@ from authentication import install_authentication
 from project_store import install_project_store
 from config_compare import install_config_compare
 
-VERSION = "5.21.2"
+VERSION = "5.21.3"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
 # Keep the diagnostic entry point available with the authenticated page itself.
@@ -1163,6 +1164,19 @@ def collect_inventory(p: DeviceRequest, cancel=None):
                 conn.disconnect()
             except Exception:
                 pass
+
+
+@app.post("/api/sdwan/excel")
+async def sdwan_excel(request: WebRequest):
+    data = bytearray()
+    async for chunk in request.stream():
+        data.extend(chunk)
+        if len(data) > 5_000_000:
+            raise HTTPException(status_code=413, detail="Excel file must be smaller than 5 MB.")
+    try:
+        return parse_sdwan_excel(bytes(data))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.post("/api/reporting/inventory-excel")

@@ -638,7 +638,7 @@ pre{
   </main>
 </div>
 
-<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+
 <script src="/design-checks.js"></script>
 <script src="/engineering-locale.js"></script>
 <script src="/vpc-report.js"></script>
@@ -3763,20 +3763,19 @@ function initSdwanUploadUI(){
  const valBtn=document.getElementById("sdValidateBtn");
  const genBtn=document.getElementById("sdGenerateBtn");
  if(!file)return;
-
+ let uploadEpoch=0;
  file.addEventListener("change",async e=>{
    const f=e.target.files?.[0]; if(!f)return;
-   if(typeof XLSX==="undefined"){
-     sdSetStatus("Excel parser yüklenemedi. İnternet bağlantısını kontrol edin ve sayfayı yeniden açın.","error");
-     return;
-   }
+   const requestEpoch=++uploadEpoch;
    try{
      sdSetStatus(`${f.name} okunuyor...`);
-     const data=await f.arrayBuffer();
-     const wb=XLSX.read(data,{type:"array"});
-     const target=wb.SheetNames.find(n=>sdNormHeader(n)===sdNormHeader("IP Adres Planlaması")) || wb.SheetNames[0];
-     const ws=wb.Sheets[target];
-     const rows=XLSX.utils.sheet_to_json(ws,{defval:"",raw:false});
+     if(f.size>5000000)throw new Error("Excel file must be smaller than 5 MB.");
+     const response=await fetch("/api/sdwan/excel",{method:"POST",headers:{"Content-Type":"application/octet-stream"},body:await f.arrayBuffer()});
+     const parsed=await response.json();
+     if(!file.isConnected||requestEpoch!==uploadEpoch)return;
+     if(!response.ok)throw new Error(typeof parsed.detail==="string"?parsed.detail:"Excel import failed.");
+     const target=parsed.sheet;
+     const rows=parsed.rows;
      if(!rows.length) throw new Error("Seçilen sayfada veri bulunamadı.");
      const headers=Object.keys(rows[0]);
      const required=["LOKASYON","Router Hostname","System-ip","Site-id","VPN0-ROUTER-TT","VPN0-ROUTER-VF","VPN512-ROUTER"];
@@ -3794,8 +3793,11 @@ function initSdwanUploadUI(){
      sdFillSiteOptions();
      sdSetStatus(`${f.name} yüklendi · ${routerRows.length} router kaydı · Sayfa: ${target}`,"ok");
    }catch(err){
+     if(!file.isConnected||requestEpoch!==uploadEpoch)return;
      console.error(err);
      sdwanExcelRows=[];
+     if(site){site.innerHTML='<option value="">Upload Excel first</option>';site.disabled=true;}
+     if(router){router.innerHTML='<option value="">Select site first</option>';router.disabled=true;}
      sdSetStatus("Excel okunamadı: "+err.message,"error");
    }
  });
