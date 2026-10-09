@@ -37,4 +37,30 @@ $('discoveryZoomIn').onclick=()=>{zoom=Math.min(3,zoom*1.2);renderMap();};$('dis
 $('discoveryReset').onclick=()=>{if(!confirm('Clear discovery results? Your planned design will remain unchanged.'))return;epoch++;state=empty();checkpoint();render();notice('Discovery results cleared.');};$('discoveryProjectName').oninput=checkpoint;
 $('discoverySave').onclick=()=>{if(!window.NetworkProjects?.available)return window.NetworkProjects?.show();checkpoint();window.NetworkProjects.saveCurrent(snapshot()).catch(err=>notice(err.message,true));};$('discoveryDownloadProject').onclick=()=>{try{checkpoint();window.NetworkProjects.downloadCurrent(snapshot());}catch(err){notice(err.message,true);}};
 restore(design);formatCommand();
+
+// Resize the input panes without rebuilding inputs or losing transient credentials.
+(function setupDiscoveryLayout(){
+ const grid=document.querySelector('.discovery-inputs');if(!grid)return;
+ const panels=[...grid.children].filter(n=>n.classList.contains('discovery-card'));if(panels.length!==2)return;
+ let view='split',share=60,dragging=false;
+ try{const saved=JSON.parse(localStorage.getItem('nc-discovery-layout')||'null');if(['split','ssh','cli'].includes(saved?.view))view=saved.view;if(Number.isFinite(saved?.share))share=Math.max(35,Math.min(70,saved.share));}catch{}
+ const controls=el('div');controls.className='discovery-toolbar discovery-layout-controls';grid.before(controls);
+ const buttons={};for(const [key,title] of [['split','Split view'],['ssh','SSH focus'],['cli','CLI focus']]){const b=el('button',title,controls);b.type='button';b.dataset.discoveryView=key;buttons[key]=b;b.onclick=()=>{view=key;apply();save();};}
+ const label=el('label','SSH width',controls),range=el('input',undefined,label);range.type='range';range.min='35';range.max='70';range.value=String(share);range.setAttribute('aria-label','SSH pane width');
+ const hint=el('small','Drag the divider or choose a full-width view.',controls);
+ const divider=el('div');divider.className='discovery-divider';divider.tabIndex=0;divider.setAttribute('role','separator');divider.setAttribute('aria-orientation','vertical');divider.setAttribute('aria-label','Resize SSH and CLI panes');divider.title='Drag to resize · Arrow keys to adjust · Double-click to reset';grid.insertBefore(divider,panels[1]);
+ function save(){try{localStorage.setItem('nc-discovery-layout',JSON.stringify({view,share}));}catch{}}
+ function apply(){const width=grid.getBoundingClientRect().width||Math.max(0,window.innerWidth-290),stacked=view==='split'&&width<900;
+ grid.classList.add('discovery-split');grid.classList.toggle('discovery-stacked',stacked);grid.classList.toggle('discovery-focus',view!=='split');grid.style.setProperty('--discovery-share',share+'%');
+ panels[0].hidden=view==='cli';panels[1].hidden=view==='ssh';divider.hidden=view!=='split'||stacked;range.disabled=divider.hidden;range.value=String(share);
+ divider.setAttribute('aria-valuenow',String(Math.round(share)));divider.setAttribute('aria-valuemin','35');divider.setAttribute('aria-valuemax','70');
+ for(const [key,b] of Object.entries(buttons))b.setAttribute('aria-pressed',String(view===key));hint.textContent=stacked?'Panels are stacked to fit this width. Choose SSH focus or CLI focus for more space.':'Drag the divider or choose a full-width view.';
+ }
+ range.oninput=()=>{share=Number(range.value);apply();save();};
+ divider.onpointerdown=e=>{if(e.button!==0||divider.hidden)return;e.preventDefault();dragging=true;divider.setPointerCapture?.(e.pointerId);};
+ divider.onpointermove=e=>{if(!dragging)return;const r=grid.getBoundingClientRect();if(!r.width)return;share=Math.max(35,Math.min(70,(e.clientX-r.left)/r.width*100));apply();};
+ const finish=()=>{if(dragging){dragging=false;save();}};divider.onpointerup=finish;divider.onpointercancel=finish;divider.onlostpointercapture=finish;
+ divider.ondblclick=()=>{share=60;apply();save();};divider.onkeydown=e=>{if(!['ArrowLeft','ArrowRight','Home'].includes(e.key))return;e.preventDefault();share=e.key==='Home'?60:Math.max(35,Math.min(70,share+(e.key==='ArrowLeft'?-1:1)*(e.shiftKey?5:1)));apply();save();};
+ window.addEventListener('resize',apply);if(typeof ResizeObserver!=='undefined')new ResizeObserver(apply).observe(grid);apply();
+})();
 })();

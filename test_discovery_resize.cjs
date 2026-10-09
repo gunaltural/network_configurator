@@ -1,0 +1,17 @@
+const fs=require('fs'),assert=require('assert/strict'),{JSDOM,VirtualConsole}=require('jsdom');
+const dom=new JSDOM(fs.readFileSync('network-discovery.html','utf8'),{url:'https://test.invalid/network-discovery',runScripts:'dangerously',virtualConsole:new VirtualConsole()});
+const w=dom.window,d=w.document,grid=d.querySelector('.discovery-inputs');
+grid.getBoundingClientRect=()=>({left:100,width:1200});w.eval(fs.readFileSync('network-discovery.js','utf8'));
+d.getElementById('discoveryAddSeed').click();const password=d.querySelector('#discoverySeeds input[type=password]');password.value='transient-test';password.dispatchEvent(new w.Event('input'));
+const cards=[...grid.querySelectorAll('.discovery-card')],divider=grid.querySelector('[role=separator]');
+assert.equal(divider.hidden,false);d.querySelector('[data-discovery-view=ssh]').click();assert.equal(cards[1].hidden,true);assert.equal(cards[0].hidden,false);assert.equal(password.value,'transient-test');
+d.querySelector('[data-discovery-view=cli]').click();assert.equal(cards[0].hidden,true);assert.equal(cards[1].hidden,false);
+d.querySelector('[data-discovery-view=split]').click();assert.equal(cards[0].hidden,false);assert.equal(cards[1].hidden,false);
+const range=d.querySelector('[aria-label="SSH pane width"]');range.value='68';range.dispatchEvent(new w.Event('input'));assert.equal(grid.style.getPropertyValue('--discovery-share'),'68%');
+divider.dispatchEvent(new w.KeyboardEvent('keydown',{key:'ArrowLeft'}));assert.equal(divider.getAttribute('aria-valuenow'),'67');
+divider.dispatchEvent(new w.MouseEvent('pointerdown',{button:0,clientX:800}));divider.dispatchEvent(new w.MouseEvent('pointermove',{clientX:640}));divider.dispatchEvent(new w.MouseEvent('pointerup'));
+assert.equal(divider.getAttribute('aria-valuenow'),'45');assert.equal(JSON.parse(w.localStorage.getItem('nc-discovery-layout')).share,45);
+assert.equal(password,d.querySelector('#discoverySeeds input[type=password]'));assert.equal(password.value,'transient-test');
+grid.getBoundingClientRect=()=>({left:0,width:700});w.dispatchEvent(new w.Event('resize'));assert.equal(divider.hidden,true);assert.equal(range.disabled,true);assert.ok(grid.classList.contains('discovery-stacked'));
+assert.equal(d.querySelector('.discovery-seed-table')!==null,true);
+console.log('Discovery drag/keyboard/range resizing, SSH/CLI focus, narrow-screen stacking, saved layout and transient credential preservation passed.');w.close();
