@@ -1,5 +1,6 @@
 """Normalize observed interface data without inferring missing network facts."""
 import re
+from datetime import datetime, timezone
 from network_discovery import port
 
 DETAIL_COMMANDS = {
@@ -20,9 +21,26 @@ def key(value):
     return value
 
 
+def observation_order(item):
+    try:
+        stamp = datetime.fromisoformat(item.get('observedAt', '').replace('Z', '+00:00'))
+        if stamp.tzinfo is None:
+            return float('-inf')
+        return stamp.astimezone(timezone.utc).timestamp()
+    except (ValueError, TypeError):
+        return float('-inf')
+
+
 def parse_interfaces(platform, evidence):
     records, warnings = {}, []
+    # A command output is a snapshot: keep its newest capture, not old ports
+    # absent from that capture. Merge different commands in observation order.
+    latest = {}
     for item in evidence:
+        identity = (item.get('platform') or platform, item['command'])
+        if identity not in latest or observation_order(item) >= observation_order(latest[identity]):
+            latest[identity] = item
+    for item in sorted(latest.values(), key=observation_order):
         command, output = item['command'], item['output'].replace('\r', '')
         evidence_platform = item.get('platform') or platform
         if command not in DETAIL_COMMANDS[evidence_platform]:
@@ -84,23 +102,26 @@ def parse_interfaces(platform, evidence):
 
 
 def enrich_graph(graph, sources):
-    for d in graph['devices']:d['interfaces']={}
+    byid = {d['id']: d for d in graph['devices']}
+    gathered = {}
+    for d in graph['devices']:
+        d['interfaces'] = {}
     for s in sources:
-        evidence=s.get('interfaceEvidence') or []
-        if not evidence:continue
-        candidates=[d for d in graph['devices'] if (s.get('target') and s['target'] in d['managementAddresses']) or d['hostname'].lower()==s['deviceName'].lower()]
-        if len(candidates)!=1:
-            graph['warnings'].append(s['deviceName']+': interface evidence could not be matched to one device.');continue
-        rows,warnings=parse_interfaces(s['platform'],evidence)
-        graph['warnings'].extend(s['deviceName']+': '+w for w in warnings)
-        device=candidates[0]
-        for k,row in rows.items():
-            previous=device['interfaces'].get(k,{})
-            # Keep newest evidence for a repeated field, not stale previous values.
-            if not previous or max((x.get('observedAt','') for x in row['evidence']),default='')>=max((x.get('observedAt','') for x in previous.get('evidence',[])),default=''):
-                device['interfaces'][k]={**previous,**row}
-    byid={d['id']:d for d in graph['devices']}
+        evidence = s.get('interfaceEvidence') or []
+        if not evidence:
+            continue
+        candidates = [d for d in graph['devices'] if (s.get('target') and s['target'] in d['managementAddresses']) or d['hostname'].lower() == s['deviceName'].lower()]
+        if len(candidates) != 1:
+            graph['warnings'].append(s['deviceName'] + ': interface evidence could not be matched to one device.')
+            continue
+        gathered.setdefault(candidates[0]['id'], []).extend({**item, 'platform': item.get('platform') or s['platform']} for item in evidence)
+    for device_id, evidence in gathered.items():
+        device = byid[device_id]
+        rows, warnings = parse_interfaces(evidence[0]['platform'], evidence)
+        device['interfaces'] = rows
+        graph['warnings'].extend(device['hostname'] + ': ' + warning for warning in warnings)
     for e in graph['links']:
-        for side in ('a','b'):e[side+'Details']=byid[e[side]]['interfaces'].get(key(e[side+'Port']),{})
-    graph['warnings']=list(dict.fromkeys(graph['warnings']))
+        for side in ('a', 'b'):
+            e[side+'Details'] = byid[e[side]]['interfaces'].get(key(e[side+'Port']), {})
+    graph['warnings'] = list(dict.fromkeys(graph['warnings']))
     return graph

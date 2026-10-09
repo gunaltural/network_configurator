@@ -30,6 +30,27 @@ class DiscoveryFeaturesTests(unittest.TestCase):
    rows,warnings=parse_interfaces(platform,[evidence('display interface brief','10GE1/0/1 up up 0% 0% 0 0'),evidence('display port vlan','10GE1/0/1 trunk 20 20 30'),evidence('display eth-trunk',"Eth-Trunk1's state information is:\n10GE1/0/1 Selected 1")]);self.assertEqual(rows['10ge1/0/1']['portChannel'],'Eth-Trunk1');self.assertEqual(rows['10ge1/0/1']['vlan'],'20');self.assertNotIn('speed',rows['10ge1/0/1'])
  def test_disabled_ports_and_wrapped_channel_members(self):
   rows,warnings=parse_interfaces('Arista EOS',[evidence('show interfaces status','Et1  disabled 20 full 1G 1000BaseT'),evidence('show port-channel summary','1 Po1(SU) LACP Et1(P)\n    Et2(P)')]);self.assertEqual(rows['eth1']['status'],'disabled');self.assertEqual(rows['eth2']['portChannel'],'Po1');self.assertFalse(warnings)
+ def test_newest_command_snapshot_and_timezone_order(self):
+  newest=evidence('show interfaces status','Gi1/0/1 connected 20 full 100G X')
+  newest['observedAt']='2026-10-09T12:00:00Z'
+  older=evidence('show interfaces status','Gi1/0/1 connected 10 full 1G X\nGi1/0/9 connected 10 full 1G X')
+  older['observedAt']='2026-10-09T13:00:00+03:00'
+  for items in [[newest,older],[older,newest]]:
+   rows,warnings=parse_interfaces('Cisco IOS-XE',items)
+   self.assertEqual(rows['gi1/0/1']['speed'],'100G')
+   self.assertEqual(rows['gi1/0/1']['vlan'],'20')
+   self.assertNotIn('gi1/0/9',rows)
+  sources=fixture();sources[0]['interfaceEvidence']=[newest]
+  duplicate={**sources[0],'protocol':'lldp','interfaceEvidence':[older]}
+  graph=enrich_graph(build_graph(sources),sources+[duplicate])
+  device=next(d for d in graph['devices'] if d['hostname']=='CORE-1')
+  self.assertEqual(device['interfaces']['gi1/0/1']['speed'],'100G')
+  self.assertNotIn('gi1/0/9',device['interfaces'])
+  switchport=evidence('show interfaces switchport','Name: Gi1/0/1\nAccess Mode VLAN: 30 (PROD)')
+  switchport['observedAt']='2026-10-09T13:00:00Z'
+  rows,_=parse_interfaces('Cisco IOS-XE',[switchport,newest])
+  self.assertEqual(rows['gi1/0/1']['vlan'],'30')
+  self.assertEqual(rows['gi1/0/1']['speed'],'100G')
  def test_endpoint_enrichment_and_provenance(self):
   sources=fixture();g=enrich_graph(build_graph(sources),sources);self.assertEqual(len(g['links']),1);e=g['links'][0];details=[e['aDetails'],e['bDetails']];self.assertTrue(any(d.get('portChannel')=='Po1' for d in details));self.assertTrue(any(d.get('speed')=='1G' for d in details));self.assertTrue(all(d['evidence'][0]['observedAt']==STAMP for d in details))
  def test_invalid_or_unsupported_does_not_invent_data(self):
