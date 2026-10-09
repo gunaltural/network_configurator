@@ -40,9 +40,9 @@ def parse_interfaces(platform, evidence):
             return r
         for line in output.splitlines():
             # IOS/NX-OS/EOS status table, descriptions may contain spaces.
-            m = re.match(r'^\s*('+PORT_RE+r')\s+(.*?)\s+(connected|notconnect|disabled|err-disabled|inactive|monitoring|sfpAbsent|xcvrAbsen|routed|up|down)\s+(\S+)\s+(\S+)\s+(\S+)(?:\s+.*)?$', line, re.I)
+            m = re.match(r'^\s*('+PORT_RE+r')\s+(?:(.*?)\s+)?(connected|notconnect|notconnec|disabled|err-disabled|errDisabl|inactive|monitoring|sfpAbsent|xcvrAbsen|suspended|notpresent|unknown|routed|up|down)\s+(\S+)\s+(\S+)\s+(\S+)(?:\s+.*)?$', line, re.I)
             if m and 'status' in command:
-                r=record(m[1]);r.update(description=m[2].strip(),status=m[3],vlan=m[4],duplex=m[5],speed=m[6]);continue
+                r=record(m[1]);r.update(description=(m[2] or '').strip(),status=m[3],vlan=m[4],duplex=m[5],speed=m[6]);continue
             m=re.match(r'^\s*('+PORT_RE+r')\s+(admin down|administratively down|up|down|deleted)\s+(up|down)\s*(.*)$',line,re.I)
             if m and ('description' in command or 'brief' in command):
                 r=record(m[1]);r.update(status=m[2],protocol=m[3]);
