@@ -1,0 +1,11 @@
+const fs=require('fs'),assert=require('assert/strict'),{execFileSync}=require('child_process'),{JSDOM,VirtualConsole}=require('jsdom');
+const sources=[{platform:'Cisco IOS-XE',protocol:'cdp',deviceName:'c9000v-terraform-netconf.mohamed.local',target:'192.0.2.1',origin:'CLI import',observedAt:'2026-10-09T06:24:00Z',output:Array.from({length:7},(_,i)=>`Device ID: c9000v-terraform-netconf\nEntry address(es):\n  IP address: 192.0.2.2\nPlatform: Cisco C9000v, Capabilities: Router Switch\nInterface: GigabitEthernet0/0, Port ID (outgoing port): GigabitEthernet1/0/${i+1}\n`).join('\n')}];
+const graph=JSON.parse(execFileSync('python',['-c','import json,sys;from network_discovery import build_graph;print(json.dumps(build_graph(json.load(sys.stdin))))'],{input:JSON.stringify(sources),encoding:'utf8'}));
+assert.equal(graph.devices.length,2);assert.equal(graph.links.length,7);
+const dom=new JSDOM(fs.readFileSync('network-discovery.html','utf8'),{url:'https://test.invalid/network-discovery',runScripts:'dangerously',virtualConsole:new VirtualConsole()});const w=dom.window,d=w.document;w.eval(fs.readFileSync('network-discovery.js','utf8'));
+w.NetworkDiscovery.restore({project:{name:'Parallel CDP test'},networkDiscovery:{schema:'network-discovery-v1',sources,graph,positions:{}}});
+assert.equal(d.querySelectorAll('#discoveryMap [data-node]').length,2);const paths=[...d.querySelectorAll('#discoveryMap [data-link] path:first-of-type')];assert.equal(paths.length,7);assert.equal(new Set(paths.map(p=>p.getAttribute('d'))).size,7,'Each port connection needs a distinct curve');
+const labels=[...d.querySelectorAll('#discoveryMap [data-link] text')];assert.equal(new Set(labels.map(t=>t.getAttribute('y'))).size,7);assert.equal(labels.length,7);
+assert.ok([...d.querySelectorAll('#discoveryMap [data-node] title')].some(n=>n.textContent===sources[0].deviceName),'Full FQDN must be available');
+d.querySelector('#discoveryMap [data-link]').dispatchEvent(new w.MouseEvent('click'));assert.match(d.getElementById('discoveryInspector').textContent,/Gi1\/0\//);
+assert.equal(w.NetworkDiscovery.snapshot().graph.devices.length,2,'Drawing must not fabricate extra devices');console.log('Seven real-parser CDP port observations render as two devices, seven distinct curves, readable port labels and full hostname tooltips.');w.close();
