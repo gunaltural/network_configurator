@@ -30,6 +30,8 @@ from fastapi import FastAPI, HTTPException, Request as WebRequest
 from inventory_excel import parse_inventory_xlsx
 from sdwan_excel import parse_sdwan_excel
 from network_discovery import COMMANDS as DISCOVERY_COMMANDS, build_graph as build_discovery_graph
+from discovery_details import DETAIL_COMMANDS, enrich_graph as enrich_discovery_graph
+from discovery_report import build_discovery_report
 from fastapi.responses import HTMLResponse, StreamingResponse, Response, JSONResponse
 from pydantic import BaseModel, Field
 import uvicorn
@@ -39,7 +41,7 @@ from authentication import install_authentication
 from project_store import install_project_store
 from config_compare import install_config_compare
 
-VERSION = "5.21.10"
+VERSION = "5.22.1"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
 # Keep the diagnostic entry point available with the authenticated page itself.
@@ -187,6 +189,13 @@ class DiscoveryIdentity(BaseModel):
     serial: str = Field(default="", max_length=300)
     software_version: str = Field(default="", max_length=300)
 
+class DiscoveryInterfaceEvidence(BaseModel):
+    command: str = Field(max_length=100)
+    output: str = Field(max_length=100000)
+    observedAt: str = Field(default="", max_length=80)
+    origin: Literal["CLI import", "SSH interface collection"] = "CLI import"
+    platform: Literal['Cisco IOS-XE', 'Cisco NX-OS', 'Arista EOS', 'Huawei_CE_SW', 'Huawei iStack'] | None = None
+
 class DiscoverySource(BaseModel):
     platform: Literal['Cisco IOS-XE', 'Cisco NX-OS', 'Arista EOS', 'Huawei_CE_SW', 'Huawei iStack']
     protocol: Literal['lldp', 'cdp'] = 'lldp'
@@ -196,12 +205,16 @@ class DiscoverySource(BaseModel):
     observedAt: str = Field(default='', max_length=80)
     origin: Literal['CLI import', 'SSH inventory / neighbors'] = 'CLI import'
     identity: DiscoveryIdentity | None = None
+    interfaceEvidence: List[DiscoveryInterfaceEvidence] = Field(default_factory=list, max_length=8)
+    discoveryDepth: int = Field(default=0, ge=0, le=3)
 
 class DiscoveryParseRequest(BaseModel):
     sources: List[DiscoverySource] = Field(min_length=1, max_length=50)
 
 class DiscoverySSHRequest(DeviceRequest):
     protocol: Literal['lldp', 'cdp', 'both'] = 'lldp'
+    includeDetails: bool = False
+    discoveryDepth: int = Field(default=0, ge=0, le=3)
 
 
 class LiveCommandRequest(DeviceRequest):
@@ -637,14 +650,14 @@ def network_discovery_script():
 @app.post('/api/discovery/parse')
 def discovery_parse(p: DiscoveryParseRequest):
     sources = [s.model_dump() for s in p.sources]
-    if sum(len(s['output']) for s in sources)>1500000:
+    if sum(len(s['output']) + sum(len(e['output']) for e in s['interfaceEvidence']) for s in sources)>1500000:
         raise HTTPException(400, 'Reduce imported discovery outputs to 1.5 million characters.')
     now = datetime.now(timezone.utc).isoformat()
     for s in sources:
         s['observedAt'] = s['observedAt'] or now
         if s['origin']=='CLI import': s['identity']=None
     try:
-        graph = build_discovery_graph(sources)
+        graph = enrich_discovery_graph(build_discovery_graph(sources), sources)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
     return {'graph':graph, 'sources':sources}
@@ -669,6 +682,7 @@ def discovery_collect(p: DiscoverySSHRequest):
         canonical = LIVE_PLATFORM_ALIASES.get(p.platform, p.platform)
         # Fixed read-only commands; discovery never changes protocol configuration.
         command_list = list(DISCOVERY_COMMANDS[p.platform][m] for m in methods) + list(INVENTORY_COMMANDS[canonical])
+        if p.includeDetails: command_list += list(DETAIL_COMMANDS[p.platform])
         remaining = 300000
         for command in dict.fromkeys(command_list):
             try:
@@ -682,7 +696,8 @@ def discovery_collect(p: DiscoverySSHRequest):
                 outputs[command] = ''
                 warnings.append(command+': command did not complete.')
         identity = parse_inventory(canonical, outputs)
-        sources = [{'platform':p.platform,'protocol':m,'deviceName':identity.get('hostname') or p.target,'target':p.target,'output':outputs.get(DISCOVERY_COMMANDS[p.platform][m],''),'identity':identity,'origin':'SSH inventory / neighbors','observedAt':now} for m in methods]
+        detail_evidence = [{'command':command,'output':outputs.get(command,''),'observedAt':now,'origin':'SSH interface collection'} for command in DETAIL_COMMANDS[p.platform] if p.includeDetails]
+        sources = [{'platform':p.platform,'protocol':m,'deviceName':identity.get('hostname') or p.target,'target':p.target,'output':outputs.get(DISCOVERY_COMMANDS[p.platform][m],''),'identity':identity,'origin':'SSH inventory / neighbors','observedAt':now,'interfaceEvidence':detail_evidence,'discoveryDepth':p.discoveryDepth} for m in methods]
         if truncated: warnings.append('CLI output was truncated; discovery may be incomplete.')
         return {'sources':sources,'warnings':warnings,'mock':False}
     except Exception as exc:
@@ -691,6 +706,32 @@ def discovery_collect(p: DiscoverySSHRequest):
         if conn:
             try: conn.disconnect()
             except Exception: pass
+
+
+class DiscoveryPosition(BaseModel):
+    x: float = Field(ge=-20000, le=20000, allow_inf_nan=False)
+    y: float = Field(ge=-20000, le=20000, allow_inf_nan=False)
+
+class DiscoveryReportRequest(DiscoveryParseRequest):
+    name: str = Field(min_length=1, max_length=120)
+    language: Literal['en', 'tr'] = 'en'
+    engineer: str = Field(default='', max_length=200)
+    scope: str = Field(default='', max_length=3000)
+    positions: dict[str, DiscoveryPosition] = Field(default_factory=dict, max_length=200)
+    platformOverrides: dict[str, Literal['Cisco IOS-XE', 'Cisco NX-OS', 'Arista EOS', 'Huawei_CE_SW', 'Huawei iStack']] = Field(default_factory=dict, max_length=500)
+
+@app.post('/api/discovery/report/{report_format}')
+def discovery_report(report_format: str, p: DiscoveryReportRequest):
+    if report_format not in ('pdf', 'word'):
+        raise HTTPException(400, 'Choose PDF or Word.')
+    if not p.name.strip(): raise HTTPException(400, 'Enter a project name.')
+    data = discovery_parse(p)
+    for device in data['graph']['devices']:
+        if device['id'] in p.platformOverrides: device['vendor'] = p.platformOverrides[device['id']]
+    report = build_discovery_report(data['graph'], data['sources'], p.model_dump(), report_format)
+    extension = 'pdf' if report_format == 'pdf' else 'docx'
+    media = 'application/pdf' if report_format == 'pdf' else 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    return StreamingResponse(report, media_type=media, headers={'Content-Disposition':f'attachment; filename="network-discovery-report.{extension}"','Cache-Control':'no-store'})
 
 
 install_project_store(app)
