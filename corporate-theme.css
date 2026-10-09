@@ -261,3 +261,20 @@ body>.nc-project-flow{margin:18px 28px;max-width:1604px}
 .nc-design-checks{background:#e6edf3;border:1px solid #8eabba;border-left:4px solid #2d6b87;border-radius:9px;color:#17384b;margin:0 0 16px;padding:10px 12px;font-size:13px;line-height:1.5;overflow-wrap:anywhere}
 .nc-design-checks summary{cursor:pointer;font-weight:700;color:#17384b}.nc-design-checks p{margin:8px 0;color:#3c596b;font-size:12px}.nc-design-checks[data-state=error]{border-left-color:#a52e35}.nc-design-checks[data-state=warning]{border-left-color:#9a6718}.nc-design-issue{border-top:1px solid #b4c6d2;padding:9px 0;display:flex;align-items:center;gap:10px;justify-content:space-between}.nc-design-issue button{flex:none;background:#d1e1eb;color:#17384b;border:1px solid #8eabba;border-radius:5px;padding:5px 8px;font-size:12px;cursor:pointer}#params [data-design-invalid]{border:2px solid #a52e35!important;box-shadow:0 0 0 1px #a52e3520}
 @media(max-width:700px){.nc-design-issue{align-items:flex-start;flex-direction:column}}
+
+/* Inventory views share the Network Discovery canvas and input surfaces. */
+@media screen{
+ body.nc-inventory-view{--bg:#edf2f6;--line:#b7cbd9;background:#edf2f6;color:#18384d}
+ body.nc-inventory-view .editor>.stack>.panel{background:#e0e9ef;border-color:#b7cbd9}
+ body.nc-inventory-view .shell>.nav{background:#e0e9ef;border-bottom-color:#bdcfdc}
+ body.nc-inventory-view :is(#inventoryManager,#sshBox) :is(input,select,textarea){background:#f7fafc;color:#193b52;border-color:#97b2c7}
+ body.nc-inventory-view .ssh-box{background:#e0e9ef!important;border-color:#b7cbd9!important}
+ body.nc-inventory-view .inventory-scroll{border:1px solid #acc1d0;border-radius:8px}
+ body.nc-inventory-view .inventory-scroll th{background:#cfdee8;color:#234c68}
+ body.nc-inventory-view .inventory-scroll td{background:#e0e9ef}
+ body.nc-inventory-view .inventory-scroll :is(th,td){border-color:#bbcdda}
+ body.nc-inventory-view .panel label{color:#395a70}
+ body.nc-inventory-view .ssh-result{color:#395a70}
+ body.nc-inventory-view .ssh-result.error{color:#7a2439}
+ body.nc-inventory-view .ssh-result.ok{color:#187452}
+}
