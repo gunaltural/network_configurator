@@ -6,6 +6,7 @@ const dom=new JSDOM(fs.readFileSync('network-discovery.html','utf8'),{url:'https
 w.NetworkDiscovery.restore({project:{name:'Parallel CDP test'},networkDiscovery:{schema:'network-discovery-v1',sources,graph,positions:{}}});
 assert.equal(d.querySelectorAll('#discoveryMap [data-node]').length,2);const paths=[...d.querySelectorAll('#discoveryMap [data-link] path:first-of-type')];assert.equal(paths.length,7);assert.equal(new Set(paths.map(p=>p.getAttribute('d'))).size,7,'Each port connection needs a distinct curve');
 const labels=[...d.querySelectorAll('#discoveryMap [data-link] text')];assert.equal(new Set(labels.map(t=>t.getAttribute('y'))).size,7);assert.equal(labels.length,7);
-assert.ok([...d.querySelectorAll('#discoveryMap [data-node] title')].some(n=>n.textContent===sources[0].deviceName),'Full FQDN must be available');
+assert.ok([...d.querySelectorAll('#discoveryMap [data-node] title')].some(n=>n.textContent.includes(sources[0].deviceName)),'Full FQDN must be available');
 d.querySelector('#discoveryMap [data-link]').dispatchEvent(new w.MouseEvent('click'));assert.match(d.getElementById('discoveryInspector').textContent,/Gi1\/0\//);
+assert.match(d.querySelector('#discoveryMap').textContent,/Mgmt IP: 192\.0\.2\.2/);
 assert.equal(w.NetworkDiscovery.snapshot().graph.devices.length,2,'Drawing must not fabricate extra devices');console.log('Seven real-parser CDP port observations render as two devices, seven distinct curves, readable port labels and full hostname tooltips.');w.close();
