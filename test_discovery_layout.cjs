@@ -1,0 +1,12 @@
+const fs=require('fs'),assert=require('assert/strict'),{JSDOM,VirtualConsole}=require('jsdom');
+const html=fs.readFileSync('network-discovery.html','utf8').replace('<link rel="stylesheet" href="/corporate-theme.css">','<style>'+fs.readFileSync('corporate-theme.css','utf8')+'</style>');
+const dom=new JSDOM(html,{virtualConsole:new VirtualConsole()});
+const w=dom.window,d=w.document;
+assert.match(w.getComputedStyle(d.body).marginLeft,/--nc-sidebar/,'Discovery must retain sidebar clearance');
+d.body.classList.add('nc-menu-collapsed');
+assert.equal(w.getComputedStyle(d.body).marginLeft,'0px','Collapsing navigation releases the clearance');
+assert.equal(w.getComputedStyle(d.querySelector('.discovery-grid')).gridTemplateColumns,'repeat(2,minmax(0,1fr))','Input columns must shrink instead of forcing horizontal page overflow');
+assert.equal(w.getComputedStyle(d.querySelector('.scroll-box')).maxWidth,'100%');
+assert.ok([...d.styleSheets].some(sheet=>[...sheet.cssRules].some(rule=>rule.conditionText?.replaceAll(' ','')==='(max-width:800px)'&&[...rule.cssRules].some(r=>r.selectorText==='body'&&r.style.getPropertyValue('margin-left')==='0px'))),'Mobile layout must release sidebar clearance');
+console.log('Discovery sidebar clearance, collapsed menu, bounded input grid/table and mobile override passed.');
+w.close();
