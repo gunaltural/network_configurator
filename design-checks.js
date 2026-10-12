@@ -116,7 +116,7 @@ function evaluate({module,platform,fields:f={}}){
 function evaluatePair(a,b){const x=cidr(a),y=cidr(b);return !!(x&&y&&x.ip!==y.ip&&x.network===y.network&&x.p===y.p&&x.p<=31&&(x.p===31||x.ip!==x.network&&x.ip!==x.last&&y.ip!==y.network&&y.ip!==y.last));}
 function render(module,platform){
  const node=document.getElementById('designChecks');if(!node)return;
- const f={};document.querySelectorAll('#params input[id],#params select[id],#params textarea[id],#topologyControls input[id],#topologyControls select[id]').forEach(el=>{if(!['file','password'].includes(el.type))f[el.id]=el.type==='checkbox'?el.checked:el.value;});
+ const f={};document.querySelectorAll('#params input[id],#params select[id],#params textarea[id],#topologyControls input[id],#topologyControls select[id],#topologyControls textarea[id]').forEach(el=>{if(!['file','password'].includes(el.type))f[el.id]=el.type==='checkbox'?el.checked:el.value;});
  const result=evaluate({module,platform,fields:f}),prior=node.querySelector('details')?.open;
  document.querySelectorAll('[data-design-invalid]').forEach(el=>{el.removeAttribute('data-design-invalid');el.removeAttribute('aria-invalid');});
  node.replaceChildren();const details=document.createElement('details');details.open=result.errors>0||!!prior;const summary=document.createElement('summary');summary.textContent=`Design consistency · ${result.errors} errors · ${result.warnings} advisories`;details.append(summary);node.dataset.state=result.errors?'error':result.warnings?'warning':'ok';

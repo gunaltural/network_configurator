@@ -133,7 +133,7 @@ pre{
 .sd-check input{width:auto}
 .sd-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
 .sd-subtle{font-size:9.5px;color:#7793a5}
-.sd-cli{min-height:220px;max-height:390px;margin-top:2px}
+.sd-cli{min-height:220px;max-height:280px;margin-top:2px}
 .sd-actions{display:flex;justify-content:flex-end;gap:9px;flex-wrap:wrap}
 .sd-deploy-btn{min-width:180px;font-weight:900;letter-spacing:.04em}
 .sd-result{border:1px solid #294154;border-radius:12px;padding:12px 14px;background:#07121a;color:#a8bdca;font:11px/1.55 'JetBrains Mono','Fira Code','Roboto Mono','Consolas','Courier New',monospace;white-space:pre-wrap;min-height:74px}
@@ -281,7 +281,7 @@ pre{
 .bgp-card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;margin:10px 0 18px}
 .bgp-device-card,.bgp-link-card{border:1px solid var(--border);border-radius:12px;padding:14px;background:rgba(255,255,255,.025)}
 
-.bgp-connection-toolbar{margin:10px 0}.bgp-connection-scroll{max-height:390px;overflow:auto;border:1px solid #abc1d0;border-radius:8px}.bgp-connections{width:100%;min-width:1020px;border-collapse:collapse;font-size:12px}.bgp-connections th{position:sticky;top:0;background:#d4e2ec;padding:10px;text-align:left}.bgp-connections td{padding:7px;border-top:1px solid #b8cbd8}.bgp-connections input:not([type=checkbox]),.bgp-connections select{min-width:100px;width:100%}.bgp-connections input[type=checkbox]{width:18px;height:18px}.bgp-connections td:nth-child(5),.bgp-connections td:nth-child(8){min-width:150px}
+.bgp-connection-toolbar{margin:10px 0}.bgp-connection-scroll{max-height:280px;overflow:auto;border:1px solid #abc1d0;border-radius:8px}.bgp-connections{width:100%;min-width:650px;border-collapse:collapse;font-size:12px}.bgp-connections th{position:sticky;top:0;background:#d4e2ec;padding:10px;text-align:left}.bgp-connections td{padding:7px;border-top:1px solid #b8cbd8}.bgp-connections input:not([type=checkbox]),.bgp-connections select{min-width:100px;width:100%}.bgp-connections input[type=checkbox]{width:18px;height:18px}.bgp-connections td:nth-child(3),.bgp-connections td:nth-child(4){min-width:200px}.bgp-connections td label{display:grid;grid-template-columns:54px minmax(0,1fr);align-items:center;gap:6px;font-size:10px;margin:4px 0}.bgp-selected-row{background:#cfdfeb}.bgp-selected-line path:not(.bgp-hit-target){stroke:#d47912!important;stroke-width:4!important}.bgp-connection-editor>summary{cursor:pointer;font-weight:700;color:#0c4962;padding:4px 0 10px}.bgp-connection-editor{margin-top:12px;padding:12px;border:1px solid #adc3d2;border-radius:10px;background:#e3edf4}#bgpConnectionsData[hidden]{display:none!important}
 .bgp-device-card h4,.bgp-link-card h4{margin:0 0 12px;font-size:13px;letter-spacing:.04em}
 .bgp-device-card .mini-grid,.bgp-link-card .mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .bgp-device-card label,.bgp-link-card label{display:block;font-size:11px;margin-bottom:5px;opacity:.78}
@@ -773,14 +773,14 @@ BGP:{
  params:()=>`
  <div class="section-title">1 · BGP Design</div>
  <div class="param-grid">
-   <div><label>CE Router Count</label><select id="bgpCeCount"><option>1</option><option selected>2</option><option>3</option><option>4</option></select></div>
-   <div><label>Upstream Router Count</label><select id="bgpIspCount"><option>1</option><option selected>2</option></select></div>
+<input id="bgpCeCount" type="hidden" value="2">
+<input id="bgpIspCount" type="hidden" value="2">
 
    <div><label>CE Internal Peering</label><select id="bgpInternal"><option value="none">None</option><option value="ibgp" selected>iBGP Full Mesh</option></select></div>
    <div><label>Customer ASN</label><input id="bgpCustomerAs" value="65001"></div>
    <div><label>Address Family</label><select id="bgpAf"><option>IPv4</option><option>IPv6</option><option>Dual Stack</option></select></div>
  </div>
-<div class="section-title">2 · CE & Upstream Routers</div><div id="bgpCeCards" class="bgp-card-grid"></div>
+<div class="section-title">2 · CE Routers</div><button id="bgpAddCe" type="button">Add CE router</button><div id="bgpCeCards" class="bgp-card-grid"></div>
  <div id="bgpIbgpInterconnect" class="bgp-device-card" style="margin-top:12px">
   <h4>CE-to-CE iBGP Interconnect</h4>
   <div class="param-grid">
@@ -791,8 +791,8 @@ BGP:{
   </div>
   <p class="note">With exactly two CE routers and iBGP enabled, a direct Layer-3 CE-to-CE interconnect is generated automatically and used for the iBGP session.</p>
  </div>
- <div class="section-title">Upstream Routers</div><div id="bgpIspCards" class="bgp-card-grid"></div>
- <div class="section-title">3 · External Connections</div><p id="bgpConnectivitySummary" class="hint" role="status"></p><p class="note">Add one row for each physical circuit and direct eBGP session. Multiple circuits between the same two routers are supported. Enter actual interfaces and addresses; changing device counts does not add connections.</p><textarea id="bgpConnectionsData" hidden></textarea><div class="bgp-connection-toolbar"><button id="bgpAddConnection" type="button">Add connection</button></div><div class="bgp-connection-scroll"><table class="bgp-connections"><thead><tr><th>Use</th><th>Connection</th><th>CE router</th><th>CE port</th><th>CE IP / prefix</th><th>External router</th><th>Remote port</th><th>Peer IP / prefix</th><th>Action</th></tr></thead><tbody id="bgpConnectionRows"></tbody></table></div>
+ <div class="section-title">External Routers</div><button id="bgpAddUpstream" type="button">Add external router</button><div id="bgpIspCards" class="bgp-card-grid"></div>
+ <details id="bgpConnectionEditor" class="bgp-connection-editor" open><summary>External Connections · edit circuits</summary><p id="bgpConnectivitySummary" class="hint" role="status"></p><p class="note">Add one row for each physical circuit and direct eBGP session. Multiple circuits between the same two routers are supported. Enter actual interfaces and addresses; adding a router does not automatically create a circuit.</p><textarea id="bgpConnectionsData" hidden></textarea><div class="bgp-connection-toolbar"><button id="bgpAddConnection" type="button">Add connection</button></div><div class="bgp-connection-scroll"><table class="bgp-connections"><thead><tr><th>Use</th><th>Connection</th><th>CE endpoint</th><th>External endpoint</th><th>Action</th></tr></thead><tbody id="bgpConnectionRows"></tbody></table></div><p id="bgpConnectionSelection" class="hint">Select a connection row or a line in the topology to highlight it.</p></details>
  <div class="section-title">Configuration Output</div>
  <div class="param-grid">
    <div><label>Device</label><select id="bgpOutputDevice"><option value="all">All CE Routers</option></select></div>
@@ -1980,7 +1980,7 @@ function vpcLeafUi(){
 function syncTopologyControls(){
  const host=document.getElementById("topologyControls");if(!host)return;
  const ids=[];
- if(tech==="BGP") ids.push("bgpCeCount","bgpIspCount","bgpInternal");
+ if(tech==="BGP") ids.push("bgpInternal");
  else if(tech==="STP") ids.push("stpLeafCount");
  else if(tech==="VPC"){
    if(platform()==="Huawei iStack")ids.push("isLeafCount");
@@ -1990,7 +1990,7 @@ function syncTopologyControls(){
    else ids.push("vpcLeafCount");
  } else if(tech==="EVPN") ids.push("evFabricModel");
  const existing=ids.filter(id=>host.querySelector("#"+id));
- if(existing.length===ids.length && ids.length){return;}
+ if(existing.length===ids.length && ids.length){if(tech==="BGP"){const editor=document.getElementById("bgpConnectionEditor");if(editor&&editor.parentElement!==host)host.appendChild(editor);}return;}
  host.innerHTML="";
  const controls=ids.map(id=>document.getElementById(id)).filter(Boolean);
  if(!controls.length)return;
@@ -2011,7 +2011,7 @@ function syncTopologyControls(){
  });
  const hint=document.createElement("div");hint.className="topology-hint";
  hint.textContent="Topology controls · changes update diagram and configuration";
- bar.appendChild(hint);host.appendChild(bar);
+ bar.appendChild(hint);host.appendChild(bar);if(tech==="BGP"){const editor=document.getElementById("bgpConnectionEditor");if(editor)host.appendChild(editor);}
 }
 
 function syncTopology(){
@@ -2179,17 +2179,18 @@ function syncTopology(){
    const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
    const ceN=+v("bgpCeCount")||2,ispN=+v("bgpIspCount")||2,internal=v("bgpInternal")||"ibgp";
    const ces=Array.from({length:ceN},(_,i)=>bgpCe(i)),isps=Array.from({length:ispN},(_,i)=>bgpIsp(i)),edges=bgpEdges();
-   const cx=Array.from({length:ceN},(_,i)=>ceN===1?475:190+570*i/(ceN-1)),ix=bgpActiveUpstreams().length===1?[475,475]:[310,640];
+   const cx=Array.from({length:ceN},(_,i)=>ceN===1?475:190+570*i/(ceN-1)),ix=Object.fromEntries(bgpActiveUpstreams().map((index,n,all)=>[index,all.length===1?475:150+650*n/(all.length-1)]));
    area.innerHTML=`<div class="vpc-svg-wrap"><svg class="vpc-svg" viewBox="0 0 950 480" role="img" aria-label="Dynamic BGP topology">
    <defs><linearGradient id="bgpNodeGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#123652"/><stop offset="100%" stop-color="#0b2235"/></linearGradient></defs>
    <text x="475" y="30" text-anchor="middle" class="vpc-domain-title">${esc(bgpConnectivityLabel())} · Customer AS ${esc(v("bgpCustomerAs")||"65001")}</text>
-   ${edges.map(([c,i,k])=>{const group=edges.filter(e=>e[0]===c&&e[1]===i),index=group.findIndex(e=>e[2]===k),offset=(index-(group.length-1)/2)*44,x=(ix[i]+cx[c])/2+offset,l=bgpLink(c,i,k);return `<g data-bgp-connection="${k}"><path d="M ${ix[i]} 126 Q ${x} 222 ${cx[c]} 318" style="stroke:#2fa8ff;stroke-width:2.2;fill:none"/><text x="${(ix[i]+2*x+cx[c])/4}" y="${185+index*20}" text-anchor="middle" class="vpc-small">${esc(l.name)} · ${esc(l.ceIf)} ↔ ${esc(l.ispIf)}</text></g>`;}).join("")}
+   ${edges.map(([c,i,k])=>{const group=edges.filter(e=>e[0]===c&&e[1]===i),index=group.findIndex(e=>e[2]===k),offset=(index-(group.length-1)/2)*44,x=(ix[i]+cx[c])/2+offset,l=bgpLink(c,i,k);return `<g data-bgp-connection="${k}" style="cursor:pointer"><path class="bgp-hit-target" d="M ${ix[i]} 126 Q ${x} 222 ${cx[c]} 318" fill="none" stroke="transparent" stroke-width="16" pointer-events="stroke"/><path d="M ${ix[i]} 126 Q ${x} 222 ${cx[c]} 318" style="stroke:#2fa8ff;stroke-width:2.2;fill:none"/><text x="${(ix[i]+2*x+cx[c])/4}" y="${185+index*20}" text-anchor="middle" class="vpc-small">${esc(l.name)} · ${esc(l.ceIf)} ↔ ${esc(l.ispIf)}</text></g>`;}).join("")}
    ${internal==="ibgp"&&ceN===2?`<line x1="${cx[0]+68}" y1="348" x2="${cx[1]-68}" y2="348" style="stroke:#ffad42;stroke-width:2.6;stroke-dasharray:7 5;fill:none"/><rect x="400" y="331" width="150" height="22" rx="7" fill="#071827" stroke="#6a4d22"/><text x="475" y="346" text-anchor="middle" style="fill:#ffbd64;font-size:11px;font-weight:800">iBGP · CE-TO-CE</text>`:internal==="ibgp"&&ceN>2?`<line x1="${cx[0]}" y1="410" x2="${cx[ceN-1]}" y2="410" style="stroke:#ffad42;stroke-width:2.2;stroke-dasharray:7 5;fill:none"/>${cx.map(x=>`<line x1="${x}" y1="378" x2="${x}" y2="410" style="stroke:#ffad42;stroke-width:1.8;stroke-dasharray:5 4;fill:none"/>`).join("")}<text x="475" y="432" text-anchor="middle" style="fill:#ffbd64;font-size:11px;font-weight:800">iBGP LOGICAL FULL-MESH</text>`:""}
    ${internal==="ibgp"&&ceN===2?`<path d="M ${cx[0]} 378 V 398 H ${cx[1]} V 378" fill="none" stroke="#93b4c8" stroke-width="2"/><text x="475" y="416" text-anchor="middle" class="vpc-small">CE interconnect · ${esc(v("bgpIbgpCe1If"))} ↔ ${esc(v("bgpIbgpCe2If"))}</text>`:""}
    ${isps.map((o,i)=>bgpActiveUpstreams().includes(i)?`<g><rect x="${ix[i]-62}" y="66" width="124" height="60" rx="12" style="fill:url(#bgpNodeGrad);stroke:#4fb7f3;stroke-width:1.5"/><text x="${ix[i]}" y="92" text-anchor="middle" class="vpc-device-name">${esc(o.name)}</text><text x="${ix[i]}" y="111" text-anchor="middle" class="vpc-small">AS ${esc(o.asn)}</text></g>`:"").join("")}
    ${ces.map((o,i)=>`<g><rect x="${cx[i]-55}" y="318" width="110" height="60" rx="10" style="fill:url(#bgpNodeGrad);stroke:#4fb7f3;stroke-width:1.5"/><text x="${cx[i]}" y="345" text-anchor="middle" class="vpc-device-name">${esc(o.name)}</text><text x="${cx[i]}" y="364" text-anchor="middle" class="vpc-small">AS ${esc(v("bgpCustomerAs")||"65001")}</text></g>`).join("")}
    <text x="475" y="450" text-anchor="middle" class="vpc-small">${edges.length} eBGP adjacencies · ${internal==="ibgp"?(ceN*(ceN-1)/2)+" iBGP sessions":"iBGP disabled"}</text>
-   </svg></div>`;return;
+   </svg></div>`;
+   area.querySelectorAll('[data-bgp-connection]').forEach(line=>{const id=+line.dataset.bgpConnection;line.setAttribute('tabindex','0');line.setAttribute('role','button');line.setAttribute('aria-label','Select '+bgpConnectionName(id));line.onclick=()=>bgpHighlightConnection(id,true);line.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();bgpHighlightConnection(id,true);}};});bgpHighlightConnection(bgpSelectedConnectionId);return;
  }
  if(tech==="VPC"){
    if(platform()==="Cisco IOS-XE"&&document.getElementById("swvDomain")){
@@ -4885,6 +4886,28 @@ function placeholderGenerate(tab){
 }
 
 
+let bgpSelectedConnectionId=null;
+function bgpHighlightConnection(id,scroll=false){
+ bgpSelectedConnectionId=id;
+ document.querySelectorAll('#bgpConnectionRows tr[data-connection]').forEach(row=>row.classList.toggle('bgp-selected-row',+row.dataset.connection===id));
+ document.querySelectorAll('#topologyArea [data-bgp-connection]').forEach(line=>{const active=+line.dataset.bgpConnection===id;line.classList.toggle('bgp-selected-line',active);line.setAttribute('aria-pressed',String(active));});
+ const status=document.getElementById('bgpConnectionSelection'),record=bgpConnections().find(r=>r.id===id);if(status)status.textContent=record?`Selected: ${record.name} · ${record.enabled?'enabled':'disabled; no line shown'}`:'Select a connection row or a line in the topology to highlight it.';
+ if(scroll){const editor=document.getElementById('bgpConnectionEditor');if(editor)editor.open=true;const row=[...document.querySelectorAll('#bgpConnectionRows tr[data-connection]')].find(r=>+r.dataset.connection===id);row?.scrollIntoView({block:'nearest',inline:'nearest'});}
+}
+function bgpChangeDevice(type,index=null){
+ const ce=type==='ce',countId=ce?'bgpCeCount':'bgpIspCount',count=+v(countId),prefix=ce?'bgpCe':'bgpIsp',keys=ce?['Name','Rid','Loop','Prefix']:['Name','Provider','As'];
+ if(index===null){if(count>=4)return;document.getElementById(countId).value=String(count+1);}
+ else{
+  if(count<=1)return;
+  const links=bgpConnections().filter(r=>(ce?r.ce:r.up)===index),name=ce?bgpCe(index).name:bgpIsp(index).name;
+  if(!confirm(`Remove ${name}${links.length?' and its '+links.length+' connection(s)':''}?`))return;
+  const records=Array.from({length:count},(_,i)=>Object.fromEntries(keys.map(k=>[k,v(prefix+(i+1)+k)]))).filter((_,i)=>i!==index);
+  records.forEach((record,i)=>keys.forEach(k=>{const input=document.getElementById(prefix+(i+1)+k);if(input)input.value=record[k];}));
+  bgpWriteConnections(bgpConnections().filter(r=>(ce?r.ce:r.up)!==index).map(r=>({...r,[ce?'ce':'up']:(ce?r.ce:r.up)>index?(ce?r.ce:r.up)-1:(ce?r.ce:r.up)})));
+  document.getElementById(countId).value=String(count-1);
+ }
+ renderBgpDynamicCards();syncTopology();renderOutput();captureWorkspaceModule(tech);
+}
 function bgpConnections(){
  const raw=document.getElementById('bgpConnectionsData')?.value||'[]';
  try{const rows=JSON.parse(raw);return Array.isArray(rows)?rows.slice(0,64).filter(r=>r&&typeof r==="object"&&!Array.isArray(r)&&Number.isSafeInteger(r.id)&&r.id>0):[];}catch{return [];}
@@ -4900,7 +4923,8 @@ function bgpRefreshConnectivityUI(){
  const ceN=+v('bgpCeCount')||2,upN=+v('bgpIspCount')||2,edges=bgpEdges(),missing=[];
  for(let c=0;c<ceN;c++)if(!edges.some(e=>e[0]===c))missing.push(bgpCe(c).name);
  for(let i=0;i<upN;i++)if(!edges.some(e=>e[1]===i))missing.push(bgpIsp(i).name);
- const summary=document.getElementById('bgpConnectivitySummary');if(summary)summary.textContent=bgpConnectivityLabel()+'. Each enabled row defines one direct eBGP connection. Traffic preference is configured separately in Traffic Engineering.'+(missing.length?' Not connected: '+missing.join(', ')+'.':'');
+ const summary=document.getElementById('bgpConnectivitySummary');if(summary)summary.textContent=bgpConnectivityLabel()+'. Each enabled row defines one direct eBGP connection. Add or remove routers in the device panel; totals update automatically. Traffic preference is configured separately in Traffic Engineering.'+(missing.length?' Not connected: '+missing.join(', ')+'.':'');
+ if(!bgpConnections().some(r=>r.id===bgpSelectedConnectionId))bgpSelectedConnectionId=null;bgpHighlightConnection(bgpSelectedConnectionId);
  document.querySelectorAll('#bgpConnectionRows select').forEach(select=>{const isCe=select.dataset.field==='ce';for(const option of select.options)if(option.value!=='')option.textContent=isCe?bgpCe(+option.value).name:bgpIsp(+option.value).name;});
 }
 function bgpConnectionName(id){return bgpConnections().find(r=>r.id===id)?.name||"No connection selected";}
@@ -4912,23 +4936,24 @@ function bgpIsp(i){return{provider:v(`bgpIsp${i+1}Provider`)||`Provider-${i+1}`,
 function bgpLink(c,i,id){return bgpConnections().find(r=>id===undefined?r.ce===c&&r.up===i:r.id===id)||{ceIf:'',ceIp:'',ispIf:'',ispIp:'',name:'',id};}
 function renderBgpConnectionRows(){
  const body=document.getElementById('bgpConnectionRows');if(!body)return;body.replaceChildren();const rows=bgpConnections(),ceN=+v('bgpCeCount')||2,upN=+v('bgpIspCount')||2;
- for(const r of rows){const tr=document.createElement('tr');tr.dataset.connection=String(r.id);body.appendChild(tr);
-  const field=(key,type='text')=>{const td=document.createElement('td'),input=document.createElement(type==='select'?'select':'input');input.id=`bgpConnection${r.id}${key[0].toUpperCase()+key.slice(1)}`;input.dataset.field=key;td.appendChild(input);tr.appendChild(td);
+ for(const r of rows){const tr=document.createElement('tr');tr.dataset.connection=String(r.id);body.appendChild(tr);tr.addEventListener('focusin',()=>bgpHighlightConnection(r.id));tr.onclick=()=>bgpHighlightConnection(r.id);
+  const field=(key,type='text',group=null)=>{const td=group||document.createElement('td'),input=document.createElement(type==='select'?'select':'input');input.id=`bgpConnection${r.id}${key[0].toUpperCase()+key.slice(1)}`;input.dataset.field=key;if(group){const label=document.createElement('label');label.textContent=type==='select'?'Router':/If$/.test(key)?'Port':'IP/prefix';label.appendChild(input);td.appendChild(label);}else{td.appendChild(input);tr.appendChild(td);}
    if(type==='select'){const placeholder=document.createElement('option');placeholder.value='';placeholder.textContent='Select device';input.appendChild(placeholder);const n=key==='ce'?ceN:upN;for(let i=0;i<n;i++){const o=document.createElement('option');o.value=String(i);o.textContent=key==='ce'?bgpCe(i).name:bgpIsp(i).name;input.appendChild(o);}input.value=Number.isInteger(r[key])&&r[key]>=0&&r[key]<n?String(r[key]):'';}
    else {input.type=type;if(type==='checkbox')input.checked=r[key]===true;else{input.value=String(r[key]??'');input.maxLength=key==='name'?100:80;}}
    input.setAttribute('aria-label',`${r.name||'Connection '+r.id}: ${key}`);
    const update=()=>{const list=bgpConnections(),row=list.find(x=>x.id===r.id);if(!row)return;row[key]=type==='checkbox'?input.checked:type==='select'?(input.value===''?null:+input.value):input.value;bgpWriteConnections(list);syncTopology();renderOutput();captureWorkspaceModule(tech);};input.addEventListener('change',update);if(type==='text')input.addEventListener('input',update);return input;
   };
-  field('enabled','checkbox');field('name');field('ce','select');field('ceIf');field('ceIp');field('up','select');field('ispIf');field('ispIp');
+  field('enabled','checkbox');field('name');const ceCell=document.createElement('td'),upCell=document.createElement('td');tr.appendChild(ceCell);tr.appendChild(upCell);field('ce','select',ceCell);field('ceIf','text',ceCell);field('ceIp','text',ceCell);field('up','select',upCell);field('ispIf','text',upCell);field('ispIp','text',upCell);
   const td=document.createElement('td'),remove=document.createElement('button');remove.type='button';remove.textContent='Remove';remove.setAttribute('aria-label','Remove '+(r.name||'connection '+r.id));td.appendChild(remove);tr.appendChild(td);remove.onclick=()=>{bgpWriteConnections(bgpConnections().filter(x=>x.id!==r.id));renderBgpConnectionRows();syncTopology();renderOutput();captureWorkspaceModule(tech);};
  }
- if(!rows.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=9;td.textContent='No external connections. Use Add connection to define the first circuit.';tr.appendChild(td);body.appendChild(tr);}
+ if(!rows.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=5;td.textContent='No external connections. Use Add connection to define the first circuit.';tr.appendChild(td);body.appendChild(tr);}
  document.getElementById('bgpAddConnection').disabled=rows.length>=64;document.getElementById('bgpAddConnection').onclick=()=>{const list=bgpConnections();if(list.length>=64)return;list.push(bgpNewConnection(list));bgpWriteConnections(list);renderBgpConnectionRows();syncTopology();renderOutput();captureWorkspaceModule(tech);};
  bgpRefreshConnectivityUI();
 }
 
 function renderBgpDynamicCards(){
  if(!document.getElementById("bgpCeCards"))return;
+ for(const id of ["bgpCeCount","bgpIspCount"])document.getElementById(id).value=String(Math.max(1,Math.min(4,+v(id)||2)));
  const ceN=+v("bgpCeCount")||2,ispN=+v("bgpIspCount")||2,keep={};
  const ibox=document.getElementById("bgpIbgpInterconnect");
  if(ibox)ibox.style.display=(ceN===2 && (v("bgpInternal")||"ibgp")==="ibgp")?"block":"none";
@@ -4942,8 +4967,12 @@ function renderBgpDynamicCards(){
  <div><label>Local Prefix</label><input id="bgpCe${i+1}Prefix" value="${val(`bgpCe${i+1}Prefix`,`10.${i+1}0.0.0/16`)}"></div></div></div>`).join("");
  document.getElementById("bgpIspCards").innerHTML=Array.from({length:ispN},(_,i)=>`<div class="bgp-device-card"><h4>ISP-${i+1}</h4><div class="mini-grid">
  <div><label>Name</label><input id="bgpIsp${i+1}Name" value="${val(`bgpIsp${i+1}Name`,`ISP-${i+1}`)}"></div>
- <div><label>Provider / organization</label><input id="bgpIsp${i+1}Provider" maxlength="200" value="${val(`bgpIsp${i+1}Provider`,`Provider-${i+1}`)}"></div><div><label>ASN</label><input id="bgpIsp${i+1}As" value="${val(`bgpIsp${i+1}As`,i?"64502":"64501")}"></div></div></div>`).join("");
+ <div><label>Provider / organization</label><input id="bgpIsp${i+1}Provider" maxlength="200" value="${val(`bgpIsp${i+1}Provider`,`Provider-${i+1}`)}"></div><div><label>ASN</label><input id="bgpIsp${i+1}As" value="${val(`bgpIsp${i+1}As`,String(64501+i))}"></div></div></div>`).join("");
  renderBgpConnectionRows();
+ for(const [type,host,count] of [['ce','bgpCeCards',ceN],['up','bgpIspCards',ispN]]){
+  [...document.getElementById(host).children].forEach((card,i)=>{const button=document.createElement('button');button.type='button';button.textContent='Remove router';button.disabled=count<=1;button.onclick=()=>bgpChangeDevice(type,i);card.appendChild(button);});
+ }
+ document.getElementById('bgpAddCe').disabled=ceN>=4;document.getElementById('bgpAddCe').onclick=()=>bgpChangeDevice('ce');document.getElementById('bgpAddUpstream').disabled=ispN>=4;document.getElementById('bgpAddUpstream').onclick=()=>bgpChangeDevice('up');
  const outSel=document.getElementById("bgpOutputDevice");
  if(outSel){
    const old=outSel.value||"all";
@@ -5019,7 +5048,7 @@ const COMBINABLE_MODULES=["BASIC","BGP","OSPF","STP","VPC","EVPN","QOS","SDWAN"]
 window.__workspaceModuleStates=window.__workspaceModuleStates||{};
 function captureWorkspaceModule(key=tech){
  if(!COMBINABLE_MODULES.includes(key))return;
- const fields={};document.querySelectorAll("#params input[id],#params select[id],#params textarea[id],#topologyControls input[id],#topologyControls select[id]").forEach(el=>{if(el.type!=="file"&&el.type!=="password")fields[el.id]=el.type==="checkbox"?el.checked:el.value;});
+ const fields={};document.querySelectorAll("#params input[id],#params select[id],#params textarea[id],#topologyControls input[id],#topologyControls select[id],#topologyControls textarea[id]").forEach(el=>{if(el.type!=="file"&&el.type!=="password")fields[el.id]=el.type==="checkbox"?el.checked:el.value;});
  window.__workspaceModuleStates[key]={platform:platform(),fields,configured:true,updatedAt:new Date().toISOString()};
 }
 function restoreWorkspaceModule(key=tech){
@@ -6216,6 +6245,7 @@ renderModule();
        if(value)clones[i].style.setProperty(property,value);
      });
    });
+   copy.querySelectorAll('[data-bgp-connection]').forEach(line=>{line.classList.remove('bgp-selected-line');line.removeAttribute('tabindex');line.removeAttribute('role');line.removeAttribute('aria-pressed');line.querySelectorAll('.bgp-hit-target').forEach(path=>path.remove());line.querySelectorAll('path').forEach(path=>{path.style.setProperty('stroke','#2fa8ff');path.style.setProperty('stroke-width','2.2');});});
    // The report has a white paper surface. Apply a lighter drawing palette to
    // the cloned SVG only; the interactive workspace keeps its original colors.
    const paint=(selector,property,value)=>copy.querySelectorAll(selector).forEach(el=>el.style.setProperty(property,value));
