@@ -42,7 +42,7 @@ from authentication import install_authentication
 from project_store import install_project_store
 from config_compare import install_config_compare
 
-VERSION = "5.27.0"
+VERSION = "5.27.1"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
 # Keep the diagnostic entry point available with the authenticated page itself.
@@ -1210,18 +1210,81 @@ def collect_inventory(p: DeviceRequest, cancel=None):
 
 
 @app.get("/api/sdwan/template")
-def sdwan_template():
+def sdwan_template(scope: str = "site"):
     import base64
-    template = json.loads((BASE_DIR / "sdwan-template.json").read_text(encoding="utf-8"))
+    if scope not in {"site", "bulk"}:
+        raise HTTPException(status_code=400, detail="Unsupported template scope.")
+    template = json.loads((BASE_DIR / ("sdwan-bulk-template.json" if scope == "bulk" else "sdwan-template.json")).read_text(encoding="utf-8"))
     return Response(base64.b64decode(template["xlsxBase64"], validate=True),
                     media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    headers={"Content-Disposition": 'attachment; filename="sdwan-site-template.xlsx"', "Cache-Control": "no-store"})
+                    headers={"Content-Disposition": 'attachment; filename="sdwan-template.xlsx"', "Cache-Control": "no-store"})
 
 
 @app.get("/api/sdwan/example")
 def sdwan_example():
     template = json.loads((BASE_DIR / "sdwan-template.json").read_text(encoding="utf-8"))
     return {"sheet": template["sheet"], "rows": template["rows"]}
+
+
+class SDWANArchiveDevice(BaseModel):
+    site: str = Field(min_length=1, max_length=100)
+    siteId: str = Field(pattern=r"^[0-9]{1,10}$")
+    hostname: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,62}$")
+    systemIp: str = Field(min_length=7, max_length=15)
+    config: str = Field(min_length=1, max_length=24000)
+
+
+class SDWANArchiveRequest(BaseModel):
+    configs: List[SDWANArchiveDevice] = Field(min_length=1, max_length=5000)
+
+
+@app.post("/api/sdwan/config-archive")
+async def sdwan_config_archive(request: WebRequest):
+    import csv
+    import io
+    import ipaddress
+    import zipfile
+    from pydantic import ValidationError
+    data = bytearray()
+    async for chunk in request.stream():
+        data.extend(chunk)
+        if len(data) > 32_000_000:
+            raise HTTPException(status_code=413, detail="Configuration archive request exceeds 32 MB. Split the plan into smaller workbooks.")
+    try:
+        payload = SDWANArchiveRequest.model_validate(json.loads(data))
+    except (ValueError, ValidationError):
+        raise HTTPException(status_code=400, detail="Provide 1–5,000 valid router configurations.")
+    seen_hosts, seen_systems, sites, site_ids = set(), set(), {}, {}
+    for device in payload.configs:
+        if not 1 <= int(device.siteId) <= 4294967295:
+            raise HTTPException(status_code=400, detail="Invalid Site ID.")
+        device.siteId = str(int(device.siteId))
+        try:
+            ipaddress.IPv4Address(device.systemIp)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid system IP.")
+        if device.hostname.lower() in seen_hosts or device.systemIp in seen_systems:
+            raise HTTPException(status_code=400, detail="Hostname and system IP must be unique across the plan.")
+        if device.site in sites and sites[device.site] != device.siteId:
+            raise HTTPException(status_code=400, detail="Routers at a site must share Site ID.")
+        if device.siteId in site_ids and site_ids[device.siteId] != device.site:
+            raise HTTPException(status_code=400, detail="Different sites must use different Site IDs.")
+        sites[device.site], site_ids[device.siteId] = device.siteId, device.site
+        seen_hosts.add(device.hostname.lower())
+        seen_systems.add(device.systemIp)
+    output, manifest = io.BytesIO(), io.StringIO()
+    writer = csv.writer(manifest)
+    writer.writerow(["Site", "Site ID", "Hostname", "System IP", "Configuration file"])
+    with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for device in payload.configs:
+            folder = re.sub(r"[^A-Za-z0-9_-]", "_", device.site).strip("_")[:80] or "Site"
+            path = f"{device.siteId}_{folder}/{device.hostname}.cfg"
+            archive.writestr(path, device.config.encode("utf-8"))
+            csv_site = "'" + device.site if device.site.lstrip().startswith(("=", "+", "-", "@")) else device.site
+            writer.writerow([csv_site, device.siteId, device.hostname, device.systemIp, path])
+        archive.writestr("manifest.csv", manifest.getvalue().encode("utf-8-sig"))
+    return Response(output.getvalue(), media_type="application/zip",
+                    headers={"Content-Disposition": 'attachment; filename="sdwan-all-sites-configurations.zip"', "Cache-Control": "no-store"})
 
 
 @app.post("/api/sdwan/excel")

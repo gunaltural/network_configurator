@@ -1297,7 +1297,7 @@ modules["VPC"]={
 
 modules["SDWAN"]={title:"SD-WAN",subtitle:"Cisco cEdge · Site plan · Router configuration · Verification",params:()=>`
 <div class="section-title">1 · Site plan</div>
-<div class="actions"><a class="btn" href="/api/sdwan/template" download="sdwan-site-template.xlsx">Download Excel template</a><button class="btn" type="button" id="sdLoadExample">Load example</button></div>
+<div class="actions"><a class="btn" href="/api/sdwan/template" download="sdwan-site-template.xlsx">Download Excel template</a><button class="btn" type="button" id="sdLoadExample">Load example</button><a class="btn" href="/api/sdwan/template?scope=bulk" download="sdwan-multi-site-template.xlsx">Download multi-site template</a></div>
 <p class="note">The example contains Site-1, Router1 and Router2 with sample addresses. Edit the plan before generating configuration.</p>
 <div class="upload-panel"><label class="file-drop" for="sdExcelFile"><strong>Upload Excel plan</strong><span>.xlsx / .xls · IP Adres Planlaması</span><input id="sdExcelFile" type="file" accept=".xlsx,.xls" style="display:none"></label><div id="sdExcelStatus" class="note">Upload a plan or load the example.</div></div>
 <textarea id="sdPlanningData" style="display:none">[]</textarea><input type="hidden" id="sdSelectedRow" value="-1">
@@ -1309,7 +1309,7 @@ modules["SDWAN"]={title:"SD-WAN",subtitle:"Cisco cEdge · Site plan · Router co
 <div class="section-title">4 · LAN / service VPN</div><div><label>LAN gateway model</label><select id="sdLanMode"><option value="none">Not configured</option><option value="connected">Connected LAN · advertise through OMP</option><option value="vrrp">Connected LAN · VRRP gateway</option></select></div><div id="sdLanFields" class="param-grid"><div><label for="sdServiceVpn">Service VPN / VRF ID</label><input id="sdServiceVpn" value="10" placeholder=""></div><div><label for="sdLanIf">LAN interface</label><input id="sdLanIf" value="GigabitEthernet0/0/2" placeholder=""></div><div><label for="sdLanCidr">LAN IP / prefix</label><input id="sdLanCidr" value="" placeholder=""></div><div><label for="sdVrrpVip">VRRP virtual IP</label><input id="sdVrrpVip" value="" placeholder=""></div><div><label for="sdVrrpGroup">VRRP group</label><input id="sdVrrpGroup" value="1" placeholder=""></div><div><label for="sdVrrpPriority">VRRP priority</label><input id="sdVrrpPriority" value="100" placeholder=""></div></div>
 <div class="section-title">5 · Management</div><div class="param-grid"><div><label for="sdMgmtIf">Management interface</label><input id="sdMgmtIf" value="GigabitEthernet0/0/3" placeholder=""></div><div><label for="sdMgmtCidr">Management IP / prefix</label><input id="sdMgmtCidr" value="" placeholder=""></div><div><label for="sdMgmtGw">Management gateway</label><input id="sdMgmtGw" value="" placeholder=""></div></div>
 <div class="section-title">Configuration scope</div><select id="sdConfigScope"><option value="selected">Selected router</option><option value="site">All routers at selected site</option></select>
-<div class="actions"><button class="btn" type="button" id="sdValidateBtn">Validate</button><button class="btn" type="button" id="sdGenerateBtn">Generate configuration</button></div><div id="sdValidation" class="note">Select a router to validate its plan.</div><div id="sdProfileSummary" class="note"></div>
+<div class="actions"><button class="btn" type="button" id="sdValidateBtn">Validate</button><button class="btn" type="button" id="sdGenerateBtn">Generate configuration</button></div><div class="actions"><button class="btn" type="button" id="sdExportAll">Generate all sites · ZIP</button></div><div id="sdBulkStatus" class="note">Upload a multi-site Excel plan to generate all router configurations in one download.</div><div id="sdValidation" class="note">Select a router to validate its plan.</div><div id="sdProfileSummary" class="note"></div>
  <div style="display:none">
    <input id="sdPortOffset" value="10"><input id="sdCtrlPps" value="300">
 
@@ -3567,7 +3567,7 @@ function sdSetStatus(msg,kind){
 const SD_DEFAULTS={sdLocation:'',sdHostname:'',sdSystemIp:'',sdSiteId:'',sdOrg:'Example_SDWAN',sdVbond:'vbond.example.test',sdVbondPort:'12346',sdDns:'203.0.113.53',sdNtp:'203.0.113.123',sdOverlayId:'1',sdTimezone:'TRT 3 0',sdWan1If:'GigabitEthernet0/0/0',sdWan2If:'GigabitEthernet0/0/1',sdWan1Cidr:'',sdWan2Cidr:'',sdWan1Gw:'',sdWan2Gw:'',sdWan1Color:'private1',sdWan2Color:'private2',sdWan1Weight:'2',sdWan2Weight:'1',sdWan1Mbps:'',sdWan2Mbps:'',sdMgmtIf:'GigabitEthernet0/0/3',sdMgmtCidr:'',sdMgmtGw:'',sdLanMode:'none',sdServiceVpn:'10',sdLanIf:'GigabitEthernet0/0/2',sdLanCidr:'',sdVrrpVip:'',sdVrrpGroup:'1',sdVrrpPriority:'100'};
 const SD_SITE_FIELDS=['sdLocation','sdSiteId','sdOrg','sdVbond','sdVbondPort','sdDns','sdNtp','sdOverlayId','sdTimezone'];
 const SD_COLUMNS={sdLocation:['LOKASYON','Site'],sdHostname:['Router Hostname'],sdSystemIp:['System-ip'],sdSiteId:['Site-id','Site ID'],sdOrg:['Organization-name','Organization Name'],sdVbond:['vBond_FQDN','vBond FQDN'],sdVbondPort:['vBond Port'],sdDns:['DNS-1','DNS'],sdNtp:['NTP'],sdWan1If:['WAN-1 Interface'],sdWan2If:['WAN-2 Interface'],sdWan1Cidr:['VPN0-ROUTER-TT','WAN-1 IP/Prefix'],sdWan2Cidr:['VPN0-ROUTER-VF','WAN-2 IP/Prefix'],sdWan1Gw:['WAN-1 Gateway'],sdWan2Gw:['WAN-2 Gateway'],sdWan1Color:['WAN-1 Color'],sdWan2Color:['WAN-2 Color'],sdWan1Mbps:['WAN-1 Capacity Mbps'],sdWan2Mbps:['WAN-2 Capacity Mbps'],sdWan1Weight:['WAN-1 Weight'],sdWan2Weight:['WAN-2 Weight'],sdMgmtIf:['Management Interface'],sdMgmtCidr:['VPN512-ROUTER','Management IP/Prefix'],sdMgmtGw:['Management Gateway'],sdLanMode:['LAN Mode'],sdServiceVpn:['Service VPN'],sdLanIf:['LAN Interface'],sdLanCidr:['LAN IP/Prefix'],sdVrrpVip:['VRRP Virtual IP'],sdVrrpGroup:['VRRP Group'],sdVrrpPriority:['VRRP Priority']};
-function sdPlanRows(){try{const rows=JSON.parse(v('sdPlanningData')||'[]');return Array.isArray(rows)?rows.filter(r=>r&&typeof r==='object'&&!Array.isArray(r)).slice(0,1000):[];}catch(_){return [];}}
+function sdPlanRows(){try{const rows=JSON.parse(v('sdPlanningData')||'[]');return Array.isArray(rows)?rows.filter(r=>r&&typeof r==='object'&&!Array.isArray(r)).slice(0,5000):[];}catch(_){return [];}}
 function sdWritePlan(rows){sdSet('sdPlanningData',JSON.stringify(rows));}
 function sdNormalizeRow(row){const result={...SD_DEFAULTS};for(const [id,keys] of Object.entries(SD_COLUMNS)){const value=row[id]??sdCell(row,keys);if(String(value??'').trim())result[id]=String(value).trim();}result.sdVbond=sdCleanVbond(result.sdVbond);if(!row.sdNtp&&!sdCell(row,['NTP'])&&sdCell(row,['DNS-1','DNS']))result.sdNtp=result.sdDns;for(const n of ['Wan1','Wan2','Mgmt'])if(!result['sd'+n+'Gw'])result['sd'+n+'Gw']=sdSuggestedGateway(result['sd'+n+'Cidr']);return result;}
 function sdCurrentFields(){const result={};document.querySelectorAll('#params input[id],#params select[id]').forEach(el=>{if(el.id.startsWith('sd')&&!['sdExcelFile','sdSiteSelect','sdRouterSelect','sdSelectedRow','sdConfigScope'].includes(el.id))result[el.id]=el.type==='checkbox'?el.checked:el.value;});return result;}
@@ -3578,7 +3578,7 @@ function sdFillSiteOptions(){const el=document.getElementById('sdSiteSelect');if
 function sdFillRouterOptions(site){const el=document.getElementById('sdRouterSelect');if(!el)return;const rows=sdPlanRows(),indices=rows.map((row,i)=>row.sdLocation===site?i:-1).filter(i=>i>=0),selected=+v('sdSelectedRow');el.innerHTML=indices.map(i=>`<option value="${i}">${htmlEscape(rows[i].sdHostname||'Router')}</option>`).join('')||'<option value="">Select router</option>';el.disabled=!indices.length;el.dataset.site=site;el.value=String(indices.includes(selected)?selected:(indices[0]??''));if(indices.length)sdApplyRouterSelection(site,el.value);else{sdSet('sdSelectedRow','-1');for(const id of Object.keys(SD_DEFAULTS))sdSet(id,SD_DEFAULTS[id]);sdPlanUi();syncTopology();}}
 function sdApplyRouterSelection(site,index){const rows=sdPlanRows(),row=rows[Number(index)];if(!row||row.sdLocation!==site)return;sdSet('sdSelectedRow',index);for(const [id,value] of Object.entries(row)){const el=document.getElementById(id);if(el){if(el.type==='checkbox')el.checked=value===true||value==='true';else sdSet(id,value);}}sdPlanUi();sdValidate(true);renderOutput();captureWorkspaceModule('SDWAN');}
 function sdRestorePlanUI(){if(!document.getElementById('sdPlanningData'))return;if(!sdPlanRows().length&&v('sdHostname').trim()){sdWritePlan([sdCurrentFields()]);sdSet('sdSelectedRow','0');}sdFillSiteOptions();sdPlanUi();}
-function sdAcceptPlan(rows){if(rows.length>1000)throw Error('Maximum 1,000 routers in a site plan.');const normalized=rows.map(sdNormalizeRow).filter(row=>row.sdHostname&&row.sdSystemIp);if(!normalized.length)throw Error('No router records were found. Check hostname and system IP.');sdWritePlan(normalized);sdSet('sdSelectedRow','0');sdSet('sdLocation',normalized[0].sdLocation);sdFillSiteOptions();captureWorkspaceModule('SDWAN');}
+function sdAcceptPlan(rows){if(rows.length>5000)throw Error('Maximum 5,000 routers in a site plan.');const normalized=rows.map(sdNormalizeRow).filter(row=>row.sdHostname||row.sdSystemIp||row.sdLocation);if(!normalized.length)throw Error('No router records were found. Check hostname and system IP.');sdWritePlan(normalized);sdSet('sdSelectedRow','0');sdSet('sdLocation',normalized[0].sdLocation);sdFillSiteOptions();captureWorkspaceModule('SDWAN');}
 
 function sdValidate(silent,fields=null){
  const val=id=>fields&&id in fields?String(fields[id]??""):v(id);
@@ -3673,11 +3673,11 @@ function initSdwanUploadUI(){
        const sys=String(sdCell(r,["System-ip","System-ip "])).trim();
        const tt=String(sdCell(r,["VPN0-ROUTER-TT"])).trim();
        const vf=String(sdCell(r,["VPN0-ROUTER-VF"])).trim();
-       return host && sys && (tt || vf);
+       return host || sys || tt || vf;
      });
      if(!routerRows.length) throw new Error("Router kaydı bulunamadı. Router Hostname / System-ip / VPN0 kolonlarını kontrol edin.");
      sdAcceptPlan(routerRows);
-     sdSetStatus(`${f.name} yüklendi · ${routerRows.length} router kaydı · Sayfa: ${target}`,"ok");
+     sdSetStatus(`${f.name} loaded · ${routerRows.length} router records · ${new Set(sdPlanRows().map(row=>row.sdLocation)).size} sites · Sheet: ${target}`,"ok");
    }catch(err){
      if(!file.isConnected||requestEpoch!==uploadEpoch)return;
      console.error(err);
@@ -3690,22 +3690,41 @@ function initSdwanUploadUI(){
  document.getElementById('params').addEventListener('input',e=>{if(tech!=='SDWAN')return;if(e.target.id?.startsWith('sd')&&!['sdSiteSelect','sdRouterSelect','sdExcelFile'].includes(e.target.id))sdCommitCurrent(e.target.id);sdPlanUi();},{capture:true,signal:sdUiAbort.signal});
  document.getElementById('params').addEventListener('change',e=>{if(tech!=='SDWAN')return;if(!e.target.id?.startsWith('sd')||['sdSiteSelect','sdRouterSelect','sdExcelFile'].includes(e.target.id))return;sdCommitCurrent(e.target.id);if(SD_SITE_FIELDS.includes(e.target.id)||e.target.id==='sdHostname')sdFillSiteOptions();sdPlanUi();renderOutput();captureWorkspaceModule('SDWAN');},{capture:true,signal:sdUiAbort.signal});
  document.getElementById('sdLoadExample').onclick=async()=>{try{if(sdPlanRows().length&&!confirm('Replace the current SD-WAN plan with the example?'))return;const r=await fetch('/api/sdwan/example');if(!r.ok)throw Error('Example could not be loaded.');const data=await r.json();sdAcceptPlan(data.rows);sdSetStatus('Example loaded · Site-1 · 2 router records. Sample addresses are editable.','ok');}catch(e){sdSetStatus(e.message,'error');}};
- document.getElementById('sdAddRouter').onclick=()=>{sdCommitCurrent();const rows=sdPlanRows();if(rows.length>=1000)return sdSetStatus('Maximum 1,000 routers.','error');const current=rows[+v('sdSelectedRow')]||sdCurrentFields();let n=1;while(rows.some(row=>row.sdHostname==='Router'+n))n++;const row={...SD_DEFAULTS,sdLocation:current.sdLocation||'Site-1',sdHostname:'Router'+n};SD_SITE_FIELDS.forEach(id=>row[id]=current[id]||row[id]);rows.push(row);sdWritePlan(rows);sdSet('sdSelectedRow',rows.length-1);sdSet('sdLocation',row.sdLocation);sdFillSiteOptions();renderOutput();captureWorkspaceModule('SDWAN');};
+ document.getElementById('sdAddRouter').onclick=()=>{sdCommitCurrent();const rows=sdPlanRows();if(rows.length>=5000)return sdSetStatus('Maximum 5,000 routers.','error');const current=rows[+v('sdSelectedRow')]||sdCurrentFields();let n=1;while(rows.some(row=>row.sdHostname==='Router'+n))n++;const row={...SD_DEFAULTS,sdLocation:current.sdLocation||'Site-1',sdHostname:'Router'+n};SD_SITE_FIELDS.forEach(id=>row[id]=current[id]||row[id]);rows.push(row);sdWritePlan(rows);sdSet('sdSelectedRow',rows.length-1);sdSet('sdLocation',row.sdLocation);sdFillSiteOptions();renderOutput();captureWorkspaceModule('SDWAN');};
  document.getElementById('sdRemoveRouter').onclick=()=>{const rows=sdPlanRows(),index=+v('sdSelectedRow');if(index<0||!rows[index]||!confirm('Remove '+rows[index].sdHostname+' from this SD-WAN plan?'))return;rows.splice(index,1);sdWritePlan(rows);sdSet('sdSelectedRow','-1');sdFillSiteOptions();renderOutput();captureWorkspaceModule('SDWAN');};
  sdPlanUi();
- valBtn?.addEventListener("click",()=>sdValidate(false));
+ valBtn?.addEventListener("click",()=>sdValidateScope(false));
+ document.getElementById("sdExportAll").onclick=sdExportAllConfigurations;
  genBtn?.addEventListener("click",sdFullGenerate);
 }
-function sdValidateScope(silent,allSite=false){
- const rows=allSite||v('sdConfigScope')==='site'?sdSiteRows():[sdCurrentFields()],errors=[],warnings=[];
+function sdValidateScope(silent,allSite=false,allPlan=false){
+ const rows=allPlan?sdPlanRows():allSite||v('sdConfigScope')==='site'?sdSiteRows():[sdCurrentFields()],errors=[],warnings=[];
  if(!rows.length)errors.push('Select a router or load a site plan.');
  for(const row of rows){const result=sdValidate(true,row);errors.push(...result.errors.map(e=>(row.sdHostname||'Router')+': '+e));warnings.push(...result.warnings.map(e=>(row.sdHostname||'Router')+': '+e));}
  const plan=sdPlanRows(),seenHost=new Set(),seenSystem=new Set(),seenIp=new Map();
  plan.forEach(row=>{const host=String(row.sdHostname||'').toLowerCase();if(host&&seenHost.has(host))errors.push('Duplicate hostname: '+row.sdHostname);seenHost.add(host);if(row.sdSystemIp&&seenSystem.has(row.sdSystemIp))errors.push('Duplicate system IP: '+row.sdSystemIp);seenSystem.add(row.sdSystemIp);for(const field of ['sdWan1Cidr','sdWan2Cidr','sdMgmtCidr','sdLanCidr']){if(field==='sdLanCidr'&&row.sdLanMode==='none')continue;const ip=sdParseCidr(row[field])?.ip;if(ip){const vrf=field==='sdLanCidr'?row.sdServiceVpn:field==='sdMgmtCidr'?'512':'0';const key=row.sdLocation+':'+vrf+':'+ip;if(seenIp.has(key))errors.push('Duplicate interface IP '+ip+' on '+seenIp.get(key)+' / '+row.sdHostname);else seenIp.set(key,row.sdHostname);}}});
- const site=sdSiteRows();if(site.length>64)errors.push('A report supports up to 64 routers at one site.');for(const id of SD_SITE_FIELDS)if(new Set(site.map(row=>row[id]||SD_DEFAULTS[id])).size>1)errors.push('Site profile mismatch: '+id.replace(/^sd/,''));
+ const sites=allPlan?[...new Set(plan.map(row=>row.sdLocation))].map(name=>plan.filter(row=>row.sdLocation===name)):[sdSiteRows()];
+ const siteIds=new Map();
+ for(const site of sites){if(site.length&&allPlan){const first=site[0];if(siteIds.has(String(+first.sdSiteId))&&siteIds.get(String(+first.sdSiteId))!==first.sdLocation)errors.push("Site ID "+first.sdSiteId+" is reused across locations.");siteIds.set(String(+first.sdSiteId),first.sdLocation);}
+if(!allPlan&&site.length>64)errors.push('A report supports up to 64 routers at one site.');for(const id of SD_SITE_FIELDS)if(new Set(site.map(row=>row[id]||SD_DEFAULTS[id])).size>1)errors.push((site[0]?.sdLocation||'Site')+': profile mismatch: '+id.replace(/^sd/,''));
  const groups=new Map();site.filter(row=>row.sdLanMode==='vrrp').forEach(row=>{const key=row.sdServiceVpn+':'+row.sdVrrpGroup;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(row);});for(const peers of groups.values()){const first=peers[0],a=sdParseCidr(first.sdLanCidr);if(peers.length<2)warnings.push('VRRP group '+first.sdVrrpGroup+' has only one modeled router.');if(peers.some(row=>row.sdVrrpVip!==first.sdVrrpVip||sdParseCidr(row.sdLanCidr)?.network!==a?.network||sdParseCidr(row.sdLanCidr)?.prefix!==a?.prefix))errors.push('VRRP peers must share a virtual IP and LAN subnet.');if(peers.some(row=>sdParseCidr(row.sdLanCidr)?.ip===first.sdVrrpVip))errors.push('VRRP virtual IP must differ from every router interface IP.');if(new Set(peers.map(row=>row.sdVrrpPriority)).size<peers.length)warnings.push('Equal VRRP priorities: interface IP becomes the tie-breaker.');}
+ }
  const result={ok:errors.length===0,errors:[...new Set(errors)],warnings:[...new Set(warnings)]};
  if(!silent){const box=document.getElementById('sdValidation');if(box){box.textContent=result.ok?'Validation passed · '+rows.length+' router(s)'+(warnings.length?' · '+warnings.join(' · '):''):'Validation failed · '+result.errors.join(' · ');box.style.borderColor=result.ok?'#22c55e':'#ef4444';}}return result;
+}
+async function sdExportAllConfigurations(){
+ const button=document.getElementById('sdExportAll'),status=document.getElementById('sdBulkStatus');
+ if(button.disabled)return;sdCommitCurrent();const valid=sdValidateScope(true,false,true);
+ if(!valid.ok){status.textContent='Export blocked: '+valid.errors.slice(0,20).join(' · ')+(valid.errors.length>20?` · ${valid.errors.length} errors in total`:'');return;}
+ const rows=sdPlanRows(),sites=new Set(rows.map(row=>row.sdLocation));button.disabled=true;
+ try{
+  const configs=[];for(let i=0;i<rows.length;i++){const row=rows[i];configs.push({site:row.sdLocation,siteId:row.sdSiteId,hostname:row.sdHostname,systemIp:row.sdSystemIp,config:sdwanGenerateSingle('config',row)});if(i%20===0){status.textContent=`Generating ${i+1}/${rows.length} router configurations…`;await new Promise(resolve=>setTimeout(resolve,0));}}
+  status.textContent=`Packaging ${rows.length} router configurations for ${sites.size} sites…`;
+  const response=await fetch('/api/sdwan/config-archive',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({configs})});
+  if(!response.ok){const error=await response.json();throw Error(typeof error.detail==='string'?error.detail:'Configuration download failed.');}
+  const blob=await response.blob(),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='sdwan-all-sites-configurations.zip';document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  status.textContent=`Download ready · ${sites.size} sites · ${rows.length} router configurations. One folder per site; one .cfg file per router.`;
+ }catch(error){status.textContent='Export failed: '+error.message;}finally{if(button.isConnected)button.disabled=false;}
 }
 function sdwanTopologyMarkup(){
  const e=htmlEscape,rows=sdSiteRows();if(!rows.length&&v('sdHostname'))rows.push(sdCurrentFields());

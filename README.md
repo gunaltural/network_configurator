@@ -330,3 +330,17 @@ Technical references:
 - [Cisco Catalyst SD-WAN Design Guide](https://www.cisco.com/c/en/us/td/docs/solutions/CVD/SDWAN/cisco-sdwan-design-guide.html)
 - [Cisco IOS XE service-side VRRP](https://www.cisco.com/c/en/us/support/docs/routers/xe-sd-wan-routers/222697-configure-service-side-vrrp-on-cisco-ios.html)
 - [Cisco IOS XE OMP route redistribution](https://www.cisco.com/c/en/us/td/docs/routers/sdwan/configuration/routing/ios-xe-17/routing-configuration-guide-17-x/OMP-routing-protocol-ref/omp-route-redistribution.html)
+
+### Multi-site Excel and bulk configuration download
+
+**Download multi-site template** provides two sites with two router rows each.
+Extend the planning sheet with one row per router (up to 5,000 rows), retaining
+the headers. Every site must have its own Site ID; hostname and system IP are
+unique across the whole plan. Shared profile values must agree within a site.
+
+After uploading, **Generate all sites · ZIP** validates every site and produces
+a folder for each site, one `.cfg` per router, and `manifest.csv`. Site/router
+selection is for editing and preview; it does not limit this bulk download.
+Invalid data blocks the archive, preventing silent partial configuration output.
+Generation yields between batches to keep the interface responsive. Existing
+selected-router/site configuration and reporting behavior remain available.
