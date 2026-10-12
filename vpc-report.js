@@ -92,7 +92,7 @@
   }
   function separateTopologyNarratives(state){
     const tr=state.language==='tr',pick=(a,b)=>tr?a:b;
-    const rolesTr={'Stack member':'stack üyesi','Device':'ağ cihazı','Peer':'eş cihaz','Router':'yönlendirici','CE router':'CE yönlendirici','ISP router':'ISP yönlendirici','Network device':'ağ cihazı','Managed device':'yönetilen cihaz','Edge router':'uç yönlendirici','External endpoint':'harici uç','DC-1 node':'DC-1 düğümü','DC-2 node':'DC-2 düğümü','Fabric VTEP':'Fabric VTEP'};
+    const rolesTr={'Stack member':'stack üyesi','Device':'ağ cihazı','Peer':'eş cihaz','Router':'yönlendirici','CE router':'CE yönlendirici','ISP router':'ISP yönlendirici','Upstream router':'harici eş yönlendirici','Network device':'ağ cihazı','Managed device':'yönetilen cihaz','Edge router':'uç yönlendirici','External endpoint':'harici uç','DC-1 node':'DC-1 düğümü','DC-2 node':'DC-2 düğümü','Fabric VTEP':'Fabric VTEP'};
     const modules=state.moduleReports||[];
     const scopes=modules.length?modules.filter(m=>m.design).map(m=>({...m,design:{...m.design,vendor:m.vendor,technology:m.technology}})):[{title:state.technology,design:state}];
     return scopes.map(scope=>{

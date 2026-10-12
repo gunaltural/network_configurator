@@ -41,7 +41,7 @@ from authentication import install_authentication
 from project_store import install_project_store
 from config_compare import install_config_compare
 
-VERSION = "5.22.4"
+VERSION = "5.23.0"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
 # Keep the diagnostic entry point available with the authenticated page itself.
@@ -222,6 +222,7 @@ class LiveCommandRequest(DeviceRequest):
 
 
 class ReportDevice(BaseModel):
+    provider: str = Field(default="", max_length=200)
     discoveryId: str = Field(default="", max_length=100)
     discoveryIdentitySource: str = Field(default="", max_length=500)
     inventoryOnly: bool = False

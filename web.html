@@ -772,13 +772,13 @@ BGP:{
  <div class="section-title">1 · BGP Design</div>
  <div class="param-grid">
    <div><label>CE Router Count</label><select id="bgpCeCount"><option>1</option><option selected>2</option><option>3</option><option>4</option></select></div>
-   <div><label>ISP Count</label><select id="bgpIspCount"><option>1</option><option selected>2</option></select></div>
-   <div><label>Connectivity Model</label><select id="bgpConnectivity"><option value="single">Single Attachment</option><option value="primary-backup">Primary / Backup</option><option value="cross">Cross-Connected</option><option value="full" selected>Full Dual-Homed</option></select></div>
+   <div><label>Upstream Router Count</label><select id="bgpIspCount"><option>1</option><option selected>2</option></select></div>
+   <div><label>External Connectivity</label><select id="bgpConnectivity"><option value="single">Single CE / Single Upstream</option><option value="dual">Single CE / Dual Upstream</option><option value="cross">Dedicated Upstream per CE</option><option value="full" selected>Each CE to Every Upstream</option><option value="custom">Custom Connectivity</option></select></div>
    <div><label>CE Internal Peering</label><select id="bgpInternal"><option value="none">None</option><option value="ibgp" selected>iBGP Full Mesh</option></select></div>
    <div><label>Customer ASN</label><input id="bgpCustomerAs" value="65001"></div>
    <div><label>Address Family</label><select id="bgpAf"><option>IPv4</option><option>IPv6</option><option>Dual Stack</option></select></div>
  </div>
- <div class="section-title">2 · CE & ISP Routers</div><div id="bgpCeCards" class="bgp-card-grid"></div>
+ <div id="bgpConnectivitySummary" class="hint" role="status"></div><div id="bgpAttachmentMatrix" class="bgp-card-grid"></div><div class="section-title">2 · CE & Upstream Routers</div><div id="bgpCeCards" class="bgp-card-grid"></div>
  <div id="bgpIbgpInterconnect" class="bgp-device-card" style="margin-top:12px">
   <h4>CE-to-CE iBGP Interconnect</h4>
   <div class="param-grid">
@@ -789,7 +789,7 @@ BGP:{
   </div>
   <p class="note">With exactly two CE routers and iBGP enabled, a direct Layer-3 CE-to-CE interconnect is generated automatically and used for the iBGP session.</p>
  </div>
- <div class="section-title">ISP Routers</div><div id="bgpIspCards" class="bgp-card-grid"></div>
+ <div class="section-title">Upstream Routers</div><div id="bgpIspCards" class="bgp-card-grid"></div>
  <div class="section-title">3 · Connectivity & Peering — eBGP Links</div><div id="bgpLinkCards" class="bgp-link-grid"></div>
  <div class="section-title">Configuration Output</div>
  <div class="param-grid">
@@ -815,7 +815,7 @@ BGP:{
    <label class="check"><input type="checkbox" id="bgpTeEcmp"> ECMP / Multipath</label>
   </div>
   <div class="param-grid">
-   <div><label>Outbound Preferred ISP</label><select id="bgpTeOutboundPreferredIsp"><option value="1">ISP-1</option><option value="2">ISP-2</option></select></div>
+   <div><label>Outbound Preferred Upstream</label><select id="bgpTeOutboundPreferredIsp"><option value="1">ISP-1</option><option value="2">ISP-2</option></select></div>
    <div><label>Preferred Local Preference</label><input id="bgpTeLocalPrefValue" value="250"></div>
    <div><label>Backup Local Preference</label><input id="bgpTeBackupLocalPref" value="100"></div>
    <div><label>Maximum Paths</label><select id="bgpTeMaxPaths"><option>2</option><option selected>4</option><option>8</option></select></div>
@@ -832,7 +832,7 @@ BGP:{
    <label class="check"><input type="checkbox" id="bgpTeCommunity"> BGP Community</label>
   </div>
   <div class="param-grid">
-   <div><label>Inbound Preferred ISP</label><select id="bgpTeInboundPreferredIsp"><option value="1">ISP-1</option><option value="2">ISP-2</option></select></div>
+   <div><label>Inbound Preferred Upstream</label><select id="bgpTeInboundPreferredIsp"><option value="1">ISP-1</option><option value="2">ISP-2</option></select></div>
    <div><label>AS-Path Prepend Count</label><select id="bgpTePrependCount"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option></select></div>
    <div><label>Preferred MED</label><input id="bgpTePreferredMed" value="50"></div>
    <div><label>Backup MED</label><input id="bgpTeBackupMed" value="200"></div>
@@ -2002,7 +2002,7 @@ function syncTopologyControls(){
      el.dataset.topologyBound="1";
      el.addEventListener("input",()=>{syncTopology();renderOutput();});
      el.addEventListener("change",()=>{
-       if(tech==="BGP" && ["bgpCeCount","bgpIspCount","bgpConnectivity","bgpInternal"].includes(el.id))renderBgpDynamicCards();
+       if(tech==="BGP" && ["bgpCeCount","bgpIspCount","bgpConnectivity","bgpInternal"].includes(el.id)){bgpConnectivityChanged(el.id);renderBgpDynamicCards();}
        syncTopology();renderOutput();
      });
    }
@@ -2175,14 +2175,15 @@ function syncTopology(){
  }
  if(tech==="BGP"){
    const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-   const ceN=+v("bgpCeCount")||2,ispN=+v("bgpIspCount")||2,model=v("bgpConnectivity")||"cross",internal=v("bgpInternal")||"ibgp";
+   const ceN=+v("bgpCeCount")||2,ispN=+v("bgpIspCount")||2,model=v("bgpConnectivity")||"full",internal=v("bgpInternal")||"ibgp";
    const ces=Array.from({length:ceN},(_,i)=>bgpCe(i)),isps=Array.from({length:ispN},(_,i)=>bgpIsp(i)),edges=bgpEdges();
    const cx=Array.from({length:ceN},(_,i)=>ceN===1?475:190+570*i/(ceN-1)),ix=ispN===1?[475]:[310,640];
    area.innerHTML=`<div class="vpc-svg-wrap"><svg class="vpc-svg" viewBox="0 0 950 480" role="img" aria-label="Dynamic BGP topology">
    <defs><linearGradient id="bgpNodeGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#123652"/><stop offset="100%" stop-color="#0b2235"/></linearGradient></defs>
-   <text x="475" y="30" text-anchor="middle" class="vpc-domain-title">${esc(model.replaceAll("-"," ").toUpperCase())} · Customer AS ${esc(v("bgpCustomerAs")||"65001")}</text>
+   <text x="475" y="30" text-anchor="middle" class="vpc-domain-title">${esc(bgpConnectivityLabel())} · Customer AS ${esc(v("bgpCustomerAs")||"65001")}</text>
    ${edges.map(([c,i])=>`<line x1="${ix[i]}" y1="126" x2="${cx[c]}" y2="318" style="stroke:#2fa8ff;stroke-width:2.2;fill:none"/>`).join("")}
    ${internal==="ibgp"&&ceN===2?`<line x1="${cx[0]+68}" y1="348" x2="${cx[1]-68}" y2="348" style="stroke:#ffad42;stroke-width:2.6;stroke-dasharray:7 5;fill:none"/><rect x="400" y="331" width="150" height="22" rx="7" fill="#071827" stroke="#6a4d22"/><text x="475" y="346" text-anchor="middle" style="fill:#ffbd64;font-size:11px;font-weight:800">iBGP · CE-TO-CE</text>`:internal==="ibgp"&&ceN>2?`<line x1="${cx[0]}" y1="410" x2="${cx[ceN-1]}" y2="410" style="stroke:#ffad42;stroke-width:2.2;stroke-dasharray:7 5;fill:none"/>${cx.map(x=>`<line x1="${x}" y1="378" x2="${x}" y2="410" style="stroke:#ffad42;stroke-width:1.8;stroke-dasharray:5 4;fill:none"/>`).join("")}<text x="475" y="432" text-anchor="middle" style="fill:#ffbd64;font-size:11px;font-weight:800">iBGP LOGICAL FULL-MESH</text>`:""}
+   ${internal==="ibgp"&&ceN===2?`<path d="M ${cx[0]} 378 V 398 H ${cx[1]} V 378" fill="none" stroke="#93b4c8" stroke-width="2"/><text x="475" y="416" text-anchor="middle" class="vpc-small">CE interconnect · ${esc(v("bgpIbgpCe1If"))} ↔ ${esc(v("bgpIbgpCe2If"))}</text>`:""}
    ${isps.map((o,i)=>`<g><rect x="${ix[i]-62}" y="66" width="124" height="60" rx="12" style="fill:url(#bgpNodeGrad);stroke:#4fb7f3;stroke-width:1.5"/><text x="${ix[i]}" y="92" text-anchor="middle" class="vpc-device-name">${esc(o.name)}</text><text x="${ix[i]}" y="111" text-anchor="middle" class="vpc-small">AS ${esc(o.asn)}</text></g>`).join("")}
    ${ces.map((o,i)=>`<g><rect x="${cx[i]-55}" y="318" width="110" height="60" rx="10" style="fill:url(#bgpNodeGrad);stroke:#4fb7f3;stroke-width:1.5"/><text x="${cx[i]}" y="345" text-anchor="middle" class="vpc-device-name">${esc(o.name)}</text><text x="${cx[i]}" y="364" text-anchor="middle" class="vpc-small">AS ${esc(v("bgpCustomerAs")||"65001")}</text></g>`).join("")}
    <text x="475" y="450" text-anchor="middle" class="vpc-small">${edges.length} eBGP adjacencies · ${internal==="ibgp"?(ceN*(ceN-1)/2)+" iBGP sessions":"iBGP disabled"}</text>
@@ -2956,7 +2957,7 @@ function bgpGenerate(tab){
    return ["show ip bgp summary","show ip bgp","show ip route bgp","show bfd neighbors details",...ebgpPeers.flatMap(peer=>[`show ip bgp neighbors ${peer}`,`show ip bgp neighbors ${peer} received-routes`,`show ip bgp neighbors ${peer} advertised-routes`]),...ibgpPeers.map(peer=>`show ip bgp neighbors ${peer}`)].join("\n");
  }
  if(tab==="trouble")return `1. Verify interface state and IP reachability on all ${edges.length} CE-to-ISP links.\n2. Verify TCP/179 and local/remote ASN.\n3. Confirm received and advertised prefixes per ISP.\n4. Outbound TE: verify inbound policy and Local Preference on learned routes.\n5. Inbound TE: verify advertised AS_PATH, MED and communities toward each ISP.\n6. Remember that inbound MED/community behavior depends on the upstream ISP policy.\n7. For iBGP, verify loopback reachability, update-source and next-hop reachability.`;
- if(tab==="notes")return `BGP Engineering Notes\n- The selected ${ceN}-CE / ${ispN}-ISP model creates ${edges.length} eBGP adjacencies. Resilience exists only where circuits, provider paths and CE devices do not share a physical or operational failure domain.\n- ${internal==="ibgp"?"iBGP distributes externally learned reachability between CE routers; next-hop reachability and loopback transport must remain available during an edge failure.":"No internal CE peering is selected; a route learned by one CE is not automatically available through another CE."}\n- ${outOn&&window.c("bgpTeLocalPref")?`ISP-${outPref+1} is the intended outbound exit. Local Preference ${lp} is applied to the preferred path and ${blp} to the alternative; the preferred value must be numerically higher to influence comparable BGP routes.`:"No active Local Preference policy is selected, so outbound selection follows the remaining BGP best-path attributes."}\n- ${inOn?`ISP-${inPref+1} is the intended inbound path. ${window.c("bgpTePrepend")?`AS-path prepend is applied to the non-preferred advertisement ${pc} time(s); upstream policy can override the longer path.`:"No AS-path prepend is selected."} ${window.c("bgpTeMed")?`MED ${pmed}/${bmed} is a relative signal and is effective only where the receiving network compares it.`:""} ${window.c("bgpTeCommunity")?`Community ${comm} requires a documented ISP action.`:""}`:"Inbound traffic engineering is not enabled; external networks independently select their entry path."}\n- Outbound and inbound preferred ISPs may intentionally differ, but this creates asymmetric forwarding. Stateful firewalls, NAT, uRPF and troubleshooting procedures must support the resulting return path.\n- ${window.c("bgpBfd")?"BFD is selected for faster failure detection; compatible timers and support are required on both ends.":"BFD is not selected; convergence follows interface and BGP hold-time detection."} ${window.c("bgpMaxPrefix")?`Maximum-prefix ${maxp} limits unexpected route volume; confirm the platform action when the threshold is exceeded.`:"No maximum-prefix safeguard is selected."}\n- Acceptance must prove session establishment, received/advertised routes, policy counters, RIB/FIB installation and forwarding during each planned circuit or CE failure.`;
+ if(tab==="notes")return `BGP Engineering Notes\n- The selected ${ceN}-CE / ${ispN}-upstream-router model creates ${edges.length} eBGP adjacencies. Physical connections do not establish primary/backup traffic policy. Upstream routers and provider organizations are separate design facts. Resilience exists only where circuits, provider paths and CE devices do not share a physical or operational failure domain.\n- ${internal==="ibgp"?"iBGP distributes externally learned reachability between CE routers; next-hop reachability and loopback transport must remain available during an edge failure.":"No internal CE peering is selected; a route learned by one CE is not automatically available through another CE."}\n- ${outOn&&window.c("bgpTeLocalPref")?`ISP-${outPref+1} is the intended outbound exit. Local Preference ${lp} is applied to the preferred path and ${blp} to the alternative; the preferred value must be numerically higher to influence comparable BGP routes.`:"No active Local Preference policy is selected, so outbound selection follows the remaining BGP best-path attributes."}\n- ${inOn?`ISP-${inPref+1} is the intended inbound path. ${window.c("bgpTePrepend")?`AS-path prepend is applied to the non-preferred advertisement ${pc} time(s); upstream policy can override the longer path.`:"No AS-path prepend is selected."} ${window.c("bgpTeMed")?`MED ${pmed}/${bmed} is a relative signal and is effective only where the receiving network compares it.`:""} ${window.c("bgpTeCommunity")?`Community ${comm} requires a documented ISP action.`:""}`:"Inbound traffic engineering is not enabled; external networks independently select their entry path."}\n- Outbound and inbound preferred ISPs may intentionally differ, but this creates asymmetric forwarding. Stateful firewalls, NAT, uRPF and troubleshooting procedures must support the resulting return path.\n- ${window.c("bgpBfd")?"BFD is selected for faster failure detection; compatible timers and support are required on both ends.":"BFD is not selected; convergence follows interface and BGP hold-time detection."} ${window.c("bgpMaxPrefix")?`Maximum-prefix ${maxp} limits unexpected route volume; confirm the platform action when the threshold is exceeded.`:"No maximum-prefix safeguard is selected."}\n- Acceptance must prove session establishment, received/advertised routes, policy counters, RIB/FIB installation and forwarding during each planned circuit or CE failure.`;
 
  function cfg(ci){
   const ce=ces[ci],es=edges.filter(e=>e[0]===ci);
@@ -4881,17 +4882,40 @@ function placeholderGenerate(tab){
 }
 
 
+function bgpConnectivityChanged(id){
+ const model=v("bgpConnectivity");
+ if(id!=="bgpConnectivity"){
+  if(["bgpCeCount","bgpIspCount"].includes(id)&&((model==="single"&&(v("bgpCeCount")!=="1"||v("bgpIspCount")!=="1"))||(model==="dual"&&(v("bgpCeCount")!=="1"||v("bgpIspCount")!=="2"))))document.getElementById("bgpConnectivity").value="custom";
+  return;
+ }
+ if(model==="single"||model==="dual"){
+  document.getElementById("bgpCeCount").value="1";
+  document.getElementById("bgpIspCount").value=model==="dual"?"2":"1";
+ }
+}
+function bgpRefreshConnectivityUI(){
+ const ceN=+v("bgpCeCount")||2,upN=+v("bgpIspCount")||2,edges=bgpEdges(),missing=[];
+ for(let c=0;c<ceN;c++)if(!edges.some(e=>e[0]===c))missing.push(bgpCe(c).name);
+ for(let i=0;i<upN;i++)if(!edges.some(e=>e[1]===i))missing.push(bgpIsp(i).name);
+ const summary=document.getElementById("bgpConnectivitySummary");if(summary)summary.textContent=bgpConnectivityLabel()+". Choose Custom Connectivity to edit the attachments below. Physical attachments and traffic preference are separate. Use Traffic Engineering to select preferred exits or multipath."+(missing.length?" Warning: external links are missing for "+missing.join(", ")+".":"");
+ document.querySelectorAll('#bgpAttachmentMatrix input').forEach(box=>{const m=box.id.match(/C(\d+)I(\d+)$/);if(box.nextSibling)box.nextSibling.textContent=" "+bgpIsp(+m[2]-1).name;const title=box.closest('.bgp-device-card').querySelector('h4');title.textContent=bgpCe(+m[1]-1).name+' · External Links';});
+}
+function bgpConnectivityLabel(){
+ const ceN=+v("bgpCeCount")||2,upN=+v("bgpIspCount")||2,edges=bgpEdges();
+ return `${ceN} CE · ${upN} upstream routers · ${edges.length} external links`;
+}
 function bgpEdges(){
  const ceN=Math.max(1,Math.min(4,parseInt(v("bgpCeCount")||"2",10))), ispN=Math.max(1,Math.min(2,parseInt(v("bgpIspCount")||"2",10)));
- const model=v("bgpConnectivity")||"cross", edges=[];
+ const model=v("bgpConnectivity")||"full", edges=[];
  if(model==="single")edges.push([0,0]);
- else if(model==="primary-backup"){for(let c=0;c<ceN;c++)edges.push([c,0]);if(ispN>1)edges.push([ceN-1,1]);}
+ else if(model==="dual"){for(let i=0;i<ispN;i++)edges.push([0,i]);}
+ else if(model==="custom"){for(let c=0;c<ceN;c++)for(let i=0;i<ispN;i++)if(document.getElementById(`bgpAttachC${c+1}I${i+1}`)?.checked)edges.push([c,i]);}
  else if(model==="cross"){for(let c=0;c<ceN;c++)edges.push([c,ispN===1?0:c%ispN]);}
  else{for(let c=0;c<ceN;c++)for(let i=0;i<ispN;i++)edges.push([c,i]);}
  return edges;
 }
 function bgpCe(i){return{name:v(`bgpCe${i+1}Name`)||`CE-${i+1}`,rid:v(`bgpCe${i+1}Rid`)||`10.255.0.${i+1}`,loop:v(`bgpCe${i+1}Loop`)||`10.255.0.${i+1}/32`,prefix:v(`bgpCe${i+1}Prefix`)||`10.${i+1}0.0.0/16`};}
-function bgpIsp(i){return{name:v(`bgpIsp${i+1}Name`)||`ISP-${i+1}`,asn:v(`bgpIsp${i+1}As`)||(i?"64502":"64501")};}
+function bgpIsp(i){return{provider:v(`bgpIsp${i+1}Provider`)||`Provider-${i+1}`,name:v(`bgpIsp${i+1}Name`)||`ISP-${i+1}`,asn:v(`bgpIsp${i+1}As`)||(i?"64502":"64501")};}
 function bgpLink(c,i){const n=`bgpLinkC${c+1}I${i+1}`,base=16+(c*4+i)*4;return{ceIf:v(n+"CeIf")||`Ethernet1/${i+1}`,ceIp:v(n+"CeIp")||`172.16.${base}.1/30`,ispIf:v(n+"IspIf")||`Ethernet0/${c+1}`,ispIp:v(n+"IspIp")||`172.16.${base}.2/30`};}
 function renderBgpDynamicCards(){
  if(!document.getElementById("bgpCeCards"))return;
@@ -4899,7 +4923,12 @@ function renderBgpDynamicCards(){
  const ibox=document.getElementById("bgpIbgpInterconnect");
  if(ibox)ibox.style.display=(ceN===2 && (v("bgpInternal")||"ibgp")==="ibgp")?"block":"none";
  document.querySelectorAll("#bgpCeCards input,#bgpIspCards input,#bgpLinkCards input").forEach(x=>keep[x.id]=x.value);
- const val=(id,d)=>keep[id]!==undefined?keep[id]:d;
+ const val=(id,d)=>htmlEscape(keep[id]!==undefined?keep[id]:d);
+ const activeEdges=new Set(bgpEdges().map(([c,i])=>`${c}:${i}`));
+ document.getElementById("bgpAttachmentMatrix").innerHTML=Array.from({length:ceN},(_,c)=>`<div class="bgp-device-card"><h4>${htmlEscape(bgpCe(c).name)} · External Links</h4>${Array.from({length:ispN},(_,i)=>`<label class="check"><input type="checkbox" id="bgpAttachC${c+1}I${i+1}" ${activeEdges.has(`${c}:${i}`)?"checked":""} ${v("bgpConnectivity")==="custom"?"":"disabled"}> ${htmlEscape(bgpIsp(i).name)}</label>`).join("")}</div>`).join("");
+ document.querySelectorAll('#bgpAttachmentMatrix input').forEach(box=>box.onchange=()=>{renderBgpDynamicCards();syncTopology();renderOutput();});
+ const unattachedCe=Array.from({length:ceN},(_,c)=>c).filter(c=>![...activeEdges].some(e=>e.startsWith(c+":"))),unattachedUp=Array.from({length:ispN},(_,i)=>i).filter(i=>![...activeEdges].some(e=>e.endsWith(":"+i)));
+ const summary=document.getElementById("bgpConnectivitySummary");summary.textContent=bgpConnectivityLabel()+". Choose Custom Connectivity to edit the attachments below. Physical attachments and traffic preference are separate. Use Traffic Engineering to select preferred exits or multipath."+(unattachedCe.length||unattachedUp.length?" Warning: external links are missing for "+[...unattachedCe.map(c=>bgpCe(c).name),...unattachedUp.map(i=>bgpIsp(i).name)].join(", ")+".":"");
  document.getElementById("bgpCeCards").innerHTML=Array.from({length:ceN},(_,i)=>`<div class="bgp-device-card"><h4>CE-${i+1}</h4><div class="mini-grid">
  <div><label>Hostname</label><input id="bgpCe${i+1}Name" value="${val(`bgpCe${i+1}Name`,`CE-${i+1}`)}"></div>
  <div><label>Router ID</label><input id="bgpCe${i+1}Rid" value="${val(`bgpCe${i+1}Rid`,`10.255.0.${i+1}`)}"></div>
@@ -4907,8 +4936,8 @@ function renderBgpDynamicCards(){
  <div><label>Local Prefix</label><input id="bgpCe${i+1}Prefix" value="${val(`bgpCe${i+1}Prefix`,`10.${i+1}0.0.0/16`)}"></div></div></div>`).join("");
  document.getElementById("bgpIspCards").innerHTML=Array.from({length:ispN},(_,i)=>`<div class="bgp-device-card"><h4>ISP-${i+1}</h4><div class="mini-grid">
  <div><label>Name</label><input id="bgpIsp${i+1}Name" value="${val(`bgpIsp${i+1}Name`,`ISP-${i+1}`)}"></div>
- <div><label>ASN</label><input id="bgpIsp${i+1}As" value="${val(`bgpIsp${i+1}As`,i?"64502":"64501")}"></div></div></div>`).join("");
- document.getElementById("bgpLinkCards").innerHTML=bgpEdges().map(([c,i])=>{const ce=bgpCe(c),isp=bgpIsp(i),n=`bgpLinkC${c+1}I${i+1}`,base=16+(c*4+i)*4;return `<div class="bgp-link-card"><h4>${htmlEscape(ce.name)} ↔ ${htmlEscape(isp.name)}</h4><div class="bgp-link-meta">eBGP · AS ${htmlEscape(v("bgpCustomerAs")||"65001")} ↔ AS ${htmlEscape(isp.asn)}</div><div class="mini-grid">
+ <div><label>Provider / organization</label><input id="bgpIsp${i+1}Provider" maxlength="200" value="${val(`bgpIsp${i+1}Provider`,`Provider-${i+1}`)}"></div><div><label>ASN</label><input id="bgpIsp${i+1}As" value="${val(`bgpIsp${i+1}As`,i?"64502":"64501")}"></div></div></div>`).join("");
+ document.getElementById("bgpLinkCards").innerHTML=Array.from({length:ceN},(_,c)=>Array.from({length:ispN},(_,i)=>[c,i])).flat().map(([c,i])=>{const ce=bgpCe(c),isp=bgpIsp(i),n=`bgpLinkC${c+1}I${i+1}`,base=16+(c*4+i)*4;return `<div class="bgp-link-card" ${activeEdges.has(`${c}:${i}`)?"":"hidden"}><h4>${htmlEscape(ce.name)} ↔ ${htmlEscape(isp.name)}</h4><div class="bgp-link-meta">eBGP · AS ${htmlEscape(v("bgpCustomerAs")||"65001")} ↔ AS ${htmlEscape(isp.asn)}</div><div class="mini-grid">
  <div><label>CE Interface</label><input id="${n}CeIf" value="${val(n+"CeIf",`Ethernet1/${i+1}`)}"></div>
  <div><label>CE IP/Prefix</label><input id="${n}CeIp" value="${val(n+"CeIp",`172.16.${base}.1/30`)}"></div>
  <div><label>ISP Interface</label><input id="${n}IspIf" value="${val(n+"IspIf",`Ethernet0/${c+1}`)}"></div>
@@ -4994,7 +5023,12 @@ function captureWorkspaceModule(key=tech){
 function restoreWorkspaceModule(key=tech){
  const saved=window.__workspaceModuleStates[key];if(!saved)return false;
  const ps=document.getElementById("platform");if(ps&&saved.platform&&[...ps.options].some(o=>o.value===saved.platform))ps.value=saved.platform;
+ if(key==="BGP"){
+  for(const id of ["bgpCeCount","bgpIspCount","bgpConnectivity","bgpInternal"]){const el=document.getElementById(id);if(el&&saved.fields?.[id]!==undefined)el.value=saved.fields[id];}
+  renderBgpDynamicCards();
+ }
  Object.entries(saved.fields||{}).forEach(([id,value])=>{const el=document.getElementById(id);if(!el)return;if(el.type==="checkbox")el.checked=!!value;else el.value=value;});
+ if(key==="BGP")renderBgpDynamicCards();
  return true;
 }
 function safeProjectFields(fields){
@@ -5040,7 +5074,7 @@ function renderModule(){
    }
  });
 
- if(tech==="BGP"){["bgpCeCount","bgpIspCount","bgpConnectivity","bgpInternal"].forEach(id=>{const e=document.getElementById(id);if(e)e.addEventListener("change",()=>{renderBgpDynamicCards();renderOutput();});});}
+ if(tech==="BGP"){["bgpCeCount","bgpIspCount","bgpConnectivity","bgpInternal"].forEach(id=>{const e=document.getElementById(id);if(e)e.addEventListener("change",()=>{bgpConnectivityChanged(id);renderBgpDynamicCards();renderOutput();});});}
  if(tech==="SDWAN") initSdwanUploadUI();
  renderOutput();
  setTimeout(()=>{restoreWorkspaceModule(tech);if(tech==="VPC")vpcLeafUi();if(tech==="EVPN")evpnV431Ui();syncTopologyControls();syncTopology();renderOutput();},20);
@@ -5056,7 +5090,7 @@ function bgpV39ContextUI(){
  if(out)out.classList.toggle("is-disabled",!window.c("bgpTeOutboundEnable"));
  if(inn)inn.classList.toggle("is-disabled",!window.c("bgpTeInboundEnable"));
  ["bgpTeOutboundPreferredIsp","bgpTeInboundPreferredIsp"].forEach(id=>{
-   const e=document.getElementById(id); if(e)e.disabled=ispN<2;
+   const e=document.getElementById(id); if(e){e.disabled=ispN<2;for(const option of e.options){const i=+option.value-1;option.textContent=bgpIsp(i).name;option.disabled=i>=ispN;}if(+e.value>ispN)e.value="1";}
  });
  const mp=document.getElementById("bgpTeMaxPaths");
  if(mp)mp.closest("div").style.display=window.c("bgpTeEcmp")?"":"none";
@@ -5503,7 +5537,7 @@ function deviceOutputUi(){
 function renderOutput(){
  ensureDesignLinkSpeed();
  const noteControl=document.getElementById("designNotesLanguageControl");if(noteControl){noteControl.hidden=tab!=="notes";noteControl.style.display=tab==="notes"?"inline-flex":"none";}
- if(tech==="BGP")bgpV39ContextUI();
+ if(tech==="BGP"){bgpV39ContextUI();bgpRefreshConnectivityUI();}
  if(tech==="VPC"){vpcLeafUi();vpcV42ContextUI();} if(tech==="EVPN")evpnV431Ui();
  deviceOutputUi();
  window.NetworkDesignChecks?.render(tech,platform());
@@ -5757,6 +5791,7 @@ renderModule();
        const el=$(id);if(!el||el.type==="file"||el.type==="password")return;
        if(el.type==="checkbox")el.checked=!!val;else el.value=val;
      });
+     if(String(tech).toUpperCase()==="BGP")renderBgpDynamicCards();
      if(typeof render==="function")render();
      captureWorkspaceModule(tech);syncTopology();renderOutput();updateHealth();
    },30);
@@ -5806,8 +5841,14 @@ renderModule();
      const n=Number(r("bgpIspCount")),pref=r("bgpTeOutboundPreferredIsp")||"1",backup=pref==="1"?"2":"1";
      const lp=Number(r("bgpTeLocalPrefValue")),blp=Number(r("bgpTeBackupLocalPref"));
      const inbound=r("bgpTeInboundPreferredIsp")||"1",other=inbound==="1"?"2":"1";
-     add("External connectivity and route exchange",`${r("bgpCeCount")} CE · ${r("bgpIspCount")} ISP · ${r("bgpConnectivity")} · AS ${r("bgpCustomerAs")}`,
-       `The selected attachment model establishes eBGP on its planned CE–ISP links. Physical diversity creates useful resilience only when circuits, provider paths and CE failure domains are independent. ${r("bgpInternal")==="ibgp"?"iBGP between CEs distributes external reachability inside the customer AS; next-hop reachability is required or a learned route can exist without a usable forwarding path.":"No internal CE peering is selected; routes learned on one CE are not automatically available through another CE after a circuit failure."} ${r("bgpAf")!=="IPv4"?`The interface selects ${r("bgpAf")}, but the current generator produces IPv4 unicast only; IPv6 requires a separate design review.`:"The generated BGP address family is IPv4 unicast."}`);
+     add("External connectivity and route exchange",`${bgpConnectivityLabel()} · AS ${r("bgpCustomerAs")}`,
+       `${Array.from({length:n},(_,i)=>`${bgpIsp(i).name} (${bgpIsp(i).provider}, AS ${bgpIsp(i).asn})`).join("; ")}. The selected attachment model establishes eBGP only on enabled CE–upstream links. Provider labels describe the intended organization; shared transport or facilities can still create a common failure domain. Physical diversity creates useful resilience only when circuits, provider paths and CE failure domains are independent. ${r("bgpInternal")==="ibgp"?"iBGP between CEs distributes external reachability inside the customer AS; next-hop reachability is required or a learned route can exist without a usable forwarding path. With three or four CEs, the internal loopback transport must be provided separately; it is not generated by this workspace.":"No internal CE peering is selected; routes learned on one CE are not automatically available through another CE after a circuit failure."} ${r("bgpAf")!=="IPv4"?`The interface selects ${r("bgpAf")}, but the current generator produces IPv4 unicast only; IPv6 requires a separate design review.`:"The generated BGP address family is IPv4 unicast."}`);
+     Object.assign(decisions[0],{
+       labelTr:"Harici bağlantı ve rota değişimi",
+       valueTr:`${r("bgpCeCount")} CE · ${n} harici eş yönlendirici · ${bgpEdges().length} harici bağlantı · AS ${r("bgpCustomerAs")}`,
+       impactTr:`${Array.from({length:n},(_,i)=>`${bgpIsp(i).name} (${bgpIsp(i).provider}, AS ${bgpIsp(i).asn})`).join("; ")}. eBGP yalnız seçilen CE–upstream bağlantılarında kurulur. Fiziksel bağlantılar primary/backup trafik tercihini belirlemez; çıkış tercihi rota politikasıyla uygulanır. Sağlayıcı kuruluşu ve upstream cihazı farklı tasarım bilgileridir. Gerçek yedeklilik devrelerin, fiziksel güzergâhların ve CE cihazlarının bağımsız hata alanlarına bağlıdır. ${r("bgpInternal")==="ibgp"?"iBGP harici rotaları CE cihazları arasında dağıtır; oturum uçları ve next-hop erişilebilir olmalıdır. "+(Number(r("bgpCeCount"))>2?"Üç veya dört CE için bu modül iç taşıma ağını üretmez; loopback erişimi ayrıca sağlanmalıdır.":""):"İç CE peering seçilmemiştir; bir CE tarafından öğrenilen rota diğer CE cihazlarına otomatik aktarılmaz."} ${r("bgpAf")!=="IPv4"?"Seçilen adres ailesine rağmen mevcut üretici yalnız IPv4 unicast konfigürasyonu üretir; IPv6 ayrı değerlendirilmelidir.":"Üretilen adres ailesi IPv4 unicast'tır."}`
+     });
+     decisions[0].impactTr=decisions[0].impactTr.slice(0,1200);
      if(on("bgpTeOutboundEnable")&&on("bgpTeLocalPref"))
        add("Outbound traffic preference",`ISP-${pref}: Local Preference ${lp} · ISP-${backup}: ${blp}`,
          n<2?"Only one ISP is modeled; there is no alternative exit for primary/backup path selection.":`${lp>blp?`ISP-${pref} is preferred for comparable reachable prefixes because ${lp} exceeds ${blp}.`:`The chosen values do not prefer ISP-${pref}: ${lp} is not greater than ${blp}.`} The preference is local to the customer AS; prefix availability and higher-priority vendor attributes may change the installed path. ${on("bgpTeEcmp")?`ECMP permits up to ${r("bgpTeMaxPaths")} otherwise eligible paths, but unequal Local Preference prevents those paths from sharing traffic.`:"No ECMP policy is selected."}`);
@@ -5958,12 +5999,13 @@ renderModule();
      configurations.push({deviceId:id,text:allConfig(),source:"Technology Workspaces"});
      parameters.push({label:"Management topology scope",value:"OOB network and management services are shown as external endpoints; only the configured device is in the inventory."});
    }else if(tech==="BGP"){
-     roles.upper="CE router";roles.lower="ISP router";
+     roles.upper="CE router";roles.lower="Upstream router";
      const ceN=Math.max(1,Math.min(4,+get("bgpCeCount")||2)),ispN=Math.max(1,Math.min(2,+get("bgpIspCount")||2));
      const ces=Array.from({length:ceN},(_,i)=>add("upper",bgpCe(i).name));
      const isps=Array.from({length:ispN},(_,i)=>add("lower",bgpIsp(i).name));
-     devices.filter(d=>isps.includes(d.id)).forEach(d=>d.external=true);
+     devices.filter(d=>isps.includes(d.id)).forEach((d,i)=>{d.external=true;d.provider=bgpIsp(i).provider;});
      bgpEdges().forEach(([c,i])=>{const p=bgpLink(c,i);link(ces[c],isps[i],p.ceIf,p.ispIf,`eBGP · ${p.ceIp} ↔ ${p.ispIp}`);});
+     if(get("bgpInternal")==="ibgp"&&ceN===2)link(ces[0],ces[1],get("bgpIbgpCe1If"),get("bgpIbgpCe2If"),`CE interconnect · ${get("bgpIbgpCe1Ip")} ↔ ${get("bgpIbgpCe2Ip")}`);
      if(get("bgpInternal")==="ibgp")for(let i=0;i<ceN;i++)for(let j=i+1;j<ceN;j++)special("iBGP",ces[i],ces[j],"","","Logical CE peering; no physical cable inferred.");
      configs(ces,"bgpOutputDevice");
      parameters.push({label:"ISP configuration scope",value:"ISP routers are external peers; this workspace generates configuration only for CE routers."});

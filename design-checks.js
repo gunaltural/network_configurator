@@ -36,9 +36,15 @@ function evaluate({module,platform,fields:f={}}){
   names([...Array.from({length:ce},(_,i)=>`bgpCe${i+1}Name`),...Array.from({length:isp},(_,i)=>`bgpIsp${i+1}Name`)]);
   routerIds(Array.from({length:ce},(_,i)=>`bgpCe${i+1}Rid`));loopbacks(Array.from({length:ce},(_,i)=>`bgpCe${i+1}Loop`));
   for(let i=1;i<=isp;i++){const remote=autonomous(`bgpIsp${i}As`);if(local!==null&&remote!==null)check('ebgp-as',['bgpCustomerAs',`bgpIsp${i}As`],local!==remote,`ISP-${i}: the eBGP peer ASN must differ from the customer ASN.`);}
-  for(const id of Object.keys(f).filter(id=>/^bgpLinkC\d+I\d+CeIp$/.test(id))){const base=id.replace(/CeIp$/,''),m=base.match(/C(\d+)I(\d+)$/);pair(id,base+'IspIp');reserve(base+'CeIf','CE-'+m[1]);reserve(base+'IspIf','ISP-'+m[2]);}
+  for(const id of Object.keys(f).filter(id=>/^bgpLinkC\d+I\d+CeIp$/.test(id))){const base=id.replace(/CeIp$/,''),m=base.match(/C(\d+)I(\d+)$/);if(has(`bgpAttachC${m[1]}I${m[2]}`)&&!on(`bgpAttachC${m[1]}I${m[2]}`))continue;pair(id,base+'IspIp');reserve(base+'CeIf','CE-'+m[1]);reserve(base+'IspIf','ISP-'+m[2]);}
+  if(has('bgpAttachC1I1')){
+   for(let c=1;c<=ce;c++)check('bgp-unattached-ce',['bgpConnectivity'],Array.from({length:isp},(_,i)=>on(`bgpAttachC${c}I${i+1}`)).some(Boolean),`CE-${c}: no external attachment is selected. iBGP can provide indirect reachability only with a working internal transport and reachable next-hop.`,'warning');
+   for(let i=1;i<=isp;i++)check('bgp-unused-upstream',['bgpConnectivity'],Array.from({length:ce},(_,c)=>on(`bgpAttachC${c+1}I${i}`)).some(Boolean),`Upstream-${i}: this router has no selected CE connection.`,'warning');
+   check('bgp-no-links',['bgpConnectivity'],Object.keys(f).some(id=>/^bgpAttachC\d+I\d+$/.test(id)&&on(id)),'Select at least one external connection.');
+  }
   for(let i=1;i<=ce;i++){const id=`bgpCe${i}Prefix`,a=address(id,false);if(a)check('network-prefix',[id],a.ip===a.network,`${id}: the advertised prefix must use the network address.`);}
   if(ce===2&&value('bgpInternal')==='ibgp'){pair('bgpIbgpCe1Ip','bgpIbgpCe2Ip');reserve('bgpIbgpCe1If','CE-1');reserve('bgpIbgpCe2If','CE-2');}
+  if(ce>2&&value('bgpInternal')==='ibgp')add('bgp-ibgp-transport',['bgpInternal'],'Logical full-mesh iBGP requires independently provided loopback and next-hop reachability. This workspace does not generate the internal transport for three or four CEs.','warning');
   if(on('bgpTeOutboundEnable')&&on('bgpTeLocalPref')){integer('bgpTeLocalPrefValue',0,4294967295);integer('bgpTeBackupLocalPref',0,4294967295);check('local-preference',['bgpTeLocalPrefValue','bgpTeBackupLocalPref'],num('bgpTeLocalPrefValue')>num('bgpTeBackupLocalPref'),'Preferred ISP Local Preference must exceed Backup Local Preference to express the selected preference.','warning');}
  }else if(module==='OSPF'){
   names(['d1host','d2host']);routerIds(['d1rid','d2rid']);pair('d1ip','d2ip');reserve('d1if','Device-1');reserve('d2if','Device-2');integer('ospfCost',1,65535);
