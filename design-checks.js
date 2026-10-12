@@ -36,11 +36,24 @@ function evaluate({module,platform,fields:f={}}){
   names([...Array.from({length:ce},(_,i)=>`bgpCe${i+1}Name`),...Array.from({length:isp},(_,i)=>`bgpIsp${i+1}Name`)]);
   routerIds(Array.from({length:ce},(_,i)=>`bgpCe${i+1}Rid`));loopbacks(Array.from({length:ce},(_,i)=>`bgpCe${i+1}Loop`));
   for(let i=1;i<=isp;i++){const remote=autonomous(`bgpIsp${i}As`);if(local!==null&&remote!==null)check('ebgp-as',['bgpCustomerAs',`bgpIsp${i}As`],local!==remote,`ISP-${i}: the eBGP peer ASN must differ from the customer ASN.`);}
-  for(const id of Object.keys(f).filter(id=>/^bgpLinkC\d+I\d+CeIp$/.test(id))){const base=id.replace(/CeIp$/,''),m=base.match(/C(\d+)I(\d+)$/);if(has(`bgpAttachC${m[1]}I${m[2]}`)&&!on(`bgpAttachC${m[1]}I${m[2]}`))continue;pair(id,base+'IspIp');reserve(base+'CeIf','CE-'+m[1]);reserve(base+'IspIf','ISP-'+m[2]);}
-  if(has('bgpAttachC1I1')){
-   for(let c=1;c<=ce;c++)check('bgp-unattached-ce',['bgpConnectivity'],Array.from({length:isp},(_,i)=>on(`bgpAttachC${c}I${i+1}`)).some(Boolean),`CE-${c}: no external attachment is selected. iBGP can provide indirect reachability only with a working internal transport and reachable next-hop.`,'warning');
-   for(let i=1;i<=isp;i++)check('bgp-unused-upstream',['bgpConnectivity'],Array.from({length:ce},(_,c)=>on(`bgpAttachC${c+1}I${i}`)).some(Boolean),`Upstream-${i}: this router has no selected CE connection.`,'warning');
-   check('bgp-no-links',['bgpConnectivity'],Object.keys(f).some(id=>/^bgpAttachC\d+I\d+$/.test(id)&&on(id)),'Select at least one external connection.');
+  if(has('bgpConnectionsData')){
+   let rows=[];try{rows=JSON.parse(value('bgpConnectionsData'));if(!Array.isArray(rows))throw Error();}catch{add('bgp-connections-data',['bgpConnectionsData'],'External Connections contains invalid data.');rows=[];}
+   check('bgp-connection-limit',['bgpConnectionsData'],rows.length<=64,'A maximum of 64 external connections is supported.');
+   const active=rows.filter(r=>r&&r.enabled===true),ids=new Set(),peers=new Set(),addresses=new Set();
+   for(const row of active){const base=`bgpConnection${row.id}`;check('bgp-connection-id',['bgpConnectionsData'],Number.isSafeInteger(row.id)&&row.id>0&&!ids.has(row.id),'Connection IDs must be distinct positive integers.');ids.add(row.id);
+    const valid=Number.isInteger(row.ce)&&row.ce>=0&&row.ce<ce&&Number.isInteger(row.up)&&row.up>=0&&row.up<isp;
+    check('bgp-connection-device',[base+'Ce',base+'Up'],valid,`${row.name||'Connection'}: choose existing CE and external routers. Changing counts does not delete this connection.`);
+    if(!valid)continue;
+    check('bgp-connection-name',[base+'Name'],typeof row.name==='string'&&row.name.trim().length>0, 'Enter a connection name.');
+    pair(base+'CeIp',base+'IspIp');reserve(base+'CeIf','CE-'+(row.ce+1));reserve(base+'IspIf','ISP-'+(row.up+1));
+    for(const id of [base+'CeIf',base+'IspIf'])check('bgp-interface-required',[id],!!value(id),'Enter an interface for each connection endpoint.');
+    const remote=cidr(value(base+'IspIp'))?.ip,localIp=cidr(value(base+'CeIp'))?.ip,key=row.ce+':'+remote;
+    if(remote!==undefined){check('bgp-duplicate-peer',[base+'IspIp'],!peers.has(key),'Each CE requires a distinct peer address for each direct BGP session.');peers.add(key);}
+    for(const [ip,id] of [[remote,base+'IspIp'],[localIp,base+'CeIp']])if(ip!==undefined){check('bgp-duplicate-address',[id],!addresses.has(ip),'Direct connection endpoint addresses must be distinct.');addresses.add(ip);}
+   }
+   check('bgp-no-links',['bgpConnectionsData'],active.length>0,'Add and enable at least one external connection.');
+   for(let c=0;c<ce;c++)check('bgp-unattached-ce',['bgpCeCount'],active.some(r=>r.ce===c),`CE-${c+1}: no external connection is enabled. Indirect reachability requires working internal transport.`,'warning');
+   for(let i=0;i<isp;i++)check('bgp-unused-upstream',['bgpIspCount'],active.some(r=>r.up===i),`External router ${i+1} has no enabled connection and is omitted from the topology.`,'warning');
   }
   for(let i=1;i<=ce;i++){const id=`bgpCe${i}Prefix`,a=address(id,false);if(a)check('network-prefix',[id],a.ip===a.network,`${id}: the advertised prefix must use the network address.`);}
   if(ce===2&&value('bgpInternal')==='ibgp'){pair('bgpIbgpCe1Ip','bgpIbgpCe2Ip');reserve('bgpIbgpCe1If','CE-1');reserve('bgpIbgpCe2If','CE-2');}
