@@ -280,7 +280,7 @@ pre{
 /* V3.5 — Dynamic BGP cards */
 .bgp-card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;margin:10px 0 18px}
 .bgp-device-card,.bgp-link-card{border:1px solid var(--border);border-radius:12px;padding:14px;background:rgba(255,255,255,.025)}
-.bgp-attachment-editor{margin-top:12px;padding:14px;border:1px solid #adc4d4;border-radius:10px;background:#e0e9ef}.bgp-attachment-editor h3{margin:0 0 8px;font-size:14px;color:#0c4962}#bgpAttachmentMatrix .check{display:flex;align-items:center;gap:10px;cursor:pointer;margin:6px 0}#bgpAttachmentMatrix input[type=checkbox]{width:18px;height:18px;flex:0 0 18px;cursor:pointer}#params .bgp-link-card[hidden]{display:none!important}
+.bgp-attachment-editor[hidden]{display:none!important}.bgp-attachment-editor{margin-top:12px;padding:14px;border:1px solid #adc4d4;border-radius:10px;background:#e0e9ef}.bgp-attachment-editor h3{margin:0 0 8px;font-size:14px;color:#0c4962}#bgpAttachmentMatrix .check{display:flex;align-items:center;gap:10px;cursor:pointer;margin:6px 0}#bgpAttachmentMatrix input[type=checkbox]{width:18px;height:18px;flex:0 0 18px;cursor:pointer}#params .bgp-link-card[hidden]{display:none!important}
 .bgp-device-card h4,.bgp-link-card h4{margin:0 0 12px;font-size:13px;letter-spacing:.04em}
 .bgp-device-card .mini-grid,.bgp-link-card .mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .bgp-device-card label,.bgp-link-card label{display:block;font-size:11px;margin-bottom:5px;opacity:.78}
@@ -779,7 +779,7 @@ BGP:{
    <div><label>Customer ASN</label><input id="bgpCustomerAs" value="65001"></div>
    <div><label>Address Family</label><select id="bgpAf"><option>IPv4</option><option>IPv6</option><option>Dual Stack</option></select></div>
  </div>
- <section id="bgpAttachmentEditor" class="bgp-attachment-editor"><h3>External Attachments</h3><p id="bgpConnectivitySummary" class="hint" role="status"></p><div id="bgpAttachmentMatrix" class="bgp-card-grid"></div></section><div class="section-title">2 · CE & Upstream Routers</div><div id="bgpCeCards" class="bgp-card-grid"></div>
+ <section id="bgpAttachmentEditor" class="bgp-attachment-editor" hidden><h3>External Attachments</h3><p id="bgpConnectivitySummary" class="hint" role="status"></p><div id="bgpAttachmentMatrix" class="bgp-card-grid"></div></section><div class="section-title">2 · CE & Upstream Routers</div><div id="bgpCeCards" class="bgp-card-grid"></div>
  <div id="bgpIbgpInterconnect" class="bgp-device-card" style="margin-top:12px">
   <h4>CE-to-CE iBGP Interconnect</h4>
   <div class="param-grid">
@@ -4895,6 +4895,7 @@ function bgpConnectivityChanged(id){
  }
 }
 function bgpRefreshConnectivityUI(){
+ const editor=document.getElementById("bgpAttachmentEditor");if(editor)editor.hidden=v("bgpConnectivity")!=="custom";
  const ceN=+v("bgpCeCount")||2,upN=+v("bgpIspCount")||2,edges=bgpEdges(),missing=[];
  for(let c=0;c<ceN;c++)if(!edges.some(e=>e[0]===c))missing.push(bgpCe(c).name);
  for(let i=0;i<upN;i++)if(!edges.some(e=>e[1]===i))missing.push(bgpIsp(i).name);
