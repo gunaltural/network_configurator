@@ -2,10 +2,30 @@ const fs=require('fs'),assert=require('assert/strict'),{JSDOM,VirtualConsole}=re
 let html=fs.readFileSync('web.html','utf8');const errors=[],vc=new VirtualConsole();vc.on('jsdomError',e=>errors.push(e.message));
 const dom=new JSDOM(html,{url:'https://test.invalid/',runScripts:'dangerously',virtualConsole:vc,beforeParse(w){for(const f of ['huawei-istack.js','engineering-locale.js','vpc-report.js','verification-plan.js','design-checks.js'])w.eval(fs.readFileSync(f,'utf8'));w.confirm=()=>true;w.scrollTo=()=>{};w.HTMLElement.prototype.scrollIntoView=()=>{};w.fetch=async()=>({ok:true,json:async()=>({platforms:{}})});}});
 const w=dom.window,d=w.document,pause=()=>new Promise(r=>setTimeout(r,70)),change=(id,value)=>{const el=d.getElementById(id);if(el.type==='checkbox')el.checked=value;else el.value=value;el.dispatchEvent(new w.Event(el.type==='text'?'input':'change',{bubbles:true}));};
-const svg=()=>d.querySelector('#topologyArea svg'),text=()=>[...svg().querySelectorAll('text')].map(x=>x.textContent).join(' '),boxes=()=>[...svg().querySelectorAll('[data-label-box]')].map(x=>x.getAttribute('data-label-box').split(',').map(Number));
-function noCollisions(){const all=boxes();for(let i=0;i<all.length;i++)for(let j=i+1;j<all.length;j++){const [x,y,a,b]=all[i],[u,v,c,e]=all[j];assert.ok(x+a<=u||u+c<=x||y+b<=v||v+e<=y,`Endpoint labels ${i}/${j} overlap`);}}
-(async()=>{try{d.querySelector('.tech[data-tech=BGP]').click();await pause();d.getElementById('bgpAddConnection').click();change('bgpConnection3Ce','0');change('bgpConnection3Up','1');d.getElementById('bgpAddConnection').click();change('bgpConnection4Up','0');assert.equal(svg().querySelectorAll('[data-label-box]').length,8);noCollisions();assert.match(text(),/172\.16\.16\.1\/30/);assert.match(text(),/172\.16\.16\.2\/30/);assert.match(text(),/10\.255\.254\.1\/30/);assert.match(text(),/Purple dashed: logical iBGP/);fs.writeFileSync('/tmp/bgp-four-links.svg',svg().outerHTML.replace('<svg ','<svg xmlns="http://www.w3.org/2000/svg" '));
- change('bgpShowIps',false);assert.ok(!/172\.16\.|10\.255\.254\./.test(text()));change('bgpShowPorts',false);assert.ok(!/Ethernet/.test(text()));change('bgpShowPorts',true);change('bgpShowIps',true);
- change('bgpConnection3Name','Cross connected circuit with a long descriptive project label');change('bgpConnection3CeIf','HundredGigabitEthernet1/0/123');noCollisions();assert.ok(boxes().every(b=>b[0]>=0&&b[1]>=0));
- for(let i=0;i<6;i++)d.getElementById('bgpAddConnection').click();assert.equal(svg().querySelectorAll('[data-bgp-connection]').length,10);noCollisions();assert.ok(![...svg().querySelectorAll('[data-label-kind=local] text')].some(x=>x.textContent.includes('172.16.16.1')),'Dense view initially hides endpoint details');svg().querySelector('[data-bgp-connection="1"]').dispatchEvent(new w.MouseEvent('click'));assert.ok(text().includes('172.16.16.1'));noCollisions();change('bgpAllDetails',true);assert.ok(text().includes('172.16.20.1'));noCollisions();
- assert.deepEqual(errors,[]);console.log('BGP diagram: four crossed links, endpoint label bounds/non-overlap, local/remote/interconnect IPs, independent visibility controls, long labels and dense selected/all detail modes passed.');}finally{w.close();}})().catch(e=>{console.error(e);process.exitCode=1;});
+const svg=()=>d.querySelector('#topologyArea svg'),text=()=>[...svg().querySelectorAll('text')].map(x=>x.textContent).join(' ');
+(async()=>{try{
+ d.querySelector('.tech[data-tech=BGP]').click();await pause();
+ d.getElementById('bgpAddConnection').click();change('bgpConnection3Ce','0');change('bgpConnection3Up','1');
+ d.getElementById('bgpAddConnection').click();change('bgpConnection4Up','0');
+ assert.equal(svg().getAttribute('viewBox'),'0 0 950 480');
+ assert.equal(svg().querySelectorAll('[data-label-box]').length,0,'No oversized information cards');
+ assert.equal(svg().querySelectorAll('[data-bgp-connection]').length,4);
+ const labels=[...svg().querySelectorAll('[data-bgp-endpoint]')];assert.equal(labels.length,8);
+ for(const label of labels){assert.equal(label.getAttribute('font-size'),'9');assert.ok(['144','294'].includes(label.getAttribute('y')),'Labels remain near router endpoints');}
+ assert.match(text(),/172\.16\.16\.1\/30/);assert.match(text(),/172\.16\.16\.2\/30/);
+ assert.ok(!text().includes('WAN-3'),'Long connection names remain in tooltips/table');
+ assert.ok(svg().querySelector('line[style*="#8065a8"]'),'Logical iBGP retains a distinct dashed line');
+ fs.writeFileSync('/tmp/bgp-four-links.svg',svg().outerHTML.replace('<svg ','<svg xmlns="http://www.w3.org/2000/svg" '));
+ change('bgpShowIps',false);assert.ok(!/172\.16\./.test(text()));
+ change('bgpShowPorts',false);assert.equal(svg().querySelectorAll('[data-bgp-endpoint]').length,0);
+ change('bgpShowPorts',true);change('bgpShowIps',true);
+ change('bgpConnection3Name','Cross connected circuit with a long descriptive project label');
+ assert.ok(!text().includes('Cross connected circuit'));assert.ok(svg().querySelector('[data-bgp-connection="3"] title').textContent.includes('Cross connected circuit'));
+ for(let i=0;i<6;i++)d.getElementById('bgpAddConnection').click();
+ assert.equal(svg().querySelectorAll('[data-bgp-connection]').length,10);
+ assert.ok(!text().includes('172.16.16.1'),'Dense view initially hides unselected endpoint details');
+ svg().querySelector('[data-bgp-connection="1"]').dispatchEvent(new w.MouseEvent('click'));
+ assert.ok(text().includes('172.16.16.1'));assert.equal(svg().querySelectorAll('[data-bgp-endpoint]').length,2);
+ change('bgpAllDetails',true);assert.ok(text().includes('172.16.20.1'));
+ assert.deepEqual(errors,[]);console.log('BGP compact diagram: crossed links, small endpoint labels, tooltips, independent port/IP visibility, selection and dense detail controls passed.');
+}finally{w.close();}})().catch(e=>{console.error(e);process.exitCode=1;});
