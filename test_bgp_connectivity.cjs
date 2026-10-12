@@ -24,6 +24,11 @@ const change=(id,value)=>{const n=d.getElementById(id);if(n.type==='checkbox')n.
   change('bgpAttachC1I2',true);assert.equal(d.getElementById('bgpLinkC1I2CeIp').value,'172.16.20.1/30');assert.equal(w.__bgpAudit.reportingDesign().links.filter(x=>x.detail.startsWith('eBGP')).length,3);
   change('bgpConnectivity','single');assert.equal(d.getElementById('bgpCeCount').value,'1');assert.equal(d.getElementById('bgpIspCount').value,'1');assert.deepEqual(copy(w.__bgpAudit.bgpEdges()),[[0,0]]);
   change('bgpConnectivity','dual');assert.equal(d.getElementById('bgpCeCount').value,'1');assert.equal(d.getElementById('bgpIspCount').value,'2');assert.equal(w.__bgpAudit.bgpEdges().length,2);
+  change('bgpIsp1Name','UP-A');change('bgpIsp2Name','UP-B');change('bgpConnectivity','custom');assert.equal(d.getElementById('bgpAttachmentEditor').parentElement.id,'topologyControls');assert.equal(d.getElementById('bgpAttachC1I2').disabled,false);d.getElementById('bgpAttachC1I2').click();
+  assert.ok(!d.getElementById('topologyArea').textContent.includes('UP-B'));assert.match(d.getElementById('topologyArea').textContent,/1 CE · 1 upstream router · 1 external link/);assert.equal(w.__bgpAudit.reportingDesign().devices.filter(x=>x.external).length,1);
+  change('bgpAttachC1I2',true);change('bgpAttachC1I1',false);assert.ok(!d.getElementById('topologyArea').textContent.includes('UP-A'));assert.ok(d.getElementById('topologyArea').textContent.includes('UP-B'));const onlySecond=w.__bgpAudit.reportingDesign();assert.equal(onlySecond.devices.find(x=>x.external).hostname,'UP-B');assert.equal(onlySecond.devices.find(x=>x.external).provider,d.getElementById('bgpIsp2Provider').value);assert.ok(onlySecond.links.every(x=>onlySecond.devices.some(d=>d.id===x.a)&&onlySecond.devices.some(d=>d.id===x.b)));
+  change('bgpAttachC1I1',true);assert.ok(d.getElementById('topologyArea').textContent.includes('UP-A'));assert.equal(d.getElementById('bgpIspCount').value,'2');
+
  }
  change('bgpConnectivity','full');change('bgpCeCount','2');change('bgpIspCount','2');assert.equal(d.querySelector('#bgpConnectivity option[value=primary-backup]'),null);
  change('bgpConnectivity','custom');for(const id of ['bgpAttachC1I1','bgpAttachC1I2','bgpAttachC2I1','bgpAttachC2I2'])change(id,false);assert.ok(w.NetworkDesignValidation.issues.some(x=>x.code==='bgp-no-links'));
