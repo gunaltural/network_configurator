@@ -18,6 +18,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 import re
+import json
 import socket
 import html as html_module
 from urllib.request import Request, build_opener, HTTPRedirectHandler
@@ -41,7 +42,7 @@ from authentication import install_authentication
 from project_store import install_project_store
 from config_compare import install_config_compare
 
-VERSION = "5.26.1"
+VERSION = "5.27.0"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
 # Keep the diagnostic entry point available with the authenticated page itself.
@@ -1206,6 +1207,21 @@ def collect_inventory(p: DeviceRequest, cancel=None):
                 conn.disconnect()
             except Exception:
                 pass
+
+
+@app.get("/api/sdwan/template")
+def sdwan_template():
+    import base64
+    template = json.loads((BASE_DIR / "sdwan-template.json").read_text(encoding="utf-8"))
+    return Response(base64.b64decode(template["xlsxBase64"], validate=True),
+                    media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": 'attachment; filename="sdwan-site-template.xlsx"', "Cache-Control": "no-store"})
+
+
+@app.get("/api/sdwan/example")
+def sdwan_example():
+    template = json.loads((BASE_DIR / "sdwan-template.json").read_text(encoding="utf-8"))
+    return {"sheet": template["sheet"], "rows": template["rows"]}
 
 
 @app.post("/api/sdwan/excel")

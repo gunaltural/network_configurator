@@ -12,12 +12,12 @@ M-LAG / StackWise Virtual, EVPN / VXLAN, QoS and Cisco cEdge SD-WAN. It carries
 the active topology, real device names and configured ports, engineering explanations for selected parameters,
 and each configuration the module actually generates. BGP ISP peers appear as
 external endpoints without generated ISP configurations. A single-device module
-reports one device; the other sites drawn in SD-WAN are illustrative, so only
-the selected cEdge is inventoried. The report describes a planned design.
+reports one device. SD-WAN reports the router records at the selected site;
+controllers and transport networks remain external endpoints. The report describes a planned design.
 SVG topology drawings are captured from the active Technology Workspace, so their
 device labels and technology-specific paths appear in the report preview, printed PDF,
-and Word download. SD-WAN's HTML topology is represented by a report SVG of the
-selected edge, controllers and two WAN transports. The drawings use a light palette for readability on
+and Word download. SD-WAN uses the same data-driven SVG in the workspace and report,
+including the site routers, their WAN interfaces and the modeled service LAN. The drawings use a light palette for readability on
 white paper; the interactive workspace retains its original colors. Use the prominent
 **Maintenance and Reporting** action in the workspace
 header or at the end of the parameters to open the report after designing
@@ -307,3 +307,26 @@ Normal Save keeps the visible revision number unchanged. A separate timestamp ch
 still rejects stale updates and project deletes from another tab. Previously saved revision
 numbers are preserved. Opening older history as a working copy creates a separate
 project on save; it does not overwrite the active saved project.
+
+## SD-WAN site planning
+
+In **Technology Workspaces → SD-WAN**, use **Load example** to open Site-1 with
+Router1 and Router2, or **Download Excel template** and upload the edited workbook.
+The example uses generic names and sample addresses. Existing `.xlsx` / `.xls`
+plans with the original column headings remain supported.
+
+**Site Profile** edits organization, vBond, DNS, NTP, overlay and timezone for every
+router at the selected site. Site name and Site ID are shared; hostname, system IP,
+WAN, LAN and management interfaces remain individual. Edits survive router changes
+and project Save/Open. Add/remove router updates the topology and report.
+
+Configuration scope can be **Selected router** or **All routers at selected site**.
+The report includes all routers at the site with separate device configurations.
+Optional service VPN configuration advertises the connected LAN through OMP and
+can use a shared VRRP gateway. This baseline does not enable WAN/OMP tracking in
+VRRP. Circuit capacity is planning metadata; it does not apply shaping or SLA policy.
+
+Technical references:
+- [Cisco Catalyst SD-WAN Design Guide](https://www.cisco.com/c/en/us/td/docs/solutions/CVD/SDWAN/cisco-sdwan-design-guide.html)
+- [Cisco IOS XE service-side VRRP](https://www.cisco.com/c/en/us/support/docs/routers/xe-sd-wan-routers/222697-configure-service-side-vrrp-on-cisco-ios.html)
+- [Cisco IOS XE OMP route redistribution](https://www.cisco.com/c/en/us/td/docs/routers/sdwan/configuration/routing/ios-xe-17/routing-configuration-guide-17-x/OMP-routing-protocol-ref/omp-route-redistribution.html)

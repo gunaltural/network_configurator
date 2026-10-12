@@ -1223,7 +1223,7 @@ modules["VPC"]={
    <label class="check"><input type="checkbox" id="vpcGracefulConsistency" checked> graceful consistency-check</label>
    <label class="check"><input type="checkbox" id="vpcBpduGuardEdge" checked> BPDU Guard on edge ports (global)</label>
    <label class="check"><input type="checkbox" id="vpcRootGuardDownstream" checked> Root Guard on downstream L2 vPCs</label>
-   
+
    <label class="check"><input type="checkbox" id="vpcSviDelayRestoreEnable"> delay restore interface-vlan</label>
    <label class="check"><input type="checkbox" id="vpcL3PeerRouter"> layer3 peer-router</label>
  </div>
@@ -1295,86 +1295,37 @@ modules["VPC"]={
  generate: vpcGenerate
 };
 
-modules["SDWAN"]={
- title:"SD-WAN",
- subtitle:"Cisco cEdge · Excel Driven · Site → Router → Validate → Full Config",
- params:()=>`
- <div class="section-title">1 · Excel Data Source</div>
- <div class="upload-panel">
-   <label class="file-drop" for="sdExcelFile">
-     <strong>Excel dosyasını yükle</strong>
-     <span>.xlsx / .xls · Beklenen sayfa: IP Adres Planlaması</span>
-     <input id="sdExcelFile" type="file" accept=".xlsx,.xls" style="display:none">
-   </label>
-   <div id="sdExcelStatus" class="note" style="margin-top:10px">Henüz Excel yüklenmedi.</div>
- </div>
-
- <div class="section-title">2 · Site / Router Selection</div>
- <div class="param-grid">
-   <div>
-     <label>Site</label>
-     <select id="sdSiteSelect" disabled>
-       <option value="">Önce Excel yükleyin</option>
-     </select>
-   </div>
-   <div>
-     <label>Router</label>
-     <select id="sdRouterSelect" disabled>
-       <option value="">Önce site seçin</option>
-     </select>
-   </div>
- </div>
-
- <div class="section-title">3 · Auto-Filled Quick Config</div>
- <p class="note" style="margin-top:0">
-   Router seçildiğinde aşağıdaki değerler Excel'den otomatik doldurulur. Gateway adresleri IP/prefix bilgisinden
-   <b>önerilir</b>; gerçek gateway adreslerini sağlayıcı/ağ planıyla doğrulayın.
- </p>
- <div class="param-grid">
-   <div><label>1 · Site / Location</label><input id="sdLocation" value="" placeholder="Excel'den gelir"></div>
-   <div><label>2 · Hostname</label><input id="sdHostname" value="" placeholder="Excel'den gelir"></div>
-   <div><label>3 · System IP</label><input id="sdSystemIp" value="" placeholder="Excel'den gelir"></div>
-   <div><label>4 · Site ID</label><input id="sdSiteId" value="" placeholder="Excel'den gelir"></div>
-   <div><label>5 · WAN-1 IP / Prefix</label><input id="sdWan1Cidr" value="" placeholder="Excel'den gelir"></div>
-   <div><label>6 · WAN-1 Gateway</label><input id="sdWan1Gw" value="" placeholder="Otomatik türetilir"></div>
-   <div><label>7 · WAN-2 IP / Prefix</label><input id="sdWan2Cidr" value="" placeholder="Excel'den gelir"></div>
-   <div><label>8 · WAN-2 Gateway</label><input id="sdWan2Gw" value="" placeholder="Otomatik türetilir"></div>
-   <div><label>9 · Management IP / Prefix</label><input id="sdMgmtCidr" value="" placeholder="Excel'den gelir"></div>
-   <div><label>10 · Management Gateway</label><input id="sdMgmtGw" value="" placeholder="Otomatik türetilir"></div>
- </div>
-
- <div class="actions" style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">
-   <button class="btn" type="button" id="sdValidateBtn">Validate</button>
-   <button class="btn" type="button" id="sdGenerateBtn">Full Config Generate</button>
- </div>
- <div id="sdValidation" class="note" style="margin-top:10px">Validation bekleniyor.</div>
-
- <div class="section-title">Active Profile</div>
- <div id="sdProfileSummary" class="note" style="line-height:1.8">
-   <b>TUPRAS Dual MPLS</b><br>
-   WAN-1: GigabitEthernet0/0/0 · private1 · weight 2 · Tunnel0<br>
-   WAN-2: GigabitEthernet0/0/1 · private2 · weight 1 · Tunnel1<br>
-   Management: GigabitEthernet0/0/3 · Mgmt-intf
- </div>
-
+modules["SDWAN"]={title:"SD-WAN",subtitle:"Cisco cEdge · Site plan · Router configuration · Verification",params:()=>`
+<div class="section-title">1 · Site plan</div>
+<div class="actions"><a class="btn" href="/api/sdwan/template" download="sdwan-site-template.xlsx">Download Excel template</a><button class="btn" type="button" id="sdLoadExample">Load example</button></div>
+<p class="note">The example contains Site-1, Router1 and Router2 with sample addresses. Edit the plan before generating configuration.</p>
+<div class="upload-panel"><label class="file-drop" for="sdExcelFile"><strong>Upload Excel plan</strong><span>.xlsx / .xls · IP Adres Planlaması</span><input id="sdExcelFile" type="file" accept=".xlsx,.xls" style="display:none"></label><div id="sdExcelStatus" class="note">Upload a plan or load the example.</div></div>
+<textarea id="sdPlanningData" style="display:none">[]</textarea><input type="hidden" id="sdSelectedRow" value="-1">
+<div class="section-title">2 · Site / router</div><div class="param-grid"><div><label>Site</label><select id="sdSiteSelect" disabled><option value="">Select site</option></select></div><div><label>Router</label><select id="sdRouterSelect" disabled><option value="">Select router</option></select></div></div>
+<div class="actions"><button class="btn" type="button" id="sdAddRouter">Add router</button><button class="btn" type="button" id="sdRemoveRouter">Remove router</button></div>
+<div class="param-grid"><div><label for="sdLocation">Site name</label><input id="sdLocation" value="" placeholder=""></div><div><label for="sdSiteId">Site ID</label><input id="sdSiteId" value="" placeholder=""></div><div><label for="sdHostname">Hostname</label><input id="sdHostname" value="" placeholder=""></div><div><label for="sdSystemIp">System IP</label><input id="sdSystemIp" value="" placeholder=""></div></div>
+<details class="upload-panel" open><summary><strong>Site Profile · common values</strong></summary><p class="note">Changes here apply to every router at the selected site. Site name and Site ID are shared too.</p><div class="param-grid"><div><label for="sdOrg">Organization</label><input id="sdOrg" value="Example_SDWAN" placeholder=""></div><div><label for="sdVbond">vBond hostname / IP</label><input id="sdVbond" value="vbond.example.test" placeholder=""></div><div><label for="sdVbondPort">vBond port</label><input id="sdVbondPort" value="12346" placeholder=""></div><div><label for="sdDns">DNS server</label><input id="sdDns" value="203.0.113.53" placeholder=""></div><div><label for="sdNtp">NTP server</label><input id="sdNtp" value="203.0.113.123" placeholder=""></div><div><label for="sdOverlayId">Overlay ID</label><input id="sdOverlayId" value="1" placeholder=""></div><div><label for="sdTimezone">Timezone</label><input id="sdTimezone" value="TRT 3 0" placeholder=""></div></div></details>
+<div class="section-title">3 · WAN-1</div><div class="param-grid"><div><label for="sdWan1If">Physical interface</label><input id="sdWan1If" value="GigabitEthernet0/0/0" placeholder=""></div><div><label for="sdWan1Cidr">IP / prefix</label><input id="sdWan1Cidr" value="" placeholder=""></div><div><label for="sdWan1Gw">Gateway</label><input id="sdWan1Gw" value="" placeholder=""></div><div><label for="sdWan1Color">Transport color</label><input id="sdWan1Color" value="private1" placeholder=""></div><div><label for="sdWan1Mbps">Circuit capacity (Mbps)</label><input id="sdWan1Mbps" value="" placeholder=""></div><div><label for="sdWan1Weight">IPsec weight</label><input id="sdWan1Weight" value="2" placeholder=""></div></div><div class="section-title">WAN-2</div><div class="param-grid"><div><label for="sdWan2If">Physical interface</label><input id="sdWan2If" value="GigabitEthernet0/0/1" placeholder=""></div><div><label for="sdWan2Cidr">IP / prefix</label><input id="sdWan2Cidr" value="" placeholder=""></div><div><label for="sdWan2Gw">Gateway</label><input id="sdWan2Gw" value="" placeholder=""></div><div><label for="sdWan2Color">Transport color</label><input id="sdWan2Color" value="private2" placeholder=""></div><div><label for="sdWan2Mbps">Circuit capacity (Mbps)</label><input id="sdWan2Mbps" value="" placeholder=""></div><div><label for="sdWan2Weight">IPsec weight</label><input id="sdWan2Weight" value="1" placeholder=""></div></div>
+<div class="section-title">4 · LAN / service VPN</div><div><label>LAN gateway model</label><select id="sdLanMode"><option value="none">Not configured</option><option value="connected">Connected LAN · advertise through OMP</option><option value="vrrp">Connected LAN · VRRP gateway</option></select></div><div id="sdLanFields" class="param-grid"><div><label for="sdServiceVpn">Service VPN / VRF ID</label><input id="sdServiceVpn" value="10" placeholder=""></div><div><label for="sdLanIf">LAN interface</label><input id="sdLanIf" value="GigabitEthernet0/0/2" placeholder=""></div><div><label for="sdLanCidr">LAN IP / prefix</label><input id="sdLanCidr" value="" placeholder=""></div><div><label for="sdVrrpVip">VRRP virtual IP</label><input id="sdVrrpVip" value="" placeholder=""></div><div><label for="sdVrrpGroup">VRRP group</label><input id="sdVrrpGroup" value="1" placeholder=""></div><div><label for="sdVrrpPriority">VRRP priority</label><input id="sdVrrpPriority" value="100" placeholder=""></div></div>
+<div class="section-title">5 · Management</div><div class="param-grid"><div><label for="sdMgmtIf">Management interface</label><input id="sdMgmtIf" value="GigabitEthernet0/0/3" placeholder=""></div><div><label for="sdMgmtCidr">Management IP / prefix</label><input id="sdMgmtCidr" value="" placeholder=""></div><div><label for="sdMgmtGw">Management gateway</label><input id="sdMgmtGw" value="" placeholder=""></div></div>
+<div class="section-title">Configuration scope</div><select id="sdConfigScope"><option value="selected">Selected router</option><option value="site">All routers at selected site</option></select>
+<div class="actions"><button class="btn" type="button" id="sdValidateBtn">Validate</button><button class="btn" type="button" id="sdGenerateBtn">Generate configuration</button></div><div id="sdValidation" class="note">Select a router to validate its plan.</div><div id="sdProfileSummary" class="note"></div>
  <div style="display:none">
-   <input id="sdOverlayId" value="1"><input id="sdPortOffset" value="10"><input id="sdCtrlPps" value="300">
-   <input id="sdOrg" value="TUPRAS_SDWAN"><input id="sdVbond" value="vbond.tuprasnet.local"><input id="sdVbondPort" value="12346">
-   <input id="sdMgmtVrf" value="Mgmt-intf"><input id="sdMgmtRd" value="1:512"><input id="sdMgmtIf" value="GigabitEthernet0/0/3">
-   <input id="sdDns" value="10.1.1.204"><input id="sdNtp" value="10.1.1.204">
-   <input id="sdWan1If" value="GigabitEthernet0/0/0"><input id="sdWan1Desc" value="TT_MPLS_INTERFACE"><input id="sdWan1Color" value="private1"><input id="sdWan1Weight" value="2"><input id="sdTun1" value="Tunnel0">
-   <input id="sdWan2If" value="GigabitEthernet0/0/1"><input id="sdWan2Desc" value="VF_MPLS_INT"><input id="sdWan2Color" value="private2"><input id="sdWan2Weight" value="1"><input id="sdTun2" value="Tunnel1">
+   <input id="sdPortOffset" value="10"><input id="sdCtrlPps" value="300">
+
+   <input id="sdMgmtVrf" value="Mgmt-intf"><input id="sdMgmtRd" value="1:512">
+
+   <input id="sdWan1Desc" value="WAN_1"><input id="sdTun1" value="Tunnel0">
+   <input id="sdWan2Desc" value="WAN_2"><input id="sdTun2" value="Tunnel1">
    <input id="sdVmanagePref" value="5"><input id="sdNatRefresh" value="5"><input id="sdHello" value="1000"><input id="sdHelloTol" value="12">
-   <input id="sdMtu" value="1500"><input id="sdArp" value="1200"><input id="sdLoad" value="30"><input id="sdTimezone" value="TRT 3 0">
+   <input id="sdMtu" value="1500"><input id="sdArp" value="1200"><input id="sdLoad" value="30">
    <input type="checkbox" id="sdRestrict1" checked><input type="checkbox" id="sdRestrict2" checked>
    <input type="checkbox" id="sdPortHop1" checked><input type="checkbox" id="sdPortHop2" checked>
    <input type="checkbox" id="sdLastResort2"><input type="checkbox" id="sdLowBw2"><input type="checkbox" id="sdVbondStun2">
    <input type="checkbox" id="sdSrvDhcp" checked><input type="checkbox" id="sdSrvDns" checked><input type="checkbox" id="sdSrvIcmp" checked><input type="checkbox" id="sdSrvHttps" checked>
    <input type="checkbox" id="sdSrvBgp"><input type="checkbox" id="sdSrvSshd"><input type="checkbox" id="sdSrvNetconf"><input type="checkbox" id="sdSrvNtp">
    <input type="checkbox" id="sdSrvOspf"><input type="checkbox" id="sdSrvStun"><input type="checkbox" id="sdSrvSnmp"><input type="checkbox" id="sdSrvBfd">
- </div>`,
- generate:sdwanGenerate
-};
+ </div>`,generate:sdwanGenerate};
 
 ["MPLS","MULTICAST"].forEach(k=>{
  modules[k]={
@@ -2053,67 +2004,7 @@ function syncTopology(){
    area.innerHTML=`<div class="vpc-svg-wrap"><svg class="vpc-svg" viewBox="0 0 950 400" role="img" aria-label="QoS policy path topology"><text x="475" y="38" text-anchor="middle" class="vpc-domain-title">QoS POLICY PATH · ${policy}</text><line x1="350" y1="205" x2="600" y2="205" class="vpc-member-line"/><rect x="405" y="180" width="140" height="48" rx="9" class="vpc-po-badge"/><text x="475" y="199" text-anchor="middle" class="vpc-po-title">MTU ${mtu}</text><text x="475" y="217" text-anchor="middle" class="vpc-po-sub">Trust ${trust}</text>${[[260,n1,if1],[690,n2,if2]].map(([x,nm,intf])=>`<g><rect x="${x-85}" y="155" width="170" height="100" rx="14" class="vpc-device"/><text x="${x}" y="187" text-anchor="middle" class="vpc-device-name">${nm}</text><text x="${x}" y="213" text-anchor="middle" class="vpc-small">${intf}</text><text x="${x}" y="236" text-anchor="middle" class="vpc-small">QoS Policy Endpoint</text></g>`).join("")}<text x="475" y="350" text-anchor="middle" class="vpc-small">Classification → Marking → Queueing / Policing / Shaping / WRED</text></svg></div>`;return;
  }
  if(tech==="SDWAN"){
-   const siteA=v("sdLocation")||"SITE-A";
-   const routerA=v("sdHostname")||"EDGE-A1";
-   const routerA2=(routerA && /-RTR-1$/i.test(routerA)) ? routerA.replace(/-RTR-1$/i,"-RTR-2") : "EDGE-A2";
-   area.innerHTML=`
-   <div class="sd-simple-topology">
-     <div class="sd-controller-row">
-       <div class="sd-controller">
-         <strong>SD-WAN Controllers</strong>
-         <small>Management · Orchestration · Control</small>
-       </div>
-     </div>
-
-     <div class="sd-control-lines">
-       <span></span><span></span>
-     </div>
-
-     <div class="sd-sites-row">
-       <div class="sd-site-card">
-         <div class="sd-site-title">${siteA}</div>
-         <div class="sd-router-row">
-           <div class="device">
-             <strong>${routerA}</strong>
-             <small>Edge Router 1</small>
-             <span class="as-tag">WAN-1 / WAN-2</span>
-           </div>
-           <div class="device">
-             <strong>${routerA2}</strong>
-             <small>Edge Router 2</small>
-             <span class="as-tag">WAN-1 / WAN-2</span>
-           </div>
-         </div>
-       </div>
-
-       <div class="sd-wan-cloud">
-         <strong>SD-WAN Fabric</strong>
-         <small>Overlay / Transport</small>
-       </div>
-
-       <div class="sd-site-card">
-         <div class="sd-site-title">SITE-B</div>
-         <div class="sd-router-row">
-           <div class="device">
-             <strong>EDGE-B1</strong>
-             <small>Edge Router 1</small>
-             <span class="as-tag">WAN-1 / WAN-2</span>
-           </div>
-           <div class="device">
-             <strong>EDGE-B2</strong>
-             <small>Edge Router 2</small>
-             <span class="as-tag">WAN-1 / WAN-2</span>
-           </div>
-         </div>
-       </div>
-     </div>
-
-     <div class="sd-underlay-links">
-       <div><span class="link-line"></span><small>Dual Transport</small></div>
-       <div><span class="link-line"></span><small>Dual Transport</small></div>
-     </div>
-   </div>`;
-   return;
+   area.innerHTML=`<div class="vpc-svg-wrap bgp-compact-wrap">${sdwanTopologyMarkup()}</div>`;return;
  }
  if(tech==="EVPN"){
    const e=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -3601,7 +3492,7 @@ commit`;
  return pickDevice(c,a,b,ls);
 }
 
-let sdwanExcelRows=[];
+let sdUiAbort=null;
 
 function sdNormHeader(s){
  return String(s??"").trim().replace(/\s+/g," ").toLocaleLowerCase("tr-TR");
@@ -3673,73 +3564,36 @@ function sdSetStatus(msg,kind){
  e.textContent=msg;
  e.style.borderColor=kind==="error"?"#ef4444":kind==="ok"?"#22c55e":"";
 }
-function sdFillSiteOptions(){
- const sel=document.getElementById("sdSiteSelect");
- if(!sel)return;
- const sites=[...new Set(sdwanExcelRows.map(r=>String(sdCell(r,["LOKASYON"])).trim()).filter(Boolean))];
- sites.sort((a,b)=>a.localeCompare(b,"tr"));
- sel.innerHTML='<option value="">Select site</option>'+sites.map(s=>`<option>${htmlEscape(s)}</option>`).join("");
- sel.disabled=false;
- const r=document.getElementById("sdRouterSelect");
- if(r){r.innerHTML='<option value="">Önce site seçin</option>';r.disabled=true;}
-}
-function sdFillRouterOptions(site){
- const sel=document.getElementById("sdRouterSelect"); if(!sel)return;
- const rows=sdwanExcelRows.filter(r=>String(sdCell(r,["LOKASYON"])).trim()===site);
- sel.innerHTML='<option value="">Select router</option>'+rows.map((r,i)=>{
-   const host=String(sdCell(r,["Router Hostname"])).trim()||`Router-${i+1}`;
-   return `<option value="${i}">${htmlEscape(host)}</option>`;
- }).join("");
- sel.disabled=rows.length===0;
- sel.dataset.site=site;
-}
-function sdApplyRouterSelection(site,index){
- const rows=sdwanExcelRows.filter(r=>String(sdCell(r,["LOKASYON"])).trim()===site);
- const row=rows[Number(index)];
- if(!row)return;
+const SD_DEFAULTS={sdLocation:'',sdHostname:'',sdSystemIp:'',sdSiteId:'',sdOrg:'Example_SDWAN',sdVbond:'vbond.example.test',sdVbondPort:'12346',sdDns:'203.0.113.53',sdNtp:'203.0.113.123',sdOverlayId:'1',sdTimezone:'TRT 3 0',sdWan1If:'GigabitEthernet0/0/0',sdWan2If:'GigabitEthernet0/0/1',sdWan1Cidr:'',sdWan2Cidr:'',sdWan1Gw:'',sdWan2Gw:'',sdWan1Color:'private1',sdWan2Color:'private2',sdWan1Weight:'2',sdWan2Weight:'1',sdWan1Mbps:'',sdWan2Mbps:'',sdMgmtIf:'GigabitEthernet0/0/3',sdMgmtCidr:'',sdMgmtGw:'',sdLanMode:'none',sdServiceVpn:'10',sdLanIf:'GigabitEthernet0/0/2',sdLanCidr:'',sdVrrpVip:'',sdVrrpGroup:'1',sdVrrpPriority:'100'};
+const SD_SITE_FIELDS=['sdLocation','sdSiteId','sdOrg','sdVbond','sdVbondPort','sdDns','sdNtp','sdOverlayId','sdTimezone'];
+const SD_COLUMNS={sdLocation:['LOKASYON','Site'],sdHostname:['Router Hostname'],sdSystemIp:['System-ip'],sdSiteId:['Site-id','Site ID'],sdOrg:['Organization-name','Organization Name'],sdVbond:['vBond_FQDN','vBond FQDN'],sdVbondPort:['vBond Port'],sdDns:['DNS-1','DNS'],sdNtp:['NTP'],sdWan1If:['WAN-1 Interface'],sdWan2If:['WAN-2 Interface'],sdWan1Cidr:['VPN0-ROUTER-TT','WAN-1 IP/Prefix'],sdWan2Cidr:['VPN0-ROUTER-VF','WAN-2 IP/Prefix'],sdWan1Gw:['WAN-1 Gateway'],sdWan2Gw:['WAN-2 Gateway'],sdWan1Color:['WAN-1 Color'],sdWan2Color:['WAN-2 Color'],sdWan1Mbps:['WAN-1 Capacity Mbps'],sdWan2Mbps:['WAN-2 Capacity Mbps'],sdWan1Weight:['WAN-1 Weight'],sdWan2Weight:['WAN-2 Weight'],sdMgmtIf:['Management Interface'],sdMgmtCidr:['VPN512-ROUTER','Management IP/Prefix'],sdMgmtGw:['Management Gateway'],sdLanMode:['LAN Mode'],sdServiceVpn:['Service VPN'],sdLanIf:['LAN Interface'],sdLanCidr:['LAN IP/Prefix'],sdVrrpVip:['VRRP Virtual IP'],sdVrrpGroup:['VRRP Group'],sdVrrpPriority:['VRRP Priority']};
+function sdPlanRows(){try{const rows=JSON.parse(v('sdPlanningData')||'[]');return Array.isArray(rows)?rows.filter(r=>r&&typeof r==='object'&&!Array.isArray(r)).slice(0,1000):[];}catch(_){return [];}}
+function sdWritePlan(rows){sdSet('sdPlanningData',JSON.stringify(rows));}
+function sdNormalizeRow(row){const result={...SD_DEFAULTS};for(const [id,keys] of Object.entries(SD_COLUMNS)){const value=row[id]??sdCell(row,keys);if(String(value??'').trim())result[id]=String(value).trim();}result.sdVbond=sdCleanVbond(result.sdVbond);if(!row.sdNtp&&!sdCell(row,['NTP'])&&sdCell(row,['DNS-1','DNS']))result.sdNtp=result.sdDns;for(const n of ['Wan1','Wan2','Mgmt'])if(!result['sd'+n+'Gw'])result['sd'+n+'Gw']=sdSuggestedGateway(result['sd'+n+'Cidr']);return result;}
+function sdCurrentFields(){const result={};document.querySelectorAll('#params input[id],#params select[id]').forEach(el=>{if(el.id.startsWith('sd')&&!['sdExcelFile','sdSiteSelect','sdRouterSelect','sdSelectedRow','sdConfigScope'].includes(el.id))result[el.id]=el.type==='checkbox'?el.checked:el.value;});return result;}
+function sdCommitCurrent(changedId){const rows=sdPlanRows(),index=+v('sdSelectedRow');if(index<0||!rows[index])return;const oldSite=rows[index].sdLocation,current=sdCurrentFields();rows[index]={...rows[index],...current};if(SD_SITE_FIELDS.includes(changedId))rows.forEach(row=>{if(row.sdLocation===oldSite)row[changedId]=current[changedId];});sdWritePlan(rows);}
+function sdSiteRows(){const rows=sdPlanRows(),selected=rows[+v('sdSelectedRow')],site=selected?.sdLocation||v('sdLocation');return rows.filter(row=>row.sdLocation===site);}
+function sdPlanUi(){const mode=v('sdLanMode'),fields=document.getElementById('sdLanFields');if(fields)fields.style.display=mode==='none'?'none':'';['sdVrrpVip','sdVrrpGroup','sdVrrpPriority'].forEach(id=>{const node=document.getElementById(id);if(node)node.parentElement.style.display=mode==='vrrp'?'':'none';});const summary=document.getElementById('sdProfileSummary');if(summary)summary.textContent=sdPlanRows().length?`${sdSiteRows().length} router(s) at ${v('sdLocation')} · ${v('sdOrg')} · ${v('sdWan1Color')} / ${v('sdWan2Color')}`:'';document.getElementById('sdRemoveRouter').disabled=+v('sdSelectedRow')<0;}
+function sdFillSiteOptions(){const el=document.getElementById('sdSiteSelect');if(!el)return;const sites=[...new Set(sdPlanRows().map(row=>row.sdLocation).filter(Boolean))],wanted=v('sdLocation')||el.value;el.innerHTML=sites.map(site=>`<option value="${htmlEscape(site)}">${htmlEscape(site)}</option>`).join('')||'<option value="">Select site</option>';el.disabled=!sites.length;el.value=sites.includes(wanted)?wanted:(sites[0]||'');sdFillRouterOptions(el.value);}
+function sdFillRouterOptions(site){const el=document.getElementById('sdRouterSelect');if(!el)return;const rows=sdPlanRows(),indices=rows.map((row,i)=>row.sdLocation===site?i:-1).filter(i=>i>=0),selected=+v('sdSelectedRow');el.innerHTML=indices.map(i=>`<option value="${i}">${htmlEscape(rows[i].sdHostname||'Router')}</option>`).join('')||'<option value="">Select router</option>';el.disabled=!indices.length;el.dataset.site=site;el.value=String(indices.includes(selected)?selected:(indices[0]??''));if(indices.length)sdApplyRouterSelection(site,el.value);else{sdSet('sdSelectedRow','-1');for(const id of Object.keys(SD_DEFAULTS))sdSet(id,SD_DEFAULTS[id]);sdPlanUi();syncTopology();}}
+function sdApplyRouterSelection(site,index){const rows=sdPlanRows(),row=rows[Number(index)];if(!row||row.sdLocation!==site)return;sdSet('sdSelectedRow',index);for(const [id,value] of Object.entries(row)){const el=document.getElementById(id);if(el){if(el.type==='checkbox')el.checked=value===true||value==='true';else sdSet(id,value);}}sdPlanUi();sdValidate(true);renderOutput();captureWorkspaceModule('SDWAN');}
+function sdRestorePlanUI(){if(!document.getElementById('sdPlanningData'))return;if(!sdPlanRows().length&&v('sdHostname').trim()){sdWritePlan([sdCurrentFields()]);sdSet('sdSelectedRow','0');}sdFillSiteOptions();sdPlanUi();}
+function sdAcceptPlan(rows){if(rows.length>1000)throw Error('Maximum 1,000 routers in a site plan.');const normalized=rows.map(sdNormalizeRow).filter(row=>row.sdHostname&&row.sdSystemIp);if(!normalized.length)throw Error('No router records were found. Check hostname and system IP.');sdWritePlan(normalized);sdSet('sdSelectedRow','0');sdSet('sdLocation',normalized[0].sdLocation);sdFillSiteOptions();captureWorkspaceModule('SDWAN');}
 
- const location=sdCell(row,["LOKASYON"]);
- const hostname=sdCell(row,["Router Hostname"]);
- const org=sdCell(row,["Organization-name","Organization Name"]);
- const sysip=sdCell(row,["System-ip","System-ip "]);
- const siteid=sdCell(row,["Site-id"," Site-id  ","Site ID"]);
- const vbond=sdCleanVbond(sdCell(row,["vBond_FQDN","vBond FQDN"]));
- const dns=sdCell(row,["DNS-1","DNS"]);
- const wan1=sdCell(row,["VPN0-ROUTER-TT"]);
- const wan2=sdCell(row,["VPN0-ROUTER-VF"]);
- const mgmt=sdCell(row,["VPN512-ROUTER"]);
-
- sdSet("sdLocation",location); sdSet("sdHostname",hostname); sdSet("sdSystemIp",sysip); sdSet("sdSiteId",siteid);
- sdSet("sdWan1Cidr",wan1); sdSet("sdWan1Gw",sdSuggestedGateway(wan1));
- sdSet("sdWan2Cidr",wan2); sdSet("sdWan2Gw",sdSuggestedGateway(wan2));
- sdSet("sdMgmtCidr",mgmt); sdSet("sdMgmtGw",sdSuggestedGateway(mgmt));
- if(org) sdSet("sdOrg",org);
- if(vbond) sdSet("sdVbond",vbond);
- if(dns){sdSet("sdDns",dns);sdSet("sdNtp",dns);}
-
- const summary=document.getElementById("sdProfileSummary");
- if(summary) summary.innerHTML=`<b>${htmlEscape(org||"TUPRAS_SDWAN")} · Dual MPLS</b><br>
- WAN-1: GigabitEthernet0/0/0 · ${htmlEscape(wan1||"-")} · private1 · weight 2 · Tunnel0<br>
- WAN-2: GigabitEthernet0/0/1 · ${htmlEscape(wan2||"-")} · private2 · weight 1 · Tunnel1<br>
- Management: GigabitEthernet0/0/3 · ${htmlEscape(mgmt||"-")} · Mgmt-intf<br>
- vBond: ${htmlEscape(vbond||"-")} · DNS/NTP: ${htmlEscape(dns||"-")}`;
-
- sdValidate(true);
- renderOutput();
-}
-function sdValidate(silent){
+function sdValidate(silent,fields=null){
+ const val=id=>fields&&id in fields?String(fields[id]??""):v(id);
  const errors=[],warnings=[];
  const req=[
    ["Site","sdLocation"],["Hostname","sdHostname"],["System IP","sdSystemIp"],["Site ID","sdSiteId"],
    ["WAN-1 IP/Prefix","sdWan1Cidr"],["WAN-1 Gateway","sdWan1Gw"],["WAN-2 IP/Prefix","sdWan2Cidr"],
    ["WAN-2 Gateway","sdWan2Gw"],["Management IP/Prefix","sdMgmtCidr"],["Management Gateway","sdMgmtGw"]
  ];
- req.forEach(([n,id])=>{if(!v(id).trim())errors.push(`${n}: boş bırakılamaz`);});
- if(v("sdSystemIp") && sdIpv4ToInt(v("sdSystemIp"))===null) errors.push("System IP geçerli IPv4 değil.");
- if(v("sdSiteId") && !/^\d+$/.test(v("sdSiteId"))) errors.push("Site ID sayısal olmalı.");
+ req.forEach(([n,id])=>{if(!val(id).trim())errors.push(`${n}: boş bırakılamaz`);});
+ if(val("sdSystemIp") && sdIpv4ToInt(val("sdSystemIp"))===null) errors.push("System IP geçerli IPv4 değil.");
+ if(val("sdSiteId") && !/^\d+$/.test(val("sdSiteId"))) errors.push("Site ID sayısal olmalı.");
 
  [["WAN-1","sdWan1Cidr","sdWan1Gw"],["WAN-2","sdWan2Cidr","sdWan2Gw"],["Management","sdMgmtCidr","sdMgmtGw"]].forEach(([n,cid,gid])=>{
-   const c=v(cid),g=v(gid), parsed=sdParseCidr(c);
+   const c=val(cid),g=val(gid), parsed=sdParseCidr(c);
    if(c && !parsed) errors.push(`${n}: IP/Prefix formatı geçersiz.`);
    if(parsed && g){
      if(sdIpv4ToInt(g)===null) errors.push(`${n}: gateway geçerli IPv4 değil.`);
@@ -3750,16 +3604,38 @@ function sdValidate(silent){
    }
  });
  const box=document.getElementById("sdValidation");
- if(box && !silent){
+ if(box && !silent && !fields){
    box.innerHTML=errors.length
      ? `<b>Validation FAILED</b><br>${errors.map(x=>"• "+x).join("<br>")}${warnings.length?"<br><br><b>Warnings</b><br>"+warnings.map(x=>"• "+x).join("<br>"):""}`
      : `<b>Validation PASSED</b>${warnings.length?"<br>"+warnings.map(x=>"• "+x).join("<br>"):"<br>10 alan ve subnet/gateway ilişkileri geçerli."}`;
    box.style.borderColor=errors.length?"#ef4444":"#22c55e";
  }
+ const isHost=value=>/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,252}$/.test(value);
+ for(const id of ['sdOrg','sdVbond','sdDns','sdNtp'])if(!isHost(val(id)))errors.push(id.replace(/^sd/,'')+': use a valid single name or address.');
+ if(!/^[A-Za-z0-9][A-Za-z0-9_.-]{0,62}$/.test(val('sdHostname')))errors.push('Hostname must be a valid device name.');
+ for(const [id,min,max] of [['sdSiteId',1,4294967295],['sdOverlayId',1,4294967295],['sdVbondPort',1,65535],['sdWan1Weight',1,255],['sdWan2Weight',1,255]])if(!/^\d+$/.test(val(id))||+val(id)<min||+val(id)>max)errors.push(id.replace(/^sd/,'')+': invalid numeric range.');
+ const colors=['default','mpls','metro-ethernet','biz-internet','public-internet','lte','3g','blue','bronze','custom1','custom2','custom3','gold','green','private1','private2','private3','private4','private5','private6','red','silver'];
+ for(const id of ['sdWan1Color','sdWan2Color'])if(!colors.includes(val(id)))errors.push('Invalid transport color: '+val(id));
+ if(val('sdWan1Color')===val('sdWan2Color'))errors.push('WAN transports must use distinct colors.');
+ for(const id of ['sdWan1Mbps','sdWan2Mbps'])if(val(id)&&(!/^\d+$/.test(val(id))||+val(id)<1||+val(id)>1000000))errors.push('Circuit capacity must be a positive integer Mbps.');
+ const ports=[val('sdWan1If'),val('sdWan2If'),val('sdMgmtIf')];
+ for(const port of ports)if(!/^[A-Za-z][A-Za-z0-9/.-]{0,63}$/.test(port))errors.push('Invalid interface name: '+port);
+ if(!['none','connected','vrrp'].includes(val('sdLanMode')))errors.push('Unsupported LAN model.');
+ if(val('sdLanMode')!=='none'){
+  ports.push(val('sdLanIf'));if(!/^[A-Za-z][A-Za-z0-9/.-]{0,63}$/.test(val('sdLanIf')))errors.push('LAN interface is invalid.');
+  if(!/^\d+$/.test(val('sdServiceVpn'))||+val('sdServiceVpn')<1||+val('sdServiceVpn')>511)errors.push('Service VPN must be 1–511.');
+  const lan=sdParseCidr(val('sdLanCidr'));if(!lan)errors.push('LAN IP / prefix is invalid.');
+  if(val('sdLanMode')==='vrrp'){
+   const vip=val('sdVrrpVip');if(sdIpv4ToInt(vip)===null||!sdSameSubnet(vip,val('sdLanCidr'))||vip===lan?.ip)errors.push('VRRP virtual IP must be a separate host address in the LAN subnet.');
+   for(const [id,max] of [['sdVrrpGroup',255],['sdVrrpPriority',254]])if(!/^\d+$/.test(val(id))||+val(id)<1||+val(id)>max)errors.push(id.replace(/^sd/,'')+': invalid range.');
+  }
+ }
+ if(new Set(ports.map(x=>x.toLowerCase())).size!==ports.length)errors.push('WAN, LAN and management interfaces must be different.');
+ for(const id of Object.keys(SD_DEFAULTS))if(/[\r\n;{}]/.test(val(id)))errors.push('Invalid characters in '+id.replace(/^sd/,''));
  return {ok:errors.length===0,errors,warnings};
 }
 function sdFullGenerate(){
- const result=sdValidate(false);
+ const result=sdValidateScope(false);
  if(!result.ok) return;
  tab="config";
  document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b.dataset.tab==="config"));
@@ -3773,6 +3649,7 @@ function initSdwanUploadUI(){
  const valBtn=document.getElementById("sdValidateBtn");
  const genBtn=document.getElementById("sdGenerateBtn");
  if(!file)return;
+ if(sdUiAbort)sdUiAbort.abort();sdUiAbort=new AbortController();
  let uploadEpoch=0;
  file.addEventListener("change",async e=>{
    const f=e.target.files?.[0]; if(!f)return;
@@ -3799,24 +3676,64 @@ function initSdwanUploadUI(){
        return host && sys && (tt || vf);
      });
      if(!routerRows.length) throw new Error("Router kaydı bulunamadı. Router Hostname / System-ip / VPN0 kolonlarını kontrol edin.");
-     sdwanExcelRows=routerRows;
-     sdFillSiteOptions();
+     sdAcceptPlan(routerRows);
      sdSetStatus(`${f.name} yüklendi · ${routerRows.length} router kaydı · Sayfa: ${target}`,"ok");
    }catch(err){
      if(!file.isConnected||requestEpoch!==uploadEpoch)return;
      console.error(err);
-     sdwanExcelRows=[];
-     if(site){site.innerHTML='<option value="">Upload Excel first</option>';site.disabled=true;}
-     if(router){router.innerHTML='<option value="">Select site first</option>';router.disabled=true;}
+
      sdSetStatus("Excel okunamadı: "+err.message,"error");
    }
  });
- site?.addEventListener("change",()=>{sdFillRouterOptions(site.value);});
- router?.addEventListener("change",()=>{if(router.value!=="")sdApplyRouterSelection(router.dataset.site,router.value);});
+ site?.addEventListener("change",()=>{sdCommitCurrent();sdSet("sdSelectedRow","-1");sdFillRouterOptions(site.value);});
+ router?.addEventListener("change",()=>{sdCommitCurrent();if(router.value!=="")sdApplyRouterSelection(router.dataset.site,router.value);});
+ document.getElementById('params').addEventListener('input',e=>{if(tech!=='SDWAN')return;if(e.target.id?.startsWith('sd')&&!['sdSiteSelect','sdRouterSelect','sdExcelFile'].includes(e.target.id))sdCommitCurrent(e.target.id);sdPlanUi();},{capture:true,signal:sdUiAbort.signal});
+ document.getElementById('params').addEventListener('change',e=>{if(tech!=='SDWAN')return;if(!e.target.id?.startsWith('sd')||['sdSiteSelect','sdRouterSelect','sdExcelFile'].includes(e.target.id))return;sdCommitCurrent(e.target.id);if(SD_SITE_FIELDS.includes(e.target.id)||e.target.id==='sdHostname')sdFillSiteOptions();sdPlanUi();renderOutput();captureWorkspaceModule('SDWAN');},{capture:true,signal:sdUiAbort.signal});
+ document.getElementById('sdLoadExample').onclick=async()=>{try{if(sdPlanRows().length&&!confirm('Replace the current SD-WAN plan with the example?'))return;const r=await fetch('/api/sdwan/example');if(!r.ok)throw Error('Example could not be loaded.');const data=await r.json();sdAcceptPlan(data.rows);sdSetStatus('Example loaded · Site-1 · 2 router records. Sample addresses are editable.','ok');}catch(e){sdSetStatus(e.message,'error');}};
+ document.getElementById('sdAddRouter').onclick=()=>{sdCommitCurrent();const rows=sdPlanRows();if(rows.length>=1000)return sdSetStatus('Maximum 1,000 routers.','error');const current=rows[+v('sdSelectedRow')]||sdCurrentFields();let n=1;while(rows.some(row=>row.sdHostname==='Router'+n))n++;const row={...SD_DEFAULTS,sdLocation:current.sdLocation||'Site-1',sdHostname:'Router'+n};SD_SITE_FIELDS.forEach(id=>row[id]=current[id]||row[id]);rows.push(row);sdWritePlan(rows);sdSet('sdSelectedRow',rows.length-1);sdSet('sdLocation',row.sdLocation);sdFillSiteOptions();renderOutput();captureWorkspaceModule('SDWAN');};
+ document.getElementById('sdRemoveRouter').onclick=()=>{const rows=sdPlanRows(),index=+v('sdSelectedRow');if(index<0||!rows[index]||!confirm('Remove '+rows[index].sdHostname+' from this SD-WAN plan?'))return;rows.splice(index,1);sdWritePlan(rows);sdSet('sdSelectedRow','-1');sdFillSiteOptions();renderOutput();captureWorkspaceModule('SDWAN');};
+ sdPlanUi();
  valBtn?.addEventListener("click",()=>sdValidate(false));
  genBtn?.addEventListener("click",sdFullGenerate);
 }
+function sdValidateScope(silent,allSite=false){
+ const rows=allSite||v('sdConfigScope')==='site'?sdSiteRows():[sdCurrentFields()],errors=[],warnings=[];
+ if(!rows.length)errors.push('Select a router or load a site plan.');
+ for(const row of rows){const result=sdValidate(true,row);errors.push(...result.errors.map(e=>(row.sdHostname||'Router')+': '+e));warnings.push(...result.warnings.map(e=>(row.sdHostname||'Router')+': '+e));}
+ const plan=sdPlanRows(),seenHost=new Set(),seenSystem=new Set(),seenIp=new Map();
+ plan.forEach(row=>{const host=String(row.sdHostname||'').toLowerCase();if(host&&seenHost.has(host))errors.push('Duplicate hostname: '+row.sdHostname);seenHost.add(host);if(row.sdSystemIp&&seenSystem.has(row.sdSystemIp))errors.push('Duplicate system IP: '+row.sdSystemIp);seenSystem.add(row.sdSystemIp);for(const field of ['sdWan1Cidr','sdWan2Cidr','sdMgmtCidr','sdLanCidr']){if(field==='sdLanCidr'&&row.sdLanMode==='none')continue;const ip=sdParseCidr(row[field])?.ip;if(ip){const vrf=field==='sdLanCidr'?row.sdServiceVpn:field==='sdMgmtCidr'?'512':'0';const key=row.sdLocation+':'+vrf+':'+ip;if(seenIp.has(key))errors.push('Duplicate interface IP '+ip+' on '+seenIp.get(key)+' / '+row.sdHostname);else seenIp.set(key,row.sdHostname);}}});
+ const site=sdSiteRows();if(site.length>64)errors.push('A report supports up to 64 routers at one site.');for(const id of SD_SITE_FIELDS)if(new Set(site.map(row=>row[id]||SD_DEFAULTS[id])).size>1)errors.push('Site profile mismatch: '+id.replace(/^sd/,''));
+ const groups=new Map();site.filter(row=>row.sdLanMode==='vrrp').forEach(row=>{const key=row.sdServiceVpn+':'+row.sdVrrpGroup;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(row);});for(const peers of groups.values()){const first=peers[0],a=sdParseCidr(first.sdLanCidr);if(peers.length<2)warnings.push('VRRP group '+first.sdVrrpGroup+' has only one modeled router.');if(peers.some(row=>row.sdVrrpVip!==first.sdVrrpVip||sdParseCidr(row.sdLanCidr)?.network!==a?.network||sdParseCidr(row.sdLanCidr)?.prefix!==a?.prefix))errors.push('VRRP peers must share a virtual IP and LAN subnet.');if(peers.some(row=>sdParseCidr(row.sdLanCidr)?.ip===first.sdVrrpVip))errors.push('VRRP virtual IP must differ from every router interface IP.');if(new Set(peers.map(row=>row.sdVrrpPriority)).size<peers.length)warnings.push('Equal VRRP priorities: interface IP becomes the tie-breaker.');}
+ const result={ok:errors.length===0,errors:[...new Set(errors)],warnings:[...new Set(warnings)]};
+ if(!silent){const box=document.getElementById('sdValidation');if(box){box.textContent=result.ok?'Validation passed · '+rows.length+' router(s)'+(warnings.length?' · '+warnings.join(' · '):''):'Validation failed · '+result.errors.join(' · ');box.style.borderColor=result.ok?'#22c55e':'#ef4444';}}return result;
+}
+function sdwanTopologyMarkup(){
+ const e=htmlEscape,rows=sdSiteRows();if(!rows.length&&v('sdHostname'))rows.push(sdCurrentFields());
+ const count=rows.length;if(!count)return '<div class="note">Load an Excel plan or the example to display the site topology.</div>';
+ const bands=Math.ceil(count/2),height=480+(bands-1)*180,positions=rows.map((row,i)=>({x:count===1?475:i%2===0?285:665,y:265+Math.floor(i/2)*180}));
+ const label=(x,y,text,size=11,color='#435d70')=>`<text x="${x}" y="${y}" text-anchor="middle" fill="${color}" ${size===9?'paint-order="stroke" stroke="#edf5fa" stroke-width="2" stroke-linejoin="round"':''} font-size="${size}" font-family="Arial,sans-serif">${e(text)}</text>`;
+ const box=(x,y,width,h,title,subtitle,dark=false)=>`<rect x="${x-width/2}" y="${y}" width="${width}" height="${h}" rx="9" fill="${dark?'#244b69':'#ffffff'}" stroke="#7bb5d4" stroke-width="1.5"/>${label(x,y+23,title,13,dark?'#ffffff':'#173f5d')}${label(x,y+43,subtitle,10,dark?'#dcecf5':'#435d70')}`;
+ const capacities=n=>[...new Set(rows.map(row=>row['sdWan'+n+'Mbps']).filter(Boolean))].join(' / ');
+ const lanRows=rows.map((row,i)=>({row,i})).filter(({row})=>row.sdLanMode!=='none');const lanY=height-90;
+ let endpointLabels='';let svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 950 ${height}" role="img" aria-label="SD-WAN site topology"><rect width="950" height="${height}" fill="#edf5fa"/>${label(475,25,(rows[0].sdLocation||'Site')+' · Site ID '+(rows[0].sdSiteId||'pending'),16,'#173f5d')}`;
+ svg+=`<rect x="65" y="215" width="820" height="${height-260}" rx="13" fill="#e5eff6" stroke="#adc8db"/>`;
+ rows.forEach((row,i)=>{const {x,y}=positions[i];svg+=`<path d="M 475 101 Q ${x} 175 ${x} ${y}" fill="none" stroke="#8065a8" stroke-width="1.5" stroke-dasharray="5 5"/>`;[1,2].forEach(n=>{const topX=n===1?170:780,offset=(i-(count-1)/2)*7,endX=x+(n===1?-23:23);svg+=`<path data-sdwan-link="${i}-${n}" d="M ${topX+offset} 178 Q ${(topX+endX)/2} ${y-75} ${endX} ${y}" fill="none" stroke="#287bb5" stroke-width="2"/><title>${e(row.sdHostname+' · '+row['sdWan'+n+'If']+' · '+row['sdWan'+n+'Cidr'])}</title>`;const tx=x+(n===1?-80:80);endpointLabels+=label(tx,y-22,(row['sdWan'+n+'If']||'').replace('GigabitEthernet','Gi'),9)+label(tx,y-9,row['sdWan'+n+'Cidr']||'',9);});if(row.sdLanMode!=='none')svg+=`<path d="M ${x} ${y+60} V ${y+80} H ${475+(i-(count-1)/2)*15} V ${lanY}" fill="none" stroke="#287bb5" stroke-width="2"/>`;});
+ svg+=box(475,45,240,56,'SD-WAN control components','Logical control plane · external');
+ svg+=box(170,122,220,56,'WAN-1 · '+[...new Set(rows.map(row=>row.sdWan1Color))].join(' / '),capacities(1)?capacities(1)+' Mbps':'Transport');svg+=box(780,122,220,56,'WAN-2 · '+[...new Set(rows.map(row=>row.sdWan2Color))].join(' / '),capacities(2)?capacities(2)+' Mbps':'Transport');
+ rows.forEach((row,i)=>{const {x,y}=positions[i];svg+=`<g data-sdwan-router="${i}">${box(x,y,150,60,row.sdHostname,'System IP '+row.sdSystemIp,true)}</g>`;if(row.sdLanMode!=='none')svg+=label(x,y+96,(row.sdLanIf||'').replace('GigabitEthernet','Gi')+' · '+(row.sdLanCidr||''),9);});
+ if(lanRows.length){const groups=[...new Set(lanRows.map(({row})=>'VPN '+row.sdServiceVpn+(row.sdLanMode==='vrrp'?' · VRRP '+row.sdVrrpVip:'')))];svg+=box(475,lanY,560,56,'Service LAN',groups.join(' / '));}
+ svg+=endpointLabels;svg+=label(475,height-13,'Blue: physical connectivity · Dashed: logical control plane',10);return svg+'</svg>';
+}
+
 function sdwanGenerate(tab){
+ if(tab!=='config')return sdwanGenerateSingle(tab);
+ const result=sdValidateScope(true);if(!result.ok)return '# Configuration not generated.\n# '+result.errors.join('\n# ');
+ if(v('sdConfigScope')!=='site')return sdwanGenerateSingle(tab);
+ return sdSiteRows().map(row=>`######## ${row.sdHostname} · SD-WAN EDGE · SITE ${row.sdSiteId} ########\n${sdwanGenerateSingle(tab,row)}`).join('\n\n');
+}
+
+function sdwanGenerateSingle(tab,fields=null){
+ const val=id=>fields&&id in fields?String(fields[id]??""):v(id);
  function cidrParts(raw){
    const s=(raw||"").trim(), parts=s.split("/");
    const ip=parts[0]||"", prefix=Math.max(0,Math.min(32,parseInt(parts[1]||"32",10)));
@@ -3826,18 +3743,20 @@ function sdwanGenerate(tab){
  }
  const p=platform();
  if(p!=="Cisco IOS-XE") return `# SD-WAN module currently targets Cisco cEdge / IOS-XE SD-WAN syntax.\n# Select Cisco IOS-XE platform to generate the configuration.`;
- const loc=v("sdLocation"),host=v("sdHostname"),sysip=v("sdSystemIp"),site=v("sdSiteId"),overlay=v("sdOverlayId"),po=v("sdPortOffset"),pps=v("sdCtrlPps"),org=v("sdOrg"),vbond=v("sdVbond"),vbondPort=v("sdVbondPort"),
- mgmtVrf=v("sdMgmtVrf"),mgmtRd=v("sdMgmtRd"),mgmtIf=v("sdMgmtIf"),mgmtQuick=cidrParts(v("sdMgmtCidr")),mgmtIp=mgmtQuick.ip,mgmtMask=mgmtQuick.mask,mgmtGw=v("sdMgmtGw"),dns=v("sdDns"),ntp=v("sdNtp"),
- w1=v("sdWan1If"),w1d=v("sdWan1Desc"),w1Quick=cidrParts(v("sdWan1Cidr")),w1ip=w1Quick.ip,w1m=w1Quick.mask,w1gw=v("sdWan1Gw"),w1c=v("sdWan1Color"),w1w=v("sdWan1Weight"),t1=v("sdTun1"),
- w2=v("sdWan2If"),w2d=v("sdWan2Desc"),w2Quick=cidrParts(v("sdWan2Cidr")),w2ip=w2Quick.ip,w2m=w2Quick.mask,w2gw=v("sdWan2Gw"),w2c=v("sdWan2Color"),w2w=v("sdWan2Weight"),t2=v("sdTun2"),
- pref=v("sdVmanagePref"),nat=v("sdNatRefresh"),hello=v("sdHello"),tol=v("sdHelloTol"),mtu=v("sdMtu"),arp=v("sdArp"),load=v("sdLoad"),tz=v("sdTimezone");
+ const loc=val("sdLocation"),host=val("sdHostname"),sysip=val("sdSystemIp"),site=val("sdSiteId"),overlay=val("sdOverlayId"),po=val("sdPortOffset"),pps=val("sdCtrlPps"),org=val("sdOrg"),vbond=val("sdVbond"),vbondPort=val("sdVbondPort"),
+ mgmtVrf=val("sdMgmtVrf"),mgmtRd=val("sdMgmtRd"),mgmtIf=val("sdMgmtIf"),mgmtQuick=cidrParts(val("sdMgmtCidr")),mgmtIp=mgmtQuick.ip,mgmtMask=mgmtQuick.mask,mgmtGw=val("sdMgmtGw"),dns=val("sdDns"),ntp=val("sdNtp"),
+ w1=val("sdWan1If"),w1d=val("sdWan1Desc"),w1Quick=cidrParts(val("sdWan1Cidr")),w1ip=w1Quick.ip,w1m=w1Quick.mask,w1gw=val("sdWan1Gw"),w1c=val("sdWan1Color"),w1w=val("sdWan1Weight"),t1=val("sdTun1"),
+ w2=val("sdWan2If"),w2d=val("sdWan2Desc"),w2Quick=cidrParts(val("sdWan2Cidr")),w2ip=w2Quick.ip,w2m=w2Quick.mask,w2gw=val("sdWan2Gw"),w2c=val("sdWan2Color"),w2w=val("sdWan2Weight"),t2=val("sdTun2"),
+ pref=val("sdVmanagePref"),nat=val("sdNatRefresh"),hello=val("sdHello"),tol=val("sdHelloTol"),mtu=val("sdMtu"),arp=val("sdArp"),load=val("sdLoad"),tz=val("sdTimezone");
  function service(name,id){return `${c(id)?"":"no "}allow-service ${name}`;}
- if(tab==="verify") return `show sdwan control connections\nshow sdwan control local-properties\nshow sdwan bfd sessions\nshow sdwan omp peers\nshow sdwan omp routes\nshow sdwan tunnel statistics\nshow sdwan app-route stats\nshow ip interface brief\nshow ip route\nshow ip route vrf ${mgmtVrf}\nshow interfaces ${w1}\nshow interfaces ${w2}\nshow interfaces ${mgmtIf}\nshow clock\nshow ntp associations`;
+ if(tab==="verify") return `show sdwan control connections\nshow sdwan control local-properties\nshow sdwan bfd sessions\nshow sdwan omp peers\nshow sdwan omp routes\nshow sdwan tunnel statistics\nshow sdwan app-route stats\nshow ip interface brief\nshow ip route\nshow ip route vrf ${mgmtVrf}\nshow interfaces ${w1}\nshow interfaces ${w2}\nshow interfaces ${mgmtIf}\nshow clock\nshow ntp associations${val("sdLanMode")!=="none"?`\nshow ip route vrf ${val("sdServiceVpn")}\nshow sdwan omp routes vpn ${val("sdServiceVpn")}`:""}${val("sdLanMode")==="vrrp"?"\nshow vrrp all":""}`;
  if(tab==="trouble") return `1. system-ip ${sysip}, site-id ${site}, organization-name ve vBond değerlerini doğrula.\n2. ${w1} / ${w2} interface link ve IP/gateway durumunu kontrol et.\n3. Her WAN için default route next-hop erişilebilir mi kontrol et.\n4. Tunnel source interface'lerin doğru WAN portlarını kullandığını doğrula.\n5. color ${w1c}/${w2c}, restrict ve IPsec weight değerlerini kontrol et.\n6. show sdwan control connections ile vBond/vSmart/vManage oturumlarını incele.\n7. show sdwan bfd sessions ile iki transport üzerindeki BFD durumunu kontrol et.\n8. NAT/port-hop davranışında firewall/NAT cihazlarının UDP portlarını engellemediğini doğrula.\n9. allow-service policy nedeniyle control/management trafiğinin engellenmediğini kontrol et.\n10. OMP peer/routes ile site route öğrenimini doğrula.\n11. NTP/DNS erişiminin ilgili VRF/source üzerinden çalıştığını kontrol et.\n12. MTU ${mtu} ve IPsec overhead nedeniyle fragmentation/drop oluşmadığını test et.`;
- if(tab==="notes") return `SD-WAN Engineering Notes\n- ${host||"The selected edge"} uses system IP ${sysip||"pending"} and site ID ${site||"pending"}. System IP is the stable overlay identity, not an interface address; it must be unique across the fabric.\n- Organization name and certificate identity must agree with the controllers before the edge can establish authenticated control connections to vBond, vSmart and vManage.\n- WAN-1 ${w1} uses color ${w1c} with IPsec weight ${w1w}; WAN-2 ${w2} uses color ${w2c} with weight ${w2w}. Weights influence eligible tunnel preference but do not replace centralized/local application-aware routing policy.\n- ${c("sdRestrict1")?`${w1c} is restricted; it forms tunnels only with compatible restricted-color reachability.`:`${w1c} is unrestricted.`} ${c("sdRestrict2")?`${w2c} is restricted.`:`${w2c} is unrestricted.`} Confirm that NAT and transport reachability match the chosen colors.\n- Control hello ${hello} and tolerance ${tol} influence control-connection failure detection; aggressive values can increase false failure detection on unstable transports. BFD data-plane timers and SLA policy remain separate controls.\n- WAN default gateways ${w1gw||"pending"} and ${w2gw||"pending"} must be reachable through their own interfaces. The management VRF ${mgmtVrf} has an independent default path and must preserve recovery access during WAN failure.\n- MTU ${mtu} must accommodate SD-WAN/IPsec encapsulation across both transports. Validate fragmentation, PMTUD and application-sized packets, not only ICMP reachability.\n- Production acceptance must cover certificates, controller sessions, OMP routes, BFD tunnels, NAT behavior, application-route statistics, transport failover and rollback. Service VPN and centralized policy are outside this device-only baseline unless explicitly modeled.`;
+ if(tab==="notes") return `SD-WAN Engineering Notes\n- ${host||"The selected edge"} uses system IP ${sysip||"pending"} and site ID ${site||"pending"}. System IP is the stable overlay identity, not an interface address; it must be unique across the fabric.\n- Organization name and certificate identity must agree with the controllers before the edge can establish authenticated control connections to vBond, vSmart and vManage.\n- WAN-1 ${w1} uses color ${w1c} with IPsec weight ${w1w}; WAN-2 ${w2} uses color ${w2c} with weight ${w2w}. Weights influence eligible tunnel preference but do not replace centralized/local application-aware routing policy.\n- ${c("sdRestrict1")?`${w1c} is restricted; it forms tunnels only with compatible restricted-color reachability.`:`${w1c} is unrestricted.`} ${c("sdRestrict2")?`${w2c} is restricted.`:`${w2c} is unrestricted.`} Confirm that NAT and transport reachability match the chosen colors.\n- Control hello ${hello} and tolerance ${tol} influence control-connection failure detection; aggressive values can increase false failure detection on unstable transports. BFD data-plane timers and SLA policy remain separate controls.\n- WAN default gateways ${w1gw||"pending"} and ${w2gw||"pending"} must be reachable through their own interfaces. The management VRF ${mgmtVrf} has an independent default path and must preserve recovery access during WAN failure.\n- MTU ${mtu} must accommodate SD-WAN/IPsec encapsulation across both transports. Validate fragmentation, PMTUD and application-sized packets, not only ICMP reachability.\n- Production acceptance must cover certificates, controller sessions, OMP routes, BFD tunnels, NAT behavior, application-route statistics, transport failover and rollback. ${val('sdLanMode')==='none'?'Service VPN is not configured.':`Service VPN ${val('sdServiceVpn')} advertises the connected LAN prefix through OMP. ${val('sdLanMode')==='vrrp'?'VRRP protects the LAN gateway; WAN or OMP failure does not automatically change the VRRP role in this baseline. Test end-to-end failover separately.':''}`} Centralized application policy and certificates remain controller-managed.`;
+ const lanMode=val('sdLanMode'),vpn=val('sdServiceVpn'),lan=cidrParts(val('sdLanCidr'));
+ const lanConfig=lanMode==='none'?'':`\n\nvrf definition ${vpn}\n address-family ipv4\n exit-address-family\nexit\n\ninterface ${val('sdLanIf')}\n description SERVICE_LAN\n vrf forwarding ${vpn}\n ip address ${lan.ip} ${lan.mask}\n no ip redirects\n no shutdown\n${lanMode==='vrrp'?` vrrp ${val('sdVrrpGroup')} address-family ipv4\n  timers advertise 1000\n  priority ${val('sdVrrpPriority')}\n  vrrpv2\n  address ${val('sdVrrpVip')} primary\n exit-vrrp\n`:''}exit\n\nsdwan\n omp\n  address-family ipv4 vrf ${vpn}\n   advertise connected\n  exit-address-family\n exit\nexit`;
  const svc=[service("bgp","sdSrvBgp"),service("dhcp","sdSrvDhcp"),service("dns","sdSrvDns"),service("icmp","sdSrvIcmp"),service("sshd","sdSrvSshd"),service("netconf","sdSrvNetconf"),service("ntp","sdSrvNtp"),service("ospf","sdSrvOspf"),service("stun","sdSrvStun"),service("https","sdSrvHttps"),service("snmp","sdSrvSnmp"),service("bfd","sdSrvBfd")].map(x=>"   "+x).join("\n");
  function wanBlock(iface,color,weight,restrict,porthop,lastresort,lowbw,stun){return ` interface ${iface}\n  tunnel-interface\n   encapsulation ipsec weight ${weight}\n   no border\n   color ${color}${restrict?" restrict":""}\n${lastresort?"   last-resort-circuit":"   no last-resort-circuit"}\n${lowbw?"   low-bandwidth-link":"   no low-bandwidth-link"}\n${stun?"   vbond-as-stun-server":"   no vbond-as-stun-server"}\n   vmanage-connection-preference ${pref}\n${porthop?"   port-hop":"   no port-hop"}\n   carrier default\n   nat-refresh-interval ${nat}\n   hello-interval ${hello}\n   hello-tolerance ${tol}\n   allow-service all\n${svc}\n  exit\n exit`;}
- return `system\n description           ***SYS-CONFIG***\n location              ${loc}\n system-ip             ${sysip}\n overlay-id            ${overlay}\n site-id               ${site}\n port-offset           ${po}\n control-session-pps   ${pps}\n admin-tech-on-failure\n sp-organization-name  ${org}\n organization-name     ${org}\n console-baud-rate     9600\n vbond ${vbond} port ${vbondPort}\nexit\n\nhostname ${host}\n\nip name-server ${dns}\nip name-server vrf 10 ${dns}\n\nip route 0.0.0.0 0.0.0.0 ${w1gw}\nip route 0.0.0.0 0.0.0.0 ${w2gw}\nip route vrf ${mgmtVrf} 0.0.0.0 0.0.0.0 ${mgmtGw}\n\nvrf definition ${mgmtVrf}\n description ***MGMT***\n rd ${mgmtRd}\n address-family ipv4\n  route-target export ${mgmtRd}\n  route-target import ${mgmtRd}\n  exit-address-family\n !\n\ninterface ${mgmtIf}\n description ***MGMT***\n no shutdown\n arp timeout ${arp}\n vrf forwarding ${mgmtVrf}\n ip address ${mgmtIp} ${mgmtMask}\n no ip redirects\n ip mtu ${mtu}\n load-interval ${load}\n mtu ${mtu}\n negotiation auto\nexit\n\ninterface ${w1}\n description ***${w1d}***\n no shutdown\n arp timeout ${arp}\n ip address ${w1ip} ${w1m}\n no ip redirects\n ip mtu ${mtu}\n load-interval ${load}\n mtu ${mtu}\n negotiation auto\nexit\n\ninterface ${w2}\n description ***${w2d}***\n no shutdown\n arp timeout ${arp}\n ip address ${w2ip} ${w2m}\n no ip redirects\n ip mtu ${mtu}\n load-interval ${load}\n mtu ${mtu}\n negotiation auto\nexit\n\ninterface ${t1}\n no shutdown\n ip unnumbered ${w1}\n no ip redirects\n ipv6 unnumbered ${w1}\n no ipv6 redirects\n tunnel source ${w1}\n tunnel mode sdwan\nexit\n\ninterface ${t2}\n no shutdown\n ip unnumbered ${w2}\n no ip redirects\n ipv6 unnumbered ${w2}\n no ipv6 redirects\n tunnel source ${w2}\n tunnel mode sdwan\nexit\n\nclock timezone ${tz}\n\nline con 0\n speed 9600\n stopbits 1\n\nline vty 0 4\n transport input ssh\n\nline vty 5 80\n transport input ssh\n\nntp server vrf ${mgmtVrf} ${ntp} prefer version 4\nntp source ${w1}\nlldp run\n\nsdwan\n${wanBlock(w1,w1c,w1w,c("sdRestrict1"),c("sdPortHop1"),false,false,false)}\n\n${wanBlock(w2,w2c,w2w,c("sdRestrict2"),c("sdPortHop2"),c("sdLastResort2"),c("sdLowBw2"),c("sdVbondStun2"))}\n\nline vty 0 4\n transport input ssh\nexit`;
+ return `system\n description           ***SYS-CONFIG***\n location              ${loc}\n system-ip             ${sysip}\n overlay-id            ${overlay}\n site-id               ${site}\n port-offset           ${po}\n control-session-pps   ${pps}\n admin-tech-on-failure\n sp-organization-name  ${org}\n organization-name     ${org}\n console-baud-rate     9600\n vbond ${vbond} port ${vbondPort}\nexit\n\nhostname ${host}\n\nip name-server ${dns}\nip name-server vrf ${mgmtVrf} ${dns}\n\nip route 0.0.0.0 0.0.0.0 ${w1gw}\nip route 0.0.0.0 0.0.0.0 ${w2gw}\nip route vrf ${mgmtVrf} 0.0.0.0 0.0.0.0 ${mgmtGw}\n\nvrf definition ${mgmtVrf}\n description ***MGMT***\n rd ${mgmtRd}\n address-family ipv4\n  route-target export ${mgmtRd}\n  route-target import ${mgmtRd}\n  exit-address-family\n !\n\ninterface ${mgmtIf}\n description ***MGMT***\n no shutdown\n arp timeout ${arp}\n vrf forwarding ${mgmtVrf}\n ip address ${mgmtIp} ${mgmtMask}\n no ip redirects\n ip mtu ${mtu}\n load-interval ${load}\n mtu ${mtu}\n negotiation auto\nexit\n\ninterface ${w1}\n description ***${w1d}***\n no shutdown\n arp timeout ${arp}\n ip address ${w1ip} ${w1m}\n no ip redirects\n ip mtu ${mtu}\n load-interval ${load}\n mtu ${mtu}\n negotiation auto\nexit\n\ninterface ${w2}\n description ***${w2d}***\n no shutdown\n arp timeout ${arp}\n ip address ${w2ip} ${w2m}\n no ip redirects\n ip mtu ${mtu}\n load-interval ${load}\n mtu ${mtu}\n negotiation auto\nexit\n\ninterface ${t1}\n no shutdown\n ip unnumbered ${w1}\n no ip redirects\n ipv6 unnumbered ${w1}\n no ipv6 redirects\n tunnel source ${w1}\n tunnel mode sdwan\nexit\n\ninterface ${t2}\n no shutdown\n ip unnumbered ${w2}\n no ip redirects\n ipv6 unnumbered ${w2}\n no ipv6 redirects\n tunnel source ${w2}\n tunnel mode sdwan\nexit\n\nclock timezone ${tz}\n\nline con 0\n speed 9600\n stopbits 1\n\nline vty 0 4\n transport input ssh\n\nline vty 5 80\n transport input ssh\n\nntp server vrf ${mgmtVrf} ${ntp} prefer version 4\nntp source ${mgmtIf}\nlldp run\n\nsdwan\n${wanBlock(w1,w1c,w1w,c("sdRestrict1"),c("sdPortHop1"),false,false,false)}\n\n${wanBlock(w2,w2c,w2w,c("sdRestrict2"),c("sdPortHop2"),c("sdLastResort2"),c("sdLowBw2"),c("sdVbondStun2"))}\n\nline vty 0 4\n transport input ssh\nexit${lanConfig}`;
 }
 
 
@@ -5052,8 +4971,9 @@ function syncPlatformListForModule(){
 }
 const COMBINABLE_MODULES=["BASIC","BGP","OSPF","STP","VPC","EVPN","QOS","SDWAN"];
 window.__workspaceModuleStates=window.__workspaceModuleStates||{};
+let projectRestoreOpening=false;
 function captureWorkspaceModule(key=tech){
- if(!COMBINABLE_MODULES.includes(key))return;
+ if(projectRestoreOpening||!COMBINABLE_MODULES.includes(key))return;
  const fields={};document.querySelectorAll("#params input[id],#params select[id],#params textarea[id],#topologyControls input[id],#topologyControls select[id],#topologyControls textarea[id]").forEach(el=>{if(el.type!=="file"&&el.type!=="password")fields[el.id]=el.type==="checkbox"?el.checked:el.value;});
  window.__workspaceModuleStates[key]={platform:platform(),fields,configured:true,updatedAt:new Date().toISOString()};
 }
@@ -5066,6 +4986,7 @@ function restoreWorkspaceModule(key=tech){
  }
  Object.entries(saved.fields||{}).forEach(([id,value])=>{const el=document.getElementById(id);if(!el)return;if(el.type==="checkbox")el.checked=!!value;else el.value=value;});
  if(key==="BGP")renderBgpDynamicCards();
+ if(key==="SDWAN")sdRestorePlanUI();
  return true;
 }
 function safeProjectFields(fields){
@@ -5704,7 +5625,7 @@ renderModule();
    const active=(window.activeTech||window.currentTech||"").toString().toUpperCase();
    const read=id=>Number(document.getElementById(id)?.value)||0,pl=platform();
    const leafField=pl==="Huawei iStack"?"isLeafCount":pl==="Arista EOS"?"arLeafCount":pl==="Huawei_CE_SW"?"hwLeafCount":pl==="Cisco IOS-XE"?"swvLeafCount":"vpcLeafCount";
-   const n={BASIC:1,BGP:read("bgpCeCount")+bgpActiveUpstreams().length,OSPF:2,STP:2+read("stpLeafCount"),VPC:2+read(leafField),EVPN:["multisite","dual-dc-rr"].includes(document.getElementById("evFabricModel")?.value)?6:4,SDWAN:1,QOS:2}[active]||"—";
+   const n={BASIC:1,BGP:read("bgpCeCount")+bgpActiveUpstreams().length,OSPF:2,STP:2+read("stpLeafCount"),VPC:2+read(leafField),EVPN:["multisite","dual-dc-rr"].includes(document.getElementById("evFabricModel")?.value)?6:4,SDWAN:sdSiteRows().length||1,QOS:2}[active]||"—";
    $("v3DeviceCount").textContent=n;
  }
  document.addEventListener("change",e=>{if(e.target.id==="platform"||e.target.closest("#params")||e.target.closest("#topologyControls"))updateHealth();});
@@ -5786,13 +5707,14 @@ renderModule();
      vlan_vni_mapping:get("evpnVlans")||get("evpnVniMap")
    };
    doc.design.sdwan={
-     site:get("sdSite"),
+     site:get("sdLocation"),
      hostname:get("sdHostname"),
      system_ip:get("sdSystemIp"),
      site_id:get("sdSiteId"),
-     wan1:get("sdWan1"),
-     wan2:get("sdWan2"),
-     management:get("sdMgmt")
+     wan1:get("sdWan1Cidr"),
+     wan2:get("sdWan2Cidr"),
+     management:get("sdMgmtCidr"),
+     routers:sdPlanRows()
    };
    return doc;
  }
@@ -5812,7 +5734,8 @@ renderModule();
    window.__workspaceModuleStates=Object.fromEntries(Object.entries(data.moduleStates||{}).filter(([key])=>COMBINABLE_MODULES.includes(key)).map(([key,value])=>[key,{...value,fields:safeProjectFields(value.fields)}]));
    if(tech&&!window.__workspaceModuleStates[String(tech).toUpperCase()])window.__workspaceModuleStates[String(tech).toUpperCase()]={platform:data.workspace?.platform,fields:safeProjectFields(data.fields),configured:true};
    document.querySelectorAll('input[type="password"]').forEach(el=>el.value="");
-   if(tech)openTech(String(tech).toUpperCase());
+   projectRestoreOpening=true;
+   try{if(tech)openTech(String(tech).toUpperCase());}finally{projectRestoreOpening=false;}
    const ps=$("platform");
    if(ps&&data.workspace?.platform&&ps.value!==data.workspace.platform&&[...ps.options].some(o=>o.value===data.workspace.platform)){
      ps.value=data.workspace.platform;
@@ -5829,6 +5752,7 @@ renderModule();
        if(el.type==="checkbox")el.checked=!!val;else el.value=val;
      });
      if(String(tech).toUpperCase()==="BGP")renderBgpDynamicCards();
+     if(String(tech).toUpperCase()==="SDWAN")sdRestorePlanUI();
      if(typeof render==="function")render();
      captureWorkspaceModule(tech);syncTopology();renderOutput();updateHealth();
    },30);
@@ -6077,14 +6001,29 @@ renderModule();
 
      if(model==="dual-dc-rr")parameters.push({label:"Route reflector scope",value:"Two control-plane-only RRs are configured. All VTEPs peer with both RRs in one overlay ASN; physical underlay and redundancy must be engineered separately."});
    }else if(tech==="SDWAN"){
-     const validation=sdValidate(true);
+     const validation=sdValidateScope(true,true);
      roles.upper="Edge router";roles.lower="External endpoint";
-     const hostname=get("sdHostname").trim();
-     const id=add("upper",hostname||"Edge router (unassigned)");
-     if(hostname)configurations.push({deviceId:id,text:allConfig(),source:"Technology Workspaces · selected Cisco cEdge"});
-     parameters.push({label:"SD-WAN scope",value:"Only the selected edge router has generated configuration. Controllers, transports and other sites are external illustrative endpoints, not inventory devices."});
-     if(!validation.ok)parameters.push({label:"SD-WAN validation pending",value:("Workspace validation reported: "+validation.errors.join("; ")+". Complete and validate the router details before deploying generated configuration.").slice(0,500)});
-     if(!hostname)parameters.push({label:"Configuration pending",value:"Select a router from the Excel plan or enter its hostname and details in Technology Workspaces, then reopen this report to include its configuration."});
+     const rows=sdSiteRows();if(!rows.length&&get('sdHostname').trim())rows.push(sdCurrentFields());
+     const note=(label,labelTr,en,tr)=>parameters.push({label,labelTr,value:'Design boundary',valueTr:'Tasarım kararı',impact:en,impactTr:tr});
+     for(const row of rows){const id=add('upper',row.sdHostname||'Edge router (unassigned)');if(row.sdHostname&&validation.ok)configurations.push({deviceId:id,text:sdwanGenerateSingle('config',row),source:'Technology Workspaces · Cisco cEdge site plan'});
+       for(const n of [1,2]){
+        const port=row['sdWan'+n+'If'],ip=row['sdWan'+n+'Cidr'],gw=row['sdWan'+n+'Gw'],color=row['sdWan'+n+'Color'],rate=row['sdWan'+n+'Mbps'],weight=row['sdWan'+n+'Weight']||SD_DEFAULTS['sdWan'+n+'Weight'];
+        note(row.sdHostname+' · WAN-'+n,row.sdHostname+' · WAN-'+n,
+          `${port} uses ${ip} and gateway ${gw} for underlay reachability. Color ${color} identifies this transport; IPsec weight ${weight} influences distribution among eligible tunnels, not application SLA preference.${rate?` Planned circuit capacity is ${rate} Mbps; this value does not configure a shaper.`:''} Independent physical paths and controller reachability must be verified for effective WAN resilience.`,
+          `${port}, underlay erişimi için ${ip} adresini ve ${gw} ağ geçidini kullanır. ${color} rengi taşıma ağını tanımlar; ${weight} IPsec ağırlığı uygun tüneller arasındaki dağılımı etkiler, uygulama SLA tercihini belirlemez.${rate?` Planlanan devre kapasitesi ${rate} Mbps'tir; bu değer trafik şekillendirme konfigürasyonu üretmez.`:''} Etkin WAN yedekliliği için fiziksel güzergâh bağımsızlığı ve kontrol bileşenlerine erişim doğrulanmalıdır.`);
+       }
+       if(row.sdLanMode!=='none'){
+        const peers=rows.filter(p=>p.sdLanMode==='vrrp'&&p.sdServiceVpn===row.sdServiceVpn&&p.sdVrrpGroup===row.sdVrrpGroup).sort((a,b)=>(+b.sdVrrpPriority)-(+a.sdVrrpPriority)||(sdIpv4ToInt(sdParseCidr(b.sdLanCidr)?.ip)||0)-(sdIpv4ToInt(sdParseCidr(a.sdLanCidr)?.ip)||0)),preferred=peers[0]?.sdHostname;
+        note(row.sdHostname+' · Service LAN',row.sdHostname+' · Servis LAN ağı',
+          `Service VPN ${row.sdServiceVpn} isolates LAN routing. ${row.sdLanIf} uses ${row.sdLanCidr}; its connected prefix is advertised through OMP.${row.sdLanMode==='vrrp'?` VRRP group ${row.sdVrrpGroup} presents gateway ${row.sdVrrpVip}. Priority ${row.sdVrrpPriority} makes ${preferred} the preferred gateway when the modeled peers are healthy. This baseline does not track WAN/OMP availability in VRRP; test those failures separately.`:''}`,
+          `${row.sdServiceVpn} servis VPN'i LAN yönlendirme tablosunu ayrıştırır. ${row.sdLanIf} arayüzü ${row.sdLanCidr} adresini kullanır ve bağlı ağ prefix'i OMP üzerinden ilan edilir.${row.sdLanMode==='vrrp'?` ${row.sdVrrpGroup} VRRP grubu ${row.sdVrrpVip} sanal ağ geçidini sunar. ${row.sdVrrpPriority} öncelik değeri ve eş cihazların değerleriyle, cihazlar sağlıklıyken tercih edilen ağ geçidi ${preferred} olur. Bu temel konfigürasyonda VRRP WAN/OMP erişimini izlemez; bu arızalar ayrıca test edilmelidir.`:''}`);
+       }
+     }
+     if(rows.length)note('SD-WAN site architecture','SD-WAN site mimarisi',
+       `${get('sdLocation')} contains ${rows.length} Cisco cEdge router(s) with common site ID ${get('sdSiteId')}. Distinct system IPs identify the routers. The two modeled WAN transports carry overlay connectivity; controllers are external control-plane components. No additional site or inter-router IPsec tunnel is inferred.`,
+       `${get('sdLocation')}, ortak ${get('sdSiteId')} site kimliğine sahip ${rows.length} Cisco cEdge yönlendiriciden oluşur. Farklı system IP değerleri cihazların kimliğini belirler. Modellenen iki WAN taşıma ağı overlay erişimini sağlar; kontrol bileşenleri harici kontrol düzlemi uçlarıdır. Ek site veya aynı sitedeki routerlar arasında IPsec tüneli varsayılmamıştır.`);
+     if(!validation.ok)note('SD-WAN validation pending','SD-WAN doğrulaması bekleniyor','Complete the site plan before generating configuration. Validation: '+validation.errors.join('; ').slice(0,500),'Konfigürasyon üretmeden önce site planındaki eksik veya çakışan girdileri düzeltin. Cihaz kimlikleri, arayüz adresleri, ağ geçitleri, ortak site profili ve LAN/VRRP eşleşmesi doğrulanmalıdır.');
+     if(!rows.length){add('upper','Edge router (unassigned)');parameters.push({label:'Configuration pending',value:'Load a plan or the example, then select the site to include its router configurations.'});}
    }
    parameters.push(...reportEngineeringDecisions(tech,read,pl));
    parameters.push(...workspaceDesignNoteParameters(tech));
@@ -6205,32 +6144,9 @@ renderModule();
      scope:"",devices,links,specialLinks,parameters:params.map(p=>p.impact?p:{...p,impact:p.value,value:"Design boundary"}),configurations,
      source:{module:tech,projectId:project.project.id||"active",generatedAt:new Date().toISOString()}};
  }
- // SD-WAN's interactive topology uses HTML. Summarize only the selected edge's
- // real parameters in an exportable SVG; external endpoints stay illustrative.
- function sdwanReportSvg(){
-   const get=id=>document.getElementById(id)?.value||"";
-   const esc=s=>String(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&apos;"}[c]));
-   const host=esc(get("sdHostname")||"Edge router (unassigned)"),site=esc(get("sdLocation")||"Site pending"),sys=esc(get("sdSystemIp")||"Pending");
-   const w1=esc(get("sdWan1If")),w2=esc(get("sdWan2If")),c1=esc(get("sdWan1Color")),c2=esc(get("sdWan2Color"));
-   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 950 370" width="950" height="370" role="img" aria-label="Selected SD-WAN edge topology">
-     <rect width="950" height="370" fill="#edf5fa"/>
-     <text x="475" y="35" text-anchor="middle" fill="#155b83" font-family="Arial" font-weight="bold" font-size="18">${site} · SELECTED CISCO EDGE DESIGN</text>
-     <rect x="360" y="70" width="230" height="60" rx="12" fill="#e3eef6" stroke="#7bb5d4" stroke-width="2"/>
-     <text x="475" y="96" text-anchor="middle" fill="#173f5d" font-family="Arial" font-weight="bold" font-size="14">SD-WAN CONTROLLERS</text>
-     <text x="475" y="114" text-anchor="middle" fill="#435d70" font-family="Arial" font-size="11">Control plane · external endpoints</text>
-     <path d="M475 130 V174" fill="none" stroke="#287bb5" stroke-width="3" stroke-dasharray="6 5"/>
-     <rect x="350" y="174" width="250" height="74" rx="13" fill="#244b69" stroke="#5b93b6" stroke-width="2"/>
-     <text x="475" y="205" text-anchor="middle" fill="#fff" font-family="Arial" font-weight="bold" font-size="16">${host}</text>
-     <text x="475" y="226" text-anchor="middle" fill="#d4e7f2" font-family="Arial" font-size="12">System IP ${sys}</text>
-     <path d="M405 248 L270 290 M545 248 L680 290" fill="none" stroke="#287bb5" stroke-width="3"/>
-     <rect x="115" y="290" width="300" height="55" rx="11" fill="#fff" stroke="#83b7d3"/>
-     <rect x="535" y="290" width="300" height="55" rx="11" fill="#fff" stroke="#83b7d3"/>
-     <text x="265" y="313" text-anchor="middle" fill="#173f5d" font-family="Arial" font-size="13" font-weight="bold">WAN-1 · ${w1}</text>
-     <text x="265" y="331" text-anchor="middle" fill="#435d70" font-family="Arial" font-size="11">Transport color: ${c1}</text>
-     <text x="685" y="313" text-anchor="middle" fill="#173f5d" font-family="Arial" font-size="13" font-weight="bold">WAN-2 · ${w2}</text>
-     <text x="685" y="331" text-anchor="middle" fill="#435d70" font-family="Arial" font-size="11">Transport color: ${c2}</text>
-   </svg>`;
- }
+ // The SD-WAN workspace and report share the same site-plan SVG.
+ function sdwanReportSvg(){return sdwanTopologyMarkup();}
+
  // Preserve the workspace SVG, including vendor-specific links and labels.
  // CSS used by the workspace lives outside the SVG, so embed its computed paint styles.
  function workspaceTopologySvg(){
