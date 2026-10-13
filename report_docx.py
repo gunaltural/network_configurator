@@ -100,8 +100,8 @@ def build_report_docx(project):
     """Return a Word file in memory with planned topology and configuration."""
     language = "tr" if project.get("language") == "tr" else "en"
     words = {
-        "tr": {"subtitle":"Ağ tasarımı ve cihaz envanteri","draft":"Taslak rapor","overview":"Proje özeti","scope":"Proje kapsamı ve tasarım amacı mühendis tarafından girilmelidir.","topology":"Planlanan topoloji","upper":"Üst katman","lower":"Alt katman","schedule":"Bağlantı çizelgesi","device":"Cihaz","port":"Port","connection":"Bağlantı / hız","none":"Fiziksel bağlantı modellenmedi","special":"Özel bağlantılar ve kontrol yolları","type":"Tür","endpoint_a":"Uç A / port","endpoint_b":"Uç B / port","details":"Detaylar","logical":"mantıksal","logical_note":"Mantıksal kontrol yolları uçları gösterir; doğrudan fiziksel kablo anlamına gelmez.","approach":"Teknoloji yaklaşımı","intent":"Bu bölüm tasarım amacını gösterir; operasyonel durum henüz doğrulanmamıştır.","decisions":"Teknoloji kararları ve ağa etkileri","decision_note":"Mimari ve operasyonel davranış seçilen tasarımı yansıtır. Gerçek trafik iletimi eş cihaz konfigürasyonu ve cihaz durumuna bağlıdır.","assumptions":"Tasarım varsayımları ve uygulama notları","inventory":"Cihaz envanteri","role":"Rol","model":"Model","serial":"Seri numarası","source":"Kaynak","pending":"Atama bekliyor","external":"Harici","planned":"Planlandı","confirm":"Tasarım hazırlık değerlendirmesi","appendix":"Ek · Planlanan cihaz konfigürasyonları","config_note":"Üretilen konfigürasyonlar tasarım girdilerini yansıtır ve cihaz üzerinde doğrulanmamıştır. Kullanımdan önce hedef model ve yazılım sürümüyle karşılaştırılmalıdır."},
-        "en": {"subtitle":"Network design and device inventory","draft":"Draft report","overview":"Project overview","scope":"Project scope and design intent await engineer input.","topology":"Planned topology","upper":"Upper tier","lower":"Lower tier","schedule":"Connection schedule","device":"Device","port":"Port","connection":"Connection / speed","none":"No physical links modeled","special":"Special connections and control paths","type":"Type","endpoint_a":"Endpoint A / port","endpoint_b":"Endpoint B / port","details":"Details","logical":"logical","logical_note":"Logical control paths identify endpoints; they do not imply a direct physical cable.","approach":"Technology approach","intent":"Design intent only; operational state has not been verified.","decisions":"Technology decisions and network impact","decision_note":"Architecture and operational behavior reflect the selected design. Actual forwarding depends on peer configuration and device state.","assumptions":"Design assumptions and implementation notes","inventory":"Device inventory","role":"Role","model":"Model","serial":"Serial","source":"Source","pending":"Awaiting assignment","external":"External","planned":"Planned","confirm":"Design readiness review","appendix":"Appendix · Planned device configurations","config_note":"Generated configurations reflect design inputs and have not been validated on a device. Review against the target model and software release before use."}
+        "tr": {"subtitle":"Ağ tasarımı ve cihaz envanteri","draft":"Taslak rapor","overview":"1 · Proje bağlamı ve gereksinimler","scope":"Proje kapsamı ve tasarım amacı mühendis tarafından girilmelidir.","topology":"2 · Üst seviye tasarım (HLD)","upper":"Üst katman","lower":"Alt katman","schedule":"Bağlantı çizelgesi","device":"Cihaz","port":"Port","connection":"Bağlantı / hız","none":"Fiziksel bağlantı modellenmedi","special":"Özel bağlantılar ve kontrol yolları","type":"Tür","endpoint_a":"Uç A / port","endpoint_b":"Uç B / port","details":"Detaylar","logical":"mantıksal","logical_note":"Mantıksal kontrol yolları uçları gösterir; doğrudan fiziksel kablo anlamına gelmez.","approach":"3 · Ayrıntılı tasarım (LLD)","intent":"Bu bölüm tasarım amacını gösterir; operasyonel durum henüz doğrulanmamıştır.","decisions":"Teknoloji kararları ve ağa etkileri","decision_note":"Mimari ve operasyonel davranış seçilen tasarımı yansıtır. Gerçek trafik iletimi eş cihaz konfigürasyonu ve cihaz durumuna bağlıdır.","assumptions":"Tasarım varsayımları ve uygulama notları","inventory":"4 · Cihaz envanteri","role":"Rol","model":"Model","serial":"Seri numarası","source":"Kaynak","pending":"Atama bekliyor","external":"Harici","planned":"Planlandı","confirm":"5 · Tasarım hazırlık değerlendirmesi","appendix":"Ek · Planlanan cihaz konfigürasyonları","config_note":"Üretilen konfigürasyonlar tasarım girdilerini yansıtır ve cihaz üzerinde doğrulanmamıştır. Kullanımdan önce hedef model ve yazılım sürümüyle karşılaştırılmalıdır."},
+        "en": {"subtitle":"Network design and device inventory","draft":"Draft report","overview":"1 · Project context and requirements","scope":"Project scope and design intent await engineer input.","topology":"2 · High-level design (HLD)","upper":"Upper tier","lower":"Lower tier","schedule":"Connection schedule","device":"Device","port":"Port","connection":"Connection / speed","none":"No physical links modeled","special":"Special connections and control paths","type":"Type","endpoint_a":"Endpoint A / port","endpoint_b":"Endpoint B / port","details":"Details","logical":"logical","logical_note":"Logical control paths identify endpoints; they do not imply a direct physical cable.","approach":"3 · Low-level design (LLD)","intent":"Design intent only; operational state has not been verified.","decisions":"Technology decisions and network impact","decision_note":"Architecture and operational behavior reflect the selected design. Actual forwarding depends on peer configuration and device state.","assumptions":"Design assumptions and implementation notes","inventory":"4 · Device inventory","role":"Role","model":"Model","serial":"Serial","source":"Source","pending":"Awaiting assignment","external":"External","planned":"Planned","confirm":"5 · Design readiness review","appendix":"Appendix · Planned device configurations","config_note":"Generated configurations reflect design inputs and have not been validated on a device. Review against the target model and software release before use."}
     }[language]
     doc = Document()
     section = doc.sections[0]
@@ -147,6 +147,11 @@ def build_report_docx(project):
     report_date = f"{now.day} {months_tr[now.month-1]} {now.year}" if language == "tr" else now.strftime("%d %B %Y")
     doc.add_paragraph(f"{words['draft']}  |  {report_date}  |  {vendor}")
 
+    doc.add_heading("Yönetici özeti" if language == "tr" else "Executive summary", level=1)
+    for paragraph in project.get("executiveSummary") or [project.get("projectOverview") or project.get("designApproach") or project["scope"]]:
+        if paragraph:
+            doc.add_paragraph(paragraph)
+
     doc.add_heading(words["overview"], level=1)
     architecture = ("Network architecture" if project["architecture"] == "module" else
                     "Core Access" if project["architecture"] == "core-access" else "Spine Leaf")
@@ -172,6 +177,9 @@ def build_report_docx(project):
             grouped[group].append(item)
         titles = {"identity": "Proje kimliği ve doküman kontrolü" if language == "tr" else "Project identity and document control", "requirements": "Mimari ve gereksinimler (HLD)" if language == "tr" else "Architecture and requirements (HLD)", "technical": "Ayrıntılı tasarım (LLD)" if language == "tr" else "Detailed design (LLD)", "delivery": "Kapsam sınırları ve kabul koşulları" if language == "tr" else "Delivery boundaries and acceptance"}
         for group, items in grouped.items():
+            if group not in {"identity", "requirements"}:
+                continue
+            items = [item for item in items if item["label"] not in {"Executive summary", "Yönetici özeti"}]
             if not items:
                 continue
             doc.add_heading(titles[group], level=2)
@@ -225,7 +233,29 @@ def build_report_docx(project):
             add_topology_image(module.get("topologyPng", ""))
     else:
         add_topology_image(project.get("topologyPng", ""))
-    doc.add_heading(words["schedule"], level=1)
+    doc.add_heading(words["approach"], level=1)
+    placement = upper if project["techPlacement"] == "upper" else lower
+    doc.add_paragraph(project.get("designApproach") or (
+        (f"Planlanan {project['technology']} tasarımı {vendor} platformunu kullanır. Cihaz konfigürasyon önerileri ekte sunulmuştur."
+         if project.get("configurations") else f"Seçilen {project['technology']} teknolojisi devreye alma öncesinde ayrıntılı mühendislik ve arıza senaryosu doğrulaması gerektirir.")
+        if language == "tr" else
+        (f"The planned {project['technology']} design uses {vendor}. Device configuration proposals are included in the appendix."
+         if project.get("configurations") else _technology_text(project, placement))
+    ))
+    doc.add_paragraph(words["intent"])
+    for item in project.get("projectInformation") or []:
+        if item.get("group") == "technical":
+            doc.add_heading(item["label"], level=2)
+            doc.add_paragraph(item.get("impact") or item.get("value", ""))
+    technical = project.get("technicalDesign") or {}
+    for section in technical.get("sections") or []:
+        doc.add_heading(section["title"], level=2)
+        for paragraph in section["paragraphs"]:
+            doc.add_paragraph(paragraph)
+    if technical.get("addresses"):
+        doc.add_heading("Arayüz adresleme çizelgesi" if language == "tr" else "Interface addressing schedule", level=2)
+        _table(doc, ["Cihaz", "Arayüz", "Adres / maske", "VRF"] if language == "tr" else ["Device", "Interface", "Address / mask", "VRF"], [1.7, 1.7, 2.1, 1.35], [(row["hostname"], row["interface"], row["address"], row["vrf"]) for row in technical["addresses"]])
+    doc.add_heading(words["schedule"], level=2)
     _table(
         doc,
         ["Cihaz A" if language == "tr" else "Device A", words["port"], "Cihaz B" if language == "tr" else "Device B", words["port"], words["connection"]],
@@ -246,16 +276,7 @@ def build_report_docx(project):
         )
         doc.add_paragraph(words["logical_note"])
 
-    doc.add_heading(words["approach"], level=1)
-    placement = upper if project["techPlacement"] == "upper" else lower
-    doc.add_paragraph(project.get("designApproach") or (
-        (f"Planlanan {project['technology']} tasarımı {vendor} platformunu kullanır. Cihaz konfigürasyon önerileri ekte sunulmuştur."
-         if project.get("configurations") else f"Seçilen {project['technology']} teknolojisi devreye alma öncesinde ayrıntılı mühendislik ve arıza senaryosu doğrulaması gerektirir.")
-        if language == "tr" else
-        (f"The planned {project['technology']} design uses {vendor}. Device configuration proposals are included in the appendix."
-         if project.get("configurations") else _technology_text(project, placement))
-    ))
-    doc.add_paragraph(words["intent"])
+
     if guide:
         doc.add_heading(guide["title"], level=2)
         for chapter in guide["sections"]:
@@ -333,13 +354,13 @@ def build_report_docx(project):
         for run in cell.paragraphs[0].runs:
             run.font.size = Pt(9)
 
-    doc.add_heading(words["confirm"], level=1)
     if project.get("maintenanceNotes"):
         doc.add_heading("Bakım değerlendirmesi ve upgrade planı" if language == "tr" else "Maintenance assessment and upgrade plan", level=1)
         for item in project["maintenanceNotes"]:
             doc.add_heading(item["label"], level=2)
             doc.add_paragraph(item["value"])
             doc.add_paragraph(item.get("impact") or "")
+    doc.add_heading(words["confirm"], level=1)
     incomplete = sum(not d.get("external") and (not d["model"] or not d["serial"]) for d in inventory)
     missing_ports = sum(not l["upperPort"] or not l["lowerPort"] for l in active)
     doc.add_paragraph(
@@ -352,13 +373,28 @@ def build_report_docx(project):
          + "Compare device-sourced inventory with the intended bill of materials before closeout.")
     )
     doc.add_paragraph("Bu özet müşteri onayı veya test sonucu değildir. Açık tasarım hususları ve kararlar proje bilgilerinde mühendis tarafından kaydedilir." if language == "tr" else "This summary is not customer approval or a test result. Open design items and decisions are recorded by the engineer in the project information.")
+    if project.get("deliveryPlan") or any(item.get("group") == "delivery" for item in project.get("projectInformation") or []):
+        doc.add_heading("6 · Uygulama, kabul ve işletime devir" if language == "tr" else "6 · Implementation, acceptance and handover", level=1)
+        labels = set()
+        for item in project.get("projectInformation") or []:
+            if item.get("group") == "delivery":
+                labels.add(item["label"])
+                doc.add_heading(item["label"], level=2)
+                doc.add_paragraph(item.get("impact") or item.get("value", ""))
+        aliases = [{"Implementation sequence and hold points", "Uygulama sırası ve kontrol durakları"}, {"Rollback triggers and recovery procedure", "Geri dönüş eşikleri ve kurtarma prosedürü"}, {"Operational handover and support", "İşletime devir ve destek"}]
+        for index, section in enumerate(project.get("deliveryPlan") or []):
+            if index < len(aliases) and labels & aliases[index]:
+                continue
+            doc.add_heading(section["title"], level=2)
+            for paragraph in section["paragraphs"]:
+                doc.add_paragraph(paragraph)
     checks = project.get("verificationPlan") or []
     if checks:
         tr = language == "tr"
         doc.add_heading("Doğrulama planı ve sonuç özeti" if tr else "Verification plan and results summary", level=1)
         doc.add_paragraph("Sonuçlar mühendis tarafından kaydedilir. Kontrol edilmedi durumundaki maddeler kabul kanıtı değildir." if tr else "Results are recorded by the engineer. Not checked items are not acceptance evidence.")
         _table(doc, ["Cihaz" if tr else "Device", "Komut" if tr else "Command", "Sonuç" if tr else "Result"], [1.3, 4, 1.5], [[r["hostname"], r["command"], r["statusLabel"]] for r in checks])
-        doc.add_heading("Ek doğrulama kayıtları" if tr else "Verification records appendix", level=1)
+        doc.add_heading("Ek doğrulama kayıtları" if tr else "Verification records appendix", level=2)
         for r in checks:
             doc.add_heading(r["hostname"] + " · " + r["command"], level=2)
             doc.add_paragraph(r["expected"])
@@ -371,6 +407,10 @@ def build_report_docx(project):
                 run.font.size = Pt(8)
             if r.get("note"):
                 doc.add_paragraph(r["note"])
+    if project.get("documentationSources"):
+        doc.add_heading("Dokümantasyon yöntemi kaynakları" if language == "tr" else "Documentation methodology references", level=1)
+        for source in project["documentationSources"]:
+            doc.add_paragraph(source["title"] + " — " + source["url"])
     if project.get("configurations"):
         doc.add_page_break()
         doc.add_heading(words["appendix"], level=1)
@@ -390,6 +430,31 @@ def build_report_docx(project):
                 run.font.size = Pt(8)
             if index < len(configured_devices) - 1:
                 doc.add_page_break()
+    headings = [paragraph for paragraph in doc.paragraphs if paragraph.style.name == "Heading 1"]
+    if headings:
+        toc_title = doc.add_heading("İçindekiler" if language == "tr" else "Contents", level=1)
+        headings[0]._p.addprevious(toc_title._p)
+        previous = toc_title._p
+        for index, heading in enumerate(headings):
+            anchor = "nc_section_" + str(index)
+            start = OxmlElement("w:bookmarkStart")
+            start.set(qn("w:id"), str(index + 100))
+            start.set(qn("w:name"), anchor)
+            end = OxmlElement("w:bookmarkEnd")
+            end.set(qn("w:id"), str(index + 100))
+            heading._p.insert(1 if heading._p.pPr is not None else 0, start)
+            heading._p.append(end)
+            entry = doc.add_paragraph()
+            link = OxmlElement("w:hyperlink")
+            link.set(qn("w:anchor"), anchor)
+            run = OxmlElement("w:r")
+            text = OxmlElement("w:t")
+            text.text = heading.text
+            run.append(text)
+            link.append(run)
+            entry._p.append(link)
+            previous.addnext(entry._p)
+            previous = entry._p
     doc.core_properties.title = name
     doc.core_properties.author = "Network Configurator"
     output = BytesIO()

@@ -42,7 +42,7 @@ from authentication import install_authentication
 from project_store import install_project_store
 from config_compare import install_config_compare
 
-VERSION = "5.30.1"
+VERSION = "5.31.0"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
 # Keep the diagnostic entry point available with the authenticated page itself.
@@ -347,6 +347,18 @@ class ReportVerificationRecord(BaseModel):
     note: str = Field(default="", max_length=4000)
 
 
+class ReportAddressAssignment(BaseModel):
+    hostname: str = Field(max_length=200)
+    interface: str = Field(max_length=200)
+    address: str = Field(max_length=200)
+    vrf: str = Field(max_length=200)
+
+
+class ReportTechnicalDesign(BaseModel):
+    sections: List[ReportGuideSection] = Field(default_factory=list, max_length=8)
+    addresses: List[ReportAddressAssignment] = Field(default_factory=list, max_length=2000)
+
+
 class ReportWordRequest(BaseModel):
     language: Literal["tr", "en"] = "en"
     name: str = Field(min_length=1, max_length=120)
@@ -367,6 +379,10 @@ class ReportWordRequest(BaseModel):
     topologyPng: str = Field(default="", max_length=3000000)
     verificationPlan: List[ReportVerificationRecord] = Field(default_factory=list, max_length=2000)
     unifiedDesign: bool = False
+    technicalDesign: ReportTechnicalDesign | None = None
+    executiveSummary: List[str] = Field(default_factory=list, max_length=8)
+    deliveryPlan: List[ReportGuideSection] = Field(default_factory=list, max_length=8)
+    documentationSources: List[ReportGuideSource] = Field(default_factory=list, max_length=8)
     projectOverview: str = Field(default="", max_length=20000)
     designApproach: str = Field(default="", max_length=5000)
     topologyNarratives: List[ReportGuideSection] = Field(default_factory=list, max_length=8)
@@ -772,6 +788,11 @@ def design_checks_script():
 @app.get("/engineering-locale.js")
 def engineering_locale():
     return Response((BASE_DIR / "engineering-locale.js").read_text(encoding="utf-8"), media_type="application/javascript", headers={"Cache-Control": "no-cache"})
+
+
+@app.get("/design-analysis.js")
+def report_design_analysis_script():
+    return Response((BASE_DIR / "design-analysis.js").read_text(encoding="utf-8"), media_type="application/javascript", headers={"Cache-Control": "no-cache"})
 
 
 @app.get("/verification-plan.js")

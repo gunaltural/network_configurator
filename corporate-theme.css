@@ -281,3 +281,5 @@ body>.nc-project-flow{margin:18px 28px;max-width:1604px}
 }
 
 #v3RecentProjects{display:block}#ncRecentSavedProjects h3,#v3RecentLocalProjects h3{color:#17384b;font-size:14px;margin:18px 0 12px}#ncRecentSavedProjects .nc-library-row{background:#e0e9ef;color:#163347}
+
+.paper #reportContents{background:#edf4f8;border:1px solid #c4d5df;border-radius:8px;padding:14px 18px;margin:22px 0}.paper #reportContents h2{margin:0 0 10px;font-size:16px}.paper .report-contents-list{margin:0;padding-left:20px}.paper .report-contents-list li{margin:6px 0}.paper .report-contents-list a{color:#16475e;text-decoration:none}.paper .report-contents-list a:hover{text-decoration:underline}.paper .report-executive{border-left:4px solid #316e89;padding-left:16px}.paper .report-addressing td{font-family:monospace;overflow-wrap:anywhere}
