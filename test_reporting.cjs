@@ -14,7 +14,7 @@ const w=dom.window,d=w.document,pause=()=>new Promise(r=>setTimeout(r,10));
   assert.ok(text.includes(language==='tr'?'Güç, rack':'Validate power'));
   assert.ok(!text.includes(language==='tr'?'Validate power':'Güç, rack'));
   assert.equal(d.querySelectorAll('.project-identity-table tbody tr').length,8);assert.ok(!/ÖRNEK|EXAMPLE/.test(text));
-  d.getElementById('downloadWord').click();await pause();assert.ok(wordPayload);
+  d.getElementById('downloadWord').click();await pause();assert.ok(wordPayload);assert.equal(wordPayload.projectInformation.length,24);assert.equal(wordPayload.projectInformation.filter(p=>p.group==='technical').length,3);assert.ok(text.includes(language==='tr'?'Geri dönüş eşikleri ve kurtarma prosedürü':'Rollback triggers and recovery procedure'));assert.ok(text.includes(language==='tr'?'Ayrıntılı tasarım (LLD)':'Detailed design (LLD)'));
   assert.ok(wordPayload.devices.find(x=>x.id===source.inventoryDeviceIds[0]).tier==='upper');
   assert.equal(wordPayload.moduleReports.length,3);
   const result=execFileSync('python',['-c','import sys,json,io;from docx import Document;from app import app;from fastapi.testclient import TestClient;r=TestClient(app).post("/api/reporting/word",json=json.load(sys.stdin));print(r.status_code);print(r.text[:500] if r.status_code!=200 else json.dumps([[c.text for c in row.cells] for row in Document(io.BytesIO(r.content)).tables[0].rows],ensure_ascii=False))'],{input:JSON.stringify(wordPayload),encoding:'utf8'});

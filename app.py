@@ -42,7 +42,7 @@ from authentication import install_authentication
 from project_store import install_project_store
 from config_compare import install_config_compare
 
-VERSION = "5.29.3"
+VERSION = "5.30.0"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
 # Keep the diagnostic entry point available with the authenticated page itself.
@@ -269,7 +269,7 @@ class ReportParameter(BaseModel):
 
 
 class ReportProjectInformation(ReportParameter):
-    group: Literal["identity", "requirements", "delivery"] | None = None
+    group: Literal["identity", "requirements", "technical", "delivery"] | None = None
 
 
 class ReportConfiguration(BaseModel):
@@ -372,7 +372,7 @@ class ReportWordRequest(BaseModel):
     topologyNarratives: List[ReportGuideSection] = Field(default_factory=list, max_length=8)
     technologyGuide: ReportTechnologyGuide | None = None
     engineeringPlan: ReportEngineeringPlan | None = None
-    projectInformation: List[ReportProjectInformation] = Field(default_factory=list, max_length=20)
+    projectInformation: List[ReportProjectInformation] = Field(default_factory=list, max_length=32)
     maintenanceNotes: List[ReportParameter] = Field(default_factory=list)
     moduleReports: List[ReportModuleSummary] = Field(default_factory=list, max_length=8)
 
