@@ -279,3 +279,5 @@ body>.nc-project-flow{margin:18px 28px;max-width:1604px}
  body.nc-inventory-view .ssh-result.error{color:#7a2439}
  body.nc-inventory-view .ssh-result.ok{color:#187452}
 }
+
+#v3RecentProjects{display:block}#ncRecentSavedProjects h3,#v3RecentLocalProjects h3{color:#17384b;font-size:14px;margin:18px 0 12px}#ncRecentSavedProjects .nc-library-row{background:#e0e9ef;color:#163347}

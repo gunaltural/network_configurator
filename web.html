@@ -6353,14 +6353,15 @@ renderModule();
  document.addEventListener("nc-local-projects-changed",()=>renderRecent());
  window.addEventListener("storage",event=>{if(event.key===STORE)renderRecent();});
  function renderRecent(){
-   const box=$("v3RecentProjects");if(!box)return;
+   const root=$("v3RecentProjects");if(!root)return;
+   let box=$("v3RecentLocalProjects");if(!box){box=document.createElement("div");box.id="v3RecentLocalProjects";box.className="v3-recent";root.append(box);}
    const arr=Object.entries(store()).sort(([,a],[,b])=>{
      const bu=b.project&&typeof b.project==="object"?b.project.updated:b.updated;
      const au=a.project&&typeof a.project==="object"?a.project.updated:a.updated;
      return String(bu||"").localeCompare(String(au||""));
    }).slice(0,6);
-   if(!arr.length){box.innerHTML='<div class="v3-empty">No recent projects yet. Configure a design and choose Save.</div>';return;}
-   box.innerHTML="";
+   if(!arr.length){box.replaceChildren();return;}
+   box.innerHTML='<h3 style="grid-column:1/-1">Browser copies</h3>';
    arr.forEach(([key,p])=>{
      const d=document.createElement("div");d.className="v3-recent-card";
      const pm=p.project&&typeof p.project==="object"?p.project:null;

@@ -1,6 +1,6 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),{JSDOM}=require('jsdom');
 (async()=>{
- const dom=new JSDOM('<div class="v3-topbar"></div><section data-nc-group="projects"><div></div></section>',{url:'https://example.test/',runScripts:'outside-only'}),w=dom.window;
+ const dom=new JSDOM('<div class="v3-topbar"></div><div id="v3RecentProjects"></div><section data-nc-group="projects"><div></div></section>',{url:'https://example.test/',runScripts:'outside-only'}),w=dom.window;
  const design={schema:'network-configurator-v3',project:{id:'p_lab',name:'Synthetic lab'},workspace:{platform:'Cisco NX-OS',technology:'VPC'},fields:{sshPassword:'synthetic-only'}};
  const report={schema:'network-configurator-report-v1',name:'Synthetic lab',vendor:'Cisco NX-OS',links:[],source:{projectId:'p_lab'},devices:[{id:'lab1',hostname:'LAB-1'}],inventoryDeviceIds:['lab1']};
  w.NetworkWorkspaceProject={snapshot:()=>JSON.parse(JSON.stringify(design)),apply:d=>{w.applied=d;Object.assign(design,JSON.parse(JSON.stringify(d)));},rename:name=>{design.project.name=name;}};
@@ -22,6 +22,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),{JSDOM}=require
  w.document.querySelector('[data-library-revision]').click();await new Promise(r=>setTimeout(r,15));assert.equal(saved.create_revision,true);
  rows=[{id:'123',name:'Saved synthetic lab',version:2,updated_at:'synthetic-stamp',has_design:true}];
  await w.document.querySelector('[data-library-refresh]').onclick();
+ assert.ok(w.document.querySelector('#ncRecentSavedProjects').textContent.includes('Saved synthetic lab'));assert.ok(w.document.querySelector('#ncRecentSavedProjects button'));
  const beforeCopy=w.sessionStorage.getItem('networkConfigurator.library.context');const priorId=design.project.id;
  const duplicate=[...w.document.querySelectorAll('.nc-library-results button')].find(b=>b.textContent==='Duplicate');duplicate.click();await new Promise(r=>setTimeout(r,15));assert.notEqual(saved.document.design.project.id,priorId);assert.equal(saved.document.reporting.source.projectId,saved.document.design.project.id);assert.equal(w.sessionStorage.getItem('networkConfigurator.library.context'),beforeCopy);assert.equal(design.project.id,priorId);
  w.document.querySelector('[data-library-copy]').click();await new Promise(r=>setTimeout(r,15));assert.notEqual(design.project.id,priorId);assert.equal(design.project.id,saved.document.design.project.id);assert.equal(saved.document.reporting.source.projectId,design.project.id);await w.NetworkProjects.saveCurrent();assert.ok(saved.document.reporting,'Subsequent saves retain the report of the copied project');
@@ -33,7 +34,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),{JSDOM}=require
  const deleteButton=[...w.document.querySelectorAll('.nc-library-results button')].find(b=>b.textContent==='Delete');assert.ok(deleteButton);
  w.confirm=()=>false;deleteButton.click();await new Promise(r=>setTimeout(r,10));assert.equal(requests.filter(r=>r.options.method==='DELETE').length,0);
  w.confirm=()=>false;deleteButton.click();await new Promise(r=>setTimeout(r,10));assert.equal(requests.filter(r=>r.options.method==='DELETE').length,0);
- w.confirm=()=>true;deleteButton.click();await new Promise(r=>setTimeout(r,15));assert.equal(requests.filter(r=>r.options.method==='DELETE').length,1);assert.equal(w.sessionStorage.getItem('networkConfigurator.library.context'),null);
+ w.confirm=()=>true;deleteButton.click();await new Promise(r=>setTimeout(r,15));assert.equal(requests.filter(r=>r.options.method==='DELETE').length,1);assert.equal(w.sessionStorage.getItem('networkConfigurator.library.context'),null);assert.equal(w.document.querySelectorAll('#ncRecentSavedProjects .nc-library-row').length,0);
  const current=w.sessionStorage.getItem('networkConfigurator.library.context');
  const priorReport=w.sessionStorage.getItem('networkConfigurator.report.current');const broken=JSON.parse(JSON.stringify(saved.document));broken.reporting.links='invalid';assert.throws(()=>w.NetworkProjects.openFile(broken));assert.equal(w.sessionStorage.getItem('networkConfigurator.report.current'),priorReport);assert.throws(()=>w.NetworkProjects.openFile({schema:'bad'}));assert.equal(w.sessionStorage.getItem('networkConfigurator.library.context'),current);
  const malformedDesign=JSON.parse(JSON.stringify(saved.document));malformedDesign.design.moduleStates={BGP:null};assert.throws(()=>w.NetworkProjects.openFile(malformedDesign));assert.equal(w.sessionStorage.getItem('networkConfigurator.report.current'),priorReport);
