@@ -16,6 +16,15 @@ const reports=[];
 (async()=>{
  try{
   await pause();d.getElementById('v3ProjectName').value='Synthetic save test';
+  const localKey='networkConfigurator.v3.projects';
+  const old=w.NetworkWorkspaceProject.snapshot();old.project.name='Old browser project';
+  w.localStorage.setItem(localKey,JSON.stringify({storageKey:old,keep:{...old,project:{...old.project,name:'Keep me'}}}));
+  d.dispatchEvent(new w.Event('nc-local-projects-changed'));
+  const remove=d.querySelector('.v3-recent-actions button:last-child');assert.ok(remove);
+  w.confirm=()=>false;remove.click();assert.equal(Object.keys(JSON.parse(w.localStorage.getItem(localKey))).length,2);
+  w.confirm=()=>true;remove.click();assert.equal(JSON.parse(w.localStorage.getItem(localKey)).storageKey,undefined);
+  assert.ok(JSON.parse(w.localStorage.getItem(localKey)).keep);assert.equal(d.querySelectorAll('.v3-recent-card').length,1);
+  d.querySelector('.v3-recent-actions button:last-child').click();assert.equal(d.querySelectorAll('.v3-recent-card').length,0);
   const initial=w.NetworkWorkspaceProject.snapshot();assert.ok(initial.project.id);assert.equal(w.NetworkWorkspaceProject.snapshot().project.id,initial.project.id);
   let saved=null,downloaded=null,downloads=0;
   w.URL.createObjectURL=()=>{downloads++;return 'blob:synthetic';};
