@@ -20,6 +20,7 @@
  if(/vpc|mlag|m-lag|dfs-group/i.test(command)&&!/(?:vpc\s+domain|mlag\s+configuration|dfs-group|m-lag)/i.test(config))continue;
  const id=JSON.stringify([scope.module,target.vendor,target.hostname,command]);rows.push({id,deviceId:target.id,hostname:target.hostname,vendor:target.vendor,technology:scope.technology||scope.title,command,context:{neighbors:[...new Set(neighbors)]},included:false,status:'pending',output:'',date:'',engineer:'',note:''});}}
  }
+ for(const record of state.verificationPlan||[])if(record.catalogCommand&&state.devices.some(d=>d.id===record.deviceId&&!d.external))rows.push(record);
  const old=new Map((state.verificationPlan||[]).map(r=>[r.id,r]));return [...new Map(rows.map(r=>[r.id,r])).values()].map(r=>{const saved=old.get(r.id);return saved?{...r,...Object.fromEntries(['included','status','output','date','engineer','note'].filter(k=>saved[k]!==undefined).map(k=>[k,saved[k]]))}:r;});
  }
  function exportRows(state){const tr=state.language==='tr';return (state.verificationPlan||[]).filter(r=>r.included).map(r=>({...r,expected:describe(r,tr),statusLabel:(statuses[r.status]||statuses.pending)[tr?0:1]}));}

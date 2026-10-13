@@ -6,7 +6,7 @@ async function test(vendor){
  const w=new JSDOM(fs.readFileSync('reporting.html','utf8'),{url:'https://test.invalid/reporting',runScripts:'dangerously',virtualConsole:vc,beforeParse(w){
    for(const file of ['engineering-locale.js','vpc-report.js','verification-plan.js'])w.eval(fs.readFileSync(file,'utf8'));
    w.sessionStorage.setItem('networkConfigurator.report.import',JSON.stringify(source));w.HTMLElement.prototype.scrollIntoView=function(){};
-   w.fetch=async(url,opts)=>{const p=JSON.parse(opts.body);calls.push({url,p});return {ok:true,json:async()=>url.endsWith('/test')?{ok:true,message:'Connection successful'}:{ok:false,mock,results:p.command.split('\n').map((command,i)=>({command,ok:i===0,output:i===0?'peer Established':'command error',truncated:false}))}};};
+   w.fetch=async(url,opts)=>{if(url==='/api/device/commands')return {ok:true,json:async()=>({platforms:{[vendor]:{Routing:[vendor==='Huawei_CE_SW'?'display ospf peer':vendor==='FortiGate'?'get router info ospf neighbor':'show ip ospf neighbor']}}})};const p=JSON.parse(opts.body);calls.push({url,p});return {ok:true,json:async()=>url.endsWith('/test')?{ok:true,message:'Connection successful'}:{ok:false,mock,results:p.command.split('\n').map((command,i)=>({command,ok:i===0,output:i===0?'peer Established':'command error',truncated:false}))}};};
  }});
  try{
  const d=w.window.document;d.getElementById('planSelectAll').click();
@@ -28,6 +28,14 @@ async function test(vendor){
  assert.equal(d.querySelectorAll('[data-plan-field="output"]').length,3);assert.equal(d.querySelectorAll('.verification-report tbody tr').length,3);
  w.window.NetworkReportProject.apply({...source,name:'Other synthetic project'});
  assert.equal(d.querySelector('[data-plan-ssh="password"]').value,'');assert.equal(d.querySelector('[data-plan-ssh="target"]').value,'');
+ const select=d.getElementById('verificationTechnology');assert.equal([...select.options].filter(o=>o.value).length,8);
+ select.value='OSPF';select.dispatchEvent(new w.window.Event('change'));await new Promise(r=>setTimeout(r,0));
+ assert.equal(d.querySelectorAll('[data-plan-open]').length,2);d.getElementById('planSelectAll').click();
+ const ospfOutput=d.querySelector('[data-plan-field="output"]');ospfOutput.value='Synthetic OSPF FULL';ospfOutput.dispatchEvent(new w.window.Event('input'));
+ d.getElementById('verificationTechnology').value='BGP';d.getElementById('verificationTechnology').dispatchEvent(new w.window.Event('change'));
+ assert.equal(d.querySelectorAll('[data-plan-open]').length,4);
+ d.getElementById('verificationTechnology').value='OSPF';d.getElementById('verificationTechnology').dispatchEvent(new w.window.Event('change'));await new Promise(r=>setTimeout(r,0));
+ assert.equal(d.querySelector('[data-plan-field="output"]').value,'Synthetic OSPF FULL');assert.equal(d.querySelectorAll('[data-plan-open]').length,2);
  assert.deepEqual(errors,[]);
  }finally{w.window.close();}
 }
