@@ -584,7 +584,7 @@ pre{
           <pre id="verifyOutput" class="sd-cli" aria-label="Verification output">Selected command output will appear here.</pre>
         </div>
         <div id="troubleshootingPanel" class="troubleshooting-cli" hidden>
-          <div class="simple-deploy-head"><div><b>GUIDED TROUBLESHOOTING · <span id="troublePlatformTitle">CISCO IOS-XE</span></b><span>Turn verification evidence into focused diagnostic actions</span></div><span id="troubleModuleBadge" class="sd-badge neutral">MODULE</span></div>
+          <div class="simple-deploy-head"><div><b>NETWORK TROUBLESHOOTING · <span id="troublePlatformTitle">CISCO IOS-XE</span></b><span>Choose path analysis, ping result, or device checks</span></div><span id="troubleModuleBadge" class="sd-badge neutral">MODULE</span></div>
           <div class="sd-card">
             <h4>Device connection</h4>
             <div class="sd-grid">
@@ -598,7 +598,7 @@ pre{
             <small class="live-help">Connection values are synchronized with Deploy Config and Verification. Troubleshooting commands remain subject to the read-only command policy.</small>
           </div>
           <div class="sd-card">
-            <h4>Incident context</h4>
+            <h4>Choose a device check</h4>
             <div class="trouble-context"><div><small>Device</small><strong id="troubleDevice">Not connected</strong></div><div><small>Verification evidence</small><strong id="troubleEvidenceState">No live result imported</strong></div><div><small>Selected symptom</small><strong id="troubleSymptomState">Not selected</strong></div></div>
             <label for="troubleSymptom">Observed symptom</label><select id="troubleSymptom"></select>
             <small id="troubleGuidance" class="live-help"></small>
@@ -608,7 +608,7 @@ pre{
             <pre id="troubleEvidence" class="sd-cli trouble-evidence" aria-label="Imported verification evidence">Run Verification commands first, or continue with symptom-based diagnostics.</pre>
           </div>
           <div class="sd-card">
-            <h4>Recommended diagnostic commands</h4>
+            <h4>Commands for this check</h4>
             <div class="verify-toolbar"><button class="btn" id="troubleSelectAll" type="button">Select All</button><button class="btn" id="troubleClearAll" type="button">Clear</button><span id="troubleSelectedCount" class="verify-count">0 selected</span></div>
             <div id="troubleCommandGroups" class="verify-groups trouble-command-groups"></div>
             <label for="troubleSelectedPreview">Selected Commands</label><pre id="troubleSelectedPreview" class="sd-cli verify-selected-preview" aria-label="Selected troubleshooting commands">No commands selected.</pre>
@@ -6164,7 +6164,8 @@ renderModule();
      source:{module:tech,projectId:project.project.id||"active",generatedAt:new Date().toISOString()}};
  }
  // The SD-WAN workspace and report share the same site-plan SVG.
- function sdwanReportSvg(){return sdwanTopologyMarkup();}
+ function sdwanReportSvg(){const svg=sdwanTopologyMarkup();if(/^<svg\b/.test(svg))return svg;return '<svg xmlns="http://www.w3.org/2000/svg" width="950" height="180" viewBox="0 0 950 180"><rect width="950" height="180" fill="#edf5fa"/><text x="475" y="85" text-anchor="middle" font-family="Arial" font-size="18" fill="#173f5d">SD-WAN site plan not configured</text><text x="475" y="115" text-anchor="middle" font-family="Arial" font-size="12" fill="#435d70">Load an Excel plan or enter the site router details before implementation.</text></svg>';}
+
 
  // Preserve the workspace SVG, including vendor-specific links and labels.
  // CSS used by the workspace lives outside the SVG, so embed its computed paint styles.
@@ -6175,7 +6176,7 @@ renderModule();
    const copy=original.cloneNode(true);
    const view=original.viewBox.baseVal;
    if(!view.width||!view.height)throw Error("The workspace topology has no drawing dimensions.");
-   copy.setAttribute("xmlns","http://www.w3.org/2000/svg");
+   copy.setAttributeNS("http://www.w3.org/2000/xmlns/","xmlns","http://www.w3.org/2000/svg");
    copy.setAttribute("width",String(view.width));copy.setAttribute("height",String(view.height));
    const properties=["fill","stroke","stroke-width","stroke-dasharray","stroke-linecap","stroke-linejoin","font-family","font-size","font-weight","opacity","stop-color","stop-opacity"];
    const originals=[original,...original.querySelectorAll("*")],clones=[copy,...copy.querySelectorAll("*")];

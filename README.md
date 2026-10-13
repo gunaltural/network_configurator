@@ -367,3 +367,26 @@ design reference.
 
 References: [Microsoft tracert](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/tracert)
 and [Cisco traceroute behavior](https://www.cisco.com/c/en/us/support/docs/ip/ip-routed-protocols/22826-traceroute.html).
+
+### Troubleshooting tools
+
+Troubleshooting opens one tool at a time: **Path analysis**, **Ping result**,
+or **Device checks · SSH**. Traceroute output analysis remains the default.
+Ping result reads complete Cisco/Linux/Windows/Huawei packet and RTT summaries,
+showing sent/received probes, ICMP loss and min/average/max RTT. Both tools use
+pasted outputs and include examples; they do not launch active probes.
+
+SSH credentials, symptom selection and diagnostic commands live only under
+Device checks. Previous verification output and resolution notes are collapsed.
+Source/destination traffic-port and protocol inputs are removed from the visible
+workflow. Legacy project metadata is retained for compatibility. Tool selection
+and independent ping/path outputs survive Save/Open.
+
+Design references: [Cisco NWPI workflow](https://www.cisco.com/c/en/us/td/docs/routers/sdwan/26x-later/nwpi/network-wide-path-insights-user-guide/network-wide-path-insight-tracing.html),
+[Cloudflare MTR overview](https://www.cloudflare.com/learning/network-layer/what-is-mtr/)
+and [NetBrain device health categories](https://www.netbraintech.com/docs/ie100/help/viewing-device-health-report.htm).
+The application adopts focused tool selection, not these products' telemetry integrations.
+
+Topology export uses a namespace-aware SVG serializer. Module drawings and
+composed report drawings are checked as XML in regression tests, preventing
+duplicate `xmlns` attributes from blocking browser PNG generation and report entry.

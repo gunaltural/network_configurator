@@ -27,5 +27,16 @@ try{
  result=analyze('1 192.0.2.1 1 ms\n2 203.0.113.1 100 ms\n3 198.51.100.20 105 ms','198.51.100.20');assert.ok(result.findings.some(f=>f.title==='RTT increase continues downstream'));
  result=analyze('traceroute to 2001:db8::1\n1 2001:db8::2 1 ms','2001:db8::1');assert.equal(result.hops.length,0);assert.ok(result.findings[0].title.includes('IPv6'));
  w.NetworkPathDiagnostics.restore({...traceSaved,evidence:[{device:'CE-1',command:'show ip route 198.51.100.20',output:'Routing entry for 198.51.100.20/32\n via 192.0.2.1',source:'Manual',ok:true}]});assert.ok(d.getElementById('pdTraceResult').textContent.includes('Route next-hop evidence'));
+ assert.ok(d.getElementById('pdFlow_sourcePort').parentElement.hidden);assert.ok(d.getElementById('pdFlow_destinationPort').parentElement.hidden);assert.ok(d.getElementById('pdFlow_protocol').parentElement.hidden);
+ const ping=w.NetworkPathDiagnostics.parsePing;
+ let pr=ping('PING 198.51.100.20 (198.51.100.20)\n5 packets transmitted, 4 received, 20% packet loss\nrtt min/avg/max/mdev = 10.0/12.5/16.0/2.0 ms','198.51.100.20');assert.equal(pr.loss,20);assert.equal(pr.avg,12.5);
+ pr=ping('Packets: Sent = 4, Received = 3, Lost = 1 (25% loss),\nMinimum = 1ms, Maximum = 3ms, Average = 2ms');assert.equal(pr.loss,25);assert.equal(pr.avg,2);
+ pr=ping('Sending 5, 100-byte ICMP Echos to 198.51.100.20\nSuccess rate is 80 percent (4/5), round-trip min/avg/max = 1/2/3 ms');assert.equal(pr.received,4);assert.equal(pr.avg,2);
+ pr=ping('5 packet(s) transmitted\n4 packet(s) received\nround-trip min/avg/max = 1/2/3 ms');assert.equal(pr.loss,20);
+ assert.equal(ping('Reply from 198.51.100.20: bytes=32 time=10ms').valid,false);
+ assert.equal(ping('Sent = 4, Received = 5').valid,false);
+ click('pdTool_ping');assert.equal(d.getElementById('pdView_path').hidden,true);assert.equal(d.getElementById('pdView_ping').hidden,false);assert.equal(d.getElementById('pdView_device').hidden,true);click('pdPingExample');assert.ok(d.getElementById('pdPingResult').textContent.includes('20% loss'));
+ const toolSaved=w.NetworkPathDiagnostics.snapshot();w.NetworkPathDiagnostics.restore(null);assert.equal(d.getElementById('pdPingRaw').value,'');w.NetworkPathDiagnostics.restore(toolSaved);assert.equal(d.getElementById('pdView_ping').hidden,false);assert.ok(d.getElementById('pdPingResult').textContent.includes('4/5 probes'));
+ click('pdTool_device');assert.equal(d.getElementById('pdView_device').hidden,false);assert.equal(d.getElementById('troubleTarget').closest('#pdView_device').id,'pdView_device');click('pdTool_path');assert.equal(d.getElementById('pdView_device').hidden,true);assert.ok(!w.NetworkPathDiagnostics.summary().includes(':443'));click('pdClearPing');assert.equal(w.NetworkPathDiagnostics.snapshot().pingRaw,'');
  click('pdExport');click('pdText');assert.deepEqual(errors,[]);console.log('Path Diagnostics: flow context, separate planned links, per-command editing, evidence capture, scope isolation, roundtrip and exports passed');
 }finally{w.close();}
