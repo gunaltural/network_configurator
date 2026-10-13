@@ -5797,7 +5797,7 @@ renderModule();
    try{
      if(!window.NetworkProjects)throw Error("Project storage is loading. Please retry.");
      const result=await window.NetworkProjects.saveCurrent(data);
-     if(result){const s=store();s[currentProjectId]=data;writeStore(s);toast("Project saved · Revision "+result.version);}
+     if(result){const saved=snapshot();const s=store();s[saved.project.id]=saved;writeStore(s);toast("Project saved · Revision "+result.version);}
    }catch(error){alert("Project save failed: "+error.message);}finally{button.disabled=false;}
  }
  // Customer-facing design assessment: group only choices that materially affect
