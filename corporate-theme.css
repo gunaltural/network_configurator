@@ -52,7 +52,8 @@ body:has(#v3Dashboard.show)>.layout{display:none!important}
 .v3-report-card{position:relative;padding:24px 26px;border-left:4px solid #137493;margin-bottom:26px;min-height:0}
 .v3-report-card h3{font-size:21px;margin:9px 0 6px}.v3-report-card .tag{margin:0}
 .v3-recent-card{padding:17px}.v3-recent-card span,.v3-empty{color:var(--muted)}.v3-empty{background:#fff;border-color:var(--line)}
-button.btn,button.tab,.v3-btn,.button,.verify-picker-trigger{background:#fff;border:1px solid #d6e1e8;border-radius:7px;color:#476173;font-weight:600;box-shadow:none}
+.btn,button.tab,.v3-btn,.button,.verify-picker-trigger{background:#fff;border:1px solid #d6e1e8;border-radius:7px;color:#476173;font-weight:600;box-shadow:none}
+a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-content:center}a.btn:focus-visible{outline:2px solid #426f87;outline-offset:3px}
 .btn:hover,.tab:hover,.v3-btn:hover,.button:hover{background:#f0f5f8;border-color:#a9c4d3}
 .btn.primary,.v3-btn.primary,.button.primary,.v3-workspace-report-action{background:#0c4962;border-color:#0c4962;color:#fff;box-shadow:none}
 .btn.primary:hover,.v3-btn.primary:hover,.button.primary:hover,.v3-workspace-report-action:hover{background:#0b3850;border-color:#0b3850;color:#fff;box-shadow:0 2px 6px #193c5018}
