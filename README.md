@@ -344,3 +344,26 @@ selection is for editing and preview; it does not limit this bulk download.
 Invalid data blocks the archive, preventing silent partial configuration output.
 Generation yields between batches to keep the interface responsive. Existing
 selected-router/site configuration and reporting behavior remain available.
+
+## Network Path Analysis
+
+In **Technology Workspace → Troubleshooting → Analyze network path**, enter the
+source/destination and paste a complete IPv4 traceroute/tracert output captured
+at that source. **Try example** demonstrates a reachable destination with an
+unanswered intermediate hop. **Analyze path** displays responding addresses by
+TTL, individual probe RTT, timeouts and explicit unreachable/filtering errors.
+
+Findings distinguish destination replies, destination mismatch, multiple
+responders, incomplete captures and RTT patterns. A timeout is not an application
+packet-loss measurement. RTT includes reply-path and ICMP handling effects.
+Optional supporting CLI outputs retain their device/command provenance; a
+destination route lookup can supply next-hop evidence or report a missing route,
+without being asserted as the observed forwarding path.
+
+The screen analyzes supplied output; it does not run traceroute or connect to
+Cisco NWPI. Existing SSH diagnostic results can be attached, and cases survive
+project Save/Open and JSON/TXT export. Planned connections remain a separate
+design reference.
+
+References: [Microsoft tracert](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/tracert)
+and [Cisco traceroute behavior](https://www.cisco.com/c/en/us/support/docs/ip/ip-routed-protocols/22826-traceroute.html).
