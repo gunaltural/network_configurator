@@ -23,6 +23,11 @@ class LabTests(unittest.TestCase):
         from fastapi.testclient import TestClient
         with TestClient(app) as c:
             self.assertEqual(c.get('/network-lab').status_code,200)
+            self.assertFalse(c.get('/api/network-lab/status').json()['liveCli'])
+            preview=c.post('/api/network-lab/preview',json=model()).json()
+            self.assertEqual(preview['state'],'prepared')
+            self.assertEqual(set(preview['configurations']),{'ce1','ce2','isp1','isp2'})
+            self.assertIn('set local-preference 250',preview['configurations']['ce1'])
             self.assertEqual(c.post('/api/network-lab/package',json=model()).status_code,200)
             self.assertEqual(c.post('/api/network-lab/identity',json=model()).json()['fingerprint'],build(Lab(**model()))[1]['fingerprint'])
             bad=model();bad['links'][0]['bIp']='wrong';self.assertEqual(c.post('/api/network-lab/package',json=bad).status_code,422)

@@ -50,3 +50,13 @@ Actual Docker execution must be acceptance-tested on the operator's lab host.
 References:
 - https://containerlab.dev/manual/kinds/frr/
 - https://developer.cisco.com/docs/modeling-labs/
+
+## Central service workspace preview (5.36.0)
+
+Primary workflow now presents central service status, lab preparation, clickable
+device selection, a planned FRR configuration pane, live-console panel, selectable
+verification checks and fault controls. `/api/network-lab/preview` validates and
+generates planned configuration without deployment. Model edits invalidate it.
+The central service is not provisioned or connected: start/stop, console, commands
+and failure execution remain disabled. No emulated runtime results are fabricated.
+Offline package generation is retained under Advanced for administrator use.

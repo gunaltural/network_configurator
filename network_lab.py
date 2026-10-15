@@ -110,6 +110,15 @@ def install_network_lab(app,base):
     def page():return HTMLResponse((base/'network-lab.html').read_text(),headers={'Cache-Control':'no-store'})
     @app.get('/network-lab.js')
     def script():return Response((base/'network-lab.js').read_text(),media_type='application/javascript',headers={'Cache-Control':'no-store'})
+    @app.get('/api/network-lab/status')
+    def status():
+        return {'state':'not_configured','liveCli':False,'message':'Central emulation service is not configured. Design preparation and configuration previews are available; virtual devices cannot start yet.'}
+    @app.post('/api/network-lab/preview')
+    def preview(lab:Lab):
+        data,manifest=build(lab)
+        with zipfile.ZipFile(io.BytesIO(data)) as z:
+            configurations={n.id:z.read(f'configs/{n.id}/frr.conf').decode() for n in lab.nodes}
+        return {'fingerprint':manifest['fingerprint'],'state':'prepared','configurations':configurations,'failure':manifest['failure']}
     @app.post('/api/network-lab/identity')
     def identity(lab:Lab):
         _,manifest=build(lab)

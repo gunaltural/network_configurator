@@ -43,7 +43,7 @@ from project_store import install_project_store
 from config_compare import install_config_compare
 from network_lab import install_network_lab
 
-VERSION = "5.35.0"
+VERSION = "5.36.0"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
 # Keep the diagnostic entry point available with the authenticated page itself.
