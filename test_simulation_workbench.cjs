@@ -1,0 +1,11 @@
+const fs=require('fs'),assert=require('assert/strict'),{JSDOM}=require('jsdom');
+const w=new JSDOM(fs.readFileSync('network-lab.html','utf8'),{url:'https://test.invalid/network-lab',runScripts:'outside-only'}).window,d=w.document;
+w.fetch=async()=>({ok:true,json:async()=>({})});
+for(const f of ['simulation-report.js','synthetic-bgp.js','network-lab.js','synthetic-lab.js','simulation-workbench.js'])w.eval(fs.readFileSync(f,'utf8'));
+const $=id=>d.getElementById(id),model=JSON.stringify(w.NetworkLab.model()),geometry=$('labMap').getAttribute('viewBox');
+assert.equal($('labControlPane').hidden,true);$('wbFailures').click();assert.equal($('labControlPane').hidden,false);assert.equal($('wbFailuresPanel').hidden,false);assert.equal($('wbPoliciesPanel').hidden,true);
+$('wbPolicies').click();assert.equal($('wbPoliciesPanel').hidden,false);assert.equal($('wbFailuresPanel').hidden,true);$('wbPolicies').click();assert.equal($('labControlPane').hidden,true);
+const old=w.SimulationWorkbench.camera().zoom;$('wbZoomIn').click();assert.ok(w.SimulationWorkbench.camera().zoom>old);$('wbActualSize').click();assert.equal(w.SimulationWorkbench.camera().zoom,1);$('wbFit').click();
+d.querySelector('rect[data-device=ce2]').dispatchEvent(new w.MouseEvent('click',{bubbles:true}));assert.equal($('syntheticNode').value,'ce2');assert.equal($('wbFailuresPanel').hidden,false);assert.equal(w.SyntheticLab.evaluate().gateway.active,'ce1','Selection alone must not fail device');$('syntheticNodeDown').click();assert.ok(d.querySelector('[data-failed-device=ce2]'));
+$('syntheticRecord').click();assert.equal($('wbRecordCount').textContent,'1');assert.match(w.NetworkLab.scenarioRecords()[0].topologySvg,/DEVICE FAILED/);assert.ok(!w.NetworkLab.scenarioRecords()[0].topologySvg.includes('translate('),'Camera transform must stay outside exported SVG');$('labClear').click();assert.equal($('wbRecordCount').textContent,'0');assert.equal(JSON.stringify(w.NetworkLab.model()),model);assert.equal($('labMap').getAttribute('viewBox'),geometry);
+$('wbResults').click();d.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape'}));assert.equal($('labControlPane').hidden,true);assert.equal($('labExample'),null);w.close();console.log('Workbench panels, contextual selection, zoom, immutable geometry/model, failure snapshots and record counts passed');

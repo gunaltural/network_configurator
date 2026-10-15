@@ -460,7 +460,7 @@
     const active=state.links.filter(l=>l.enabled);
     const incomplete=currentReportInventory().filter(d=>!d.external&&(!d.model||!d.serial));
     const missingPorts=active.filter(l=>!l.upperPort||!l.lowerPort).length;
-    $("projectStatus").textContent=`${state.source?"Workspace design":"Draft"} · ${state.devices.length} ${state.moduleReports?.length?"configuration targets":state.devices.length===1?"device":"devices"} · ${active.length} ${active.length===1?"link":"links"}`;
+    $("projectStatus").textContent=`${state.source?"Workspace design":"Draft"} · ${state.devices.length} ${state.moduleReports?.length?"configuration targets":state.devices.length===1?"device":"devices"} · ${active.length} ${active.length===1?"link":"links"}${state.simulationScenarios?.length?` · ${state.simulationScenarios.length} ${state.language==='tr'?'simülasyon senaryosu':'simulation scenario(s) included'}`:""}`;
     $("linkCount").textContent=active.length;
     const presentation=NetworkReportGuide.designPresentation(state),guide=NetworkReportGuide.build(state),topologyNarratives=presentation.narratives;
     const special=state.specialLinks||[],parameters=reportParameters(),configs=state.configurations||[],moduleReports=state.moduleReports||[];
@@ -829,7 +829,8 @@
           p.inventoryRevision=2;p.projectDetails=old.projectDetails||{};p.projectExampleValues=old.projectExampleValues||{fields:{}};p.scope=p.scope||old.scope||"";
         }
         if(old?.verificationPlan)p.verificationPlan=old.verificationPlan;
-        if(!p.simulationScenarios?.length&&old?.simulationScenarios)p.simulationScenarios=old.simulationScenarios;
+        const scenarioPrevious=compatible&&current?.source?.projectId===p.source.projectId?current:cached;
+        if(!Array.isArray(p.simulationScenarios)&&Array.isArray(scenarioPrevious?.simulationScenarios))p.simulationScenarios=scenarioPrevious.simulationScenarios;
         if(old?.source && old.source.module===p.source.module && old.vendor===p.vendor && Array.isArray(old.devices)){
           normalizeInventoryProject(old);
           const previous=new Map(old.devices.map(d=>[d.id,d]));
@@ -848,7 +849,14 @@
   $("openProject").addEventListener("change",async e=>{const file=e.target.files[0];if(!file)return;try{const data=JSON.parse(await file.text());if(data.schema==="network-configurator-project-v1")window.NetworkProjects.openFile(data);else{openReport(data);window.NetworkProjects?.reset();}}catch(err){alert("Could not open project: "+err.message);}finally{e.target.value="";}});
   try{
     const source=sessionStorage.getItem("networkConfigurator.report.import");
-    if(source){sessionStorage.removeItem("networkConfigurator.report.import");openReport(JSON.parse(source),true);}
+    const handoff=JSON.parse(sessionStorage.getItem('networkConfigurator.report.handoff')||'null');
+    if(new URLSearchParams(location.search).get('from')==='simulation'&&handoff?.from==='simulation'){
+      const transferred=JSON.parse(sessionStorage.getItem('networkConfigurator.report.current')||'null');
+      if(!transferred||transferred.source?.projectId!==handoff.projectId)throw Error('The simulation report transfer does not match the active project.');
+      sessionStorage.removeItem('networkConfigurator.report.import');openReport(transferred);sessionStorage.removeItem('networkConfigurator.report.handoff');
+      if(new URLSearchParams(location.search).get('section')==='simulation')setTimeout(()=>document.querySelector('.simulation-report')?.scrollIntoView({block:'start'}),0);
+    }
+    else if(source){sessionStorage.removeItem("networkConfigurator.report.import");openReport(JSON.parse(source),true);}
     else{
       const current=sessionStorage.getItem("networkConfigurator.report.current");
       if(current)openReport(JSON.parse(current));

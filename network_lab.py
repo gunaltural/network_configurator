@@ -121,6 +121,8 @@ def install_network_lab(app,base):
     def synthetic_engine():return Response((base/'synthetic-bgp.js').read_text(),media_type='application/javascript',headers={'Cache-Control':'no-store'})
     @app.get('/synthetic-lab.js')
     def synthetic_ui():return Response((base/'synthetic-lab.js').read_text(),media_type='application/javascript',headers={'Cache-Control':'no-store'})
+    @app.get('/simulation-workbench.js')
+    def simulation_workbench_script():return Response((base/'simulation-workbench.js').read_text(),media_type='application/javascript',headers={'Cache-Control':'no-store'})
     @app.get('/network-lab.js')
     def script():return Response((base/'network-lab.js').read_text(),media_type='application/javascript',headers={'Cache-Control':'no-store'})
     @app.get('/api/network-lab/status')
