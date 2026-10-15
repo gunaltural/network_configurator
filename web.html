@@ -1562,7 +1562,6 @@ function huaweiMlagWorkspaceUI(){
    <div><label>DFS Group</label><input id="hwDfs" value="1"></div>
    <div><label>Master Priority</label><input id="hwPri1" value="150"></div>
    <div><label>Backup Priority</label><input id="hwPri2" value="100"></div>
-   <div><label>Downstream M-LAG ID</label><input id="hwMlagId" value="10"></div>
   </div>
  </section>
 
@@ -1795,14 +1794,67 @@ function ensureDesignLinkSpeed(){
  const select=field.querySelector("select");select.value=window.__workspaceModuleStates?.[tech]?.fields?.designUplinkSpeed||"";
  select.addEventListener("change",()=>{captureWorkspaceModule(tech);renderOutput();});
 }
+// Shared presentation only: retain native input nodes, IDs, values and event handlers.
+function standardizeVpcWorkspace(){
+ const root=document.getElementById('params'),pl=platform();if(tech!=='VPC'||!root)return;
+ if(root.querySelector('[data-vpc-standard="'+pl+'"]'))return;
+ const titles=['Topology & Platform','Peer & Control Plane','Leaf Connectivity','VLAN & Trunk Policy','STP & Convergence','Vendor Advanced Parameters','Configuration Output'];
+ const native={
+  'Arista EOS':{badge:'MLAG',groups:[['arH1','arH2','arDomain'],['arPv','arTg','arIp1','arIp2','arPpo','arPif1','arPif2'],[],['arVlans','arTp'],['arStp','arScope','arCp','arLp'],['arBpdu','arNoStp','arRg'],['arOutput']],count:'arLeafCount',mode:'arLacp',attribute:'arLeaf',leaf:n=>({name:'arLeaf'+n,bundle:'arPo'+n,extra:'arMid'+n,ports:['arIf1_'+n,'arIf2_'+n,'arUp1_'+n,'arUp2_'+n,'arLpo'+n]})},
+  'Cisco IOS-XE':{badge:'STACKWISE VIRTUAL',groups:[['swvHost','swvDomain'],['swvLink1','swvLink2','swvLinkId','swvDad1','swvDad2'],[],['swvVlans','swvTrunkPolicy'],['swvStpMode','swvStpVlans','swvStpPri','swvLeafStpPri'],['swvBpdu','swvLoop','swvRootGuard'],['swvOutput']],count:'swvLeafCount',mode:'swvLacp',attribute:'swvLeaf',leaf:n=>({name:'swvLeaf'+n,bundle:'swvLeafPo'+n,ports:['swvLeafCoreIf1_'+n,'swvLeafCoreIf2_'+n,'swvLeafUp1_'+n,'swvLeafUp2_'+n,'swvLeafLocalPo'+n]})},
+  'Huawei_CE_SW':{badge:'M-LAG',groups:[['hwHost1','hwHost2','hwDfs'],['hwPri1','hwPri2','hwDadIf1','hwDadIf2','hwDadIp1','hwDadIp2','hwDadMask','hwPeerPo','hwPeerLinkId','hwPeerIf1','hwPeerIf2'],[],['hwVlans','hwTrunkPolicy'],['hwStpMode','hwVstp','hwBridgeMac'],['hwBpdu'],['hwOutput']],count:'hwLeafCount',attribute:'hwLeaf',leaf:n=>({name:'hwLeaf'+n,bundle:'hwLeafPo'+n,ports:['hwLeafIf1_'+n,'hwLeafIf2_'+n,'hwUp1_'+n,'hwUp2_'+n]})},
+  'Huawei iStack':{badge:'iStack',groups:[['isHost','isModel','isRelease','isName1','isName2','isId1','isId2'],['isCurrent1','isCurrent2','isPriority1','isPriority2','isLink1a','isLink1b','isLink2a','isLink2b','isTopology','isStackSpeed','isMad','isMad1','isMad2'],[],['isVlans','isTrunk'],['isStp','isCorePriority','isLeafPriority'],['isMacDelay','isRootGuard'],['isOutput']],count:'isLeafCount',attribute:'istackLeaf',leaf:n=>({name:'isLeaf'+n,bundle:'isPo'+n,ports:['isCore1_'+n,'isCore2_'+n,'isUp1_'+n,'isUp2_'+n]})}
+ };
+ const config=native[pl];
+ const card=(index)=>{const node=document.createElement('section');node.className='vpc-v42-card';node.dataset.vpcSection=String(index+1);node.innerHTML=`<div class="vpc-v42-head"><div><div class="vpc-v42-title">${index+1} · ${titles[index]}</div></div><span class="vpc-v42-badge">${config?.badge||'vPC'}</span></div>`;return node;};
+ const wrapField=(id,label)=>{const input=document.getElementById(id);if(!input)return null;
+  if(input.type==='checkbox')return input.closest('label');
+  const text=label||input.parentElement.querySelector('label')?.textContent||input.getAttribute('aria-label')||id;
+  const wrapper=document.createElement('div'),caption=document.createElement('label');caption.htmlFor=id;caption.textContent=text;input.setAttribute('aria-label',text);wrapper.append(caption,input);return wrapper;
+ };
+ if(!config){
+  if(pl!=='Cisco NX-OS')return;
+  const existing=[...root.querySelectorAll(':scope > .vpc-v42-card')];if(existing.length<6)return;
+  existing.slice(0,6).forEach((node,i)=>{node.dataset.vpcSection=String(i+1);node.querySelector('.vpc-v42-title').textContent=`${i+1} · ${titles[i]}`;});
+  const speed=document.getElementById('designUplinkSpeed');if(speed&&!existing[2].contains(speed)){const rate=document.createElement('div');rate.className='param-grid';const field=wrapField('designUplinkSpeed');if(field)rate.append(field);existing[2].append(rate);}
+  const output=card(6),grid=document.createElement('div');grid.className='param-grid';const field=wrapField('vpcOutputDevice');if(field)grid.append(field);output.append(grid);
+  // Keep any remaining editable native controls; discard legacy empty wrappers and duplicated instructions.
+  for(const input of [...root.querySelectorAll('input[id],select[id],textarea[id]')])if(!existing.some(node=>node.contains(input))&&!output.contains(input)){const field=wrapField(input.id);if(field)existing[5].append(field);}
+  root.replaceChildren(...existing.slice(0,6),output);existing[0].dataset.vpcStandard=pl;return;
+ }
+ const original=[...root.querySelectorAll('input[id],select[id],textarea[id]')],used=new Set(),cards=titles.map((_,i)=>card(i));root.append(...cards);
+ const place=(id,target,label)=>{const node=wrapField(id,label);if(node){target.append(node);used.add(id);}};
+ config.groups.forEach((ids,i)=>{const grid=document.createElement('div');grid.className='param-grid';ids.forEach(id=>place(id,grid));cards[i].append(grid);});
+ const header=document.createElement('div');header.className='param-grid';place(config.count,header,'Leaf Count');if(config.mode)place(config.mode,header,'Downstream Bundle Negotiation');cards[2].append(header);
+ if(config.mode){const input=document.getElementById(config.mode);const labels={active:'LACP · active / active (recommended)',passive:'LACP · core active / leaf passive',on:'Static · on / on (no LACP)',desirable:'PAgP · desirable / desirable',auto:'PAgP · core desirable / leaf auto'};for(const option of input.options)option.textContent=labels[option.value]||option.textContent;}
+ else{const note=document.createElement('p');note.className='hint';note.textContent=pl==='Huawei iStack'?'Cross-member Eth-Trunk · static LACP on the logical stack and each leaf.':'Dual-homed M-LAG · static LACP on both peers and each leaf.';cards[2].append(note);}
+ const table=document.createElement('div');table.className='vpc-leaf-table';table.style.gridTemplateColumns=config.leaf(1).extra?'minmax(0,1.2fr) minmax(0,.7fr) minmax(0,.6fr)':'minmax(0,1fr) minmax(0,.65fr)';
+ const columns=['Leaf / Hostname',pl.startsWith('Huawei')?'Eth-Trunk / '+(pl==='Huawei iStack'?'Bundle ID':'M-LAG ID'):'Peer Port-Channel'];if(config.leaf(1).extra)columns.push('MLAG ID');for(const text of columns){const th=document.createElement('div');th.className='vpc-leaf-th';th.textContent=text;table.append(th);}
+ const details=document.createElement('details');details.className='vpc-v42-details';const summary=document.createElement('summary');summary.textContent='Physical Interface Parameters';details.append(summary);
+ const count=Number(document.getElementById(config.count)?.value)||4;
+ const visibility=(node,n)=>{node.dataset[config.attribute]=String(n);if(config.attribute==='istackLeaf')node.hidden=n>count;else node.style.display=n>count?'none':'';};
+ for(let n=1;n<=8;n++){
+  const leaf=config.leaf(n);
+  for(const [id,label]of [[leaf.name,`Leaf-${n} hostname`],[leaf.bundle,`Leaf-${n} ${columns[1]}`],...(leaf.extra?[[leaf.extra,`Leaf-${n} MLAG ID`]]:[])]){
+   const input=document.getElementById(id);if(!input)continue;const cell=document.createElement('div');cell.className='vpc-leaf-cell';visibility(cell,n);input.setAttribute('aria-label',label);cell.append(input);table.append(cell);used.add(id);
+  }
+  const row=document.createElement('div');row.className='vpc-leaf-interfaces';visibility(row,n);const label=document.createElement('div');label.className='section-title';label.textContent=`Leaf-${n} · interface and local bundle mapping`;row.append(label);const grid=document.createElement('div');grid.className='param-grid';leaf.ports.forEach(id=>place(id,grid));row.append(grid);details.append(row);
+ }
+ cards[2].append(table,details);const rate=document.createElement('div');rate.className='param-grid';place('designUplinkSpeed',rate,'Leaf–Spine / Core uplink speed');if(rate.children.length)cards[2].append(rate);
+ // Native controls not listed above remain available rather than being silently dropped.
+ for(const input of original)if(!used.has(input.id)){place(input.id,cards[5]);}
+ const sub=document.createElement('p');sub.className='vpc-v42-sub';sub.textContent=pl==='Huawei iStack'?'Two physical members form one logical switch. Stack preparation, interconnect and MAD settings remain native to Huawei iStack.':pl==='Cisco IOS-XE'?'StackWise Virtual uses one logical core with MEC bundles across both chassis.':pl==='Huawei_CE_SW'?'Independent CloudEngine M-LAG peers use DFS, peer-link and DAD.':'Independent EOS MLAG peers use a private peer VLAN and peer-link.';cards[0].append(sub);
+ cards[0].dataset.vpcStandard=pl;root.replaceChildren(...cards);
+}
+
 function vpcV42WorkspaceUI(){
  if(tech!=="VPC")return;
- if(platform()==="Cisco IOS-XE"){stackWiseWorkspaceUI();ensureDesignLinkSpeed();return;}
- if(platform()==="Arista EOS"){aristaMlagWorkspaceUI();ensureDesignLinkSpeed();return;}
- if(platform()==="Huawei iStack"){if(!document.getElementById("isHost"))HuaweiIStack.ui(()=>{syncTopology();renderOutput();});ensureDesignLinkSpeed();return;}
- if(platform()==="Huawei_CE_SW"){huaweiMlagWorkspaceUI();ensureDesignLinkSpeed();return;}
+ if(platform()==="Cisco IOS-XE"){stackWiseWorkspaceUI();standardizeVpcWorkspace();ensureDesignLinkSpeed();return;}
+ if(platform()==="Arista EOS"){aristaMlagWorkspaceUI();standardizeVpcWorkspace();ensureDesignLinkSpeed();return;}
+ if(platform()==="Huawei iStack"){if(!document.getElementById("isHost"))HuaweiIStack.ui(()=>{syncTopology();renderOutput();});standardizeVpcWorkspace();ensureDesignLinkSpeed();return;}
+ if(platform()==="Huawei_CE_SW"){huaweiMlagWorkspaceUI();standardizeVpcWorkspace();ensureDesignLinkSpeed();return;}
  const root=document.getElementById("params");if(!root)return;
- if(root.dataset.vpc46==="1"&&document.getElementById("vpcChannelMode")?.closest(".vpc-v42-card")){vpcV42ContextUI();return;}
+ if(root.dataset.vpc46==="1"&&document.getElementById("vpcChannelMode")?.closest(".vpc-v42-card")){vpcV42ContextUI();standardizeVpcWorkspace();return;}
  root.dataset.vpc46="1";
 
  const titles=[...root.querySelectorAll(".section-title")];
@@ -1871,7 +1923,7 @@ function vpcV42WorkspaceUI(){
  const hag=document.createElement("div");hag.className="param-grid";["huaweiDfsPri1","huaweiDfsPri2","huaweiUpDelay","huaweiAutoRecovery","huaweiDadDelay","huaweiLacpMode"].forEach(id=>{const e=document.getElementById(id)?.parentElement;if(e)hag.appendChild(e)});hAdv.appendChild(hag);adv.appendChild(hAdv);
 
  [design,peer,leaf,vlan,stp,adv].reverse().forEach(x=>root.prepend(x));
- vpcV42ContextUI();
+ vpcV42ContextUI();standardizeVpcWorkspace();
 }
 function vpcV42ContextUI(){
  if(tech!=="VPC")return;
@@ -5924,7 +5976,7 @@ renderModule();
        add("Service restoration and spanning tree",`${r("arStp")} · core priority ${r("arCp")} · reload delay ${r("aristaReloadMlag")||"platform default"} s`,
          `Core and leaf priorities ${r("arCp")} / ${r("arLp")} express the intended STP root relationship; confirm the resulting bridge IDs. Reload delay defers MLAG service after restart so peer state can resynchronize before traffic returns. Its effective value must be confirmed in the generated EOS configuration.`);
      }else if(pl==="Huawei_CE_SW"){
-       add("Dual-attached M-LAG service",`DFS group ${r("hwDfs")} · M-LAG ${r("hwMlagId")} · ${r("hwLeafCount")} leaves`,
+       add("Dual-attached M-LAG service",`DFS group ${r("hwDfs")} · M-LAG IDs ${Array.from({length:Number(r("hwLeafCount"))||4},(_,i)=>r("hwLeafPo"+(i+1))).join(", ")} · ${r("hwLeafCount")} leaves`,
          `Both Huawei switches coordinate their downstream attachments through the selected DFS group and matching M-LAG identifiers. Correct peer-link and member consistency is required before dual-homed leaf traffic can use both chassis.`);
        add("Peer synchronization and dual-active detection",`Eth-Trunk ${r("hwPeerPo")} · DAD ${r("hwDadIp1")} / ${r("hwDadIp2")}`,
          `The peer Eth-Trunk carries M-LAG synchronization. Dual-active detection provides a separate failure signal when the peer relationship is lost; its link and addressing should avoid the peer-link's failure domain. Role priorities ${r("hwPri1")} / ${r("hwPri2")} affect DFS master election but do not by themselves prove the active role.`);
