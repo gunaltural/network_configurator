@@ -45,11 +45,9 @@ from config_compare import install_config_compare
 from network_lab import install_network_lab
 from lab_gateway import install_lab_gateway
 
-VERSION = "5.44.0"
+VERSION = "5.44.1"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
-# Feature branch: additive vPC/MLAG simulation link (does not alter existing BGP controls).
-HTML = HTML.replace("</body>", '<script src="/simulation-vpc-link.js" defer></script></body>')
 # Keep the diagnostic entry point available with the authenticated page itself.
 HTML = HTML.replace('<script src="/path-diagnostics.js" defer></script>', "").replace("</body>", "<script>" + (BASE_DIR / "path-diagnostics.js").read_text(encoding="utf-8") + "</script></body>")
 REPORTING_HTML = (BASE_DIR / "reporting.html").read_text(encoding="utf-8")
