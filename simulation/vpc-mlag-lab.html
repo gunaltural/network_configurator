@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Network Configurator · vPC / MLAG Failure Lab</title>
+<style>
+:root{color-scheme:dark;font-family:Inter,Segoe UI,Arial,sans-serif;background:#0a111b;color:#e6edf3}
+*{box-sizing:border-box}body{margin:0}header{display:flex;justify-content:space-between;align-items:center;padding:18px 28px;border-bottom:1px solid #2a4155;gap:12px;flex-wrap:wrap}
+h1{font-size:22px;margin:0}h2{font-size:16px}small,.muted{color:#91a9ba}main{max-width:1450px;margin:auto;padding:22px;display:grid;grid-template-columns:minmax(300px,360px) minmax(0,1fr);gap:16px}
+section,.card{background:#101d2b;border:1px solid #2c4155;border-radius:14px;padding:16px}fieldset{border:1px solid #344d61;border-radius:10px;margin:14px 0;padding:10px}legend{font-weight:700;font-size:13px}
+label{display:flex;gap:8px;align-items:center;padding:7px 0;cursor:pointer}input[type=checkbox]{accent-color:#38bdf8;width:17px;height:17px}select,button{background:#142d40;border:1px solid #3f6179;color:#e6edf3;border-radius:9px;padding:10px;font:inherit}
+select{width:100%}button{cursor:pointer}button:hover{background:#21516c}.actions{display:flex;gap:8px;flex-wrap:wrap}.danger{border-color:#a84f58}.cards{display:grid;gap:12px}.severity{border-left:4px solid #63c58c;padding:12px;background:#0d1b27;border-radius:8px}.severity.critical{border-color:#ff7070}.severity.warning{border-color:#ffd16d}
+#workspaceTopologyVisual{max-height:70vh;min-height:170px;overflow:auto;border-radius:12px;background:#08141e;border:1px solid #30475b;padding:12px}#workspaceTopologyVisual svg{max-width:none;height:auto;display:block}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.5 ui-monospace,monospace;background:#06111b;border-radius:10px;padding:12px}
+a{color:#71d6ff} .status{padding:7px 11px;border-radius:999px;background:#173448;font-size:12px}
+@media(max-width:900px){main{grid-template-columns:1fr}}
+</style></head>
+<body><header><div><h1>vPC / MLAG Failure Lab</h1><small>Synthetic design-level analysis · Not real device telemetry</small></div><div class="actions"><a href="/">← Network Configurator</a><span class="status" id="status">No failure</span></div></header>
+<main>
+<section><h2>Failure controls</h2>
+<label for="vendor">Device platform / technology</label><select id="vendor">
+<option value="Cisco NX-OS">Cisco Nexus · vPC</option><option value="Arista EOS">Arista EOS · MLAG</option><option value="Huawei CloudEngine">Huawei CloudEngine · M-LAG</option><option value="Cisco_StackWise">Cisco StackWise Virtual</option></select>
+<fieldset><legend>Device Failure · multiple selection</legend><label><input type="checkbox" data-fault="nodeA"> <span id="nodeALabel">Peer A / primary device</span></label><label><input type="checkbox" data-fault="nodeB"> <span id="nodeBLabel">Peer B / secondary device</span></label></fieldset>
+<fieldset><legend>Connection Failure · multiple selection</legend>
+<div id="peerMemberOptions"><label><input type="checkbox" data-fault="peerLink1"> Peer-link member 1</label>
+<label><input type="checkbox" data-fault="peerLink2"> Peer-link member 2</label></div>
+<label id="livenessChoice"><input type="checkbox" data-fault="keepalive"> <span id="livenessName">Keepalive / heartbeat / DAD path</span></label>
+<label class="standaloneFault"><input type="checkbox" data-fault="uplinkA"> Peer A upstream uplink (standalone assumption)</label>
+<label class="standaloneFault"><input type="checkbox" data-fault="uplinkB"> Peer B upstream uplink (standalone assumption)</label>
+<div id="accessFailureChoices"></div></fieldset>
+<div class="actions"><button id="fail" class="danger">Fail Selected</button><button id="restore">Restore Selected</button><button id="reset">Reset Failures</button></div>
+<p class="muted">Selections are independent of the active failure state. Restore clears checkmarks for restored items. If either peer-link member survives, the logical peer-link remains available (assuming port-channel operation).</p>
+</section>
+<div class="cards">
+<section><h2>Technology Workspace topology</h2>
+<p class="muted">Exact dynamic Workspace topology snapshot, including actual number of devices, labels and interfaces. Fault consequences are displayed below; no fictitious links are added to the drawing.</p>
+<div id="workspaceTopologyVisual" role="img" aria-label="Imported Technology Workspace network topology"><p class="muted">No Technology Workspace SVG imported. Return to the technology workspace to load the current topology.</p></div>
+<div id="health" class="status" aria-live="polite"></div></section>
+<section><h2>Expected operational impact</h2><div id="findings" class="cards" aria-live="polite"></div></section>
+<section><h2>Leaf and access-link physical impact</h2><p class="muted">Physical attachment assessment only. An operational vPC/MLAG member, LACP state, VLAN service and gateway are not proven by link presence.</p><div id="accessFindings" class="cards"></div></section>
+<section><h2>Imported design context</h2><p id="designSummary" class="muted">Standalone synthetic two-peer template; no workspace design imported.</p><pre id="designPorts">No actual device/interface mapping imported.</pre></section>
+<section><h2>Scenario evidence / export</h2><div class="actions"><button id="copy">Copy scenario report</button><button id="download">Download JSON</button></div><pre id="report"></pre></section>
+</div></main>
+<script type="module">
+import {analyzeMlagFailure,analyzeAccessImpact,changeFailures} from '/simulation/vendor-failure-engine.mjs';
+const $=id=>document.getElementById(id);
+let design=null;try{const raw=sessionStorage.getItem('networkConfigurator.mlagSimulation.design');if(raw)design=JSON.parse(raw);}catch{}
+if(design&&!Array.isArray(design.devices))design=null;
+const peerA=design?.devices?.find(d=>d.id==='upper-1'),peerB=design?.devices?.find(d=>d.id==='upper-2');
+if(peerA&&peerB){
+ $('nodeALabel').textContent=peerA.hostname+' / peer A';
+ $('nodeBLabel').textContent=peerB.hostname+' / peer B';
+}
+function loadWorkspaceTopology(){
+ const host=$('workspaceTopologyVisual');
+ const raw=sessionStorage.getItem('networkConfigurator.mlagSimulation.topologySvg');
+ if(!raw)return false;
+ const parsed=new DOMParser().parseFromString(raw,'image/svg+xml');
+ if(parsed.querySelector('parsererror')||parsed.documentElement.localName!=='svg')return false;
+ const svg=parsed.documentElement;
+ const allowed=new Set(['svg','g','path','line','rect','circle','ellipse','polyline','polygon','text','tspan','defs','linearGradient','radialGradient','stop','clipPath','mask','pattern','title','desc','use','symbol','marker']);
+ const safeAttributes=new Set(['viewBox','width','height','x','y','x1','y1','x2','y2','cx','cy','rx','ry','r','d','points','transform','fill','fill-rule','stroke','stroke-width','stroke-dasharray','stroke-linecap','stroke-linejoin','opacity','font-family','font-size','font-weight','text-anchor','dominant-baseline','class','id','role','aria-label','preserveAspectRatio','offset','stop-color','stop-opacity','clip-path','mask','marker-start','marker-mid','marker-end','style']);
+ // Maintain native presentation while stripping event handlers, external URIs and executable nodes.
+ for(const el of [...svg.querySelectorAll('*')].reverse()){
+   if(!allowed.has(el.localName)){el.remove();continue;}
+   for(const attr of [...el.attributes]){
+     const key=attr.name,value=attr.value;
+     if((!safeAttributes.has(key)&&key!=='href'&&key!=='xlink:href')||/^on/i.test(key)||/javascript:|@import|expression\s*\(/i.test(value)||/url\s*\(\s*['"]?(?!#)/i.test(value)||((key==='href'||key==='xlink:href')&&!value.startsWith('#')))el.removeAttribute(key);
+   }
+ }
+ for(const attr of [...svg.attributes])if(!safeAttributes.has(attr.name)&&attr.name!=='xmlns')svg.removeAttribute(attr.name);
+ const imported=document.importNode(svg,true);
+ imported.removeAttribute('width');imported.removeAttribute('height');imported.style.maxWidth='100%';
+ imported.style.height='auto';imported.style.pointerEvents='none';
+ host.replaceChildren(imported);return true;
+}
+const dynamicTopologyLoaded=loadWorkspaceTopology();
+const memberRecords=(design?.specialLinks||[]).filter(l=>/Peer-link|SVL members/i.test(l.kind));
+if(memberRecords.length){
+ const host=$('peerMemberOptions');host.replaceChildren();
+ memberRecords.forEach((link,i)=>{
+   const label=document.createElement('label'),input=document.createElement('input'),name=document.createElement('span');
+   input.type='checkbox';input.dataset.fault='peerLink'+(i+1);
+   name.textContent='Peer-link '+(i+1)+': '+(link.aPort||'?')+' ↔ '+(link.bPort||'?');
+   label.append(input,name);host.append(label);
+ });
+}
+if(design){
+ // Do not invent peer-link members or dedicated liveness/uplinks absent from the design.
+ if(!memberRecords.length)$('peerMemberOptions').replaceChildren();
+ document.querySelectorAll('.standaloneFault').forEach(el=>el.remove());
+ const dedicated=(design.specialLinks||[]).find(l=>/vPC keepalive|DAD|DFS/i.test(l.kind));
+ if(dedicated)$('livenessName').textContent=dedicated.kind+': '+(dedicated.aPort||'?')+' ↔ '+(dedicated.bPort||'?');
+ else $('livenessChoice').remove(); // Arista peer-control VLAN is not a separate heartbeat fault domain.
+}
+const peerMemberIds=[...document.querySelectorAll('#peerMemberOptions [data-fault]')].map(e=>e.dataset.fault);
+if(design){
+ $('designSummary').textContent=(design.name||'Imported design')+' · '+(design.technology||'vPC / MLAG')+' · '+(design.devices||[]).length+' devices · '+(design.links||[]).length+' access links';
+ $('designPorts').textContent=(design.links||[]).map(l=>{
+ const a=design.devices?.find(d=>d.id===l.a)?.hostname||l.a;
+ const b=design.devices?.find(d=>d.id===l.b)?.hostname||l.b;
+ return a+' '+(l.upperPort||'?')+'  ↔  '+b+' '+(l.lowerPort||'?')+'  '+(l.detail||'');
+ }).join('\n')||'No leaf/interface records.';
+}
+if(design?.links?.length){
+ const host=$('accessFailureChoices'),field=document.createElement('fieldset'),legend=document.createElement('legend');
+ legend.textContent='Imported leaf access connections';field.append(legend);
+ for(const link of design.links){
+   if(!link.id||!['upper-1','upper-2'].includes(link.a)&&!['upper-1','upper-2'].includes(link.b))continue;
+   const label=document.createElement('label'),input=document.createElement('input'),name=document.createElement('span');
+   input.type='checkbox';input.dataset.fault=link.id;
+   const src=design.devices.find(d=>d.id===link.a)?.hostname||link.a;
+   const dst=design.devices.find(d=>d.id===link.b)?.hostname||link.b;
+   name.textContent=src+' '+(link.upperPort||'?')+' ↔ '+dst+' '+(link.lowerPort||'?');
+   label.append(input,name);field.append(label);
+ }
+ host.append(field);
+}
+const boxes=[...document.querySelectorAll('[data-fault]')];
+const transferred=sessionStorage.getItem('networkConfigurator.mlagSimulation.vendor');if([...$('vendor').options].some(o=>o.value===transferred))$('vendor').value=transferred;
+let state={devices:[],links:[],selectedDevices:[],selectedLinks:[]};const deviceNames=new Set(['nodeA','nodeB']);
+const choices=()=>boxes.filter(x=>x.checked).map(x=>x.dataset.fault);
+function apply(action){const selected=choices(),devices=selected.filter(x=>deviceNames.has(x)),links=selected.filter(x=>!deviceNames.has(x));
+if(action==='reset')state=changeFailures(state,'reset','devices',[]);
+else {state=changeFailures(state,action,'devices',devices);state=changeFailures(state,action,'links',links);}
+if(action!=='fail'){for(const x of boxes)if(action==='reset'||selected.includes(x.dataset.fault))x.checked=false;}
+render();}
+function render(){
+const failed=[...state.devices,...state.links];if(peerMemberIds.length&&peerMemberIds.every(id=>state.links.includes(id)))failed.push('peerLink');
+const result=analyzeMlagFailure({vendor:$('vendor').value,failed,peerLinkMemberCount:peerMemberIds.length});
+const access=analyzeAccessImpact({design,failedDevices:state.devices,failedLinks:state.links,peerLinkAvailable:!failed.includes('peerLink'),vendor:$('vendor').value});
+const affected=result.findings.filter(f=>f.severity!=='normal');
+$('status').textContent=affected.length?affected.length+' modeled finding(s)':'No failure';
+$('health').textContent='Device failures: '+state.devices.length+' · Connection failures: '+state.links.length+' · Peer-link members available: '+peerMemberIds.filter(id=>!state.links.includes(id)).length+'/'+peerMemberIds.length+(dynamicTopologyLoaded?' · Dynamic Workspace topology':' · No Workspace topology');
+$('accessFindings').replaceChildren();
+if(!access.leaves.length){const msg=document.createElement('p');msg.className='muted';msg.textContent='No leaf/access design imported. Open from a configured vPC / MLAG workspace for per-leaf analysis.';$('accessFindings').append(msg);}
+for(const leaf of access.leaves){
+ const card=document.createElement('div');card.className='severity '+(leaf.status==='isolated'?'critical':leaf.status==='single-path'||leaf.status==='conditional'?'warning':'');
+ const title=document.createElement('strong');title.textContent=leaf.hostname+' · '+leaf.status+' · '+leaf.availablePhysicalLinks+'/'+leaf.totalLinks+' physical legs';
+ const detail=document.createElement('p');detail.textContent=leaf.message;
+ const routes=document.createElement('small');routes.textContent=leaf.paths.map(p=>p.peerName+': '+(p.physicalAvailable?'available':'down')+' ('+p.reason+')').join(' · ');
+ card.append(title,detail,routes);$('accessFindings').append(card);
+}
+$('findings').replaceChildren();for(const f of result.findings){const el=document.createElement('div');el.className='severity '+f.severity;const head=document.createElement('strong');head.textContent=f.code.replaceAll('_',' ');const desc=document.createElement('p');desc.textContent=f.description;el.append(head,desc);$('findings').append(el);}
+$('report').textContent=JSON.stringify({schema:'network-configurator-mlag-simulation-v1',timestamp:new Date().toISOString(),vendor:result.vendor,failedDevices:state.devices,failedConnections:state.links,dynamicTopologyLoaded,importedDesign:design?{name:design.name,technology:design.technology,devices:design.devices,accessLinks:design.links,peerControlLinks:design.specialLinks}:null,findings:result.findings,accessImpact:access,assumptions:['peer-link member count follows imported design when available','logical peer-link fails only when all modeled members down','offline qualitative simulation, no device telemetry','vendor/OS-specific configuration and convergence must be verified']},null,2);}
+$('fail').onclick=()=>apply('fail');$('restore').onclick=()=>apply('restore');$('reset').onclick=()=>apply('reset');$('vendor').onchange=render;
+$('copy').onclick=()=>{navigator.clipboard.writeText($('report').textContent).catch(()=>{});};
+$('download').onclick=()=>{const blob=new Blob([$('report').textContent],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='mlag-failure-scenario.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};render();
+</script></body></html>

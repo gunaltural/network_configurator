@@ -47,7 +47,18 @@ function evaluate(model,downNodes=[],downLinks=[],options={}){
  const clientOutbound={source:'client',state:!activeGateway?'no-gateway':clientCandidates.length?'reachable':'no-path',candidates:clientCandidates,selected:clientCandidates[0]||null};
  const clientInbound=['isp1','isp2'].map(isp=>{
   if(failedNodes.has(isp))return {source:isp,state:'device-down',candidates:[],selected:null};
-  const candidates=model.links.filter(l=>active(l)&&[l.a,l.b].includes(isp)).map(l=>{const entry=[l.a,l.b].find(id=>id.startsWith('ce'));return {entry,isp,externalLink:l.id,prependCount:l.prependCount??0,asPath:Array(1+(l.prependCount??0)).fill(nodes.get(entry).asn),nodes:['internet',isp,entry,'lan','client'],links:['internet-'+isp,l.id,'lan-'+entry,'client-lan']};});
+  const candidates=model.links.filter(l=>active(l)&&[l.a,l.b].includes(isp)).flatMap(l=>{
+   const entry=[l.a,l.b].find(id=>id.startsWith('ce'));
+   if(!entry||failedNodes.has(target))return [];
+   const internal=entry===target?null:model.links.find(x=>active(x)&&[x.a,x.b].includes(entry)&&[x.a,x.b].includes(target));
+   if(entry!==target&&!internal)return [];
+   // Selected customer prefix belongs to 'target'; a different edge needs the
+   // modeled CE interconnect before we can claim an inbound path to that prefix.
+   return [{entry,isp,externalLink:l.id,prependCount:l.prependCount??0,
+    asPath:Array(1+(l.prependCount??0)).fill(nodes.get(target).asn),
+    nodes:['internet',isp,entry,...(internal?[target]:[]),'lan','client'],
+    links:['internet-'+isp,l.id,...(internal?[internal.id]:[]),'lan-'+target,'client-lan']}];
+  });
   candidates.sort((a,b)=>a.asPath.length-b.asPath.length||a.externalLink.localeCompare(b.externalLink));
   return {source:isp,state:candidates.length?'reachable':'no-path',candidates,selected:candidates[0]||null};
  });

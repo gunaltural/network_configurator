@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Network Configurator v5.16.0</title>
+<title>Network Configurator v5.44.0</title>
 <style>
 :root{
   --bg:#0d1117;--panel:#161b22;--panel2:#1f2630;--line:#2b3440;
@@ -414,7 +414,7 @@ body.nc-simulation-action{padding-bottom:145px}body.nc-simulation-action #topolo
     <div class="logo">NC</div>
     <div><h1>Network Configurator</h1><small>Configure · Validate · Troubleshoot</small></div>
   </div>
-  <div class="badge">Version 5.16.0 · Design Reporting</div>
+  <div class="badge">Version 5.44.0 · Simulation RC</div>
 </header>
 
 <div class="layout">
@@ -6534,7 +6534,7 @@ function prepareSimulation(){
  sessionStorage.setItem('networkConfigurator.lab.context',JSON.stringify({projectId:project.project.id,model,report,topologySvg:workspaceTopologySvg(true)}));
  return model;
 }
-window.NetworkWorkspaceProject={prepareSimulation,labDesign:bgpLabDesign,snapshot,apply:applyProject,prepareCompare,diagnosticScope:()=>({module:tech,platform:platform()}),diagnosticDesign:reportingDesign,diagnosticResult:()=>window.__latestDiagnosticResult||null,rename:name=>{$("v3ProjectName").value=name;}};
+window.NetworkWorkspaceProject={simulationTopologySvg:()=>workspaceTopologySvg(true),prepareSimulation,labDesign:bgpLabDesign,snapshot,apply:applyProject,prepareCompare,diagnosticScope:()=>({module:tech,platform:platform()}),diagnosticDesign:reportingDesign,diagnosticResult:()=>window.__latestDiagnosticResult||null,rename:name=>{$("v3ProjectName").value=name;}};
 })();
 </script>
 

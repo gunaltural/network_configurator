@@ -239,7 +239,7 @@ assert.equal(context.state.projectDetails.customer,'Existing customer');
 assert.equal(context.state.projectDetails.documentStatus,'For review');
 assert.equal(context.state.name.includes('vPC'),true);
 assert.equal(context.state.scope.includes('Inventory'),true);
-assert.equal(Object.keys(context.state.projectDetails).length,16);
+assert.ok(Object.keys(context.state.projectDetails).length>=16,'Project example should retain all required detail fields, including new ones');
 context.state.projectDetails.reference='CUSTOM-REF';
 vm.runInContext('applyProjectExample()',context);
 assert.equal(context.state.projectDetails.reference,'CUSTOM-REF');

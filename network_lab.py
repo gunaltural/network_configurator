@@ -117,6 +117,15 @@ def install_network_lab(app,base):
         try: report=build_simulation_docx(payload.model_dump())
         except (ValueError,OSError) as exc: raise HTTPException(status_code=400,detail='Invalid simulation topology image.') from exc
         return StreamingResponse(report,media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',headers={'Content-Disposition':'attachment; filename="simulation-report.docx"','Cache-Control':'no-store'})
+    @app.get('/vpc-mlag-simulation',response_class=HTMLResponse)
+    def vpc_mlag_simulation_page():
+        return HTMLResponse((base/'simulation'/'vpc-mlag-lab.html').read_text(encoding='utf-8'),headers={'Cache-Control':'no-store'})
+    @app.get('/simulation/vendor-failure-engine.mjs')
+    def vendor_failure_module():
+        return Response((base/'simulation'/'vendor-failure-engine.mjs').read_text(encoding='utf-8'),media_type='text/javascript',headers={'Cache-Control':'no-store'})
+    @app.get('/simulation-vpc-link.js')
+    def simulation_vpc_link():
+        return Response((base/'simulation'/'simulation-vpc-link.js').read_text(encoding='utf-8'),media_type='application/javascript',headers={'Cache-Control':'no-store'})
     @app.get('/synthetic-bgp.js')
     def synthetic_engine():return Response((base/'synthetic-bgp.js').read_text(),media_type='application/javascript',headers={'Cache-Control':'no-store'})
     @app.get('/synthetic-lab.js')
