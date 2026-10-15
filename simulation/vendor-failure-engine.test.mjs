@@ -25,3 +25,18 @@ test("does not claim actual BGP forwarding behavior",()=>{
  const r=analyzeBgpConnectivity({nodes:[{id:"A"}],source:"A"});
  assert.match(r.limitation,/not a BGP best-path/);
 });
+
+test("one failed peer link member only degrades redundancy",()=>{
+ const r=analyzeMlagFailure({vendor:"Cisco NX-OS",failed:["peerLink1"]});
+ assert.ok(r.findings.some(f=>f.code==="PEER_LINK_REDUNDANCY_LOST"));
+ assert.ok(!r.findings.some(f=>f.code==="PEER_LINK_FAILURE"));
+});
+test("node failure plus both liveness links does not assert dual active",()=>{
+ const r=analyzeMlagFailure({vendor:"Arista EOS",failed:["nodeA","peerLink","keepalive"]});
+ assert.ok(!r.findings.some(f=>f.code==="DUAL_LINK_FAILURE"));
+ assert.ok(r.findings.some(f=>f.code==="LINK_FAILED_WITH_NODE_DOWN"));
+});
+test("two failed physical peer members alone require derived logical failure",()=>{
+ const r=analyzeMlagFailure({vendor:"Huawei CloudEngine",failed:["peerLink1","peerLink2","peerLink"]});
+ assert.ok(r.findings.some(f=>f.code==="PEER_LINK_FAILURE"));
+});
