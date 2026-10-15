@@ -18,6 +18,12 @@ async function navigateWorkspace(kind){
 try{
  // Browser smoke: actual Technology Workspace is the single topology source.
  await navigateWorkspace('VPC');
+ for(const vendor of ['Cisco NX-OS','Arista EOS','Huawei_CE_SW','Cisco IOS-XE']){
+  await page.locator('#platform').selectOption(vendor);
+  await page.locator('#vpcMlagSimLaunch').waitFor({state:'visible',timeout:10000});
+  assert.equal(await page.locator('#vpcMlagSimLaunch').count(),1,'One native Simulator control for '+vendor);
+  assert.equal(await page.locator('#topologySimulation').isVisible(),true,'Simulator panel should be visible on '+vendor);
+ }
  await page.locator('#platform').selectOption('Arista EOS');
  await page.locator('#topologyArea svg').waitFor({state:'visible'});
  const expected=await page.locator('#topologyArea svg').evaluate(el=>({viewBox:el.getAttribute('viewBox'),labels:[...el.querySelectorAll('text')].map(x=>x.textContent.trim()).filter(Boolean).slice(0,10)}));
