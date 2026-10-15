@@ -68,7 +68,7 @@ test('Two peer-link member failures mark role-dependent service as conditional',
 });
 test('Malicious SVG event handlers and scripts never enter dynamic topology',()=>{
  const {w,d,close}=setup();
- const svg=d.getElementById('workspaceTopologyVisual svg');
+ const svg=d.querySelector('#workspaceTopologyVisual svg');
  assert.ok(svg);
  // Parsed image is read-only; the original snapshot isn't modified by UI actions.
  assert.equal(svg.querySelectorAll('script,foreignObject').length,0);
