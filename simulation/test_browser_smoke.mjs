@@ -3,9 +3,11 @@ import assert from 'node:assert/strict';
 const base=process.env.SMOKE_URL||'http://127.0.0.1:8125';
 const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
 const messages=[];
+const dialogs=[];
 const context=await browser.newContext({viewport:{width:1440,height:1000}});
 const page=await context.newPage();
 page.on('pageerror',e=>messages.push(e.message));
+page.on('dialog',async d=>{dialogs.push(d.message());await d.dismiss();});
 async function navigateWorkspace(kind){
  await page.goto(base+'/',{waitUntil:'domcontentloaded'});
  const card=page.locator('#v3TechGrid button').filter({has:page.locator('h3', {hasText:kind==='VPC'?'vPC / MLAG':'BGP'})}).first();
@@ -23,7 +25,10 @@ try{
  const launch=page.locator('#vpcMlagSimLaunch');
  await launch.waitFor({state:'visible',timeout:12000});
  await launch.click();
- await page.waitForURL('**/vpc-mlag-simulation',{timeout:15000});
+ try{await page.waitForURL('**/vpc-mlag-simulation',{timeout:7500});}catch(e){
+ await page.screenshot({path:'/tmp/mlag-browser-smoke.png',fullPage:true});
+ throw Error('VPC launch failed: '+JSON.stringify({url:page.url(),dialogs,messages,scope:await page.evaluate(()=>window.NetworkWorkspaceProject?.diagnosticScope?.()),status:await page.locator('#topologySimulation').innerText().catch(()=>''),svg:await page.evaluate(()=>window.NetworkWorkspaceProject?.simulationTopologySvg?.().slice(0,110))}));
+}
  await page.locator('#workspaceTopologyVisual svg').waitFor({state:'visible'});
  const transferred=await page.locator('#workspaceTopologyVisual svg').evaluate(el=>({viewBox:el.getAttribute('viewBox'),labels:[...el.querySelectorAll('text')].map(x=>x.textContent.trim()).filter(Boolean).slice(0,10)}));
  assert.deepEqual(transferred.labels,expected.labels,'Simulation SVG must match the current Workspace labels');
