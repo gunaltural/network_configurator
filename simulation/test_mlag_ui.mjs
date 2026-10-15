@@ -50,7 +50,7 @@ test('Fail two leaf paths, detect isolated leaf, partial restore clears checkbox
  let report=JSON.parse(d.getElementById('report').textContent);
  assert.equal(report.accessImpact.leaves.find(x=>x.id==='lower-1').status,'isolated');
  assert.equal(report.accessImpact.leaves.find(x=>x.id==='lower-2').status,'single-path');
- check(d,'upper-1--lower-1');click(d,'restore');
+ check(d,'upper-1--lower-1');[...d.querySelectorAll('[data-fault]')].find(x=>x.dataset.fault==='upper-2--lower-1').checked=false;click(d,'restore');
  report=JSON.parse(d.getElementById('report').textContent);
  assert.equal(report.accessImpact.leaves.find(x=>x.id==='lower-1').status,'single-path');
  assert.equal([...d.querySelectorAll('[data-fault]')].find(x=>x.dataset.fault==='upper-1--lower-1').checked,false);
