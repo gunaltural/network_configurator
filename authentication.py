@@ -139,7 +139,27 @@ def install_authentication(app, base_dir):
 
     @app.get('/healthz')
     def readiness():
-        return {'ok': True}
+        # Public, credential-free deployment readiness signal. Do not expose
+        # authentication/session details. A missing bundled simulator asset
+        # makes the service not ready instead of failing later with HTTP 500.
+        required_assets = (
+            'simulation/vpc-mlag-lab.html',
+            'simulation/vendor-failure-engine.mjs',
+            'synthetic-bgp.js',
+        )
+        simulator_ready = all(
+            (base_dir / name).is_file() for name in required_assets
+        )
+        payload = {
+            'ok': simulator_ready,
+            'version': str(app.version),
+            'simulator_ready': simulator_ready,
+        }
+        return JSONResponse(
+            payload,
+            status_code=200 if simulator_ready else 503,
+            headers={'Cache-Control': 'no-store'},
+        )
 
     @app.get('/login')
     def login_page(request: Request):
