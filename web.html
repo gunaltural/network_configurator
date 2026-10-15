@@ -362,6 +362,7 @@ pre{
 .topology-toolbar label{display:block;font-size:11px;color:#91aabd;margin-bottom:5px;font-weight:700;letter-spacing:.02em}
 .topology-toolbar select{width:100%;background:#07141f;color:#dceaf4;border:1px solid #29465d;border-radius:8px;padding:8px 9px}
 .topology-toolbar .topology-hint{font-size:11px;color:#7893a6;align-self:center;margin-left:auto}
+.simulation-next{display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-top:20px;padding:20px 24px;border:1px solid #87b3ca;border-left:5px solid #247794;border-radius:12px;background:linear-gradient(115deg,#dcecf5,#edf6fa);box-shadow:0 4px 12px #183e5c12}.simulation-next[hidden]{display:none}.simulation-next-icon{width:44px;height:44px;display:grid;place-items:center;border-radius:12px;background:#174e6b;color:#fff;flex:none}.simulation-next-copy{display:flex;flex-direction:column;gap:5px;flex:1;min-width:220px}.simulation-next-copy strong{color:#173f59;font-size:16px}.simulation-next-copy span{font-size:13px;color:#3c5a6d}.simulation-next-copy small{font-size:11px;color:#527184}#bgpTestSimulation{background:#126184;color:#fff;border:1px solid #0c4f70;border-radius:9px;padding:14px 22px;font-weight:700;font-size:14px;box-shadow:0 3px 8px #144d6a25;cursor:pointer;white-space:nowrap}#bgpTestSimulation:hover{background:#0b4968}#bgpTestSimulation:focus-visible{outline:3px solid #df9c35;outline-offset:3px}#simulationTransferStatus{flex-basis:100%;margin:0;color:#8a3c17;font-size:13px}@media(max-width:700px){#bgpTestSimulation{width:100%}.simulation-next{padding:16px}}
 </style>
 <link rel="stylesheet" href="/corporate-theme.css">
 <script src="/corporate-shell.js" defer></script>
@@ -452,6 +453,7 @@ pre{
           <div class="device"><strong id="topoD1">SW-01</strong><small id="topoD1Role">Managed Device</small></div>
         </div>
       </div>
+      <div id="topologySimulation" class="simulation-next" hidden></div>
     </section>
 
     <div class="grid">
@@ -1991,13 +1993,19 @@ function vpcLeafUi(){
 
 
 function ensureSimulationTrigger(){
- const host=document.getElementById('topologyControls');if(!host)return;
- let button=host.querySelector('#bgpTestSimulation');
- if(tech!=='BGP'){button?.remove();return;}
- if(button)return;
- button=document.createElement('button');button.id='bgpTestSimulation';button.type='button';button.className='btn primary';button.textContent='Test in Simulation';
- button.onclick=()=>{try{sessionStorage.setItem('networkConfigurator.lab.bgp',JSON.stringify(bgpLabDesign()));location.assign('/network-lab?from=design');}catch(e){alert(e.message);}};
- host.prepend(button);
+ const host=document.getElementById('topologySimulation');if(!host)return;
+ document.getElementById('topologyControls')?.querySelector('#bgpTestSimulation')?.remove();
+ host.hidden=tech!=='BGP';
+ if(tech!=='BGP')return;
+ if(host.querySelector('#bgpTestSimulation'))return;
+ host.innerHTML='<div class="simulation-next-icon" aria-hidden="true">▶</div><div class="simulation-next-copy"><strong>Validate your design before production</strong><span>Transfer this topology and supported BGP parameters to the simulation workspace.</span><small>FRR protocol pilot · Central service required to run virtual devices</small></div><button id="bgpTestSimulation" type="button">Test in Simulation <span aria-hidden="true">→</span></button><p id="simulationTransferStatus" role="status" hidden></p>';
+ host.querySelector('button').onclick=()=>{
+  const status=document.getElementById('simulationTransferStatus');
+  try{
+   const api=window.NetworkWorkspaceProject;if(typeof api?.labDesign!=='function')throw Error('Simulation transfer is not ready. Reload the page and try again.');
+   const design=api.labDesign();sessionStorage.setItem('networkConfigurator.lab.bgp',JSON.stringify(design));location.assign('/network-lab?from=design');
+  }catch(e){status.hidden=false;status.textContent=e.message;}
+ };
 }
 function syncTopologyControls(){
  setTimeout(ensureSimulationTrigger,0);
