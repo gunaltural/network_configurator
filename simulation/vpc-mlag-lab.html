@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Network Configurator · vPC / MLAG Failure Lab</title>
+<style>
+:root{color-scheme:dark;font-family:Inter,Segoe UI,Arial,sans-serif;background:#0a111b;color:#e6edf3}
+*{box-sizing:border-box}body{margin:0}header{display:flex;justify-content:space-between;align-items:center;padding:18px 28px;border-bottom:1px solid #2a4155;gap:12px;flex-wrap:wrap}
+h1{font-size:22px;margin:0}h2{font-size:16px}small,.muted{color:#91a9ba}main{max-width:1450px;margin:auto;padding:22px;display:grid;grid-template-columns:minmax(300px,360px) minmax(0,1fr);gap:16px}
+section,.card{background:#101d2b;border:1px solid #2c4155;border-radius:14px;padding:16px}fieldset{border:1px solid #344d61;border-radius:10px;margin:14px 0;padding:10px}legend{font-weight:700;font-size:13px}
+label{display:flex;gap:8px;align-items:center;padding:7px 0;cursor:pointer}input[type=checkbox]{accent-color:#38bdf8;width:17px;height:17px}select,button{background:#142d40;border:1px solid #3f6179;color:#e6edf3;border-radius:9px;padding:10px;font:inherit}
+select{width:100%}button{cursor:pointer}button:hover{background:#21516c}.actions{display:flex;gap:8px;flex-wrap:wrap}.danger{border-color:#a84f58}.cards{display:grid;gap:12px}.severity{border-left:4px solid #63c58c;padding:12px;background:#0d1b27;border-radius:8px}.severity.critical{border-color:#ff7070}.severity.warning{border-color:#ffd16d}
+svg{width:100%;max-height:410px;border-radius:12px;background:#08141e;border:1px solid #30475b}svg text{fill:#dfebf5;font:14px Inter,Arial,sans-serif}svg .link{stroke:#59bce8;stroke-width:6}svg .link.down{stroke:#ef6666;stroke-dasharray:12 8}svg .node{fill:#1e4258;stroke:#5ca5c8;stroke-width:2}svg .node.down{fill:#53282f;stroke:#ff7272}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.5 ui-monospace,monospace;background:#06111b;border-radius:10px;padding:12px}
+a{color:#71d6ff} .status{padding:7px 11px;border-radius:999px;background:#173448;font-size:12px}
+@media(max-width:900px){main{grid-template-columns:1fr}}
+</style></head>
+<body><header><div><h1>vPC / MLAG Failure Lab</h1><small>Synthetic design-level analysis · Not real device telemetry</small></div><div class="actions"><a href="/">← Network Configurator</a><span class="status" id="status">No failure</span></div></header>
+<main>
+<section><h2>Failure controls</h2>
+<label for="vendor">Device platform / technology</label><select id="vendor">
+<option value="Cisco NX-OS">Cisco Nexus · vPC</option><option value="Arista EOS">Arista EOS · MLAG</option><option value="Huawei CloudEngine">Huawei CloudEngine · M-LAG</option><option value="Cisco_StackWise">Cisco StackWise Virtual</option></select>
+<fieldset><legend>Device Failure · multiple selection</legend><label><input type="checkbox" data-fault="nodeA"> Peer A / primary device</label><label><input type="checkbox" data-fault="nodeB"> Peer B / secondary device</label></fieldset>
+<fieldset><legend>Connection Failure · multiple selection</legend>
+<label><input type="checkbox" data-fault="peerLink1"> Peer-link member 1</label>
+<label><input type="checkbox" data-fault="peerLink2"> Peer-link member 2</label>
+<label><input type="checkbox" data-fault="keepalive"> Keepalive / heartbeat / DAD path</label>
+<label><input type="checkbox" data-fault="uplinkA"> Peer A uplink</label>
+<label><input type="checkbox" data-fault="uplinkB"> Peer B uplink</label></fieldset>
+<div class="actions"><button id="fail" class="danger">Fail Selected</button><button id="restore">Restore Selected</button><button id="reset">Reset Failures</button></div>
+<p class="muted">Selections are independent of the active failure state. Restore clears checkmarks for restored items. If either peer-link member survives, the logical peer-link remains available (assuming port-channel operation).</p>
+</section>
+<div class="cards">
+<section><h2>Topology and fault domains</h2><svg viewBox="0 0 760 410" role="img" aria-label="Peer pair, redundant peer-link, liveness detection and uplinks">
+<path id="keepalivePath" class="link" d="M245 113 Q380 27 515 113" fill="none"/><text x="380" y="27" text-anchor="middle">Keepalive / DAD</text>
+<line id="peerLink1Path" class="link" x1="245" y1="173" x2="515" y2="173"/><line id="peerLink2Path" class="link" x1="245" y1="195" x2="515" y2="195"/>
+<line id="uplinkAPath" class="link" x1="145" y1="100" x2="145" y2="54"/><line id="uplinkBPath" class="link" x1="615" y1="100" x2="615" y2="54"/>
+<rect id="nodeARect" class="node" x="45" y="100" width="200" height="175" rx="16"/><rect id="nodeBRect" class="node" x="515" y="100" width="200" height="175" rx="16"/>
+<text x="145" y="158" text-anchor="middle">PEER A</text><text x="145" y="210" text-anchor="middle">Primary / master</text>
+<text x="615" y="158" text-anchor="middle">PEER B</text><text x="615" y="210" text-anchor="middle">Secondary / backup</text>
+<text x="380" y="240" text-anchor="middle">Logical peer-link</text>
+<text x="380" y="365" text-anchor="middle">Assumption: two physical peer-link members</text>
+</svg><div id="health" class="status" aria-live="polite"></div></section>
+<section><h2>Expected operational impact</h2><div id="findings" class="cards" aria-live="polite"></div></section>
+<section><h2>Scenario evidence / export</h2><div class="actions"><button id="copy">Copy scenario report</button><button id="download">Download JSON</button></div><pre id="report"></pre></section>
+</div></main>
+<script type="module">
+import {analyzeMlagFailure,changeFailures} from '/simulation/vendor-failure-engine.mjs';
+const $=id=>document.getElementById(id),boxes=[...document.querySelectorAll('[data-fault]')];
+let state={devices:[],links:[],selectedDevices:[],selectedLinks:[]};const deviceNames=new Set(['nodeA','nodeB']);
+const choices=()=>boxes.filter(x=>x.checked).map(x=>x.dataset.fault);
+function apply(action){const selected=choices(),devices=selected.filter(x=>deviceNames.has(x)),links=selected.filter(x=>!deviceNames.has(x));
+if(action==='reset')state=changeFailures(state,'reset','devices',[]);
+else {state=changeFailures(state,action,'devices',devices);state=changeFailures(state,action,'links',links);}
+if(action!=='fail'){for(const x of boxes)if(action==='reset'||selected.includes(x.dataset.fault))x.checked=false;}
+render();}
+function draw(){for(const id of ['nodeA','nodeB','peerLink1','peerLink2','keepalive','uplinkA','uplinkB']){
+ const element=$(id+(['nodeA','nodeB'].includes(id)?'Rect':'Path'));element.classList.toggle('down',(deviceNames.has(id)?state.devices:state.links).includes(id));}}
+function render(){
+const failed=[...state.devices,...state.links];if(state.links.includes('peerLink1')&&state.links.includes('peerLink2'))failed.push('peerLink');
+const result=analyzeMlagFailure({vendor:$('vendor').value,failed});
+const affected=result.findings.filter(f=>f.severity!=='normal');
+$('status').textContent=affected.length?affected.length+' modeled finding(s)':'No failure';
+$('health').textContent='Device failures: '+state.devices.length+' · Connection failures: '+state.links.length;
+$('findings').replaceChildren();for(const f of result.findings){const el=document.createElement('div');el.className='severity '+f.severity;const head=document.createElement('strong');head.textContent=f.code.replaceAll('_',' ');const desc=document.createElement('p');desc.textContent=f.description;el.append(head,desc);$('findings').append(el);}
+$('report').textContent=JSON.stringify({schema:'network-configurator-mlag-simulation-v1',timestamp:new Date().toISOString(),vendor:result.vendor,failedDevices:state.devices,failedConnections:state.links,findings:result.findings,assumptions:['two peer-link members','logical peer-link fails only when all members down','offline qualitative simulation, no device telemetry','vendor/OS-specific configuration and convergence must be verified']},null,2);draw();}
+$('fail').onclick=()=>apply('fail');$('restore').onclick=()=>apply('restore');$('reset').onclick=()=>apply('reset');$('vendor').onchange=render;
+$('copy').onclick=()=>{navigator.clipboard.writeText($('report').textContent).catch(()=>{});};
+$('download').onclick=()=>{const blob=new Blob([$('report').textContent],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='mlag-failure-scenario.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};render();
+</script></body></html>
