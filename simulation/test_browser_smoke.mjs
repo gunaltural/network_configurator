@@ -8,7 +8,7 @@ const page=await context.newPage();
 page.on('pageerror',e=>messages.push(e.message));
 async function navigateWorkspace(kind){
  await page.goto(base+'/',{waitUntil:'domcontentloaded'});
- const card=page.locator('#v3TechGrid [data-tech="'+kind+'"]').first();
+ const card=page.locator('#v3TechGrid button').filter({has:page.locator('h3', {hasText:kind==='VPC'?'vPC / MLAG':'BGP'})}).first();
  await card.waitFor({state:'visible',timeout:15000});
  await card.click();
  await page.locator('#topologyArea svg').waitFor({state:'visible',timeout:15000});
