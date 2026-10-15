@@ -30,6 +30,9 @@ class VpcMlagRouteContract(unittest.TestCase):
         self.assertIn("peerMemberIds", page)
         self.assertIn("peerLinkMemberCount", page)
         self.assertIn("designPorts", page)
+        self.assertIn("loadWorkspaceTopology", page)
+        self.assertIn("workspaceTopologyVisual", page)
+        self.assertNotIn('<rect id="nodeARect"', page)
 
     def test_routes_and_workspace_integration(self):
         api = (ROOT / "network_lab.py").read_text()
@@ -42,6 +45,8 @@ class VpcMlagRouteContract(unittest.TestCase):
         self.assertIn("scope?.module!=='VPC'", link)
         self.assertIn("iStack", link)
         self.assertIn("api.diagnosticDesign()", link)
+        self.assertIn("api.simulationTopologySvg()", link)
+        self.assertIn("networkConfigurator.mlagSimulation.topologySvg", link)
         self.assertIn("networkConfigurator.mlagSimulation.design", link)
 
     def test_legacy_bgp_entry_kept(self):
@@ -49,6 +54,7 @@ class VpcMlagRouteContract(unittest.TestCase):
         self.assertIn("function ensureSimulationTrigger()", main)
         self.assertIn("bgpTestSimulation", main)
         self.assertIn("networkConfigurator.lab.bgp", main)
+        self.assertIn("simulationTopologySvg:()=>workspaceTopologySvg(true)", main)
 
 if __name__ == "__main__":
     unittest.main()
