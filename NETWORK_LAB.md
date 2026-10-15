@@ -108,3 +108,28 @@ reporting retains the current project report when one exists. Explicit evidence
 transfer maps uniquely named configured devices, rejects a changed lab model,
 deduplicates submissions and labels them FRR simulation / needs review. Existing
 verification evidence is retained. Original vendor configurations are unchanged.
+
+## Synthetic BGP analysis (5.39.0)
+
+The primary workflow now runs a deterministic browser-based model with no lab host.
+`synthetic-bgp.js` calculates candidate exits for the shared test prefix; it ranks
+Local Preference first, then direct eBGP over a path through the other CE, then uses
+connection ID as a deterministic final tie-break. That final choice is a visualization
+rule and is NOT a complete vendor BGP best-path implementation. CE interconnect is
+assumed to provide usable iBGP/next-hop transport. No recursive RIB/FIB is computed.
+
+The UI can disable/restore links, fail/restore devices, reset all faults, compare
+baseline/current routes and animate the selected path on the original design SVG.
+Animations are symbolic; speed, convergence, packet loss and traffic volumes are
+not measured. Model queries and familiar show-command aliases are explicitly marked
+synthetic. Configuration commands are not executed or validated by this model.
+Record a scenario to include it in report evidence with needs-review status and a
+synthetic-model label. Real FRR/CML integration remains optional and separate.
+
+BGP physical links use distinct, symmetric attachment points, short vertical exits,
+separate curved lanes and light crossing halos to prevent apparent shared junctions.
+This common drawing is carried into simulation. Topology/hostname/IP visibility
+controls and original generated vendor configurations are preserved.
+
+Validation: `node test_synthetic_bgp.cjs` covers Local Preference, alternate CE,
+upstream/device loss, complete isolation, recovery, graph state and recorded evidence.

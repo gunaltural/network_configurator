@@ -108,6 +108,10 @@ Results describe observed polling samples, not exact convergence time. A failed 
 def install_network_lab(app,base):
     @app.get('/network-lab',response_class=HTMLResponse)
     def page():return HTMLResponse((base/'network-lab.html').read_text(),headers={'Cache-Control':'no-store'})
+    @app.get('/synthetic-bgp.js')
+    def synthetic_engine():return Response((base/'synthetic-bgp.js').read_text(),media_type='application/javascript',headers={'Cache-Control':'no-store'})
+    @app.get('/synthetic-lab.js')
+    def synthetic_ui():return Response((base/'synthetic-lab.js').read_text(),media_type='application/javascript',headers={'Cache-Control':'no-store'})
     @app.get('/network-lab.js')
     def script():return Response((base/'network-lab.js').read_text(),media_type='application/javascript',headers={'Cache-Control':'no-store'})
     @app.get('/api/network-lab/status')

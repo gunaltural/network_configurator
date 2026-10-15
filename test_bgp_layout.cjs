@@ -10,6 +10,7 @@ const svg=()=>d.querySelector('#topologyArea svg'),text=()=>[...svg().querySelec
  assert.equal(svg().getAttribute('viewBox'),'0 0 950 480');
  assert.equal(svg().querySelectorAll('[data-label-box]').length,0,'No oversized information cards');
  assert.equal(svg().querySelectorAll('[data-bgp-connection]').length,4);
+ const circuits=[...svg().querySelectorAll('[data-bgp-connection]')];for(const y of ['126','318']){const points=circuits.map(g=>g.querySelector('circle[cy="'+y+'"]')).filter(Boolean);assert.equal(points.length,4);assert.equal(new Set(points.map(c=>c.getAttribute('cx'))).size,4,'Circuit endpoints are distinct');}const isp2=circuits.filter(g=>g.querySelector('circle[cy="126"]').getAttribute('cx')>500).map(g=>+g.querySelector('circle[cy="126"]').getAttribute('cx')).sort((a,b)=>a-b);assert.ok(isp2[1]-isp2[0]>=50,'ISP-2 has clearly separated symmetric physical attachment points');
  const labels=[...svg().querySelectorAll('[data-bgp-endpoint]')];assert.equal(labels.length,8);
  for(const label of labels){assert.equal(label.getAttribute('font-size'),'9');assert.ok(['144','294'].includes(label.getAttribute('y')),'Labels remain near router endpoints');}
  assert.match(text(),/172\.16\.16\.1\/30/);assert.match(text(),/172\.16\.16\.2\/30/);
