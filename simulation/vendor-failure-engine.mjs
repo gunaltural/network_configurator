@@ -17,13 +17,13 @@ export function changeFailures(current={},action,kind,ids=[]) {
  if(action==="restore") { const choice=kind==="devices"?"selectedDevices":"selectedLinks";next[choice]=next[choice].filter(id=>!ids.includes(id)); }
  return next;
 }
-export function analyzeMlagFailure({vendor,failed=[]}={}) {
+export function analyzeMlagFailure({vendor,failed=[],peerLinkMemberCount=2}={}) {
  const p=vendorProfiles[vendor];if(!p)throw Error("Unsupported vendor");
  const f=new Set(failed),out=[];
  const add=(severity,code,description)=>out.push({severity,code,description});
  if(f.has("nodeA")&&f.has("nodeB"))add("critical","PAIR_DOWN","Both peers down: pair-level outage expected.");
  else if(f.has("nodeA")||f.has("nodeB"))add("warning","NODE_DOWN","One peer down; dependent single-homed endpoints may fail.");
- if(f.has("peerLink1")!==f.has("peerLink2"))add("warning","PEER_LINK_REDUNDANCY_LOST","One physical peer-link member failed; the remaining member maintains the logical port-channel if operational and capacity is sufficient.");
+ if([...f].filter(id=>/^peerLink\d+$/.test(id)).length>0 && [...f].filter(id=>/^peerLink\d+$/.test(id)).length<peerLinkMemberCount)add("warning","PEER_LINK_REDUNDANCY_LOST","One physical peer-link member failed; the remaining member maintains the logical port-channel if operational and capacity is sufficient.");
  if(f.has("nodeA")||f.has("nodeB")){
    if(f.has("peerLink"))add("warning","LINK_FAILED_WITH_NODE_DOWN","Peer-link unavailable and at least one peer down; dual-active cannot be inferred because both peers are not confirmed operational.");
    if(f.has("keepalive"))add("warning","LIVENESS_WITH_NODE_DOWN","Liveness path also unavailable; examine surviving peer recovery timers and role.");
