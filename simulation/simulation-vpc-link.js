@@ -6,7 +6,7 @@ function sync(){
  const host=document.getElementById('topologyControls')||document.getElementById('topologyArea');
  if(!host)return;
  let button=document.getElementById(ID);
- if(scope?.module!=='VPC'){if(button)button.remove();return;}
+ if(scope?.module!=='VPC'||/iStack/i.test(scope?.platform||'')){if(button)button.remove();return;}
  if(!button){button=document.createElement('button');button.id=ID;button.type='button';button.textContent='Test vPC / MLAG Failures →';
  button.style.cssText='margin:9px;padding:10px 14px;border:1px solid #3898c8;border-radius:10px;background:#163a51;color:#e1f5ff;font-weight:700;cursor:pointer';
  host.append(button);}
