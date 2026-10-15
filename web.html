@@ -1164,11 +1164,10 @@ modules["VPC"]={
      <option value="2">2</option><option value="3">3</option><option value="4" selected>4</option>
      <option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option>
    </select></div>
-   <div><label>Topology Mode</label><input value="Dual-Homed to Both Spines" disabled></div>
-   <div><label>LACP Mode</label><select id="vpcChannelMode">
-     <option value="active" selected>active</option>
-     <option value="passive">passive</option>
-     <option value="on">on</option>
+   <div><label>Downstream Bundle Negotiation</label><select id="vpcChannelMode">
+     <option value="active" selected>LACP · active / active (recommended)</option>
+     <option value="passive">LACP · peers active / leaf passive</option>
+     <option value="on">Static · on / on (no LACP)</option>
    </select></div>
    <div class="vpc-leaf-param" data-vpc-leaf="1"><label>Leaf-1 Hostname</label><input id="vpcLeaf1" value="LEAF-1"></div>
    <div class="vpc-leaf-param" data-vpc-leaf="1"><label>Leaf-1 Port-Channel / vPC ID</label><input id="vpcLeafPo1" value="10"></div>
@@ -1188,8 +1187,8 @@ modules["VPC"]={
    <div class="vpc-leaf-param" data-vpc-leaf="8"><label>Leaf-8 Port-Channel / vPC ID</label><input id="vpcLeafPo8" value="80"></div>
    <div><label>Spine-1 → Leaf Interfaces</label><input id="vpcSp1LeafIfs" value="Ethernet1/1,Ethernet1/2,Ethernet1/3,Ethernet1/4,Ethernet1/5,Ethernet1/6,Ethernet1/7,Ethernet1/8"></div>
    <div><label>Spine-2 → Leaf Interfaces</label><input id="vpcSp2LeafIfs" value="Ethernet1/1,Ethernet1/2,Ethernet1/3,Ethernet1/4,Ethernet1/5,Ethernet1/6,Ethernet1/7,Ethernet1/8"></div>
-   <div><label>Leaf Uplink-1 Interfaces</label><input id="vpcLeafUp1" value="Ethernet1/49"></div>
-   <div><label>Leaf Uplink-2 Interfaces</label><input id="vpcLeafUp2" value="Ethernet1/50"></div>
+   <div><label>Leaf Uplink-1 Interface · all leaves</label><input id="vpcLeafUp1" value="Ethernet1/49"></div>
+   <div><label>Leaf Uplink-2 Interface · all leaves</label><input id="vpcLeafUp2" value="Ethernet1/50"></div>
    <div><label>VLANs to Create</label><input id="vpcCreateVlans" value="10,20,30,40" placeholder="10,20,30-35"></div>
    <div><label>Trunk VLAN Mode</label><select id="vpcTrunkMode"><option value="created" selected>Created VLANs Only</option><option value="all">Full Trunk · All VLANs</option></select></div>
  </div>
@@ -1409,7 +1408,7 @@ function stackWiseWorkspaceUI(){
  <div class="param-grid">
   <div><label>VLANs to Create</label><input id="swvVlans" value="10,20,30"></div>
   <div><label>Trunk Policy</label><select id="swvTrunkPolicy"><option value="created" selected>Created VLANs Only</option><option value="all">Full Trunk</option></select></div>
-  <div><label>LACP / EtherChannel Mode</label><select id="swvLacp"><option value="active" selected>active</option><option value="passive">passive</option><option value="on">on</option><option value="desirable">desirable</option><option value="auto">auto</option></select></div>
+  <div><label>Leaf Negotiation Mode · core initiates active/desirable</label><select id="swvLacp"><option value="active" selected>active</option><option value="passive">passive</option><option value="on">on</option><option value="desirable">desirable</option><option value="auto">auto</option></select></div>
  </div></section>
 
  <section class="vpc-v42-card"><div class="vpc-v42-head"><div><div class="vpc-v42-title">5 · Downstream Leaf MEC</div></div><span class="vpc-v42-badge">MEC</span></div>
@@ -1430,7 +1429,7 @@ function stackWiseGenerate(tab){
  const host=g("swvHost"),dom=g("swvDomain"),l1=g("swvLink1"),l2=g("swvLink2"),lid=g("swvLinkId"),d1=g("swvDad1"),d2=g("swvDad2");
  const sm=g("swvStpMode"),scope=g("swvStpVlans"),corePri=g("swvStpPri"),leafPri=g("swvLeafStpPri");
  const rawVlans=g("swvVlans"),vlanList=swvExpandVlans(rawVlans).join(","),vlanCfg=swvVlanConfig(rawVlans);
- const allow=g("swvTrunkPolicy")==="all"?"1-4094":vlanList,lm=g("swvLacp"),n=Math.max(2,Math.min(8,+g("swvLeafCount")||4));
+ const allow=g("swvTrunkPolicy")==="all"?"1-4094":vlanList,lm=g("swvLacp")||"active",coreMode=lm==="passive"?"active":lm==="auto"?"desirable":lm,n=Math.max(2,Math.min(8,+g("swvLeafCount")||4));
  const leaves=Array.from({length:n},(_,i)=>{const x=i+1;return{name:g(`swvLeaf${x}`)||`LEAF-${String(x).padStart(2,"0")}`,po:g(`swvLeafPo${x}`)||String(10+x),c1:g(`swvLeafCoreIf1_${x}`),c2:g(`swvLeafCoreIf2_${x}`),lpo:g(`swvLeafLocalPo${x}`)||"1",u1:g(`swvLeafUp1_${x}`),u2:g(`swvLeafUp2_${x}`)}});
  const coreMec=leaves.map(L=>`interface Port-channel${L.po}
  description TO_${L.name}
@@ -1441,15 +1440,15 @@ interface ${L.c1}
  description TO_${L.name}_P1
  switchport mode trunk
  switchport trunk allowed vlan ${allow}
- lacp rate fast
- channel-group ${L.po} mode ${lm}
+${["active","passive"].includes(lm)?" lacp rate fast\n":""}
+ channel-group ${L.po} mode ${coreMode}
  no shutdown
 interface ${L.c2}
  description TO_${L.name}_P2
  switchport mode trunk
  switchport trunk allowed vlan ${allow}
- lacp rate fast
- channel-group ${L.po} mode ${lm}
+${["active","passive"].includes(lm)?" lacp rate fast\n":""}
+ channel-group ${L.po} mode ${coreMode}
  no shutdown`).join("\n");
  const core=`hostname ${host}
 udld aggressive
@@ -1525,7 +1524,7 @@ function aristaMlagWorkspaceUI(){
  r.innerHTML=`<section class="vpc-v42-card"><div class="vpc-v42-title">1 · MLAG Domain & Peer Control</div><div class="param-grid"><div><label>Core-1 Hostname</label><input id="arH1" value="CORE-01"></div><div><label>Core-2 Hostname</label><input id="arH2" value="CORE-02"></div><div><label>Domain ID</label><input id="arDomain" value="CORE_MLAG"></div><div><label>Peer VLAN</label><input id="arPv" value="4094"></div><div><label>Trunk Group</label><input id="arTg" value="mlag-peer"></div><div><label>Core-1 Peer IP</label><input id="arIp1" value="10.254.254.1/30"></div><div><label>Core-2 Peer IP</label><input id="arIp2" value="10.254.254.2/30"></div></div></section>
  <section class="vpc-v42-card"><div class="vpc-v42-title">2 · MLAG Peer-Link</div><div class="param-grid"><div><label>Peer-Link Port-Channel</label><input id="arPpo" value="1000"></div><div><label>Core-1 Members</label><input id="arPif1" value="Ethernet1,Ethernet2"></div><div><label>Core-2 Members</label><input id="arPif2" value="Ethernet1,Ethernet2"></div></div></section>
  <section class="vpc-v42-card"><div class="vpc-v42-title">3 · STP</div><div class="param-grid"><div><label>STP Mode</label><select id="arStp"><option selected>rapid-pvst</option><option>mstp</option><option>rstp</option></select></div><div><label>VLAN Scope</label><input id="arScope" value="1-4094"></div><div><label>Core Priority</label><input id="arCp" value="4096"></div><div><label>Leaf Priority</label><input id="arLp" value="32768"></div></div><div class="checks"><label class="check"><input id="arBpdu" type="checkbox" checked> BPDU Guard Default</label><label class="check"><input id="arNoStp" type="checkbox" checked> Disable STP on Peer VLAN</label><label class="check"><input id="arRg" type="checkbox" checked> Root Guard</label></div></section>
- <section class="vpc-v42-card"><div class="vpc-v42-title">4 · VLAN & Trunk Policy</div><div class="param-grid"><div><label>VLANs to Create</label><input id="arVlans" value="10,20,30"></div><div><label>Trunk Policy</label><select id="arTp"><option value="created" selected>Created VLANs Only</option><option value="all">Full Trunk</option></select></div><div><label>LACP Mode</label><select id="arLacp"><option selected>active</option><option>passive</option><option>on</option></select></div></div></section>
+ <section class="vpc-v42-card"><div class="vpc-v42-title">4 · VLAN & Trunk Policy</div><div class="param-grid"><div><label>VLANs to Create</label><input id="arVlans" value="10,20,30"></div><div><label>Trunk Policy</label><select id="arTp"><option value="created" selected>Created VLANs Only</option><option value="all">Full Trunk</option></select></div><div><label>Downstream Bundle Negotiation</label><select id="arLacp"><option value="active" selected>LACP · active / active (recommended)</option><option value="passive">LACP · peers active / leaf passive</option><option value="on">Static · on / on (no LACP)</option></select></div></div></section>
  <section class="vpc-v42-card"><div class="vpc-v42-title">5 · Downstream MLAG Leaves</div><div class="param-grid"><div><label>Number of Leaf Switches</label><select id="arLeafCount"><option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></div></div>${rows}</section>
  <section class="vpc-v42-card"><div class="vpc-v42-title">6 · Configuration Output</div><div class="param-grid"><div><label>Device Configuration</label><select id="arOutput"><option value="C1">Core-1</option><option value="C2">Core-2</option>${Array.from({length:8},(_,i)=>`<option value="LEAF${i+1}">Leaf-${i+1}</option>`).join("")}</select></div></div></section>`;
  aristaSyncLeaves();r.querySelectorAll("input,select").forEach(e=>{["input","change"].forEach(x=>e.addEventListener(x,()=>{if(e.id==="arLeafCount")aristaSyncLeaves();syncTopology();renderOutput()}))});syncTopologyControls();syncTopology();renderOutput();return true;
@@ -1541,10 +1540,10 @@ function readableCliBlocks(text){
   .trim();
 }
 function aristaMlagGenerate(tab){
- const g=id=>document.getElementById(id)?.value||"",c=id=>!!document.getElementById(id)?.checked, exp=x=>swvExpandVlans(x),vc=exp(g("arVlans")).map(x=>`vlan ${x}\n name VLAN_${x}`).join("\n"),allow=g("arTp")==="all"?"1-4094":exp(g("arVlans")).join(","),n=Math.max(2,Math.min(8,+g("arLeafCount")||4)),pv=g("arPv"),tg=g("arTg"),ppo=g("arPpo"),lm=g("arLacp");
+ const g=id=>document.getElementById(id)?.value||"",c=id=>!!document.getElementById(id)?.checked, exp=x=>swvExpandVlans(x),vc=exp(g("arVlans")).map(x=>`vlan ${x}\n name VLAN_${x}`).join("\n"),allow=g("arTp")==="all"?"1-4094":exp(g("arVlans")).join(","),n=Math.max(2,Math.min(8,+g("arLeafCount")||4)),pv=g("arPv"),tg=g("arTg"),ppo=g("arPpo"),lm=g("arLacp")||"active",peerMode=lm==="passive"?"active":lm;
  const L=Array.from({length:n},(_,i)=>{let x=i+1;return{name:g(`arLeaf${x}`),mid:g(`arMid${x}`),po:g(`arPo${x}`),i1:g(`arIf1_${x}`),i2:g(`arIf2_${x}`),lpo:g(`arLpo${x}`),u1:g(`arUp1_${x}`),u2:g(`arUp2_${x}`)}});
  const members=(raw)=>raw.split(",").map((x,i)=>`interface ${x.trim()}\n description MLAG_PEER_P${i+1}\n switchport mode trunk\n channel-group ${ppo} mode active`).join("\n");
- const core=s=>{let self=s===1?g("arIp1"):g("arIp2"),other=(s===1?g("arIp2"):g("arIp1")).split("/")[0];return `hostname ${s===1?g("arH1"):g("arH2")}\n${vc}\nvlan ${pv}\n trunk group ${tg}\nspanning-tree mode ${g("arStp")}\nspanning-tree loopguard default\nspanning-tree vlan ${g("arScope")} priority ${g("arCp")}${c("arBpdu")?`\nspanning-tree edge-port bpduguard default`:""}${c("arNoStp")?`\nno spanning-tree vlan-id ${pv}`:""}\ninterface Vlan${pv}\n ip address ${self}\ninterface Port-Channel${ppo}\n description MLAG_PEER_LINK\n switchport mode trunk\n switchport trunk group ${tg}\n${members(s===1?g("arPif1"):g("arPif2"))}\nmlag configuration\n domain-id ${g("arDomain")}\n local-interface Vlan${pv}\n peer-address ${other}\n peer-link Port-Channel${ppo}\n${L.map(x=>`interface Port-Channel${x.po}\n description TO_${x.name}\n switchport mode trunk\n switchport trunk allowed vlan ${allow}${c("arRg")?`\n spanning-tree guard root`:""}\n mlag ${x.mid}\ninterface ${s===1?x.i1:x.i2}\n description TO_${x.name}_P${s}\n switchport mode trunk\n switchport trunk allowed vlan ${allow}\n channel-group ${x.po} mode ${lm}`).join("\n")}`};
+ const core=s=>{let self=s===1?g("arIp1"):g("arIp2"),other=(s===1?g("arIp2"):g("arIp1")).split("/")[0];return `hostname ${s===1?g("arH1"):g("arH2")}\n${vc}\nvlan ${pv}\n trunk group ${tg}\nspanning-tree mode ${g("arStp")}\nspanning-tree loopguard default\nspanning-tree vlan ${g("arScope")} priority ${g("arCp")}${c("arBpdu")?`\nspanning-tree edge-port bpduguard default`:""}${c("arNoStp")?`\nno spanning-tree vlan-id ${pv}`:""}\ninterface Vlan${pv}\n ip address ${self}\ninterface Port-Channel${ppo}\n description MLAG_PEER_LINK\n switchport mode trunk\n switchport trunk group ${tg}\n${members(s===1?g("arPif1"):g("arPif2"))}\nmlag configuration\n domain-id ${g("arDomain")}\n local-interface Vlan${pv}\n peer-address ${other}\n peer-link Port-Channel${ppo}\n${L.map(x=>`interface Port-Channel${x.po}\n description TO_${x.name}\n switchport mode trunk\n switchport trunk allowed vlan ${allow}${c("arRg")?`\n spanning-tree guard root`:""}\n mlag ${x.mid}\ninterface ${s===1?x.i1:x.i2}\n description TO_${x.name}_P${s}\n switchport mode trunk\n switchport trunk allowed vlan ${allow}\n channel-group ${x.po} mode ${peerMode}`).join("\n")}`};
  const leaf=x=>`hostname ${x.name}\n${vc}\nspanning-tree mode ${g("arStp")}\nspanning-tree loopguard default\nspanning-tree vlan ${g("arScope")} priority ${g("arLp")}${c("arBpdu")?`\nspanning-tree edge-port bpduguard default`:""}\ninterface Port-Channel${x.lpo}\n description TO_CORE_MLAG_PAIR\n switchport mode trunk\n switchport trunk allowed vlan ${allow}\ninterface ${x.u1}\n description TO_CORE_SW1\n switchport mode trunk\n switchport trunk allowed vlan ${allow}\n channel-group ${x.lpo} mode ${lm}\ninterface ${x.u2}\n description TO_CORE_SW2\n switchport mode trunk\n switchport trunk allowed vlan ${allow}\n channel-group ${x.lpo} mode ${lm}`;
  if(tab==="verify")return "show mlag\nshow mlag detail\nshow mlag interfaces\nshow port-channel\nshow lacp peer\nshow spanning-tree root\nshow vlan\nshow interfaces trunk";
  if(tab==="trouble")return "1. Verify peer VLAN/SVI and MLAG peer-link.\n2. Verify trunk-group isolation of the peer VLAN.\n3. Verify peer-link LACP active.\n4. Verify MLAG IDs and Port-Channels match on both cores.\n5. Verify VLAN/trunk policy and STP state.";
@@ -1595,13 +1594,9 @@ function huaweiMlagWorkspaceUI(){
    <div><label>Peer-Link ID</label><input id="hwPeerLinkId" value="1"></div>
    <div><label>Master Member Ports</label><input id="hwPeerIf1" value="10GigabitEthernet1/0/1,10GigabitEthernet1/0/2"></div>
    <div><label>Backup Member Ports</label><input id="hwPeerIf2" value="10GigabitEthernet1/0/1,10GigabitEthernet1/0/2"></div>
-   <div><label>LACP Mode</label><select id="hwLacp">
-<option value="lacp-static" selected>lacp-static</option>
-<option value="lacp-dynamic">lacp-dynamic</option>
-<option value="manual">manual</option>
-</select></div>
+
   </div>
-  <div class="note"><b>Peer-Link VLAN policy:</b> fixed full trunk → <code>port trunk allow-pass vlan 2 to 4094</code>.</div>
+  <div class="note"><b>Aggregation:</b> static LACP on the peer-link and both ends of downstream Eth-Trunks. <b>Peer-Link VLAN policy:</b> fixed full trunk → <code>port trunk allow-pass vlan 2 to 4094</code>.</div>
  </section>
 
  <section class="vpc-v42-card">
@@ -1656,6 +1651,8 @@ function huaweiMlagWorkspaceUI(){
    <div class="vpc-leaf-cell" data-hw-leaf="8"><input id="hwLeafIf1_8" value="10GigabitEthernet1/0/10"></div>
    <div class="vpc-leaf-cell" data-hw-leaf="8"><input id="hwLeafIf2_8" value="10GigabitEthernet1/0/10"></div>
   </div>
+  <div class="section-title">Leaf physical uplinks</div>
+  ${Array.from({length:8},(_,i)=>{const n=i+1;return `<div class="param-grid" data-hw-leaf="${n}"><div><label>Leaf-${n} Uplink to Master</label><input id="hwUp1_${n}" value="10GigabitEthernet1/0/1"></div><div><label>Leaf-${n} Uplink to Backup</label><input id="hwUp2_${n}" value="10GigabitEthernet1/0/2"></div></div>`;}).join('')}
  </section>
 
  <section class="vpc-v42-card">
@@ -1674,8 +1671,8 @@ function huaweiMlagWorkspaceUI(){
    }
  };
  root.querySelectorAll("input,select").forEach(el=>{
-   el.addEventListener("input",()=>{syncHuaweiLeaves();renderOutput()});
-   el.addEventListener("change",()=>{syncHuaweiLeaves();renderOutput()});
+   el.addEventListener("input",()=>{syncHuaweiLeaves();syncTopology();renderOutput()});
+   el.addEventListener("change",()=>{syncHuaweiLeaves();syncTopology();renderOutput()});
  });
  syncHuaweiLeaves();
  renderOutput(); // Re-render after Huawei-native controls exist; prevents stale legacy RSTP output.
@@ -1694,12 +1691,12 @@ function huaweiMlagGenerate(tab){
  const host1=g("hwHost1"),host2=g("hwHost2"),dfs=g("hwDfs"),pri1=g("hwPri1"),pri2=g("hwPri2"),
  stp=g("hwStpMode"),vstp=g("hwVstp"),mac=g("hwBridgeMac"),bpdu=g("hwBpdu"),
  dadif1=g("hwDadIf1"),dadif2=g("hwDadIf2"),dad1=g("hwDadIp1"),dad2=g("hwDadIp2"),mask=g("hwDadMask"),
- ppo=g("hwPeerPo"),plid=g("hwPeerLinkId"),pif1=g("hwPeerIf1").split(",").map(x=>x.trim()).filter(Boolean),pif2=g("hwPeerIf2").split(",").map(x=>x.trim()).filter(Boolean),lacp=g("hwLacp"),
+ ppo=g("hwPeerPo"),plid=g("hwPeerLinkId"),pif1=g("hwPeerIf1").split(",").map(x=>x.trim()).filter(Boolean),pif2=g("hwPeerIf2").split(",").map(x=>x.trim()).filter(Boolean),lacp="lacp-static",
  vlans=huaweiMlagVlanTokens(g("hwVlans")),policy=g("hwTrunkPolicy"),count=+(g("hwLeafCount")||4),out=g("hwOutput");
  const vlanList=vlans.join(" "),allow=policy==="all"?"2 to 4094":vlanList;
  const leaves=Array.from({length:count},(_,i)=>{
    const n=i+1;
-   return {name:g(`hwLeaf${n}`),po:g(`hwLeafPo${n}`),if1:g(`hwLeafIf1_${n}`),if2:g(`hwLeafIf2_${n}`)};
+   return {name:g(`hwLeaf${n}`),po:g(`hwLeafPo${n}`),if1:g(`hwLeafIf1_${n}`),if2:g(`hwLeafIf2_${n}`),up1:g(`hwUp1_${n}`),up2:g(`hwUp2_${n}`)};
  });
 
  const downstream=side=>leaves.map(L=>`interface Eth-Trunk ${L.po}
@@ -1758,8 +1755,7 @@ interface Eth-Trunk ${L.po}
  port link-type trunk
  port trunk allow-pass vlan ${allow}
 #
-# Physical uplink member interfaces on the Leaf are deployment-specific.
-# Bind the two Leaf uplinks to Eth-Trunk ${L.po} after entering their actual interface IDs.
+${[L.up1,L.up2].map((port,i)=>`interface ${port}\n description To-${i===0?host1:host2}\n eth-trunk ${L.po}\n undo shutdown\n#`).join("\n")}
 `;
 
  if(tab==="verify")return `display dfs-group ${dfs} m-lag
@@ -1806,13 +1802,15 @@ function vpcV42WorkspaceUI(){
  if(platform()==="Huawei iStack"){if(!document.getElementById("isHost"))HuaweiIStack.ui(()=>{syncTopology();renderOutput();});ensureDesignLinkSpeed();return;}
  if(platform()==="Huawei_CE_SW"){huaweiMlagWorkspaceUI();ensureDesignLinkSpeed();return;}
  const root=document.getElementById("params");if(!root)return;
- if(root.dataset.vpc46==="1"){vpcV42ContextUI();return;}
+ if(root.dataset.vpc46==="1"&&document.getElementById("vpcChannelMode")?.closest(".vpc-v42-card")){vpcV42ContextUI();return;}
  root.dataset.vpc46="1";
 
  const titles=[...root.querySelectorAll(".section-title")];
  const by=t=>titles.find(x=>x.textContent.trim().toLowerCase().includes(t.toLowerCase()));
  const next=t=>{const i=titles.indexOf(t);return i>=0?titles[i+1]:null};
- const range=t=>{const out=[];if(!t)return out;let n=t.nextElementSibling,stop=next(t);while(n&&n!==stop){out.push(n);n=n.nextElementSibling}return out};
+ // Freeze section boundaries before any header is removed or nodes are reparented.
+ const ranges=new Map(titles.map(t=>{const out=[];let n=t.nextElementSibling,stop=next(t);while(n&&n!==stop){out.push(n);n=n.nextElementSibling;}return [t,out];}));
+ const range=t=>ranges.get(t)||[];
  const card=(title,sub,badge)=>{const d=document.createElement("section");d.className="vpc-v42-card";d.innerHTML=`<div class="vpc-v42-head"><div><div class="vpc-v42-title">${title}</div><div class="vpc-v42-sub">${sub}</div></div><span class="vpc-v42-badge">${badge}</span></div>`;return d};
  const move=(title,target)=>{if(!title)return;range(title).forEach(n=>target.appendChild(n));title.remove()};
 
@@ -1829,29 +1827,30 @@ function vpcV42WorkspaceUI(){
  const aPeer=document.createElement("div");aPeer.className="vpc-vendor-only";aPeer.dataset.vendor="arista";move(sAr,aPeer);peer.appendChild(aPeer);
  const hPeer=document.createElement("div");hPeer.className="vpc-vendor-only";hPeer.dataset.vendor="huawei";move(sHw,hPeer);peer.appendChild(hPeer);
 
- const leaf=card("3 · Leaf Connectivity","Dual-homed LACP connectivity and per-leaf bundle IDs.","COMMON");
+ const leaf=card("3 · Leaf Connectivity","Dual-homed downstream bundles and per-leaf port-channel / vPC IDs.","COMMON");
  if(sLeaf){
    const nodes=range(sLeaf),grid=nodes.find(n=>n.classList&&n.classList.contains("param-grid"));
    const count=document.getElementById("vpcLeafCount")?.parentElement;
-   const topo=grid?[...grid.children].find(x=>x.querySelector("input[disabled]")):null;
-   const top=document.createElement("div");top.className="param-grid";if(count)top.appendChild(count);if(topo)top.appendChild(topo);leaf.appendChild(top);
-   const table=document.createElement("div");table.className="vpc-leaf-table";table.innerHTML='<div class="vpc-leaf-th">Leaf / Hostname</div><div class="vpc-leaf-th">Bundle ID</div><div class="vpc-leaf-th">State</div>';
+   const negotiation=document.getElementById("vpcChannelMode")?.parentElement;
+   const top=document.createElement("div");top.className="param-grid";if(count)top.appendChild(count);if(negotiation)top.appendChild(negotiation);leaf.appendChild(top);
+   const table=document.createElement("div");table.className="vpc-leaf-table";table.style.gridTemplateColumns="minmax(0,1fr) minmax(0,.65fr)";table.innerHTML='<div class="vpc-leaf-th">Leaf / Hostname</div><div class="vpc-leaf-th">Port-Channel / vPC ID</div>';
    for(let i=1;i<=8;i++){const hi=document.getElementById("vpcLeaf"+i),pi=document.getElementById("vpcLeafPo"+i);if(!hi||!pi)continue;
      const x=document.createElement("div");x.className="vpc-leaf-cell";x.dataset.vpcLeaf=i;x.appendChild(hi);
      const y=document.createElement("div");y.className="vpc-leaf-cell";y.dataset.vpcLeaf=i;y.appendChild(pi);
-     const z=document.createElement("div");z.className="vpc-leaf-cell";z.dataset.vpcLeaf=i;z.innerHTML='<input value="Dual-Homed LACP" disabled>';
-     table.append(x,y,z);
+     hi.setAttribute("aria-label",`Leaf-${i} hostname`);pi.setAttribute("aria-label",`Leaf-${i} Port-Channel and vPC ID`);
+     table.append(x,y);
    }
    leaf.appendChild(table);
    const phy=document.createElement("details");phy.className="vpc-v42-details";phy.innerHTML="<summary>Physical Interface Parameters</summary>";
    const pg=document.createElement("div");pg.className="param-grid";
    ["vpcSp1LeafIfs","vpcSp2LeafIfs","vpcLeafUp1","vpcLeafUp2"].forEach(id=>{const e=document.getElementById(id)?.parentElement;if(e)pg.appendChild(e)});
-   phy.appendChild(pg);leaf.appendChild(phy);sLeaf.remove();
+   phy.appendChild(pg);leaf.appendChild(phy);const hint=document.createElement("p");hint.className="hint";hint.textContent="Spine interface lists map to Leaf-1 through Leaf-N in order; only the selected leaf count is used. Each leaf uses the two common uplink interfaces above. Bundle IDs are local port-channel IDs on all three devices and matching vPC IDs on the peers.";leaf.appendChild(hint);if(grid)grid.dataset.vpcLeafSource="1";sLeaf.remove();
  }
 
  const vlan=card("4 · VLAN & Trunk Policy","Create the VLAN inventory once. Generator converts it to native Cisco, Arista or Huawei syntax.","VENDOR-NATIVE");
  const vg=document.createElement("div");vg.className="param-grid";
  ["vpcCreateVlans","vpcTrunkMode"].forEach(id=>{const e=document.getElementById(id)?.parentElement;if(e)vg.appendChild(e)});
+ root.querySelector('[data-vpc-leaf-source="1"]')?.remove();
  vlan.appendChild(vg);
  const syntax=document.createElement("div");syntax.id="vpcVlanSyntaxHint";syntax.className="note";vlan.appendChild(syntax);
 
@@ -2125,7 +2124,7 @@ function syncTopology(){
    const domainLabel=isArista?`MLAG Domain ${domain}`:isHuawei?`DFS Group ${domain}`:`vPC Domain ${domain}`;
    const peerLabel=isArista?`MLAG Peer-Link · Po${peerPo} · LACP`:isHuawei?`M-LAG Peer-Link · Eth-Trunk ${peerPo} · LACP`:`vPC Peer-Link · Po${peerPo} · LACP`;
    const keepLabel=isArista?`MLAG Peer Control · VLAN ${esc(v("mlagPeerVlan")||"4094")}`:isHuawei?`M-LAG DAD · ${esc(v("hwDadIp1")||"192.168.100.1")} ↔ ${esc(v("hwDadIp2")||"192.168.100.2")}`:`vPC Peer Keepalive · Dedicated L3 Ethernet`;
-   const memberLabel=isArista?"Leaf-Spine MLAG/LACP":isHuawei?"Leaf-Spine M-LAG/LACP":"Leaf-Spine LACP";
+   const memberLabel=isArista?"Leaf-Spine MLAG/LACP":isHuawei?"Leaf-Spine M-LAG/LACP":v("vpcChannelMode")==="on"?"Leaf-Spine static port-channel":"Leaf-Spine LACP";
    const poPrefix=isHuawei?"Eth-Trunk ":"Po";
    const vrf=esc(v("vpcKaVrf")||"VPC-KA");
    const kaif1=esc(isHuawei?(v("hwDadIf1")||"GigabitEthernet1/0/1"):(v("vpcKaIf1")||"Ethernet1/48"));
@@ -2173,7 +2172,7 @@ function syncTopology(){
       ${pos.map((x,i)=>`
         <ellipse cx="${x}" cy="330" rx="48" ry="17" class="vpc-po-badge"/>
         <text x="${x}" y="326" text-anchor="middle" class="vpc-po-title">${poPrefix}${po[i]}</text>
-        <text x="${x}" y="340" text-anchor="middle" class="vpc-po-sub">${isArista?`LACP / MLAG ${po[i]}`:isHuawei?`LACP / M-LAG ${po[i]}`:`LACP / vPC ${po[i]}`}</text>
+        <text x="${x}" y="340" text-anchor="middle" class="vpc-po-sub">${isArista?`LACP / MLAG ${po[i]}`:isHuawei?`LACP / M-LAG ${po[i]}`:`${v("vpcChannelMode")==="on"?"Static":"LACP"} / vPC ${po[i]}`}</text>
       `).join("")}
 
       <!-- Leaves -->
@@ -3070,8 +3069,9 @@ function expandInterfaces(csv){
  return csv.split(",").map(x=>x.trim()).filter(Boolean);
 }
 
+// NX-OS port-channel negotiation: Cisco Interfaces Configuration Guide, Channel Modes Compatibility.
 function vpcCiscoGenerate(tab){
- const channelMode=v("vpcChannelMode")||"active", p=platform();
+ const channelMode=v("vpcChannelMode")||"active", peerMode=channelMode==="passive"?"active":channelMode, p=platform();
  if(p!=="Cisco NX-OS"){
    if(tab==="notes") return `vPC bu modülde Cisco Nexus NX-OS için üretilir.
 Eşdeğer teknolojiler: Arista MLAG, Huawei M-LAG, IOS-XE StackWise Virtual/MEC.`;
@@ -3194,9 +3194,9 @@ ${c("vpcBpduGuardEdge")?"spanning-tree port type edge bpduguard default":""}`.tr
   switchport
   switchport mode trunk
   switchport trunk allowed vlan ${downTrunk}
-  lacp rate fast
+${channelMode!=="on"?"  lacp rate fast\n":""}
   udld aggressive
-  channel-group ${po} mode ${channelMode}
+  channel-group ${po} mode ${peerMode}
   no shutdown
 
 interface port-channel${po}
@@ -3260,7 +3260,7 @@ interface ${up1}
   switchport
   switchport mode trunk
   switchport trunk allowed vlan ${downTrunk}
-  lacp rate fast
+${channelMode!=="on"?"  lacp rate fast\n":""}
   udld aggressive
   channel-group ${po} mode ${channelMode}
   no shutdown
@@ -3270,13 +3270,13 @@ interface ${up2}
   switchport
   switchport mode trunk
   switchport trunk allowed vlan ${downTrunk}
-  lacp rate fast
+${channelMode!=="on"?"  lacp rate fast\n":""}
   udld aggressive
   channel-group ${po} mode ${channelMode}
   no shutdown
 
 interface port-channel${po}
-  description LACP-UPLINK-TO-vPC-SPINES
+  description ${channelMode==="on"?"STATIC":"LACP"}-UPLINK-TO-vPC-SPINES
   switchport
   switchport mode trunk
   switchport trunk allowed vlan ${downTrunk}
@@ -5904,7 +5904,7 @@ renderModule();
      if(pl==="Cisco NX-OS"){
        const role1=Number(r("vpcRole1")),role2=Number(r("vpcRole2")),primary=role1===role2?"Role tie":role1<role2?"Spine-1":"Spine-2";
        const peerMembers=Math.min(r("vpcPeerIf1").split(",").filter(Boolean).length,r("vpcPeerIf2").split(",").filter(Boolean).length);
-       add("Active-active access architecture",`vPC domain ${r("vpcDomain")} · ${r("vpcLeafCount")} dual-attached leaves · LACP ${r("vpcChannelMode")}`,
+       add("Active-active access architecture",`vPC domain ${r("vpcDomain")} · ${r("vpcLeafCount")} dual-attached leaves · ${r("vpcChannelMode")==="on"?"static on/on":r("vpcChannelMode")==="passive"?"LACP peers active / leaf passive":"LACP active/active"}`,
          `The two Nexus peers present each downstream port-channel as one logical Layer 2 attachment while retaining independent control planes. This removes the normal STP-blocked uplink for vPC-attached leaves, allows both links to carry traffic and lets the surviving link or peer absorb flows after a member or chassis failure. STP remains a protection mechanism, but it does not select the steady-state path for these vPC member links.`);
        add("Peer-link purpose and forwarding behavior",`Peer-link Po${r("vpcPeerPo")} · ${peerMembers||"selected"} member links`,
          `The peer-link carries vPC VLANs, CFS state synchronization, BPDUs and flooded control/data traffic. Normal unicast forwarding prefers the local vPC member port; the peer-link becomes a backup data path when a member is unavailable. It must therefore be a direct, resilient port-channel sized for failure traffic and required multicast/BUM load. ${r("vpcTrunkMode")==="all"?"The current full-trunk choice expands the VLAN and failure scope and should be reduced to required vPC VLANs where possible.":`The selected VLAN scope ${r("vpcCreateVlans")} limits the services carried; the same vPC VLANs must be allowed consistently on peer-link and member ports.`}`);
@@ -5917,7 +5917,7 @@ renderModule();
        if(on("vpcAutoRecovery")||on("vpcDelayRestoreEnable")||on("vpcSviDelayRestoreEnable"))add("Service restoration after failure",[on("vpcAutoRecovery")?`auto-recovery ${r("vpcAutoDelay")} s`:"",on("vpcDelayRestoreEnable")?`vPC delay ${r("vpcDelayRestore")} s`:"",on("vpcSviDelayRestoreEnable")?`SVI delay ${r("vpcSviDelayRestore")} s`:""].filter(Boolean).join(" · "),
          `${on("vpcDelayRestoreEnable")?`Delay restore holds recovering vPC legs for ${r("vpcDelayRestore")} seconds so Layer 3 routing and peer state can converge while traffic remains on the surviving peer. `:""}${on("vpcSviDelayRestoreEnable")?`SVI restoration is separately delayed for ${r("vpcSviDelayRestore")} seconds to avoid presenting gateway interfaces before control-plane recovery is complete. `:""}${on("vpcAutoRecovery")?`Auto-recovery allows a lone surviving peer to assume the operational primary role and restore local vPCs after ${r("vpcAutoDelay")} seconds when adjacency cannot be re-established; configure and test it symmetrically on both peers.`:""} These timers should be based on measured routing and platform convergence rather than treated as universal defaults.`);
      }else if(pl==="Arista EOS"){
-       add("Dual-attached MLAG service",`Domain ${r("arDomain")} · ${r("arLeafCount")} leaves · LACP ${r("arLacp")}`,
+       add("Dual-attached MLAG service",`Domain ${r("arDomain")} · ${r("arLeafCount")} leaves · ${r("arLacp")==="on"?"static on/on":r("arLacp")==="passive"?"LACP peers active / leaf passive":"LACP active/active"}`,
          `Both Arista cores present paired downstream MLAG bundles. Domain identity, MLAG IDs and member VLANs must agree for dual-attached leaves to use both paths; individual chassis still have separate control planes.`);
        add("Inter-peer state and liveness",`Peer Po${r("arPpo")} · VLAN ${r("arPv")} · ${r("arIp1")} / ${r("arIp2")}`,
          `The peer-link carries synchronization and the private peer VLAN provides IP connectivity for MLAG control. Keep the peer VLAN off ordinary downstream trunks. Loss of peer-link or control reachability changes MLAG member availability and must be tested as distinct failure cases.`);
@@ -6110,8 +6110,8 @@ renderModule();
          const leafName=get(hw?`hwLeaf${i}`:ar?`arLeaf${i}`:swv?`swvLeaf${i}`:`vpcLeaf${i}`)||`Leaf-${i}`;
          addDevice("lower",i,leafName);
          if(hw){
-           addLink(1,i,get(`hwLeafIf1_${i}`),"",`Eth-Trunk ${get(`hwLeafPo${i}`)} · leaf uplink to be assigned`);
-           addLink(2,i,get(`hwLeafIf2_${i}`),"",`Eth-Trunk ${get(`hwLeafPo${i}`)} · leaf uplink to be assigned`);
+           addLink(1,i,get(`hwLeafIf1_${i}`),get(`hwUp1_${i}`),`Eth-Trunk ${get(`hwLeafPo${i}`)}`);
+           addLink(2,i,get(`hwLeafIf2_${i}`),get(`hwUp2_${i}`),`Eth-Trunk ${get(`hwLeafPo${i}`)}`);
          }else if(ar){
            addLink(1,i,get(`arIf1_${i}`),get(`arUp1_${i}`),`MLAG ${get(`arMid${i}`)} · Po${get(`arPo${i}`)}`);
            addLink(2,i,get(`arIf2_${i}`),get(`arUp2_${i}`),`MLAG ${get(`arMid${i}`)} · Po${get(`arPo${i}`)}`);
