@@ -34,10 +34,10 @@ a{color:#71d6ff} .status{padding:7px 11px;border-radius:999px;background:#173448
 <line id="peerLink1Path" class="link" x1="245" y1="173" x2="515" y2="173"/><line id="peerLink2Path" class="link" x1="245" y1="195" x2="515" y2="195"/>
 <line id="uplinkAPath" class="link" x1="145" y1="100" x2="145" y2="54"/><line id="uplinkBPath" class="link" x1="615" y1="100" x2="615" y2="54"/>
 <rect id="nodeARect" class="node" x="45" y="100" width="200" height="175" rx="16"/><rect id="nodeBRect" class="node" x="515" y="100" width="200" height="175" rx="16"/>
-<text id="nodeAName" x="145" y="158" text-anchor="middle">PEER A</text><text x="145" y="210" text-anchor="middle">Primary / master</text>
-<text id="nodeBName" x="615" y="158" text-anchor="middle">PEER B</text><text x="615" y="210" text-anchor="middle">Secondary / backup</text>
+<text id="nodeAName" x="145" y="158" text-anchor="middle">PEER A</text><text x="145" y="210" text-anchor="middle">Role: verify</text>
+<text id="nodeBName" x="615" y="158" text-anchor="middle">PEER B</text><text x="615" y="210" text-anchor="middle">Role: verify</text>
 <text x="380" y="240" text-anchor="middle">Logical peer-link</text>
-<text x="380" y="365" text-anchor="middle">Assumption: two physical peer-link members</text>
+<text id="memberCountLabel" x="380" y="365" text-anchor="middle">Modeled peer-link members: 2</text>
 </svg><div id="health" class="status" aria-live="polite"></div></section>
 <section><h2>Expected operational impact</h2><div id="findings" class="cards" aria-live="polite"></div></section>
 <section><h2>Imported design context</h2><p id="designSummary" class="muted">Standalone synthetic two-peer template; no workspace design imported.</p><pre id="designPorts">No actual device/interface mapping imported.</pre></section>
@@ -67,6 +67,7 @@ if(memberRecords.length){
 }
 const peerMemberIds=[...document.querySelectorAll('#peerMemberOptions [data-fault]')].map(e=>e.dataset.fault);
 if(peerMemberIds.length<2)$('peerLink2Path').style.display='none';
+$('memberCountLabel').textContent='Modeled peer-link members: '+peerMemberIds.length+(peerMemberIds.length>2?' (first two links visualized)':'');
 if(design){
  $('designSummary').textContent=(design.name||'Imported design')+' · '+(design.technology||'vPC / MLAG')+' · '+(design.devices||[]).length+' devices · '+(design.links||[]).length+' access links';
  $('designPorts').textContent=(design.links||[]).map(l=>{
