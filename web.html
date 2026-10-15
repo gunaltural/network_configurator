@@ -648,6 +648,7 @@ body.nc-simulation-action{padding-bottom:145px}body.nc-simulation-action #topolo
 <script src="/design-checks.js"></script>
 <script src="/engineering-locale.js"></script>
 <script src="/vpc-report.js"></script>
+<script src="/synthetic-bgp.js"></script>
 <script>
 let tech="BASIC", tab="config"; window.activeTech=tech; window.currentTech=tech;
 
@@ -796,7 +797,7 @@ BGP:{
   <p class="note">With exactly two CE routers and iBGP enabled, a direct Layer-3 CE-to-CE interconnect is generated automatically and used for the iBGP session.</p>
  </div>
  <div class="section-title">External Routers</div><button id="bgpAddUpstream" type="button">Add external router</button><div id="bgpIspCards" class="bgp-card-grid"></div>
- <details id="bgpConnectionEditor" class="bgp-connection-editor" open><summary>External Connections · edit circuits</summary><p id="bgpConnectivitySummary" class="hint" role="status"></p><p class="note">Add one row for each physical circuit and direct eBGP session. Multiple circuits between the same two routers are supported. Enter actual interfaces and addresses; adding a router does not automatically create a circuit.</p><textarea id="bgpConnectionsData" hidden></textarea><div class="bgp-connection-toolbar"><button id="bgpAddConnection" type="button">Add connection</button></div><div class="bgp-connection-scroll"><table class="bgp-connections"><thead><tr><th>Use</th><th>Connection</th><th>CE endpoint</th><th>External endpoint</th><th>Action</th></tr></thead><tbody id="bgpConnectionRows"></tbody></table></div><div class="bgp-diagram-controls"><label><input type="checkbox" id="bgpShowPorts" checked>Show ports</label><label><input type="checkbox" id="bgpShowIps" checked>Show IP addresses</label><label><input type="checkbox" id="bgpAllDetails">All connection details</label></div><p id="bgpConnectionSelection" class="hint">Select a connection row or a line in the topology to highlight it.</p></details>
+ <details id="bgpConnectionEditor" class="bgp-connection-editor" open><summary>External Connections · edit circuits</summary><p id="bgpConnectivitySummary" class="hint" role="status"></p><p class="note">Add one row for each physical circuit and direct eBGP session. Multiple circuits between the same two routers are supported. Enter actual interfaces and addresses; adding a router does not automatically create a circuit.</p><textarea id="bgpConnectionsData" hidden></textarea><div class="bgp-connection-toolbar"><button id="bgpAddConnection" type="button">Add connection</button></div><div class="bgp-connection-scroll"><table class="bgp-connections"><thead><tr><th>Use</th><th>Connection</th><th>CE endpoint</th><th>External endpoint</th><th>Action</th></tr></thead><tbody id="bgpConnectionRows"></tbody></table></div><div class="bgp-diagram-controls"><label><input type="checkbox" id="bgpShowPorts" checked>Show ports</label><label><input type="checkbox" id="bgpShowIps" checked>Show IP addresses</label><label><input type="checkbox" id="bgpAllDetails">All connection details</label><label><input type="checkbox" id="bgpShowContext" checked>Client LAN &amp; Internet context</label></div><p id="bgpConnectionSelection" class="hint">Select a connection row or a line in the topology to highlight it.</p></details>
  <div class="section-title">Configuration Output</div>
  <div class="param-grid">
    <div><label>Device</label><select id="bgpOutputDevice"><option value="all">All CE Routers</option></select></div>
@@ -2152,9 +2153,9 @@ function syncTopology(){
    const ceN=+v("bgpCeCount")||2,ispN=+v("bgpIspCount")||2,internal=v("bgpInternal")||"ibgp";
    const ces=Array.from({length:ceN},(_,i)=>bgpCe(i)),isps=Array.from({length:ispN},(_,i)=>bgpIsp(i)),edges=bgpEdges();
    const cx=Array.from({length:ceN},(_,i)=>ceN===1?475:190+570*i/(ceN-1)),ix=Object.fromEntries(bgpActiveUpstreams().map((index,n,all)=>[index,all.length===1?475:150+650*n/(all.length-1)]));
-   area.innerHTML=`<div class="vpc-svg-wrap bgp-compact-wrap"><svg class="vpc-svg" viewBox="0 0 950 480" role="img" aria-label="Dynamic BGP topology">
+   area.innerHTML=`<div class="vpc-svg-wrap bgp-compact-wrap"><svg class="vpc-svg" viewBox="${c('bgpShowContext')?'0 -150 950 770':'0 0 950 480'}" role="img" aria-label="Dynamic BGP topology">
    <defs><linearGradient id="bgpNodeGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#123652"/><stop offset="100%" stop-color="#0b2235"/></linearGradient></defs>
-   <text x="475" y="30" text-anchor="middle" class="vpc-domain-title">${esc(bgpConnectivityLabel())} · Customer AS ${esc(v("bgpCustomerAs")||"65001")}</text>
+   <text x="475" y="${c('bgpShowContext')?-122:30}" text-anchor="middle" class="vpc-domain-title">${esc(bgpConnectivityLabel())} · Customer AS ${esc(v("bgpCustomerAs")||"65001")}</text>
    ${edges.map(([ceIndex,i,k])=>{const l=bgpLink(ceIndex,i,k),remote=edges.filter(e=>e[1]===i),local=edges.filter(e=>e[0]===ceIndex),ra=remote.findIndex(e=>e[2]===k),rb=local.findIndex(e=>e[2]===k),sx=ix[i]+(ra-(remote.length-1)/2)*Math.min(56,96/Math.max(1,remote.length-1)),ex=cx[ceIndex]+(rb-(local.length-1)/2)*Math.min(48,84/Math.max(1,local.length-1)),group=edges.filter(e=>e[0]===ceIndex&&e[1]===i),rank=group.findIndex(e=>e[2]===k),bend=(rank-(group.length-1)/2)*36;
     const path=`M ${sx} 126 V 154 C ${sx+bend} 195 ${ex+bend} 249 ${ex} 290 V 318`;
     const label=(side,n,x,y,port,ip)=>{const detailed=edges.length<=8||c('bgpAllDetails')||k===bgpSelectedConnectionId,parts=[...(detailed&&c('bgpShowPorts')?[port]:[]),...(detailed&&c('bgpShowIps')?[ip]:[])];if(!parts.length)return '';const left=n%2===0,tx=x+(left?-69:69),anchor=left?'end':'start',ly=y+(Math.floor(n/2)*28);return `<text data-bgp-endpoint="${side}" x="${tx}" y="${ly}" text-anchor="${anchor}" fill="#45667c" font-family="Arial,sans-serif" font-size="9">${parts.map((part,j)=>`<tspan x="${tx}" dy="${j?11:0}">${esc(part)}</tspan>`).join('')}</text>`;};
@@ -2164,6 +2165,7 @@ function syncTopology(){
    ${internal==="ibgp"&&ceN===2?`<path data-bgp-interconnect="true" d="M ${cx[0]} 378 V 398 H ${cx[1]} V 378" fill="none" stroke="#93b4c8" stroke-width="2"/><text x="475" y="416" text-anchor="middle" class="vpc-small">CE interconnect · ${esc(v("bgpIbgpCe1If"))} ↔ ${esc(v("bgpIbgpCe2If"))}</text>`:""}
    ${isps.map((o,i)=>bgpActiveUpstreams().includes(i)?`<g data-bgp-device="isp${i+1}"><rect x="${ix[i]-62}" y="66" width="124" height="60" rx="12" style="fill:url(#bgpNodeGrad);stroke:#4fb7f3;stroke-width:1.5"/><text x="${ix[i]}" y="92" text-anchor="middle" class="vpc-device-name">${esc(o.name)}</text><text x="${ix[i]}" y="111" text-anchor="middle" class="vpc-small">AS ${esc(o.asn)}</text></g>`:"").join("")}
    ${ces.map((o,i)=>`<g data-bgp-device="ce${i+1}"><rect x="${cx[i]-55}" y="318" width="110" height="60" rx="10" style="fill:url(#bgpNodeGrad);stroke:#4fb7f3;stroke-width:1.5"/><text x="${cx[i]}" y="345" text-anchor="middle" class="vpc-device-name">${esc(o.name)}</text><text x="${cx[i]}" y="364" text-anchor="middle" class="vpc-small">AS ${esc(v("bgpCustomerAs")||"65001")}</text></g>`).join("")}
+   ${c('bgpShowContext')&&window.SyntheticBGP?.contextSvg?window.SyntheticBGP.contextSvg({ispXs:Object.values(ix),ceXs:cx}):''}
    <text x="475" y="450" text-anchor="middle" class="vpc-small">${edges.length} eBGP adjacencies · ${internal==="ibgp"?(ceN*(ceN-1)/2)+" iBGP sessions":"iBGP disabled"}</text>
    </svg></div>`;
    area.querySelectorAll('[data-bgp-connection],[data-bgp-label]').forEach(line=>{const id=+(line.dataset.bgpConnection||line.dataset.bgpLabel);line.setAttribute('tabindex','0');line.setAttribute('role','button');line.setAttribute('aria-label','Select '+bgpConnectionName(id));line.onclick=()=>bgpHighlightConnection(id,true);line.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();bgpHighlightConnection(id,true);}};});bgpHighlightConnection(bgpSelectedConnectionId);return;
@@ -4971,7 +4973,7 @@ function renderBgpConnectionRows(){
   const td=document.createElement('td'),remove=document.createElement('button');remove.type='button';remove.textContent='Remove';remove.setAttribute('aria-label','Remove '+(r.name||'connection '+r.id));td.appendChild(remove);tr.appendChild(td);remove.onclick=()=>{bgpWriteConnections(bgpConnections().filter(x=>x.id!==r.id));renderBgpConnectionRows();syncTopology();renderOutput();captureWorkspaceModule(tech);};
  }
  if(!rows.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=5;td.textContent='No external connections. Use Add connection to define the first circuit.';tr.appendChild(td);body.appendChild(tr);}
- for(const id of ['bgpShowPorts','bgpShowIps','bgpAllDetails'])document.getElementById(id).onchange=()=>{syncTopology();captureWorkspaceModule(tech);};
+ for(const id of ['bgpShowPorts','bgpShowIps','bgpAllDetails','bgpShowContext'])document.getElementById(id).onchange=()=>{syncTopology();captureWorkspaceModule(tech);};
  document.getElementById('bgpAddConnection').disabled=rows.length>=64;document.getElementById('bgpAddConnection').onclick=()=>{const list=bgpConnections();if(list.length>=64)return;list.push(bgpNewConnection(list));bgpWriteConnections(list);renderBgpConnectionRows();syncTopology();renderOutput();captureWorkspaceModule(tech);};
  bgpRefreshConnectivityUI();
 }
@@ -6521,7 +6523,7 @@ function bgpLabDesign(){
  if(+v("bgpCeCount")!==2||+v("bgpIspCount")!==2||bgpEdges().length!==4)throw Error("The first lab release requires two CE routers, two upstream routers and four external links. Your design is unchanged.");
  const nodes=[0,1].map(i=>({id:'ce'+(i+1),hostname:bgpCe(i).name,asn:+v('bgpCustomerAs'),prefix:bgpCe(i).prefix})).concat([0,1].map(i=>({id:'isp'+(i+1),hostname:bgpIsp(i).name,asn:+bgpIsp(i).asn,prefix:'198.18.255.1/32'})));
  const preferred=+v('bgpTeOutboundPreferredIsp'),enabled=c('bgpTeOutboundEnable')&&c('bgpTeLocalPref');
- const links=bgpEdges().map(([ce,up,id])=>{const l=bgpLink(ce,up,id);return{id:'wan'+id,a:'ce'+(ce+1),b:'isp'+(up+1),aIp:l.ceIp,bIp:l.ispIp,localPreference:enabled?+(v(id===preferred?'bgpTeLocalPrefValue':'bgpTeBackupLocalPref')||100):100};});
+ const links=bgpEdges().map(([ce,up,id])=>{const l=bgpLink(ce,up,id);return{id:'wan'+id,a:'ce'+(ce+1),b:'isp'+(up+1),aIp:l.ceIp,bIp:l.ispIp,localPreference:enabled?+(v(id===preferred?'bgpTeLocalPrefValue':'bgpTeBackupLocalPref')||100):100,prependCount:c('bgpTeInboundEnable')&&c('bgpTePrepend')&&id!==+v('bgpTeInboundPreferredIsp')?Math.max(1,+v('bgpTePrependCount')||3):0};});
  if(v('bgpInternal')==='ibgp')links.push({id:'interconnect',a:'ce1',b:'ce2',aIp:v('bgpIbgpCe1Ip'),bIp:v('bgpIbgpCe2Ip'),localPreference:100});
  return {name:'bgp-pilot',image:'quay.io/frrouting/frr:10.7.1',source:'BGP workspace · '+platform()+' · protocol subset',nodes,links,failureLink:links[0].id};
 }

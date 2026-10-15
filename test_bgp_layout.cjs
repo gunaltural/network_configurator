@@ -1,13 +1,13 @@
 const fs=require('fs'),assert=require('assert/strict'),{JSDOM,VirtualConsole}=require('jsdom');
 let html=fs.readFileSync('web.html','utf8');const errors=[],vc=new VirtualConsole();vc.on('jsdomError',e=>errors.push(e.message));
-const dom=new JSDOM(html,{url:'https://test.invalid/',runScripts:'dangerously',virtualConsole:vc,beforeParse(w){for(const f of ['huawei-istack.js','engineering-locale.js','vpc-report.js','verification-plan.js','design-checks.js'])w.eval(fs.readFileSync(f,'utf8'));w.confirm=()=>true;w.scrollTo=()=>{};w.HTMLElement.prototype.scrollIntoView=()=>{};w.fetch=async()=>({ok:true,json:async()=>({platforms:{}})});}});
+const dom=new JSDOM(html,{url:'https://test.invalid/',runScripts:'dangerously',virtualConsole:vc,beforeParse(w){for(const f of ['synthetic-bgp.js','huawei-istack.js','engineering-locale.js','vpc-report.js','verification-plan.js','design-checks.js'])w.eval(fs.readFileSync(f,'utf8'));w.confirm=()=>true;w.scrollTo=()=>{};w.HTMLElement.prototype.scrollIntoView=()=>{};w.fetch=async()=>({ok:true,json:async()=>({platforms:{}})});}});
 const w=dom.window,d=w.document,pause=()=>new Promise(r=>setTimeout(r,70)),change=(id,value)=>{const el=d.getElementById(id);if(el.type==='checkbox')el.checked=value;else el.value=value;el.dispatchEvent(new w.Event(el.type==='text'?'input':'change',{bubbles:true}));};
 const svg=()=>d.querySelector('#topologyArea svg'),text=()=>[...svg().querySelectorAll('text')].map(x=>x.textContent).join(' ');
 (async()=>{try{
  d.querySelector('.tech[data-tech=BGP]').click();await pause();
  d.getElementById('bgpAddConnection').click();change('bgpConnection3Ce','0');change('bgpConnection3Up','1');
  d.getElementById('bgpAddConnection').click();change('bgpConnection4Up','0');
- assert.equal(svg().getAttribute('viewBox'),'0 0 950 480');
+ assert.equal(svg().getAttribute('viewBox'),'0 -150 950 770');assert.ok(svg().querySelector('[data-bgp-context]'));assert.match(text(),/Internet/);assert.match(text(),/VRRP gateway concept/);change('bgpShowContext',false);assert.equal(svg().getAttribute('viewBox'),'0 0 950 480');assert.equal(svg().querySelector('[data-bgp-context]'),null);change('bgpShowContext',true);
  assert.equal(svg().querySelectorAll('[data-label-box]').length,0,'No oversized information cards');
  assert.equal(svg().querySelectorAll('[data-bgp-connection]').length,4);
  const circuits=[...svg().querySelectorAll('[data-bgp-connection]')];for(const y of ['126','318']){const points=circuits.map(g=>g.querySelector('circle[cy="'+y+'"]')).filter(Boolean);assert.equal(points.length,4);assert.equal(new Set(points.map(c=>c.getAttribute('cx'))).size,4,'Circuit endpoints are distinct');}const isp2=circuits.filter(g=>g.querySelector('circle[cy="126"]').getAttribute('cx')>500).map(g=>+g.querySelector('circle[cy="126"]').getAttribute('cx')).sort((a,b)=>a-b);assert.ok(isp2[1]-isp2[0]>=50,'ISP-2 has clearly separated symmetric physical attachment points');

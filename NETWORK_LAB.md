@@ -133,3 +133,14 @@ controls and original generated vendor configurations are preserved.
 
 Validation: `node test_synthetic_bgp.cjs` covers Local Preference, alternate CE,
 upstream/device loss, complete isolation, recovery, graph state and recorded evidence.
+
+
+## 5.40.0 — topology-first simulation and directional policies
+
+- Topology and all editable controls share one viewport: a resizable topology pane on the left and an independently scrolling control pane on the right. Narrow displays use vertically stacked panes. The separator supports pointer dragging and keyboard arrows / Home. Fault scenarios, traffic engineering and scenario records follow in the control pane. Synthetic queries and model details are collapsible. Real runtime, device CLI and offline host menus are removed from the active UI; backend runtime support is retained for future work. The synthetic page no longer probes or automatically prepares a real runtime.
+- Outbound what-if Local Preference and inbound per-circuit AS-path prepend (0–10 extra customer-AS copies) use explicit Apply / Restore controls. Values are validated atomically. These policies do not mutate the source design or generated CLI; recorded scenarios include the exact applied overrides and direction.
+- Inbound selects an existing CE prefix owner and evaluates each directly connected ISP independently, assuming equal provider Local Preference/weight/filter policy. The alternate CE can advertise the owner prefix only while its interconnect and owner remain available. Shorter AS paths win; ties use connection ID for deterministic illustration, not a complete vendor tie-break. No inter-ISP or Internet-wide path is invented. External provider policy may override prepend.
+- Baseline paths retain design policies; current paths include applied policies and faults. ISP-to-CE animation reverses the outbound direction. Scenario records appear immediately and retain explicit synthetic review status in reports.
+- The BGP design adds a reversible Client LAN & Internet context display. The exact SVG is reused in the simulator; standalone examples use the same context renderer. Internet transit, client forwarding and VRRP election are not simulated. The two-CE shared LAN is labeled a VRRP gateway concept; no VRRP configuration is generated. This context does not add device inventory, circuit counts or configuration lines.
+- Tests cover inbound prepend, outbound independence, per-ISP scope, prefix-owner and interconnect failures, invalid input rejection, policy reset, visible records, source design preservation, hidden future runtime controls and exact design topology transfer.
+- Technical reference: Cisco, Connecting to a Service Provider Using External BGP, Local Preference / Influencing Inbound Path Selection by Modifying AS_PATH: https://www.cisco.com/c/en/us/td/docs/routers/ios/config/17-x/ip-routing/b-ip-routing/m_irg-external-sp-0.html
