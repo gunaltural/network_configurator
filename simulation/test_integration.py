@@ -37,17 +37,17 @@ class VpcMlagRouteContract(unittest.TestCase):
     def test_routes_and_workspace_integration(self):
         api = (ROOT / "network_lab.py").read_text()
         app = (ROOT / "app.py").read_text()
-        link = (ROOT / "simulation/simulation-vpc-link.js").read_text()
+        workspace = (ROOT / "web.html").read_text()
         self.assertIn("@app.get('/vpc-mlag-simulation'", api)
         self.assertIn("@app.get('/simulation/vendor-failure-engine.mjs')", api)
-        self.assertIn("@app.get('/simulation-vpc-link.js')", api)
-        self.assertIn('src="/simulation-vpc-link.js"', app)
-        self.assertIn("scope?.module!=='VPC'", link)
-        self.assertIn("iStack", link)
-        self.assertIn("api.diagnosticDesign()", link)
-        self.assertIn("api.simulationTopologySvg()", link)
-        self.assertIn("networkConfigurator.mlagSimulation.topologySvg", link)
-        self.assertIn("networkConfigurator.mlagSimulation.design", link)
+        self.assertNotIn('src="/simulation-vpc-link.js"', app)
+        self.assertIn("vpcMlagSimLaunch", workspace)
+        self.assertIn("const vpcSupported=tech==='VPC'", workspace)
+        self.assertIn("platform()!=='Huawei iStack'", workspace)
+        self.assertIn("api.diagnosticDesign()", workspace)
+        self.assertIn("api.simulationTopologySvg()", workspace)
+        self.assertIn("networkConfigurator.mlagSimulation.topologySvg", workspace)
+        self.assertIn("networkConfigurator.mlagSimulation.design", workspace)
 
     def test_simulation_http_routes(self):
         # Test runner sets AUTH_ENABLED=0; production auth remains enabled.
