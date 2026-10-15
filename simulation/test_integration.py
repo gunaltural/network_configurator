@@ -27,6 +27,9 @@ class VpcMlagRouteContract(unittest.TestCase):
         self.assertIn("analyzeMlagFailure", page)
         self.assertIn("peerLink1", page)
         self.assertIn("peerLink2", page)
+        self.assertIn("peerMemberIds", page)
+        self.assertIn("peerLinkMemberCount", page)
+        self.assertIn("designPorts", page)
 
     def test_routes_and_workspace_integration(self):
         api = (ROOT / "network_lab.py").read_text()
@@ -38,6 +41,8 @@ class VpcMlagRouteContract(unittest.TestCase):
         self.assertIn('src="/simulation-vpc-link.js"', app)
         self.assertIn("scope?.module!=='VPC'", link)
         self.assertIn("iStack", link)
+        self.assertIn("api.diagnosticDesign()", link)
+        self.assertIn("networkConfigurator.mlagSimulation.design", link)
 
     def test_legacy_bgp_entry_kept(self):
         main = (ROOT / "web.html").read_text()
