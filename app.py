@@ -41,8 +41,9 @@ from docx.image.exceptions import UnrecognizedImageError
 from authentication import install_authentication
 from project_store import install_project_store
 from config_compare import install_config_compare
+from network_lab import install_network_lab
 
-VERSION = "5.34.0"
+VERSION = "5.35.0"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
 # Keep the diagnostic entry point available with the authenticated page itself.
@@ -655,6 +656,7 @@ app = FastAPI(
     redoc_url=None,
 )
 install_authentication(app, BASE_DIR)
+install_network_lab(app, BASE_DIR)
 
 @app.get('/network-discovery', response_class=HTMLResponse)
 def network_discovery_page():

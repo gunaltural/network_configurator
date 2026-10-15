@@ -6496,7 +6496,16 @@ function prepareCompare(){
   return true;
  }catch(error){sessionStorage.removeItem("networkConfigurator.compare.current");toast("Unable to prepare configurations: "+error.message);return false;}
 }
-window.NetworkWorkspaceProject={snapshot,apply:applyProject,prepareCompare,diagnosticScope:()=>({module:tech,platform:platform()}),diagnosticDesign:reportingDesign,diagnosticResult:()=>window.__latestDiagnosticResult||null,rename:name=>{$("v3ProjectName").value=name;}};
+function bgpLabDesign(){
+ if(tech!=="BGP")throw Error("Select the BGP workspace before importing a lab design.");
+ if(+v("bgpCeCount")!==2||+v("bgpIspCount")!==2||bgpEdges().length!==4)throw Error("The first lab release requires two CE routers, two upstream routers and four external links. Your design is unchanged.");
+ const nodes=[0,1].map(i=>({id:'ce'+(i+1),hostname:bgpCe(i).name,asn:+v('bgpCustomerAs'),prefix:bgpCe(i).prefix})).concat([0,1].map(i=>({id:'isp'+(i+1),hostname:bgpIsp(i).name,asn:+bgpIsp(i).asn,prefix:'198.18.255.1/32'})));
+ const preferred=+v('bgpTeOutboundPreferredIsp'),enabled=c('bgpTeOutboundEnable')&&c('bgpTeLocalPref');
+ const links=bgpEdges().map(([ce,up,id])=>{const l=bgpLink(ce,up,id);return{id:'wan'+id,a:'ce'+(ce+1),b:'isp'+(up+1),aIp:l.ceIp,bIp:l.ispIp,localPreference:enabled?+(v(id===preferred?'bgpTeLocalPrefValue':'bgpTeBackupLocalPref')||100):100};});
+ if(v('bgpInternal')==='ibgp')links.push({id:'interconnect',a:'ce1',b:'ce2',aIp:v('bgpIbgpCe1Ip'),bIp:v('bgpIbgpCe2Ip'),localPreference:100});
+ return {name:'bgp-pilot',image:'quay.io/frrouting/frr:10.7.1',source:'BGP workspace · '+platform()+' · protocol subset',nodes,links,failureLink:links[0].id};
+}
+window.NetworkWorkspaceProject={labDesign:bgpLabDesign,snapshot,apply:applyProject,prepareCompare,diagnosticScope:()=>({module:tech,platform:platform()}),diagnosticDesign:reportingDesign,diagnosticResult:()=>window.__latestDiagnosticResult||null,rename:name=>{$("v3ProjectName").value=name;}};
 })();
 </script>
 

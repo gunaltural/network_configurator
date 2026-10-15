@@ -390,3 +390,7 @@ The application adopts focused tool selection, not these products' telemetry int
 Topology export uses a namespace-aware SVG serializer. Module drawings and
 composed report drawings are checked as XML in regression tests, preventing
 duplicate `xmlns` attributes from blocking browser PNG generation and report entry.
+
+### Network Lab & Simulation
+
+The first FRR BGP lab pilot is available under Implementation & Validation. It exports an isolated Containerlab package and imports measured execution evidence. See [NETWORK_LAB.md](NETWORK_LAB.md) for setup, scope and limitations. A separate Linux lab host is required; Render does not execute the routers.
