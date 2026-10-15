@@ -19,7 +19,7 @@ function sync(){
    // The actual live Technology Workspace SVG is the one and only visual reference.
    // If it is unavailable, do not silently fall back to an invented pair diagram.
    const topologySvg=api.simulationTopologySvg();
-   if(!/^<svg[\\s>]/i.test(topologySvg.trim()))throw Error('Invalid Technology Workspace topology');
+   if(!topologySvg.trimStart().startsWith('<svg'))throw Error('Invalid Technology Workspace topology');
    sessionStorage.setItem('networkConfigurator.mlagSimulation.topologySvg',topologySvg);
    if(report?.source?.module==='VPC'&&Array.isArray(report.devices)){
      sessionStorage.setItem('networkConfigurator.mlagSimulation.design',JSON.stringify({
