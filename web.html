@@ -2162,8 +2162,8 @@ function syncTopology(){
 
    ${internal==="ibgp"&&ceN===2?`<line x1="${cx[0]+68}" y1="348" x2="${cx[1]-68}" y2="348" style="stroke:#8065a8;stroke-width:2.6;stroke-dasharray:7 5;fill:none"/><rect x="400" y="331" width="150" height="22" rx="7" fill="#f3f0f8" stroke="#8065a8"/><text x="475" y="346" text-anchor="middle" style="fill:#8065a8;font-size:11px;font-weight:800">iBGP · CE-TO-CE</text>`:internal==="ibgp"&&ceN>2?`<line x1="${cx[0]}" y1="410" x2="${cx[ceN-1]}" y2="410" style="stroke:#8065a8;stroke-width:2.2;stroke-dasharray:7 5;fill:none"/>${cx.map(x=>`<line x1="${x}" y1="378" x2="${x}" y2="410" style="stroke:#8065a8;stroke-width:1.8;stroke-dasharray:5 4;fill:none"/>`).join("")}<text x="475" y="432" text-anchor="middle" style="fill:#8065a8;font-size:11px;font-weight:800">iBGP LOGICAL FULL-MESH</text>`:""}
    ${internal==="ibgp"&&ceN===2?`<path d="M ${cx[0]} 378 V 398 H ${cx[1]} V 378" fill="none" stroke="#93b4c8" stroke-width="2"/><text x="475" y="416" text-anchor="middle" class="vpc-small">CE interconnect · ${esc(v("bgpIbgpCe1If"))} ↔ ${esc(v("bgpIbgpCe2If"))}</text>`:""}
-   ${isps.map((o,i)=>bgpActiveUpstreams().includes(i)?`<g><rect x="${ix[i]-62}" y="66" width="124" height="60" rx="12" style="fill:url(#bgpNodeGrad);stroke:#4fb7f3;stroke-width:1.5"/><text x="${ix[i]}" y="92" text-anchor="middle" class="vpc-device-name">${esc(o.name)}</text><text x="${ix[i]}" y="111" text-anchor="middle" class="vpc-small">AS ${esc(o.asn)}</text></g>`:"").join("")}
-   ${ces.map((o,i)=>`<g><rect x="${cx[i]-55}" y="318" width="110" height="60" rx="10" style="fill:url(#bgpNodeGrad);stroke:#4fb7f3;stroke-width:1.5"/><text x="${cx[i]}" y="345" text-anchor="middle" class="vpc-device-name">${esc(o.name)}</text><text x="${cx[i]}" y="364" text-anchor="middle" class="vpc-small">AS ${esc(v("bgpCustomerAs")||"65001")}</text></g>`).join("")}
+   ${isps.map((o,i)=>bgpActiveUpstreams().includes(i)?`<g data-bgp-device="isp${i+1}"><rect x="${ix[i]-62}" y="66" width="124" height="60" rx="12" style="fill:url(#bgpNodeGrad);stroke:#4fb7f3;stroke-width:1.5"/><text x="${ix[i]}" y="92" text-anchor="middle" class="vpc-device-name">${esc(o.name)}</text><text x="${ix[i]}" y="111" text-anchor="middle" class="vpc-small">AS ${esc(o.asn)}</text></g>`:"").join("")}
+   ${ces.map((o,i)=>`<g data-bgp-device="ce${i+1}"><rect x="${cx[i]-55}" y="318" width="110" height="60" rx="10" style="fill:url(#bgpNodeGrad);stroke:#4fb7f3;stroke-width:1.5"/><text x="${cx[i]}" y="345" text-anchor="middle" class="vpc-device-name">${esc(o.name)}</text><text x="${cx[i]}" y="364" text-anchor="middle" class="vpc-small">AS ${esc(v("bgpCustomerAs")||"65001")}</text></g>`).join("")}
    <text x="475" y="450" text-anchor="middle" class="vpc-small">${edges.length} eBGP adjacencies · ${internal==="ibgp"?(ceN*(ceN-1)/2)+" iBGP sessions":"iBGP disabled"}</text>
    </svg></div>`;
    area.querySelectorAll('[data-bgp-connection],[data-bgp-label]').forEach(line=>{const id=+(line.dataset.bgpConnection||line.dataset.bgpLabel);line.setAttribute('tabindex','0');line.setAttribute('role','button');line.setAttribute('aria-label','Select '+bgpConnectionName(id));line.onclick=()=>bgpHighlightConnection(id,true);line.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();bgpHighlightConnection(id,true);}};});bgpHighlightConnection(bgpSelectedConnectionId);return;
@@ -6250,7 +6250,7 @@ renderModule();
 
  // Preserve the workspace SVG, including vendor-specific links and labels.
  // CSS used by the workspace lives outside the SVG, so embed its computed paint styles.
- function workspaceTopologySvg(){
+ function workspaceTopologySvg(simulation=false){
    const original=document.querySelector("#topologyArea svg");
    if(!original&&tech==="SDWAN")return sdwanReportSvg();
    if(!original)throw Error("The workspace topology is not ready. Reopen the technology workspace and try again.");
@@ -6268,6 +6268,7 @@ renderModule();
        if(value)clones[i].style.setProperty(property,value);
      });
    });
+   if(simulation)return new XMLSerializer().serializeToString(copy);
    copy.querySelectorAll('[data-bgp-connection]').forEach(line=>{line.classList.remove('bgp-selected-line');line.removeAttribute('tabindex');line.removeAttribute('role');line.removeAttribute('aria-pressed');line.querySelectorAll('.bgp-hit-target').forEach(path=>path.remove());line.querySelectorAll('path').forEach(path=>{path.style.setProperty('stroke','#2fa8ff');path.style.setProperty('stroke-width','2.2');});});
    // The report has a white paper surface. Apply a lighter drawing palette to
    // the cloned SVG only; the interactive workspace keeps its original colors.
@@ -6528,7 +6529,7 @@ function prepareSimulation(){
  const model=window.NetworkWorkspaceProject.labDesign(),project=snapshot(),report=reportingDesign();
  report.topologySvg=workspaceTopologySvg();report.verificationCommands=reportVerificationCommands();
  sessionStorage.setItem('networkConfigurator.workflow.design',JSON.stringify(project));
- sessionStorage.setItem('networkConfigurator.lab.context',JSON.stringify({projectId:project.project.id,model,report}));
+ sessionStorage.setItem('networkConfigurator.lab.context',JSON.stringify({projectId:project.project.id,model,report,topologySvg:workspaceTopologySvg(true)}));
  return model;
 }
 window.NetworkWorkspaceProject={prepareSimulation,labDesign:bgpLabDesign,snapshot,apply:applyProject,prepareCompare,diagnosticScope:()=>({module:tech,platform:platform()}),diagnosticDesign:reportingDesign,diagnosticResult:()=>window.__latestDiagnosticResult||null,rename:name=>{$("v3ProjectName").value=name;}};
