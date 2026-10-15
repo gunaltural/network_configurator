@@ -1,0 +1,27 @@
+name: Simulation regression
+on:
+  pull_request:
+    paths:
+      - "simulation/**"
+      - "network_lab.py"
+      - "app.py"
+      - ".github/workflows/simulation-regression.yml"
+  push:
+    branches: ["feature/vendor-failure-simulation-v5-44"]
+jobs:
+  failure-engine:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Syntax check new modules
+        run: |
+          node --check simulation/vendor-failure-engine.mjs
+          node --check simulation/simulation-vpc-link.js
+          node --check simulation/vendor-failure-engine.test.mjs
+      - name: Unit regressions
+        run: node --test simulation/vendor-failure-engine.test.mjs
+      - name: Compile Python routing
+        run: python3 -m py_compile app.py network_lab.py
