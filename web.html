@@ -1361,7 +1361,7 @@ function stackWiseSyncLeaves(){
  const sel=document.getElementById("swvOutput");
  if(sel){
    [...sel.options].forEach(o=>{if(o.value.startsWith("LEAF")){const x=+o.value.slice(4);o.hidden=x>n;o.disabled=x>n;}});
-   if(sel.value.startsWith("LEAF") && +sel.value.slice(4)>n)sel.value="CORE";
+   if(sel.value.startsWith("LEAF") && +sel.value.slice(4)>n)sel.value="ALL";
  }
 }
 function stackWiseWorkspaceUI(){
@@ -1416,7 +1416,7 @@ function stackWiseWorkspaceUI(){
  ${leafRows}</section>
 
  <section class="vpc-v42-card"><div class="vpc-v42-head"><div><div class="vpc-v42-title">6 · Configuration Output</div></div><span class="vpc-v42-badge">OUTPUT</span></div>
- <div class="param-grid"><div><label>Device Configuration</label><select id="swvOutput"><option value="CORE" selected>StackWise Virtual Core</option>${Array.from({length:8},(_,i)=>`<option value="LEAF${i+1}">Leaf-${String(i+1).padStart(2,"0")}</option>`).join("")}</select></div></div></section>`;
+ <div class="param-grid"><div><label>Device Configuration</label><select id="swvOutput"><option value="ALL" selected>All Devices</option><option value="CORE">StackWise Virtual Core</option>${Array.from({length:8},(_,i)=>`<option value="LEAF${i+1}">Leaf-${String(i+1).padStart(2,"0")}</option>`).join("")}</select></div></div></section>`;
  stackWiseSyncLeaves();
  root.querySelectorAll("input,select").forEach(e=>{
    e.addEventListener("input",()=>{if(e.id==="swvLeafCount")stackWiseSyncLeaves();syncTopology();renderOutput()});
@@ -1512,7 +1512,8 @@ show interfaces trunk`;
 5. Verify STP root, Root Guard and BPDU Guard state.
 6. Verify selected VLANs exist on the core and every active leaf.`;
  if(tab==="notes")return `Cisco StackWise Virtual native L2 workspace. SVI and access-port generation are intentionally excluded. VLAN creation, trunk policy, EtherChannel mode, STP and dynamic dual-homed leaf MEC are controlled independently.`;
- const out=g("swvOutput")||"CORE";
+ const out=g("swvOutput")||"ALL";
+ if(out==="ALL")return readableCliBlocks([`######## ${host} · LOGICAL CORE ########\n${core}`,...leaves.map(L=>`######## ${L.name} ########\n${leafCfg(L)}`)].join("\n\n"));
  if(out.startsWith("LEAF")){const idx=+out.slice(4)-1;return readableCliBlocks(leaves[idx]?leafCfg(leaves[idx]):core);}
  return readableCliBlocks(core);
 }
@@ -1526,7 +1527,7 @@ function aristaMlagWorkspaceUI(){
  <section class="vpc-v42-card"><div class="vpc-v42-title">3 · STP</div><div class="param-grid"><div><label>STP Mode</label><select id="arStp"><option selected>rapid-pvst</option><option>mstp</option><option>rstp</option></select></div><div><label>VLAN Scope</label><input id="arScope" value="1-4094"></div><div><label>Core Priority</label><input id="arCp" value="4096"></div><div><label>Leaf Priority</label><input id="arLp" value="32768"></div></div><div class="checks"><label class="check"><input id="arBpdu" type="checkbox" checked> BPDU Guard Default</label><label class="check"><input id="arNoStp" type="checkbox" checked> Disable STP on Peer VLAN</label><label class="check"><input id="arRg" type="checkbox" checked> Root Guard</label></div></section>
  <section class="vpc-v42-card"><div class="vpc-v42-title">4 · VLAN & Trunk Policy</div><div class="param-grid"><div><label>VLANs to Create</label><input id="arVlans" value="10,20,30"></div><div><label>Trunk Policy</label><select id="arTp"><option value="created" selected>Created VLANs Only</option><option value="all">Full Trunk</option></select></div><div><label>Downstream Bundle Negotiation</label><select id="arLacp"><option value="active" selected>LACP · active / active (recommended)</option><option value="passive">LACP · peers active / leaf passive</option><option value="on">Static · on / on (no LACP)</option></select></div></div></section>
  <section class="vpc-v42-card"><div class="vpc-v42-title">5 · Downstream MLAG Leaves</div><div class="param-grid"><div><label>Number of Leaf Switches</label><select id="arLeafCount"><option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></div></div>${rows}</section>
- <section class="vpc-v42-card"><div class="vpc-v42-title">6 · Configuration Output</div><div class="param-grid"><div><label>Device Configuration</label><select id="arOutput"><option value="C1">Core-1</option><option value="C2">Core-2</option>${Array.from({length:8},(_,i)=>`<option value="LEAF${i+1}">Leaf-${i+1}</option>`).join("")}</select></div></div></section>`;
+ <section class="vpc-v42-card"><div class="vpc-v42-title">6 · Configuration Output</div><div class="param-grid"><div><label>Device Configuration</label><select id="arOutput"><option value="ALL" selected>All Devices</option><option value="C1">Core-1</option><option value="C2">Core-2</option>${Array.from({length:8},(_,i)=>`<option value="LEAF${i+1}">Leaf-${i+1}</option>`).join("")}</select></div></div></section>`;
  aristaSyncLeaves();r.querySelectorAll("input,select").forEach(e=>{["input","change"].forEach(x=>e.addEventListener(x,()=>{if(e.id==="arLeafCount")aristaSyncLeaves();syncTopology();renderOutput()}))});syncTopologyControls();syncTopology();renderOutput();return true;
 }
 function readableCliBlocks(text){
@@ -1548,7 +1549,7 @@ function aristaMlagGenerate(tab){
  if(tab==="verify")return "show mlag\nshow mlag detail\nshow mlag interfaces\nshow port-channel\nshow lacp peer\nshow spanning-tree root\nshow vlan\nshow interfaces trunk";
  if(tab==="trouble")return "1. Verify peer VLAN/SVI and MLAG peer-link.\n2. Verify trunk-group isolation of the peer VLAN.\n3. Verify peer-link LACP active.\n4. Verify MLAG IDs and Port-Channels match on both cores.\n5. Verify VLAN/trunk policy and STP state.";
  if(tab==="notes")return "Native Arista EOS MLAG workspace. Tenant SVIs are intentionally excluded. Peer-link LACP is fixed active; downstream mode is selectable. EOS STP loop guard is enabled as the native unidirectional/STP protection; unsupported Cisco UDLD syntax is not emitted.";
- let o=g("arOutput");if(o==="C2")return readableCliBlocks(core(2));if(o.startsWith("LEAF"))return readableCliBlocks(leaf(L[+o.slice(4)-1]));return readableCliBlocks(core(1));
+ let o=g("arOutput");if(o==="ALL")return readableCliBlocks([1,2].map(n=>`######## ${g("arH"+n)} ########\n${core(n)}`).concat(L.map(x=>`######## ${x.name} ########\n${leaf(x)}`)).join("\n\n"));if(o==="C2")return readableCliBlocks(core(2));if(o.startsWith("LEAF"))return readableCliBlocks(leaf(L[+o.slice(4)-1]));return readableCliBlocks(core(1));
 }
 function huaweiMlagWorkspaceUI(){
  if(tech!=="VPC"||platform()!=="Huawei_CE_SW")return false;
@@ -1796,7 +1797,7 @@ function ensureDesignLinkSpeed(){
 }
 function syncStandardVpcLeaves(){
  if(tech!=='VPC')return;const root=document.getElementById('params'),pl=platform();if(!root?.querySelector('[data-vpc-standard="'+pl+'"]'))return;
- const map={'Cisco NX-OS':['vpcLeafCount','vpcLeaf','vpcOutputDevice','ALL'],'Cisco IOS-XE':['swvLeafCount','swvLeaf','swvOutput','CORE'],'Arista EOS':['arLeafCount','arLeaf','arOutput','C1'],'Huawei_CE_SW':['hwLeafCount','hwLeaf','hwOutput','ALL'],'Huawei iStack':['isLeafCount','istackLeaf','isOutput','CORE']},settings=map[pl];if(!settings)return;
+ const map={'Cisco NX-OS':['vpcLeafCount','vpcLeaf','vpcOutputDevice','ALL'],'Cisco IOS-XE':['swvLeafCount','swvLeaf','swvOutput','ALL'],'Arista EOS':['arLeafCount','arLeaf','arOutput','ALL'],'Huawei_CE_SW':['hwLeafCount','hwLeaf','hwOutput','ALL'],'Huawei iStack':['isLeafCount','istackLeaf','isOutput','ALL']},settings=map[pl];if(!settings)return;
  const [countId,attribute,outputId,fallback]=settings,n=Math.max(2,Math.min(8,Number(document.getElementById(countId)?.value)||4)),dataName=attribute.replace(/[A-Z]/g,x=>'-'+x.toLowerCase());
  root.querySelectorAll('[data-'+dataName+']').forEach(node=>{const hidden=Number(node.dataset[attribute])>n;if(attribute==='istackLeaf')node.hidden=hidden;else node.style.display=hidden?'none':'';});
  const output=document.getElementById(outputId);if(output){for(const option of output.options)if(/^LEAF\d+$/.test(option.value)){option.hidden=Number(option.value.slice(4))>n;option.disabled=option.hidden;}if(/^LEAF\d+$/.test(output.value)&&Number(output.value.slice(4))>n)output.value=fallback;}

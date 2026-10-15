@@ -12,7 +12,13 @@ async function inspect(html,standard){
   change('platform',vendor);await wait();
   const fields=[...d.querySelectorAll('#params input[id],#params select[id],#topologyControls input[id],#topologyControls select[id]')].map(x=>x.id).sort();
   if(standard){const cards=[...d.querySelectorAll('#params > .vpc-v42-card')];assert.equal(cards.length,7,vendor);assert.deepEqual(cards.map(c=>c.querySelector('.vpc-v42-title').textContent),titles.map((t,j)=>`${j+1} · ${t}`));assert.ok(cards[2].querySelector('.vpc-leaf-table'));assert.ok(cards[2].querySelector('details summary').textContent.includes('Physical Interface'));assert.equal(cards[2].querySelector('details').open,false);assert.ok(cards[2].contains(d.getElementById('designUplinkSpeed')));}
-  for(const n of [2,8]){change(counts[i],String(n));await wait();const r=w.__audit.reportingDesign();results.push({vendor,n,fields,configurations:JSON.parse(JSON.stringify(r.configurations))});
+  for(const n of [2,8]){change(counts[i],String(n));await wait();const outputId=['vpcOutputDevice','swvOutput','arOutput','hwOutput','isOutput'][i];
+   change(outputId,'ALL');await wait();
+   const all=d.getElementById('output').textContent;assert.ok(all.length>100,vendor+' combined output');assert.ok(!all.includes('undefined'),vendor+' valid all-device output');
+   for(let leaf=1;leaf<=n;leaf++){change(outputId,'LEAF'+leaf);await wait();const individual=d.getElementById('output').textContent;assert.ok(individual.length>50,vendor+' leaf output');assert.ok(all.includes(individual.trim()),vendor+' all includes leaf '+leaf);}
+   for(const device of [['SPINE1','SPINE2'],['CORE'],['C1','C2'],['MASTER','BACKUP'],['CORE','MEMBER1','MEMBER2']][i]){change(outputId,device);await wait();assert.ok(all.includes(d.getElementById('output').textContent.trim()),vendor+' all includes '+device);}
+   change(outputId,'ALL');
+   const r=w.__audit.reportingDesign();results.push({vendor,n,fields,configurations:JSON.parse(JSON.stringify(r.configurations))});
    if(standard){const cells=[...d.querySelectorAll('[data-vpc-section="3"] .vpc-leaf-cell')],visible=cells.filter(el=>!el.hidden&&el.style.display!=='none');assert.equal(visible.length,n*(vendor==='Arista EOS'?3:2),vendor+' visible leaf cells');assert.ok(cells.every(el=>Number(el.dataset[attributes[i]])<=n||el.hidden||el.style.display==='none'));
     const saved=w.__audit.snapshot();change(counts[i],String(n===2?8:2));w.__audit.applyProject(saved);await wait();assert.equal([...d.querySelectorAll('[data-vpc-section="3"] .vpc-leaf-cell')].filter(el=>!el.hidden&&el.style.display!=='none').length,n*(vendor==='Arista EOS'?3:2),vendor+' restored leaf visibility');}
   }
