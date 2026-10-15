@@ -4,9 +4,9 @@
 
 ## Common model
 
-- Two peers, two physical members of the peer-link/SVL, one separately modeled liveness/DAD path, and two uplinks.
+- Imported designs use the **dynamic Technology Workspace topology SVG** as the sole visual reference. Device names, leaf count, attached interfaces and peer-link physical members come from the same current Workspace report data, not an invented graph.\n- Standalone simulations without a Workspace snapshot are explicitly marked as incomplete; no fake topology is drawn.\n- Dedicated liveness or upstream links appear as failure options only when the imported design explicitly identifies the matching fault domain. Arista MLAG peer-control VLAN is not a separate physical heartbeat.
 - One member down is degraded peer-link redundancy, **not necessarily complete logical peer-link down**.
-- Both peer-link members down implies loss of the logical peer-link **if** there is no alternative member.
+- All imported peer-link members down implies loss of the logical peer-link **if** there is no alternative member.
 - One or both failed devices, and any subset of links, may be selected simultaneously.
 - Dual-active/split-brain risk requires both peers to remain operational. A failed peer is not itself a dual-active event.
 - No assertion is made for traffic convergence time, BGP RIB/FIB contents, exact packet loss, platform versions, or downstream single-homed traffic absent explicit topology.
@@ -30,10 +30,11 @@
 
 ## Deferred work
 
-- Map actual generated vPC/MLAG topology, device names, member interfaces and role state from the Technology Workspace.
+- Keep dynamic SVG and model-link identities synchronized when editing the live Workspace; the current transfer is a snapshot captured on launching simulation.\n- Add explicit role-state input and vendor/version-specific role election; hostnames alone do not prove primary/secondary status.
 - Add platform/OS profile selection and parameterized recovery timers.
 - Validate MAC/ARP synchronization, SVI impact, LACP/member state, orphan ports, access dual-homing, and service-level effects with version-specific documentation.
-- Connect scenario export with reporting pipeline and end-to-end UI regression.
+- Connect scenario export with reporting pipeline and perform interactive browser visual regression (CI currently validates DOM and link/model contracts).
 - Extend existing BGP synthetic workbench in place without replacing its policy evaluation or traffic path logic.
 
 These limitations should remain visible in the UI and scenario exports.
+\n## BGP audit findings\n\n- Corrected a false positive in synthetic Internet inbound selection: routes entering through an alternate CE now require a working CE interconnect to reach the selected owner; an offline target owner cannot be marked reachable.\n- The existing BGP lab is still a 2-CE / 2-ISP protocol subset, even though Technology Workspace allows more dynamic device counts. The simulator must not silently claim arbitrary BGP topologies are emulated.\n- New BGP fail/restore and concurrent-failure tests cover route reachability and protect the existing 2x2 evaluator.\n
