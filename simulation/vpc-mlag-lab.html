@@ -45,6 +45,7 @@ a{color:#71d6ff} .status{padding:7px 11px;border-radius:999px;background:#173448
 <script type="module">
 import {analyzeMlagFailure,changeFailures} from '/simulation/vendor-failure-engine.mjs';
 const $=id=>document.getElementById(id),boxes=[...document.querySelectorAll('[data-fault]')];
+const transferred=sessionStorage.getItem('networkConfigurator.mlagSimulation.vendor');if([...$('vendor').options].some(o=>o.value===transferred))$('vendor').value=transferred;
 let state={devices:[],links:[],selectedDevices:[],selectedLinks:[]};const deviceNames=new Set(['nodeA','nodeB']);
 const choices=()=>boxes.filter(x=>x.checked).map(x=>x.dataset.fault);
 function apply(action){const selected=choices(),devices=selected.filter(x=>deviceNames.has(x)),links=selected.filter(x=>!deviceNames.has(x));
