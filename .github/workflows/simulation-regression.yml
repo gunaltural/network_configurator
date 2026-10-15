@@ -25,3 +25,5 @@ jobs:
         run: node --test simulation/vendor-failure-engine.test.mjs
       - name: Compile Python routing
         run: python3 -m py_compile app.py network_lab.py
+      - name: UI wiring contract tests
+        run: python3 -m unittest discover -s simulation -p 'test_*.py'
