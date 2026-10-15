@@ -49,6 +49,21 @@ class VpcMlagRouteContract(unittest.TestCase):
         self.assertIn("networkConfigurator.mlagSimulation.topologySvg", link)
         self.assertIn("networkConfigurator.mlagSimulation.design", link)
 
+    def test_simulation_http_routes(self):
+        # Test runner sets AUTH_ENABLED=0; production auth remains enabled.
+        from fastapi.testclient import TestClient
+        from app import app
+        client = TestClient(app)
+        for route, expected in (
+            ("/vpc-mlag-simulation", "Technology Workspace topology"),
+            ("/simulation/vendor-failure-engine.mjs", "analyzeAccessImpact"),
+            ("/simulation-vpc-link.js", "networkConfigurator.mlagSimulation.topologySvg"),
+            ("/synthetic-bgp.js", "SyntheticBGP"),
+        ):
+            response = client.get(route)
+            self.assertEqual(response.status_code, 200, (route, response.text[:150]))
+            self.assertIn(expected, response.text)
+
     def test_legacy_bgp_entry_kept(self):
         main = (ROOT / "web.html").read_text()
         self.assertIn("function ensureSimulationTrigger()", main)
