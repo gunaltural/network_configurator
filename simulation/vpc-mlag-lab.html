@@ -88,7 +88,7 @@ function draw(){for(const id of ['nodeA','nodeB','peerLink1','peerLink2','keepal
  const element=$(id+(['nodeA','nodeB'].includes(id)?'Rect':'Path'));element.classList.toggle('down',(deviceNames.has(id)?state.devices:state.links).includes(id));}}
 function render(){
 const failed=[...state.devices,...state.links];if(peerMemberIds.length&&peerMemberIds.every(id=>state.links.includes(id)))failed.push('peerLink');
-const result=analyzeMlagFailure({vendor:$('vendor').value,failed});
+const result=analyzeMlagFailure({vendor:$('vendor').value,failed,peerLinkMemberCount:peerMemberIds.length});
 const affected=result.findings.filter(f=>f.severity!=='normal');
 $('status').textContent=affected.length?affected.length+' modeled finding(s)':'No failure';
 $('health').textContent='Device failures: '+state.devices.length+' · Connection failures: '+state.links.length+' · Peer-link members available: '+peerMemberIds.filter(id=>!state.links.includes(id)).length+'/'+peerMemberIds.length;
