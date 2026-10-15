@@ -35,8 +35,8 @@ VRF and authentication are not imported. Do not treat passing tests as acceptanc
 of the original vendor configuration. ASIC behavior, line rate and production
 convergence timing are not measured. Imported evidence is user-supplied, not signed.
 
-Execution evidence stays in this workspace/export, separate from customer design
-reports in this first release. No project library or inventory data is modified.
+Execution evidence can be explicitly attached to the linked design report as
+FRR simulation evidence requiring engineer review. Inventory data is not modified.
 
 ## Validation
 
@@ -98,3 +98,13 @@ Recorded command evidence can be exported independently of offline runner result
 Tests mock the Docker/Containerlab process boundary to verify API, ownership,
 lifecycle, command routing and fault controls. An actual host acceptance test is
 still required. No central host is configured in the current Render deployment.
+
+## Design/reporting continuity (5.38.0)
+
+The BGP simulation action remains visible in a fixed bottom bar; the diagram no
+longer sticks over it. Entering simulation checkpoints the full design and its
+report/topology context. Back to design resumes that checkpoint. Continue to
+reporting retains the current project report when one exists. Explicit evidence
+transfer maps uniquely named configured devices, rejects a changed lab model,
+deduplicates submissions and labels them FRR simulation / needs review. Existing
+verification evidence is retained. Original vendor configurations are unchanged.

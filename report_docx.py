@@ -397,6 +397,8 @@ def build_report_docx(project):
         doc.add_heading("Ek doğrulama kayıtları" if tr else "Verification records appendix", level=2)
         for r in checks:
             doc.add_heading(r["hostname"] + " · " + r["command"], level=2)
+            if "simulation" in r.get("vendor", "").lower():
+                doc.add_paragraph(("Ortam: " if tr else "Environment: ") + r["vendor"] + (" · Üretim doğrulaması değildir." if tr else " · Not production verification."))
             doc.add_paragraph(r["expected"])
             doc.add_paragraph(" · ".join([r["statusLabel"], r.get("date") or "—", r.get("engineer") or "—"]))
             for line in (r.get("output") or ("CLI çıktısı: sonradan doldurulacak." if tr else "CLI output: to be completed later.")).splitlines():
