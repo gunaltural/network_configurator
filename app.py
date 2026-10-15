@@ -45,7 +45,7 @@ from config_compare import install_config_compare
 from network_lab import install_network_lab
 from lab_gateway import install_lab_gateway
 
-VERSION = "5.43.2"
+VERSION = "5.44.0"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
 # Feature branch: additive vPC/MLAG simulation link (does not alter existing BGP controls).
