@@ -6534,7 +6534,7 @@ function prepareSimulation(){
  sessionStorage.setItem('networkConfigurator.lab.context',JSON.stringify({projectId:project.project.id,model,report,topologySvg:workspaceTopologySvg(true)}));
  return model;
 }
-window.NetworkWorkspaceProject={prepareSimulation,labDesign:bgpLabDesign,snapshot,apply:applyProject,prepareCompare,diagnosticScope:()=>({module:tech,platform:platform()}),diagnosticDesign:reportingDesign,diagnosticResult:()=>window.__latestDiagnosticResult||null,rename:name=>{$("v3ProjectName").value=name;}};
+window.NetworkWorkspaceProject={simulationTopologySvg:()=>workspaceTopologySvg(true),prepareSimulation,labDesign:bgpLabDesign,snapshot,apply:applyProject,prepareCompare,diagnosticScope:()=>({module:tech,platform:platform()}),diagnosticDesign:reportingDesign,diagnosticResult:()=>window.__latestDiagnosticResult||null,rename:name=>{$("v3ProjectName").value=name;}};
 })();
 </script>
 
