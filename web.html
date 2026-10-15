@@ -1990,7 +1990,17 @@ function vpcLeafUi(){
 }
 
 
+function ensureSimulationTrigger(){
+ const host=document.getElementById('topologyControls');if(!host)return;
+ let button=host.querySelector('#bgpTestSimulation');
+ if(tech!=='BGP'){button?.remove();return;}
+ if(button)return;
+ button=document.createElement('button');button.id='bgpTestSimulation';button.type='button';button.className='btn primary';button.textContent='Test in Simulation';
+ button.onclick=()=>{try{sessionStorage.setItem('networkConfigurator.lab.bgp',JSON.stringify(bgpLabDesign()));location.assign('/network-lab?from=design');}catch(e){alert(e.message);}};
+ host.prepend(button);
+}
 function syncTopologyControls(){
+ setTimeout(ensureSimulationTrigger,0);
  const host=document.getElementById("topologyControls");if(!host)return;
  const ids=[];
  if(tech==="BGP") ids.push("bgpInternal");

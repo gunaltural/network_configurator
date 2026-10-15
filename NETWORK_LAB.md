@@ -60,3 +60,41 @@ generates planned configuration without deployment. Model edits invalidate it.
 The central service is not provisioned or connected: start/stop, console, commands
 and failure execution remain disabled. No emulated runtime results are fabricated.
 Offline package generation is retained under Advanced for administrator use.
+
+## Central command runtime (5.37.0)
+
+BGP topology now offers **Test in Simulation**, transferring the supported protocol
+subset directly into lab preparation. The app gateway supports service health,
+start, stop, active-lab recovery, FRR command batches and fault-link up/down.
+
+The separate `lab_service.py` is a deployable FastAPI service for a dedicated Linux
+host with Docker/Containerlab; it is NOT started by the Render application.
+Install the repository dependencies and run, for example:
+
+```
+export LAB_SERVICE_TOKEN='<a random secret of at least 32 characters>'
+export LAB_DATA_DIR='/var/lib/network-configurator/labs'
+uvicorn lab_service:service --host 127.0.0.1 --port 8091
+```
+
+Use a TLS reverse proxy or private connection for the service. Configure
+`LAB_SERVICE_URL` and the same `LAB_SERVICE_TOKEN` on the web application. Service
+credentials stay on the server. The service must have Docker/Containerlab permissions.
+Use the current single-account web authentication only for trusted pilot users;
+per-person accounts and broader multitenant hardening remain future work.
+
+Defaults: two active labs maximum, one per account; four FRR nodes per lab, 256 MiB
+and one CPU per node. Failed deployments remain recoverable through service check
+and stop. Stop labs explicitly; automatic idle cleanup is not implemented yet.
+The reviewed FRR image is enforced by the service. Other images are rejected.
+
+The console executes one or more FRR `vtysh -c` commands on the selected running
+container and returns actual stdout/stderr, exit status and observation time. Enter
+sends a batch; Shift+Enter adds a command. For configuration, include `configure
+terminal`, context and commands in the same submission. Context does not persist
+between submissions. This is NOT an interactive TTY and has no Tab completion.
+Recorded command evidence can be exported independently of offline runner results.
+
+Tests mock the Docker/Containerlab process boundary to verify API, ownership,
+lifecycle, command routing and fault controls. An actual host acceptance test is
+still required. No central host is configured in the current Render deployment.
