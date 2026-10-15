@@ -158,3 +158,9 @@ upstream/device loss, complete isolation, recovery, graph state and recorded evi
 - New routes: `/simulation-report.js`, `/api/network-lab/simulation-word`. Shared typed scenario schemas and document rendering are in `simulation_report.py`; frontend report presentation is in `simulation-report.js`. No external services or paid infrastructure added.
 - Tests cover complete path segments, VRRP choice/failure/restoration, no WAN-tracking behavior, total isolation, backup-CE inbound forwarding, immutable snapshots, valid SVG XML, PDF preview, Word UI payload, idempotent final report attachment, EN/TR standalone Word/image generation, EN/TR final Word sections, malformed input and image rejection, plus existing 32 module/platform and reporting regressions.
 - VRRP reference: RFC 9568, https://www.rfc-editor.org/rfc/rfc9568.html .
+
+
+## 5.41.1 — match Design topology scale
+
+- The simulator SVG now uses the Design workspace’s 940 px maximum canvas width, 850 px compact-canvas minimum and natural aspect ratio. Height fitting and flex shrinking no longer scale down the devices and labels.
+- A separately scrollable topology viewport preserves the full-width sticky panel and access to controls on shorter displays. The viewport is keyboard focusable and releases overflow for printing; report snapshots still use the unchanged source viewBox.
