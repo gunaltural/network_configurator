@@ -8,7 +8,7 @@ h1{font-size:22px;margin:0}h2{font-size:16px}small,.muted{color:#91a9ba}main{max
 section,.card{background:#101d2b;border:1px solid #2c4155;border-radius:14px;padding:16px}fieldset{border:1px solid #344d61;border-radius:10px;margin:14px 0;padding:10px}legend{font-weight:700;font-size:13px}
 label{display:flex;gap:8px;align-items:center;padding:7px 0;cursor:pointer}input[type=checkbox]{accent-color:#38bdf8;width:17px;height:17px}select,button{background:#142d40;border:1px solid #3f6179;color:#e6edf3;border-radius:9px;padding:10px;font:inherit}
 select{width:100%}button{cursor:pointer}button:hover{background:#21516c}.actions{display:flex;gap:8px;flex-wrap:wrap}.danger{border-color:#a84f58}.cards{display:grid;gap:12px}.severity{border-left:4px solid #63c58c;padding:12px;background:#0d1b27;border-radius:8px}.severity.critical{border-color:#ff7070}.severity.warning{border-color:#ffd16d}
-svg{width:100%;max-height:410px;border-radius:12px;background:#08141e;border:1px solid #30475b}svg text{fill:#dfebf5;font:14px Inter,Arial,sans-serif}svg .link{stroke:#59bce8;stroke-width:6}svg .link.down{stroke:#ef6666;stroke-dasharray:12 8}svg .node{fill:#1e4258;stroke:#5ca5c8;stroke-width:2}svg .node.down{fill:#53282f;stroke:#ff7272}
+#workspaceTopologyVisual{max-height:70vh;min-height:170px;overflow:auto;border-radius:12px;background:#08141e;border:1px solid #30475b;padding:12px}#workspaceTopologyVisual svg{max-width:none;height:auto;display:block}
 pre{white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.5 ui-monospace,monospace;background:#06111b;border-radius:10px;padding:12px}
 a{color:#71d6ff} .status{padding:7px 11px;border-radius:999px;background:#173448;font-size:12px}
 @media(max-width:900px){main{grid-template-columns:1fr}}
@@ -30,16 +30,10 @@ a{color:#71d6ff} .status{padding:7px 11px;border-radius:999px;background:#173448
 <p class="muted">Selections are independent of the active failure state. Restore clears checkmarks for restored items. If either peer-link member survives, the logical peer-link remains available (assuming port-channel operation).</p>
 </section>
 <div class="cards">
-<section><h2>Topology and fault domains</h2><svg viewBox="0 0 760 410" role="img" aria-label="Peer pair, redundant peer-link, liveness detection and uplinks">
-<path id="keepalivePath" class="link" d="M245 113 Q380 27 515 113" fill="none"/><text x="380" y="27" text-anchor="middle">Keepalive / DAD</text>
-<line id="peerLink1Path" class="link" x1="245" y1="173" x2="515" y2="173"/><line id="peerLink2Path" class="link" x1="245" y1="195" x2="515" y2="195"/>
-<line id="uplinkAPath" class="link" x1="145" y1="100" x2="145" y2="54"/><line id="uplinkBPath" class="link" x1="615" y1="100" x2="615" y2="54"/>
-<rect id="nodeARect" class="node" x="45" y="100" width="200" height="175" rx="16"/><rect id="nodeBRect" class="node" x="515" y="100" width="200" height="175" rx="16"/>
-<text id="nodeAName" x="145" y="158" text-anchor="middle">PEER A</text><text x="145" y="210" text-anchor="middle">Role: verify</text>
-<text id="nodeBName" x="615" y="158" text-anchor="middle">PEER B</text><text x="615" y="210" text-anchor="middle">Role: verify</text>
-<text x="380" y="240" text-anchor="middle">Logical peer-link</text>
-<text id="memberCountLabel" x="380" y="365" text-anchor="middle">Modeled peer-link members: 2</text>
-</svg><div id="health" class="status" aria-live="polite"></div></section>
+<section><h2>Technology Workspace topology</h2>
+<p class="muted">Exact dynamic Workspace topology snapshot, including actual number of devices, labels and interfaces. Fault consequences are displayed below; no fictitious links are added to the drawing.</p>
+<div id="workspaceTopologyVisual" role="img" aria-label="Imported Technology Workspace network topology"><p class="muted">No Technology Workspace SVG imported. Return to the technology workspace to load the current topology.</p></div>
+<div id="health" class="status" aria-live="polite"></div></section>
 <section><h2>Expected operational impact</h2><div id="findings" class="cards" aria-live="polite"></div></section>
 <section><h2>Leaf and access-link physical impact</h2><p class="muted">Physical attachment assessment only. An operational vPC/MLAG member, LACP state, VLAN service and gateway are not proven by link presence.</p><div id="accessFindings" class="cards"></div></section>
 <section><h2>Imported design context</h2><p id="designSummary" class="muted">Standalone synthetic two-peer template; no workspace design imported.</p><pre id="designPorts">No actual device/interface mapping imported.</pre></section>
@@ -54,9 +48,31 @@ const peerA=design?.devices?.find(d=>d.id==='upper-1'),peerB=design?.devices?.fi
 if(peerA&&peerB){
  $('nodeALabel').textContent=peerA.hostname+' / peer A';
  $('nodeBLabel').textContent=peerB.hostname+' / peer B';
- $('nodeAName').textContent=String(peerA.hostname).slice(0,18);
- $('nodeBName').textContent=String(peerB.hostname).slice(0,18);
 }
+function loadWorkspaceTopology(){
+ const host=$('workspaceTopologyVisual');
+ const raw=sessionStorage.getItem('networkConfigurator.mlagSimulation.topologySvg');
+ if(!raw)return false;
+ const parsed=new DOMParser().parseFromString(raw,'image/svg+xml');
+ if(parsed.querySelector('parsererror')||parsed.documentElement.localName!=='svg')return false;
+ const svg=parsed.documentElement;
+ const allowed=new Set(['svg','g','path','line','rect','circle','ellipse','polyline','polygon','text','tspan','defs','linearGradient','radialGradient','stop','clipPath','mask','pattern','title','desc','use','symbol','marker']);
+ const safeAttributes=new Set(['viewBox','width','height','x','y','x1','y1','x2','y2','cx','cy','rx','ry','r','d','points','transform','fill','fill-rule','stroke','stroke-width','stroke-dasharray','stroke-linecap','stroke-linejoin','opacity','font-family','font-size','font-weight','text-anchor','dominant-baseline','class','id','role','aria-label','preserveAspectRatio','offset','stop-color','stop-opacity','clip-path','mask','marker-start','marker-mid','marker-end','style']);
+ // Maintain native presentation while stripping event handlers, external URIs and executable nodes.
+ for(const el of [...svg.querySelectorAll('*')].reverse()){
+   if(!allowed.has(el.localName)){el.remove();continue;}
+   for(const attr of [...el.attributes]){
+     const key=attr.name,value=attr.value;
+     if((!safeAttributes.has(key)&&key!=='href'&&key!=='xlink:href')||/^on/i.test(key)||/javascript:|@import|expression\s*\(/i.test(value)||/url\s*\(\s*['"]?(?!#)/i.test(value)||((key==='href'||key==='xlink:href')&&!value.startsWith('#')))el.removeAttribute(key);
+   }
+ }
+ for(const attr of [...svg.attributes])if(!safeAttributes.has(attr.name)&&attr.name!=='xmlns')svg.removeAttribute(attr.name);
+ const imported=document.importNode(svg,true);
+ imported.removeAttribute('width');imported.removeAttribute('height');imported.style.maxWidth='100%';
+ imported.style.height='auto';imported.style.pointerEvents='none';
+ host.replaceChildren(imported);return true;
+}
+const dynamicTopologyLoaded=loadWorkspaceTopology();
 const memberRecords=(design?.specialLinks||[]).filter(l=>/Peer-link|SVL members/i.test(l.kind));
 if(memberRecords.length){
  const host=$('peerMemberOptions');host.replaceChildren();
@@ -68,8 +84,6 @@ if(memberRecords.length){
  });
 }
 const peerMemberIds=[...document.querySelectorAll('#peerMemberOptions [data-fault]')].map(e=>e.dataset.fault);
-if(peerMemberIds.length<2)$('peerLink2Path').style.display='none';
-$('memberCountLabel').textContent='Modeled peer-link members: '+peerMemberIds.length+(peerMemberIds.length>2?' (first two links visualized)':'');
 if(design){
  $('designSummary').textContent=(design.name||'Imported design')+' · '+(design.technology||'vPC / MLAG')+' · '+(design.devices||[]).length+' devices · '+(design.links||[]).length+' access links';
  $('designPorts').textContent=(design.links||[]).map(l=>{
@@ -101,8 +115,6 @@ if(action==='reset')state=changeFailures(state,'reset','devices',[]);
 else {state=changeFailures(state,action,'devices',devices);state=changeFailures(state,action,'links',links);}
 if(action!=='fail'){for(const x of boxes)if(action==='reset'||selected.includes(x.dataset.fault))x.checked=false;}
 render();}
-function draw(){for(const id of ['nodeA','nodeB','peerLink1','peerLink2','keepalive','uplinkA','uplinkB']){
- const element=$(id+(['nodeA','nodeB'].includes(id)?'Rect':'Path'));element.classList.toggle('down',(deviceNames.has(id)?state.devices:state.links).includes(id));}}
 function render(){
 const failed=[...state.devices,...state.links];if(peerMemberIds.length&&peerMemberIds.every(id=>state.links.includes(id)))failed.push('peerLink');
 const result=analyzeMlagFailure({vendor:$('vendor').value,failed,peerLinkMemberCount:peerMemberIds.length});
@@ -120,7 +132,7 @@ for(const leaf of access.leaves){
  card.append(title,detail,routes);$('accessFindings').append(card);
 }
 $('findings').replaceChildren();for(const f of result.findings){const el=document.createElement('div');el.className='severity '+f.severity;const head=document.createElement('strong');head.textContent=f.code.replaceAll('_',' ');const desc=document.createElement('p');desc.textContent=f.description;el.append(head,desc);$('findings').append(el);}
-$('report').textContent=JSON.stringify({schema:'network-configurator-mlag-simulation-v1',timestamp:new Date().toISOString(),vendor:result.vendor,failedDevices:state.devices,failedConnections:state.links,importedDesign:design?{name:design.name,technology:design.technology,devices:design.devices,accessLinks:design.links,peerControlLinks:design.specialLinks}:null,findings:result.findings,accessImpact:access,assumptions:['peer-link member count follows imported design when available','logical peer-link fails only when all modeled members down','offline qualitative simulation, no device telemetry','vendor/OS-specific configuration and convergence must be verified']},null,2);draw();}
+$('report').textContent=JSON.stringify({schema:'network-configurator-mlag-simulation-v1',timestamp:new Date().toISOString(),vendor:result.vendor,failedDevices:state.devices,failedConnections:state.links,dynamicTopologyLoaded,importedDesign:design?{name:design.name,technology:design.technology,devices:design.devices,accessLinks:design.links,peerControlLinks:design.specialLinks}:null,findings:result.findings,accessImpact:access,assumptions:['peer-link member count follows imported design when available','logical peer-link fails only when all modeled members down','offline qualitative simulation, no device telemetry','vendor/OS-specific configuration and convergence must be verified']},null,2);}
 $('fail').onclick=()=>apply('fail');$('restore').onclick=()=>apply('restore');$('reset').onclick=()=>apply('reset');$('vendor').onchange=render;
 $('copy').onclick=()=>{navigator.clipboard.writeText($('report').textContent).catch(()=>{});};
 $('download').onclick=()=>{const blob=new Blob([$('report').textContent],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='mlag-failure-scenario.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};render();
