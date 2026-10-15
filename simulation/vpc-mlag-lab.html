@@ -22,9 +22,9 @@ a{color:#71d6ff} .status{padding:7px 11px;border-radius:999px;background:#173448
 <fieldset><legend>Connection Failure · multiple selection</legend>
 <div id="peerMemberOptions"><label><input type="checkbox" data-fault="peerLink1"> Peer-link member 1</label>
 <label><input type="checkbox" data-fault="peerLink2"> Peer-link member 2</label></div>
-<label><input type="checkbox" data-fault="keepalive"> Keepalive / heartbeat / DAD path</label>
-<label><input type="checkbox" data-fault="uplinkA"> Peer A uplink</label>
-<label><input type="checkbox" data-fault="uplinkB"> Peer B upstream uplink (generic)</label>
+<label id="livenessChoice"><input type="checkbox" data-fault="keepalive"> <span id="livenessName">Keepalive / heartbeat / DAD path</span></label>
+<label class="standaloneFault"><input type="checkbox" data-fault="uplinkA"> Peer A upstream uplink (standalone assumption)</label>
+<label class="standaloneFault"><input type="checkbox" data-fault="uplinkB"> Peer B upstream uplink (standalone assumption)</label>
 <div id="accessFailureChoices"></div></fieldset>
 <div class="actions"><button id="fail" class="danger">Fail Selected</button><button id="restore">Restore Selected</button><button id="reset">Reset Failures</button></div>
 <p class="muted">Selections are independent of the active failure state. Restore clears checkmarks for restored items. If either peer-link member survives, the logical peer-link remains available (assuming port-channel operation).</p>
@@ -83,6 +83,14 @@ if(memberRecords.length){
    label.append(input,name);host.append(label);
  });
 }
+if(design){
+ // Do not invent peer-link members or dedicated liveness/uplinks absent from the design.
+ if(!memberRecords.length)$('peerMemberOptions').replaceChildren();
+ document.querySelectorAll('.standaloneFault').forEach(el=>el.remove());
+ const dedicated=(design.specialLinks||[]).find(l=>/vPC keepalive|DAD|DFS/i.test(l.kind));
+ if(dedicated)$('livenessName').textContent=dedicated.kind+': '+(dedicated.aPort||'?')+' ↔ '+(dedicated.bPort||'?');
+ else $('livenessChoice').remove(); // Arista peer-control VLAN is not a separate heartbeat fault domain.
+}
 const peerMemberIds=[...document.querySelectorAll('#peerMemberOptions [data-fault]')].map(e=>e.dataset.fault);
 if(design){
  $('designSummary').textContent=(design.name||'Imported design')+' · '+(design.technology||'vPC / MLAG')+' · '+(design.devices||[]).length+' devices · '+(design.links||[]).length+' access links';
@@ -121,7 +129,7 @@ const result=analyzeMlagFailure({vendor:$('vendor').value,failed,peerLinkMemberC
 const access=analyzeAccessImpact({design,failedDevices:state.devices,failedLinks:state.links,peerLinkAvailable:!failed.includes('peerLink'),vendor:$('vendor').value});
 const affected=result.findings.filter(f=>f.severity!=='normal');
 $('status').textContent=affected.length?affected.length+' modeled finding(s)':'No failure';
-$('health').textContent='Device failures: '+state.devices.length+' · Connection failures: '+state.links.length+' · Peer-link members available: '+peerMemberIds.filter(id=>!state.links.includes(id)).length+'/'+peerMemberIds.length;
+$('health').textContent='Device failures: '+state.devices.length+' · Connection failures: '+state.links.length+' · Peer-link members available: '+peerMemberIds.filter(id=>!state.links.includes(id)).length+'/'+peerMemberIds.length+(dynamicTopologyLoaded?' · Dynamic Workspace topology':' · No Workspace topology');
 $('accessFindings').replaceChildren();
 if(!access.leaves.length){const msg=document.createElement('p');msg.className='muted';msg.textContent='No leaf/access design imported. Open from a configured vPC / MLAG workspace for per-leaf analysis.';$('accessFindings').append(msg);}
 for(const leaf of access.leaves){
