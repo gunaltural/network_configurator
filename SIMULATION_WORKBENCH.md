@@ -13,3 +13,7 @@ A failed device is red with a cross and failure label, including in exported sna
 Final-report handoff clears stale imports, retains project identity and existing report content, and carries structured scenarios independently of inventory mappings. Opening the final report captures the current state if it has not already been recorded. Working snapshots are restored only for an identical model in the same project, and Clear records removes that working history. Already attached final-report records remain intact.
 
 Validation: contextual inspector, zoom/camera independence, failure/restoration, snapshot retention/clear and isolation, actual Design-to-Lab-to-Reporting bootstrap, and English/Turkish final Word section plus image generation. Browser geometry/appearance still merits user review on the deployed page; DOM tests do not replace visual review.
+
+## Automatic inbound selection — 5.43.0
+
+The Internet entry selector is removed. A synthetic Internet observer ranks reachable ISP-to-CE advertisements by AS-path length under equal upstream policies. A failed ISP, CE or circuit is excluded, so an eligible alternate is selected automatically. When no candidate remains, the map shows no path. Equal paths use connection ID for repeatable display, not a claim about actual provider tie-breaks. The per-ISP engine results remain available for compatibility; the UI and new report snapshots use the automatic Internet path. Real upstream policies and convergence timing are outside this model.
