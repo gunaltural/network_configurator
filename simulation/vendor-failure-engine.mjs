@@ -24,7 +24,10 @@ export function analyzeMlagFailure({vendor,failed=[]}={}) {
  if(f.has("nodeA")&&f.has("nodeB"))add("critical","PAIR_DOWN","Both peers down: pair-level outage expected.");
  else if(f.has("nodeA")||f.has("nodeB"))add("warning","NODE_DOWN","One peer down; dependent single-homed endpoints may fail.");
  if(f.has("peerLink1")!==f.has("peerLink2"))add("warning","PEER_LINK_REDUNDANCY_LOST","One physical peer-link member failed; the remaining member maintains the logical port-channel if operational and capacity is sufficient.");
- if(f.has("peerLink")&&f.has("keepalive"))add("critical","DUAL_LINK_FAILURE",p.both);
+ if(f.has("nodeA")||f.has("nodeB")){
+   if(f.has("peerLink"))add("warning","LINK_FAILED_WITH_NODE_DOWN","Peer-link unavailable and at least one peer down; dual-active cannot be inferred because both peers are not confirmed operational.");
+   if(f.has("keepalive"))add("warning","LIVENESS_WITH_NODE_DOWN","Liveness path also unavailable; examine surviving peer recovery timers and role.");
+ } else if(f.has("peerLink")&&f.has("keepalive"))add("critical","DUAL_LINK_FAILURE",p.both);
  else if(f.has("peerLink"))add("critical","PEER_LINK_FAILURE",p.peer);
  else if(f.has("keepalive"))add("warning","KEEPALIVE_FAILURE",p.keep);
  if(f.has("uplinkA")&&f.has("uplinkB"))add("critical","UPLINKS_DOWN","Both modeled external uplinks down.");
