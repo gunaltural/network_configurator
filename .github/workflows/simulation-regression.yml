@@ -40,4 +40,6 @@ jobs:
       - name: Workspace integration and full existing regression suite
         run: npm test
       - name: Route and dynamic topology contract tests
+        env:
+          AUTH_ENABLED: '0'
         run: python -m unittest discover -s simulation -p 'test_*.py'
