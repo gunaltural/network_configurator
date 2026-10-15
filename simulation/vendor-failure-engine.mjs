@@ -44,3 +44,53 @@ export function analyzeBgpConnectivity({nodes=[],links=[],failures={},source}={}
  for(let i=0;i<q.length;i++)for(const n of graph.get(q[i]))if(!seen.has(n)){seen.add(n);q.push(n);}
  return {reachable:[...seen],unreachable:[...ids].filter(id=>!seen.has(id)),limitation:"Physical graph only; not a BGP best-path or convergence prediction."};
 }
+
+
+/**
+ * Deterministic direct attachment analysis for access links imported from the
+ * technology workspace. A surviving physical leg is NOT proof of forwarding
+ * across MLAG/vPC: vendor role, LACP, VLAN, SVI, and convergence are unknown.
+ * All link IDs are taken from the provided design; synthetic IDs are avoided.
+ */
+export function analyzeAccessImpact({design, failedDevices=[],failedLinks=[],peerLinkAvailable=true,vendor=""}={}) {
+ const devices=Array.isArray(design?.devices)?design.devices:[];
+ const links=Array.isArray(design?.links)?design.links:[];
+ const failedPeers=new Set(failedDevices);
+ const failedEdges=new Set(failedLinks);
+ const peerIds=new Set(["upper-1","upper-2"]);
+ const peers=devices.filter(d=>peerIds.has(d.id));
+ const leafs=devices.filter(d=>d.tier==="lower");
+ const results=leafs.map(leaf=>{
+  const assigned=links.filter(l=>l.a===leaf.id||l.b===leaf.id);
+  const paths=assigned.map(l=>{
+   const other=l.a===leaf.id?l.b:l.a;
+   const upstream=peerIds.has(other);
+   const peerFailed=(other==="upper-1"&&failedPeers.has("nodeA"))||(other==="upper-2"&&failedPeers.has("nodeB"));
+   const physicalAvailable=!failedEdges.has(l.id)&&!peerFailed&&upstream;
+   return {id:l.id,peerId:other,peerName:peers.find(p=>p.id===other)?.hostname||other,
+    localPort:l.a===leaf.id?l.bPort:l.aPort,remotePort:l.a===leaf.id?l.aPort:l.bPort,
+    physicalAvailable,reason:failedEdges.has(l.id)?"access link failed":peerFailed?"upstream peer failed":upstream?"attached":"unrecognized upstream"};
+  });
+  const healthy=paths.filter(p=>p.physicalAvailable);
+  const distinctPeers=new Set(healthy.map(p=>p.peerId));
+  let status,confidence="physical-only",message;
+  if(!assigned.length){status="unknown";message="No access links in imported design; impact cannot be assessed.";}
+  else if(!healthy.length){status="isolated";message="No modeled direct physical attachment to an operational peer remains.";}
+  else if(distinctPeers.size===1){status="single-path";message="A direct physical attachment remains to only one peer; forwarding depends on LACP, VLAN and MLAG/vPC state.";}
+  else {status="redundant-physical";message="Direct physical attachments remain to both peers; forwarding and capacity are not assured.";}
+  if(status!=="isolated"&&status!=="unknown"&&!peerLinkAvailable&&!failedPeers.size){
+   status="conditional";confidence="vendor-dependent";
+   message=(vendor==="Cisco NX-OS"
+      ?"Peer-link is unavailable. The vPC secondary may suspend vPC members, so physically up legs cannot prove forwarding. "
+      :"Peer-link unavailable. MLAG/SVL forwarding may be role-dependent; surviving physical legs do not prove forwarding. ")+message;
+  }
+  return {id:leaf.id,hostname:leaf.hostname||leaf.id,status,confidence,
+   availablePhysicalLinks:healthy.length,totalLinks:assigned.length,
+   connectedPeers:[...distinctPeers],paths,message};
+ });
+ return {scope:"direct access attachment, not end-to-end traffic",leaves:results,
+  totals:Object.fromEntries(["isolated","single-path","redundant-physical","conditional","unknown"].map(k=>[k,results.filter(r=>r.status===k).length])),
+  limitations:["No assumption that physically up MLAG/vPC members are forwarding.",
+               "LACP negotiation, orphan interfaces, VLAN/VRF reachability, peer roles, gateway state and timers not modeled.",
+               "Access-link failures use actual imported link IDs."]};
+}
