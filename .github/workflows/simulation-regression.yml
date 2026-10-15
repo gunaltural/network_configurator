@@ -3,13 +3,14 @@ on:
   pull_request:
     paths:
       - "simulation/**"
+      - "Dockerfile"
       - "synthetic-bgp.js"
       - "web.html"
       - "network_lab.py"
       - "app.py"
       - ".github/workflows/simulation-regression.yml"
   push:
-    branches: ["feature/vendor-failure-simulation-v5-44"]
+    branches: ["feature/vendor-failure-simulation-v5-44", "fix/v5-44-2-simulation-docker-packaging"]
 jobs:
   simulation-and-workspaces:
     runs-on: ubuntu-latest
@@ -65,3 +66,23 @@ jobs:
             /tmp/mlag-browser-smoke.png
             /tmp/bgp-browser-smoke.png
           if-no-files-found: ignore
+
+  production-image-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build exact production Docker image
+        run: docker build -t nc-production-smoke .
+      - name: Test runtime routes from production image
+        run: |
+          docker run -d --name nc-smoke -e AUTH_ENABLED=0 -p 127.0.0.1:18080:10000 nc-production-smoke
+          trap 'docker logs nc-smoke; docker rm -f nc-smoke >/dev/null 2>&1 || true' EXIT
+          for i in $(seq 1 40); do
+            if curl --fail --silent http://127.0.0.1:18080/healthz >/dev/null; then break; fi
+            sleep 2
+          done
+          curl --fail --silent --show-error http://127.0.0.1:18080/healthz >/dev/null
+          curl --fail --silent --show-error http://127.0.0.1:18080/vpc-mlag-simulation | grep -q 'Technology Workspace topology'
+          curl --fail --silent --show-error http://127.0.0.1:18080/simulation/vendor-failure-engine.mjs | grep -q 'analyzeAccessImpact'
+          curl --fail --silent --show-error http://127.0.0.1:18080/synthetic-bgp.js | grep -q 'SyntheticBGP'
+          echo "Production container: vPC/MLAG and BGP endpoint smoke passed"
