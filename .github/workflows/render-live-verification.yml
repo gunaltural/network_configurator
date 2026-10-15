@@ -57,7 +57,7 @@ jobs:
             echo "## Render live deployment check"
             echo "- Expected version: ${RELEASE_VERSION:-unknown}"
             echo "- Result: **$JOB_STATUS**"
-            echo "- Public readiness: `/healthz` (version + bundled Simulator assets)"
+            echo '- Public readiness: /healthz (version + bundled Simulator assets)'
             echo "- Protected Simulator UI: validated separately inside production Docker image and Chromium CI"
             echo "- If failed, check Render's deployed branch, auto-deploy setting and runtime logs."
           } >> "$GITHUB_STEP_SUMMARY"
