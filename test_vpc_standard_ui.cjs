@@ -13,7 +13,8 @@ async function inspect(html,standard){
   const fields=[...d.querySelectorAll('#params input[id],#params select[id],#topologyControls input[id],#topologyControls select[id]')].map(x=>x.id).sort();
   if(standard){const cards=[...d.querySelectorAll('#params > .vpc-v42-card')];assert.equal(cards.length,7,vendor);assert.deepEqual(cards.map(c=>c.querySelector('.vpc-v42-title').textContent),titles.map((t,j)=>`${j+1} · ${t}`));assert.ok(cards[2].querySelector('.vpc-leaf-table'));assert.ok(cards[2].querySelector('details summary').textContent.includes('Physical Interface'));assert.equal(cards[2].querySelector('details').open,false);assert.ok(cards[2].contains(d.getElementById('designUplinkSpeed')));}
   for(const n of [2,8]){change(counts[i],String(n));await wait();const r=w.__audit.reportingDesign();results.push({vendor,n,fields,configurations:JSON.parse(JSON.stringify(r.configurations))});
-   if(standard){const cells=[...d.querySelectorAll('[data-vpc-section="3"] .vpc-leaf-cell')],visible=cells.filter(el=>!el.hidden&&el.style.display!=='none');assert.equal(visible.length,n*(vendor==='Arista EOS'?3:2),vendor+' visible leaf cells');assert.ok(cells.every(el=>Number(el.dataset[attributes[i]])<=n||el.hidden||el.style.display==='none'));}
+   if(standard){const cells=[...d.querySelectorAll('[data-vpc-section="3"] .vpc-leaf-cell')],visible=cells.filter(el=>!el.hidden&&el.style.display!=='none');assert.equal(visible.length,n*(vendor==='Arista EOS'?3:2),vendor+' visible leaf cells');assert.ok(cells.every(el=>Number(el.dataset[attributes[i]])<=n||el.hidden||el.style.display==='none'));
+    const saved=w.__audit.snapshot();change(counts[i],String(n===2?8:2));w.__audit.applyProject(saved);await wait();assert.equal([...d.querySelectorAll('[data-vpc-section="3"] .vpc-leaf-cell')].filter(el=>!el.hidden&&el.style.display!=='none').length,n*(vendor==='Arista EOS'?3:2),vendor+' restored leaf visibility');}
   }
  }
  assert.deepEqual(errors,[]);return results;

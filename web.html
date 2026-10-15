@@ -1794,6 +1794,14 @@ function ensureDesignLinkSpeed(){
  const select=field.querySelector("select");select.value=window.__workspaceModuleStates?.[tech]?.fields?.designUplinkSpeed||"";
  select.addEventListener("change",()=>{captureWorkspaceModule(tech);renderOutput();});
 }
+function syncStandardVpcLeaves(){
+ if(tech!=='VPC')return;const root=document.getElementById('params'),pl=platform();if(!root?.querySelector('[data-vpc-standard="'+pl+'"]'))return;
+ const map={'Cisco NX-OS':['vpcLeafCount','vpcLeaf','vpcOutputDevice','ALL'],'Cisco IOS-XE':['swvLeafCount','swvLeaf','swvOutput','CORE'],'Arista EOS':['arLeafCount','arLeaf','arOutput','C1'],'Huawei_CE_SW':['hwLeafCount','hwLeaf','hwOutput','ALL'],'Huawei iStack':['isLeafCount','istackLeaf','isOutput','CORE']},settings=map[pl];if(!settings)return;
+ const [countId,attribute,outputId,fallback]=settings,n=Math.max(2,Math.min(8,Number(document.getElementById(countId)?.value)||4)),dataName=attribute.replace(/[A-Z]/g,x=>'-'+x.toLowerCase());
+ root.querySelectorAll('[data-'+dataName+']').forEach(node=>{const hidden=Number(node.dataset[attribute])>n;if(attribute==='istackLeaf')node.hidden=hidden;else node.style.display=hidden?'none':'';});
+ const output=document.getElementById(outputId);if(output){for(const option of output.options)if(/^LEAF\d+$/.test(option.value)){option.hidden=Number(option.value.slice(4))>n;option.disabled=option.hidden;}if(/^LEAF\d+$/.test(output.value)&&Number(output.value.slice(4))>n)output.value=fallback;}
+}
+
 // Shared presentation only: retain native input nodes, IDs, values and event handlers.
 function standardizeVpcWorkspace(){
  const root=document.getElementById('params'),pl=platform();if(tech!=='VPC'||!root)return;
@@ -1927,6 +1935,7 @@ function vpcV42WorkspaceUI(){
 }
 function vpcV42ContextUI(){
  if(tech!=="VPC")return;
+ syncStandardVpcLeaves();
  if(platform()==="Huawei iStack"){if(!document.getElementById("isHost"))HuaweiIStack.ui(()=>{syncTopology();renderOutput();});return;}
  if(platform()==="Cisco IOS-XE"&&document.getElementById("swvDomain"))return;
  if(platform()==="Arista EOS"&&document.getElementById("arDomain"))return;
