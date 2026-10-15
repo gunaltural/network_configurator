@@ -16,6 +16,11 @@ function sync(){
  sessionStorage.setItem('networkConfigurator.mlagSimulation.vendor',mapped);
  try{
    const report=typeof api.diagnosticDesign==='function'?api.diagnosticDesign():null;
+   // The actual live Technology Workspace SVG is the one and only visual reference.
+   // If it is unavailable, do not silently fall back to an invented pair diagram.
+   const topologySvg=api.simulationTopologySvg();
+   if(!/^<svg[\\s>]/i.test(topologySvg.trim()))throw Error('Invalid Technology Workspace topology');
+   sessionStorage.setItem('networkConfigurator.mlagSimulation.topologySvg',topologySvg);
    if(report?.source?.module==='VPC'&&Array.isArray(report.devices)){
      sessionStorage.setItem('networkConfigurator.mlagSimulation.design',JSON.stringify({
        name:String(report.name||'').slice(0,100),vendor:mapped,technology:report.technology,
@@ -24,7 +29,7 @@ function sync(){
        specialLinks:(report.specialLinks||[]).map(({kind,a,b,aPort,bPort,detail})=>({kind,a,b,aPort,bPort,detail}))
      }));
    }else sessionStorage.removeItem('networkConfigurator.mlagSimulation.design');
- }catch(error){sessionStorage.removeItem('networkConfigurator.mlagSimulation.design');}
+ }catch(error){sessionStorage.removeItem('networkConfigurator.mlagSimulation.design');sessionStorage.removeItem('networkConfigurator.mlagSimulation.topologySvg');alert('Technology Workspace topology transfer failed: '+error.message);return;}
  location.assign('/vpc-mlag-simulation');
  };
 }
