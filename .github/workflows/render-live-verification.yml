@@ -1,0 +1,63 @@
+name: Render live deployment verification
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+concurrency:
+  group: render-live-verification
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  render-live:
+    name: Verify actual Render deployment
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Determine expected release
+        id: release
+        shell: bash
+        run: |
+          version=$(python - <<'PY'
+          import re
+          from pathlib import Path
+          content = Path('app.py').read_text(encoding='utf-8')
+          match = re.search(r'^VERSION\s*=\s*["\x27]([^"\x27]+)', content, re.M)
+          if not match:
+              raise SystemExit('VERSION not found in app.py')
+          print(match.group(1))
+          PY
+          )
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Expected application version: $version"
+      - name: Wait for live Render release and Simulator assets
+        env:
+          EXPECTED_VERSION: ${{ steps.release.outputs.version }}
+          RENDER_URL: https://network-configurator.onrender.com
+        run: |
+          python simulation/verify_render_deployment.py \
+            --url "$RENDER_URL" --version "$EXPECTED_VERSION" \
+            --max-seconds 900 --interval 20
+      - name: Deployment result summary
+        if: always()
+        env:
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+          JOB_STATUS: ${{ job.status }}
+        shell: bash
+        run: |
+          {
+            echo "## Render live deployment check"
+            echo "- Expected version: ${RELEASE_VERSION:-unknown}"
+            echo "- Result: **$JOB_STATUS**"
+            echo '- Public readiness: /healthz (version + bundled Simulator assets)'
+            echo "- Protected Simulator UI: validated separately inside production Docker image and Chromium CI"
+            echo "- If failed, check Render's deployed branch, auto-deploy setting and runtime logs."
+          } >> "$GITHUB_STEP_SUMMARY"
