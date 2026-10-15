@@ -1997,15 +1997,46 @@ function vpcLeafUi(){
 function ensureSimulationTrigger(){
  const host=document.getElementById('topologySimulation');if(!host)return;
  document.getElementById('topologyControls')?.querySelector('#bgpTestSimulation')?.remove();
- host.hidden=tech!=='BGP';document.body.classList.toggle('nc-simulation-action',tech==='BGP');
- if(tech!=='BGP')return;
- if(host.querySelector('#bgpTestSimulation'))return;
- host.innerHTML='<div class="simulation-next-icon" aria-hidden="true">▶</div><div class="simulation-next-copy"><strong>Validate your design before production</strong><span>Transfer this topology and supported BGP parameters to the simulation workspace.</span><small>Synthetic BGP analysis available · Real device emulation requires a central service</small></div><button id="bgpTestSimulation" type="button">Test in Simulation <span aria-hidden="true">→</span></button><p id="simulationTransferStatus" role="status" hidden></p>';
+ const vpcSupported=tech==='VPC'&&platform()!=='Huawei iStack';
+ const bgpSupported=tech==='BGP';
+ const show=bgpSupported||vpcSupported;
+ host.hidden=!show;
+ document.body.classList.toggle('nc-simulation-action',show);
+ if(!show){host.replaceChildren();return;}
+ const id=bgpSupported?'bgpTestSimulation':'vpcMlagSimLaunch';
+ // A vendor change may preserve the same host; only rebuild if the module changes.
+ if(host.querySelector('#'+id))return;
+ const copy=bgpSupported?
+  '<strong>Validate your design before production</strong><span>Transfer this topology and supported BGP parameters to the simulation workspace.</span><small>Synthetic BGP analysis available · Real device emulation requires a central service</small>':
+  '<strong>vPC / MLAG failure simulation</strong><span>Use the active Technology Workspace topology, hostnames and physical links.</span><small>Vendor-specific expected behavior · Synthetic offline failure analysis</small>';
+ host.innerHTML='<div class="simulation-next-icon" aria-hidden="true">▶</div><div class="simulation-next-copy">'+copy+'</div><button id="'+id+'" type="button">'+(bgpSupported?'Test in Simulation':'Test vPC / MLAG Failures')+' <span aria-hidden="true">→</span></button><p id="simulationTransferStatus" role="status" hidden></p>';
+ // Keep existing BGP entry and preserve its design transfer behavior unchanged.
  host.querySelector('button').onclick=()=>{
   const status=document.getElementById('simulationTransferStatus');
   try{
-   const api=window.NetworkWorkspaceProject;if(typeof api?.labDesign!=='function')throw Error('Simulation transfer is not ready. Reload the page and try again.');
-   const design=typeof api.prepareSimulation==='function'?api.prepareSimulation():api.labDesign();sessionStorage.setItem('networkConfigurator.lab.bgp',JSON.stringify(design));location.assign('/network-lab?from=design');
+   const api=window.NetworkWorkspaceProject;
+   if(!api)throw Error('Technology Workspace is not ready. Reload the page.');
+   if(bgpSupported){
+    if(typeof api.labDesign!=='function')throw Error('BGP simulation transfer is not ready.');
+    const design=typeof api.prepareSimulation==='function'?api.prepareSimulation():api.labDesign();
+    sessionStorage.setItem('networkConfigurator.lab.bgp',JSON.stringify(design));
+    location.assign('/network-lab?from=design');
+    return;
+   }
+   const source=typeof api.diagnosticDesign==='function'?api.diagnosticDesign():null;
+   if(source?.source?.module!=='VPC'||!Array.isArray(source.devices))throw Error('Current vPC/MLAG workspace design is unavailable.');
+   const topologySvg=api.simulationTopologySvg();
+   if(typeof topologySvg!=='string'||!topologySvg.trimStart().startsWith('<svg'))throw Error('Current Technology Workspace topology is not ready.');
+   const mapped=platform()==='Arista EOS'?'Arista EOS':platform()==='Huawei_CE_SW'?'Huawei CloudEngine':platform()==='Cisco IOS-XE'?'Cisco_StackWise':'Cisco NX-OS';
+   sessionStorage.setItem('networkConfigurator.mlagSimulation.vendor',mapped);
+   sessionStorage.setItem('networkConfigurator.mlagSimulation.topologySvg',topologySvg);
+   sessionStorage.setItem('networkConfigurator.mlagSimulation.design',JSON.stringify({
+    name:String(source.name||'').slice(0,100),vendor:mapped,technology:source.technology,
+    devices:source.devices.map(({id,hostname,tier})=>({id,hostname,tier})),
+    links:(source.links||[]).map(({id,a,b,upperPort,lowerPort,detail})=>({id,a,b,upperPort,lowerPort,detail})),
+    specialLinks:(source.specialLinks||[]).map(({kind,a,b,aPort,bPort,detail})=>({kind,a,b,aPort,bPort,detail}))
+   }));
+   location.assign('/vpc-mlag-simulation');
   }catch(e){status.hidden=false;status.textContent=e.message;}
  };
 }
