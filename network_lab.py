@@ -2,7 +2,9 @@
 import io,json,ipaddress,zipfile,hashlib
 from pathlib import Path
 from pydantic import BaseModel,Field,model_validator
-from fastapi.responses import HTMLResponse,Response
+from fastapi.responses import HTMLResponse,Response,StreamingResponse
+from fastapi import HTTPException
+from simulation_report import SimulationExport,build_simulation_docx
 
 class Router(BaseModel):
     id: str=Field(pattern=r'^(ce[12]|isp[12])$')
@@ -108,6 +110,13 @@ Results describe observed polling samples, not exact convergence time. A failed 
 def install_network_lab(app,base):
     @app.get('/network-lab',response_class=HTMLResponse)
     def page():return HTMLResponse((base/'network-lab.html').read_text(),headers={'Cache-Control':'no-store'})
+    @app.get('/simulation-report.js')
+    def simulation_report_script():return Response((base/'simulation-report.js').read_text(),media_type='application/javascript',headers={'Cache-Control':'no-store'})
+    @app.post('/api/network-lab/simulation-word')
+    def simulation_word(payload:SimulationExport):
+        try: report=build_simulation_docx(payload.model_dump())
+        except (ValueError,OSError) as exc: raise HTTPException(status_code=400,detail='Invalid simulation topology image.') from exc
+        return StreamingResponse(report,media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',headers={'Content-Disposition':'attachment; filename="simulation-report.docx"','Cache-Control':'no-store'})
     @app.get('/synthetic-bgp.js')
     def synthetic_engine():return Response((base/'synthetic-bgp.js').read_text(),media_type='application/javascript',headers={'Cache-Control':'no-store'})
     @app.get('/synthetic-lab.js')

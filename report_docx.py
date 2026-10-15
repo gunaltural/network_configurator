@@ -388,6 +388,8 @@ def build_report_docx(project):
             doc.add_heading(section["title"], level=2)
             for paragraph in section["paragraphs"]:
                 doc.add_paragraph(paragraph)
+    from simulation_report import append_simulation_scenarios
+    append_simulation_scenarios(doc, project.get("simulationScenarios") or [], language)
     checks = project.get("verificationPlan") or []
     if checks:
         tr = language == "tr"

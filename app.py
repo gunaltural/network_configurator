@@ -37,6 +37,7 @@ from fastapi.responses import HTMLResponse, StreamingResponse, Response, JSONRes
 from pydantic import BaseModel, Field
 import uvicorn
 from report_docx import build_report_docx
+from simulation_report import SimulationScenario
 from docx.image.exceptions import UnrecognizedImageError
 from authentication import install_authentication
 from project_store import install_project_store
@@ -44,7 +45,7 @@ from config_compare import install_config_compare
 from network_lab import install_network_lab
 from lab_gateway import install_lab_gateway
 
-VERSION = "5.40.1"
+VERSION = "5.41.0"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
 # Keep the diagnostic entry point available with the authenticated page itself.
@@ -379,6 +380,7 @@ class ReportWordRequest(BaseModel):
     parameters: List[ReportParameter] = Field(default_factory=list)
     configurations: List[ReportConfiguration] = Field(default_factory=list)
     topologyPng: str = Field(default="", max_length=3000000)
+    simulationScenarios: List[SimulationScenario] = Field(default_factory=list, max_length=40)
     verificationPlan: List[ReportVerificationRecord] = Field(default_factory=list, max_length=2000)
     unifiedDesign: bool = False
     technicalDesign: ReportTechnicalDesign | None = None
