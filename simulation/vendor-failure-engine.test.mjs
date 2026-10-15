@@ -40,3 +40,14 @@ test("two failed physical peer members alone require derived logical failure",()
  const r=analyzeMlagFailure({vendor:"Huawei CloudEngine",failed:["peerLink1","peerLink2","peerLink"]});
  assert.ok(r.findings.some(f=>f.code==="PEER_LINK_FAILURE"));
 });
+
+test("third peer-link member failure degrades but does not sever three-link bundle",()=>{
+ const r=analyzeMlagFailure({vendor:"Arista EOS",peerLinkMemberCount:3,failed:["peerLink3"]});
+ assert.ok(r.findings.some(f=>f.code==="PEER_LINK_REDUNDANCY_LOST"));
+ assert.ok(!r.findings.some(f=>f.code==="PEER_LINK_FAILURE"));
+});
+test("single-member peer-link down does not falsely report spare link",()=>{
+ const r=analyzeMlagFailure({vendor:"Huawei CloudEngine",peerLinkMemberCount:1,failed:["peerLink1","peerLink"]});
+ assert.ok(!r.findings.some(f=>f.code==="PEER_LINK_REDUNDANCY_LOST"));
+ assert.ok(r.findings.some(f=>f.code==="PEER_LINK_FAILURE"));
+});
