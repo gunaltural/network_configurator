@@ -14,6 +14,17 @@ function sync(){
  const vendor=scope.platform||'Cisco NX-OS';
  const mapped=/Arista/i.test(vendor)?'Arista EOS':/Huawei.*CE|CloudEngine/i.test(vendor)?'Huawei CloudEngine':/StackWise|IOS-XE/i.test(vendor)?'Cisco_StackWise':'Cisco NX-OS';
  sessionStorage.setItem('networkConfigurator.mlagSimulation.vendor',mapped);
+ try{
+   const report=typeof api.diagnosticDesign==='function'?api.diagnosticDesign():null;
+   if(report?.source?.module==='VPC'&&Array.isArray(report.devices)){
+     sessionStorage.setItem('networkConfigurator.mlagSimulation.design',JSON.stringify({
+       name:String(report.name||'').slice(0,100),vendor:mapped,technology:report.technology,
+       devices:report.devices.map(({id,hostname,tier})=>({id,hostname,tier})),
+       links:(report.links||[]).map(({id,a,b,upperPort,lowerPort,detail})=>({id,a,b,upperPort,lowerPort,detail})),
+       specialLinks:(report.specialLinks||[]).map(({kind,a,b,aPort,bPort,detail})=>({kind,a,b,aPort,bPort,detail}))
+     }));
+   }else sessionStorage.removeItem('networkConfigurator.mlagSimulation.design');
+ }catch(error){sessionStorage.removeItem('networkConfigurator.mlagSimulation.design');}
  location.assign('/vpc-mlag-simulation');
  };
 }
