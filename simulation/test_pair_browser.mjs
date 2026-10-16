@@ -24,8 +24,9 @@ for(const vendor of ['Cisco NX-OS','Arista EOS','Huawei_CE_SW','Cisco IOS-XE','H
   await run('peer-detect');s=await record();assert.ok(s.roleStates[peerNames[1]].includes('SECONDARY'));await page.locator('#pairRecovery').click();s=await record();assert.equal(s.modelStatus,'split-brain');
  }
  // Each catalogue case must produce the platform's expected roles and forwarding.
- for(const id of ['simultaneous','peer-detect','repair-detection','repair-peer','repair-both','access-upper-1','access-upper-2','access-device-upper-1','access-device-upper-2','leaf-device','peer-return','pair-restart']){
+ for(const id of ['simultaneous','peer-detect','repair-detection','repair-peer','repair-both','access-upper-1','access-upper-2','access-device-upper-1','access-device-upper-2','leaf-device','peer-return','pair-restart','protected-survivor-fails']){
   await run(id);s=await record();
+  if(id==='protected-survivor-fails'){if(vendor==='Arista EOS')assert.equal(s.modelStatus,'degraded');else assert.equal(s.modelStatus,'no-path');if(vendor==='Cisco NX-OS'){await page.locator('#pairRecovery').click();assert.equal((await record()).modelStatus,'degraded');}if(vendor==='Cisco IOS-XE'||vendor==='Huawei iStack')assert.equal(await page.locator('#pairRecovery').isDisabled(),true);}
   if(id==='simultaneous')assert.equal(s.modelStatus,vendor==='Cisco NX-OS'?'split-brain':'dual-active-risk');
   if(id==='peer-detect')assert.equal(s.modelStatus,vendor==='Arista EOS'?'dual-active-risk':'degraded');
   if(id==='repair-detection')assert.equal(s.modelStatus,vendor==='Arista EOS'?'dual-active-risk':'degraded');

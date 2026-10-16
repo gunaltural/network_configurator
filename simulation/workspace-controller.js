@@ -138,7 +138,7 @@ function setupPairUi(){
  if(model.vendor==='Cisco NX-OS')catalogueItems.push({id:'type1',name:'Mandatory consistency mismatch',conditions:{type1:true},steps:[]},{id:'vlan',name:'Selected service VLAN inconsistent',conditions:{vlanMismatch:true},steps:[]},{id:'cold-recovery',name:'Pair power outage → one peer returns',steps:[{devices:peers.map(n=>n.id)},{devices:[peers[1].id],restoreDevices:true}]});
  const initial=()=>model.settings.vpc?.initialPrimary||model.settings.redundancy?.initialPrimary||peers[0].id;
  const survivor=()=>model.vendor==='Cisco IOS-XE'?peers.find(n=>n.id!==initial()).id:model.vendor==='Huawei iStack'?(model.settings.redundancy?.madWinner||initial()):initial();
- catalogueItems.push({id:'protected-survivor-fails',name:'Protected '+terms[0]+' failure → forwarding chassis fails',steps:()=>[{links:peer},{devices:[survivor()]}]},
+ catalogueItems.push({id:'protected-survivor-fails',name:({'Cisco NX-OS':'Secondary suspended → operational primary fails','Arista EOS':'MLAG association lost → original primary fails','Huawei_CE_SW':'DFS backup Error-Down → master fails','Cisco IOS-XE':'Original active in Recovery → new active fails','Huawei iStack':'MAD loser in Recovery → active fragment fails'})[model.vendor],steps:()=>[{links:peer},{devices:[survivor()]}]},
  {id:'pair-restart',name:'Both chassis fail → both return',steps:[{devices:peers.map(n=>n.id)},{devices:[],restoreDevices:true}]},
  {id:'leaf-device',name:'Selected leaf device fails',steps:()=>[{devices:[source]}]});
  for(const p of peers){const access=()=>model.links.filter(l=>!l.logical&&[l.a,l.b].includes(source)&&[l.a,l.b].includes(p.id));catalogueItems.push(

@@ -49,6 +49,7 @@ for(const vendor of ['Cisco NX-OS','Arista EOS','Huawei_CE_SW','Cisco IOS-XE','H
  }
  r=evaluate([{devices:['upper-1'],links:[]},{devices:[],links:[]}]);assert.equal(r.vpc.primary,vendor==='Huawei_CE_SW'?'upper-1':'upper-2',vendor+' documented role after original primary returns');
  if(vendor==='Arista EOS'){assert.equal(r.vpc.recoveryWait,true);assert.equal(r.paths.length,1);assert.deepEqual(r.path.nodes,['lower-1','upper-2']);}
+ if(vendor==='Cisco NX-OS'){r=evaluate([event(peer),{devices:['upper-1'],links:peer}]);assert.equal(r.path,null,'suspended secondary must await configured auto-recovery');assert.equal(r.vpc.recoveryWait,true);r=evaluate([event(peer),{devices:['upper-1'],links:peer,recoveryElapsed:true}]);assert.deepEqual(r.path.nodes,['lower-1','upper-2']);}
  if(vendor==='Cisco IOS-XE'||vendor==='Huawei iStack'){
   const serving=vendor==='Cisco IOS-XE'?'upper-2':'upper-1';r=evaluate([event(peer),{devices:[serving],links:peer}]);assert.equal(r.path,null);assert.equal(r.vpc.manualRecoveryRequired,true);r=evaluate([event(peer),{devices:[serving],links:peer,recoveryElapsed:true}]);assert.equal(r.path,null,'timer cannot release a Recovery-only isolated fragment');
  }

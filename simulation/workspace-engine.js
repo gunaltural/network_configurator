@@ -32,12 +32,12 @@ function evaluateCiscoVpc(model,state={},options={}){
  const peerLinks=model.links.filter(l=>/peer-link/i.test(l.kind)),keep=model.links.filter(l=>/keepalive/i.test(l.kind));
  const other=id=>peerIds.find(p=>p!==id),name=id=>model.nodes.find(n=>n.id===id)?.hostname||id;
  const inspect=s=>{const down=new Set(s.devices||[]),links=new Set(s.links||[]),up=l=>!links.has(l.id)&&!down.has(l.a)&&!down.has(l.b);return {down,links,alive:peerIds.filter(p=>!down.has(p)),peer:peerLinks.some(up),keep:keep.length?keep.some(up):null,members:peerLinks.filter(up).length};};
- let dualCause="";
+ let dualCause="",recoveryCause="Pair power outage";
  let primary=preferred,suspended=null,dual=false,uncertain=false,previous=inspect({}),powerOutage=false,awaitRecovery=false,restoring=null;
  const history=[...(state.events||[])];const last=history.at(-1);if(!last||JSON.stringify(last.devices)!==JSON.stringify(state.devices||[])||JSON.stringify(last.links)!==JSON.stringify(state.links||[]))history.push({devices:state.devices||[],links:state.links||[]});
  for(const event of history){const now=inspect(event);
   if(!now.alive.length){powerOutage=true;awaitRecovery=true;primary=null;suspended=null;restoring=null;dual=false;uncertain=false;}
-  else if(now.alive.length===1){const survivor=now.alive[0];if(primary!==survivor)primary=survivor;suspended=null;dual=false;uncertain=false;if(powerOutage)awaitRecovery=cfg.autoRecovery!==true||event.recoveryElapsed!==true;}
+  else if(now.alive.length===1){const survivor=now.alive[0];if(suspended===survivor){awaitRecovery=true;recoveryCause='Previously suspended secondary lost its primary';}if(primary!==survivor)primary=survivor;suspended=null;dual=false;uncertain=false;if(powerOutage)awaitRecovery=cfg.autoRecovery!==true||event.recoveryElapsed!==true;}
   else {
    if(!primary)primary=preferred;
    if(now.peer){if(!previous.peer&&suspended&&cfg.delayRestore)restoring=suspended;if(previous.alive.length===1&&now.alive.length===2&&cfg.delayRestore)restoring=peerIds.find(id=>!previous.alive.includes(id));if(dual)primary=other(primary);suspended=null;dual=false;uncertain=false;awaitRecovery=false;powerOutage=false;}
@@ -63,7 +63,7 @@ function evaluateCiscoVpc(model,state={},options={}){
  if(now.peer&&now.keep===false)add('warning','KEEPALIVE_ONLY','Peer-keepalive loss alone does not suspend vPC members or change the traffic path while peer-link remains operational.');
  if(now.peer&&now.members<peerLinks.length)add('warning','PEER_MEMBER_LOSS','A peer-link member failed; '+now.members+' of '+peerLinks.length+' members remain. Logical peer-link stays up with reduced redundancy/capacity.');
  if(now.alive.length===1)add('warning','PEER_DEVICE_DOWN',name(now.alive[0])+' is the surviving operational primary; dual-homed member traffic uses its available local legs.');
- if(awaitRecovery)add('warning','RECOVERY_WAIT',cfg.autoRecovery?'Pair power outage: lone returning peer waits for the configured auto-recovery interval ('+(cfg.autoDelay||240)+' s).':'Pair power outage: lone returning peer has no configured auto-recovery; service recovery requires peer adjacency or an explicit recovery procedure.');
+ if(awaitRecovery)add('warning','RECOVERY_WAIT',cfg.autoRecovery?recoveryCause+': lone peer waits for '+(powerOutage?'configured auto-recovery reload-delay ('+(cfg.autoDelay||240)+' s)':'auto-recovery after three consecutive peer-keepalive timeouts')+'.':recoveryCause+': lone peer has no configured auto-recovery; service recovery requires peer adjacency or an explicit recovery procedure.');
  if(!now.alive.length)add('critical','PAIR_DOWN','Both vPC peers are down; all attached vPC service paths are unavailable.');
  const source=options.source&&model.nodes.some(n=>n.id===options.source&&n.tier==='lower')?options.source:model.nodes.find(n=>n.tier==='lower')?.id;
  const access=model.links.filter(l=>[l.a,l.b].includes(source)&&peerIds.some(id=>[l.a,l.b].includes(id))&&!l.logical&&!/peer-link|keepalive/i.test(l.kind));
