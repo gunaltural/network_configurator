@@ -22,7 +22,7 @@ class SimulationScenario(BaseModel):
     targetDevice: Short = ''
     modelScope: str = Field(default='', max_length=3000)
     modelStatus: Short = ''
-    findings: list[Short] = Field(default_factory=list, max_length=128)
+    findings: list[Annotated[str, Field(max_length=1500)]] = Field(default_factory=list, max_length=128)
     id: str = Field(max_length=200)
     createdAt: str = Field(max_length=40)
     direction: Literal['outbound', 'inbound']
