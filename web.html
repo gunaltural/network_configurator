@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Network Configurator v5.46.1</title>
+<title>Network Configurator v5.46.2</title>
 <style>
 :root{
   --bg:#0d1117;--panel:#161b22;--panel2:#1f2630;--line:#2b3440;
@@ -414,7 +414,7 @@ body.nc-simulation-action{padding-bottom:145px}body.nc-simulation-action #topolo
     <div class="logo">NC</div>
     <div><h1>Network Configurator</h1><small>Configure · Validate · Troubleshoot</small></div>
   </div>
-  <div class="badge">Version 5.46.1 · Simulation</div>
+  <div class="badge">Version 5.46.2 · Simulation</div>
 </header>
 
 <div class="layout">
@@ -6259,7 +6259,7 @@ renderModule();
 
  // Preserve the workspace SVG, including vendor-specific links and labels.
  // CSS used by the workspace lives outside the SVG, so embed its computed paint styles.
- function workspaceTopologySvg(simulation=false){
+ function workspaceTopologySvg(simulation=false,simulationDesign=null){
    const original=document.querySelector("#topologyArea svg");
    if(!original&&tech==="SDWAN")return sdwanReportSvg();
    if(!original)throw Error("The workspace topology is not ready. Reopen the technology workspace and try again.");
@@ -6277,6 +6277,13 @@ renderModule();
        if(value)clones[i].style.setProperty(property,value);
      });
    });
+   if(simulation){
+     const design=simulationDesign||reportingDesign();
+     for(const device of design.devices){const alias=tech==='VPC'&&platform()==='Cisco IOS-XE'&&device.tier==='upper'?'SWITCH-'+device.index:device.hostname;const label=[...copy.querySelectorAll('text')].find(t=>t.textContent.trim()===alias||t.textContent.trim()===device.hostname);if(label)label.setAttribute('data-lab-device',device.id);}
+     if(['OSPF','QOS','STP'].includes(tech)){const members=[...copy.querySelectorAll('.vpc-member-line')];if(members.length===design.links.length)members.forEach((el,i)=>el.setAttribute('data-lab-link',design.links[i].id));if(tech==='STP')for(const line of copy.querySelectorAll('.vpc-peer-line'))line.setAttribute('data-lab-link','special-0');}
+     if(tech==='BGP'){for(const group of copy.querySelectorAll('[data-bgp-connection]')){const id='wan'+group.dataset.bgpConnection;for(const path of group.querySelectorAll('path:not(.bgp-hit-target):not(.bgp-link-halo)'))path.setAttribute('data-lab-link',id);}for(const line of copy.querySelectorAll('[data-bgp-interconnect]'))line.setAttribute('data-lab-link','interconnect');}
+     if(tech==='SDWAN')for(const line of copy.querySelectorAll('[data-sdwan-link]')){const [index,n]=line.dataset.sdwanLink.split('-');line.setAttribute('data-lab-link','wan-'+(+index+1)+'-'+n);}
+   }
    if(simulation&&tech==='VPC'){
      const design=reportingDesign(),members=[...copy.querySelectorAll('.vpc-member-line')].filter(el=>Number(el.getAttribute('y1')||0)<450);
      if(members.length===design.links.length)members.forEach((el,i)=>el.setAttribute('data-lab-link',design.links[i].id));
@@ -6584,7 +6591,7 @@ function prepareWorkspaceSimulation(){
  }
  if(tech==='OSPF')report.links.forEach(l=>l.cost=settings.ospfCost);
  report.topologySvg=workspaceTopologySvg();report.verificationCommands=reportVerificationCommands();
- const context={schema:'network-configurator-workspace-simulation-v1',projectId:project.project.id,report,settings,bgp,topologySvg:workspaceTopologySvg(true)};
+ const context={schema:'network-configurator-workspace-simulation-v1',projectId:project.project.id,report,settings,bgp,topologySvg:workspaceTopologySvg(true,report)};
  sessionStorage.setItem('networkConfigurator.workflow.design',JSON.stringify(project));
  sessionStorage.setItem('networkConfigurator.lab.workspace',JSON.stringify(context));return context;
 }
