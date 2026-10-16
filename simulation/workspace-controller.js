@@ -123,7 +123,7 @@ function attach(){
  const combined=new Map((report.simulationScenarios||[]).map(s=>[s.id,s]));for(const s of records)combined.set(s.id,s);report.simulationScenarios=[...combined.values()].slice(-40);sessionStorage.setItem('networkConfigurator.report.current',JSON.stringify(report));$('labResultStatus').textContent=records.length+' scenario(s) attached to '+model.technology+' report.';
 }
 $('labSendEvidence').onclick=attach;$('labContinueReport').onclick=()=>{attach();location.assign('/reporting?from=simulation');};
-const payload=()=>({name:(context.report.name||model.technology)+' simulation',language:$('simulationLanguage').value,scenarios:records});
+const payload=()=>({name:(context.report.name||model.technology)+' simulation',language:$('simulationReportLanguage').value,scenarios:records});
 $('simulationPdf').onclick=()=>{try{window.SimulationReport.print(payload());}catch(e){$('simulationExportStatus').textContent=e.message;}};
 $('simulationWord').onclick=async()=>{try{await window.SimulationReport.word(payload());$('simulationExportStatus').textContent='Word report downloaded.';}catch(e){$('simulationExportStatus').textContent=e.message;}};
 $('labImport').onclick=()=>location.reload();

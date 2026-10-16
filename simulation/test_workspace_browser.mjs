@@ -28,6 +28,8 @@ try{
    const report=await page.evaluate(()=>JSON.parse(sessionStorage.getItem('networkConfigurator.report.current')));assert.equal(report.source.module,module);assert.ok(report.simulationScenarios.length);
    assert.equal(await page.locator('#labMap').getAttribute('data-source'),'design');
    if(vendor===vendors[0]){
+    await page.evaluate(()=>document.getElementById('simulationWord').onclick());
+    assert.equal(await page.locator('#simulationExportStatus').textContent(),'Word report downloaded.',module+' actual Word action');
     const payload=await page.evaluate(async()=>({name:'Workspace simulation',language:'en',scenarios:await window.SimulationReport.prepare(window.NetworkLab.scenarioRecords())}));
     const response=await context.request.post(base+'/api/network-lab/simulation-word',{data:payload});assert.equal(response.status(),200,module+' Word export: '+await response.text().then(x=>x.slice(0,60)));assert.ok((await response.body()).byteLength>1000);
    }
