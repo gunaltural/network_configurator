@@ -24,6 +24,21 @@ class SimulationReportTests(unittest.TestCase):
         self.assertEqual(self.client.post('/api/network-lab/simulation-word',json={'name':'Pilot','scenarios':[bad]}).status_code,422)
         bad={**self.scenario,'topologyPng':'data:image/png;base64,ZmFrZQ=='}
         self.assertEqual(self.client.post('/api/network-lab/simulation-word',json={'name':'Pilot','scenarios':[bad]}).status_code,400)
+    def test_module_report_preserves_conditional_result_and_omits_bgp_assumptions(self):
+        scenario={**self.scenario, 'module':'VPC', 'vendor':'Arista EOS', 'technology':'MLAG',
+                  'sourceDevice':'LEAF-1', 'targetDevice':'CORE-1', 'modelStatus':'conditional',
+                  'modelScope':'Physical attachment only', 'findings':['Peer-link unavailable'],
+                  'failedDevices':['CORE-'+str(i) for i in range(6)]}
+        response=self.client.post('/api/network-lab/simulation-word',json={'name':'MLAG scenario','scenarios':[scenario]})
+        self.assertEqual(response.status_code,200)
+        doc=Document(io.BytesIO(response.content))
+        text='\n'.join(p.text for p in doc.paragraphs)+'\n'+'\n'.join(c.text for t in doc.tables for row in t.rows for c in row.cells)
+        self.assertIn('conditional',text)
+        self.assertIn('Arista EOS',text)
+        self.assertIn('CORE-5',text)
+        self.assertNotIn('Both CEs',text)
+        self.assertNotIn('VRRP',text)
+
     def test_assets_available(self):
         self.assertEqual(self.client.get('/simulation-report.js').status_code,200)
         self.assertEqual(self.client.get('/simulation-report.js').headers['cache-control'],'no-store')

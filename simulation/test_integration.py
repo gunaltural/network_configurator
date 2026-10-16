@@ -42,12 +42,12 @@ class VpcMlagRouteContract(unittest.TestCase):
         self.assertIn("@app.get('/simulation/vendor-failure-engine.mjs')", api)
         self.assertNotIn('src="/simulation-vpc-link.js"', app)
         self.assertIn("vpcMlagSimLaunch", workspace)
-        self.assertIn("const vpcSupported=tech==='VPC'", workspace)
-        self.assertIn("platform()!=='Huawei iStack'", workspace)
-        self.assertIn("api.diagnosticDesign()", workspace)
-        self.assertIn("api.simulationTopologySvg()", workspace)
-        self.assertIn("networkConfigurator.mlagSimulation.topologySvg", workspace)
-        self.assertIn("networkConfigurator.mlagSimulation.design", workspace)
+        self.assertIn("['BASIC','BGP','OSPF','STP','VPC','EVPN','QOS','SDWAN'].includes(tech)", workspace)
+        self.assertIn("prepareWorkspaceSimulation", workspace)
+        self.assertIn("networkConfigurator.lab.workspace", workspace)
+        self.assertIn("location.assign('/network-lab?workspace=1')", workspace)
+        self.assertIn("workspaceTopologySvg(true)", workspace)
+
 
     def test_simulation_http_routes(self):
         # Test runner sets AUTH_ENABLED=0; production auth remains enabled.
@@ -59,6 +59,8 @@ class VpcMlagRouteContract(unittest.TestCase):
             ("/simulation/vendor-failure-engine.mjs", "analyzeAccessImpact"),
             ("/simulation-vpc-link.js", "networkConfigurator.mlagSimulation.topologySvg"),
             ("/synthetic-bgp.js", "SyntheticBGP"),
+            ("/simulation/workspace-engine.js", "WorkspaceSimulationEngine"),
+            ("/simulation/workspace-controller.js", "WorkspaceSimulationEngine"),
         ):
             response = client.get(route)
             self.assertEqual(response.status_code, 200, (route, response.text[:150]))

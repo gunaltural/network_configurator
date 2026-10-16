@@ -13,6 +13,14 @@ class SimulationPolicy(BaseModel):
     localPreference: int = Field(ge=0, le=4294967295)
     prependCount: int = Field(ge=0, le=10)
 class SimulationScenario(BaseModel):
+    module: str = Field(default='', max_length=30)
+    vendor: Short = ''
+    technology: Short = ''
+    sourceDevice: Short = ''
+    targetDevice: Short = ''
+    modelScope: str = Field(default='', max_length=3000)
+    modelStatus: Short = ''
+    findings: list[Short] = Field(default_factory=list, max_length=128)
     id: str = Field(max_length=200)
     createdAt: str = Field(max_length=40)
     direction: Literal['outbound', 'inbound']
@@ -21,8 +29,8 @@ class SimulationScenario(BaseModel):
     preferredGateway: Short
     activeGateway: Short = ''
     backupGateway: Short = ''
-    failedDevices: list[Short] = Field(default_factory=list, max_length=4)
-    failedLinks: list[Short] = Field(default_factory=list, max_length=10)
+    failedDevices: list[Short] = Field(default_factory=list, max_length=128)
+    failedLinks: list[Short] = Field(default_factory=list, max_length=512)
     baselinePath: str = Field(max_length=3000)
     currentPath: str = Field(max_length=3000)
     reachable: bool
@@ -53,24 +61,42 @@ def append_simulation_scenarios(doc, scenarios, language='en'):
     tr = language == 'tr'
     doc.add_heading('Simülasyon ve failover senaryoları' if tr else 'Simulation and failover scenarios', level=1)
     doc.add_paragraph('Sentetik model sonuçlarıdır; gerçek cihaz, paket, kayıp veya yakınsama süresi ölçümü ve üretim kabul kanıtı değildir.' if tr else 'Synthetic model results; no real devices, packets, loss or convergence times are measured. These scenarios are not production acceptance evidence.')
-    doc.add_paragraph('Her iki CE ortak istemci LAN’ına doğrudan bağlıdır. VRRP istemci çıkış ağ geçidini seçer; gelen trafik BGP politikasına göre yedek CE’den de geçebilir. Aktif CE arızasında sağlıklı yedek devralır; tercih edilen CE geri geldiğinde tekrar aktif olur. WAN izleme ve zamanlayıcılar modellenmez. Internet bulutu seçilen ISP sınırını gösterir; sağlayıcı transit ağı veya Internet genelinde yol seçimi modellenmez. ISP politikası prepend etkisini değiştirebilir.' if tr else 'Both CEs directly attach to the shared client LAN. VRRP selects the client outbound gateway; inbound BGP traffic may enter through the backup CE. Device failure promotes the healthy backup and restoration preempts to the preferred CE. WAN tracking and timers are not modeled. The Internet cloud represents the selected ISP boundary, not provider transit or Internet-wide route selection. Provider policy can override prepend.')
+    if not any((s.model_dump() if isinstance(s, BaseModel) else s).get("module") for s in scenarios):
+        doc.add_paragraph('Her iki CE ortak istemci LAN’ına doğrudan bağlıdır. VRRP istemci çıkış ağ geçidini seçer; gelen trafik BGP politikasına göre yedek CE’den de geçebilir. Aktif CE arızasında sağlıklı yedek devralır; tercih edilen CE geri geldiğinde tekrar aktif olur. WAN izleme ve zamanlayıcılar modellenmez. Internet bulutu seçilen ISP sınırını gösterir; sağlayıcı transit ağı veya Internet genelinde yol seçimi modellenmez. ISP politikası prepend etkisini değiştirebilir.' if tr else 'Both CEs directly attach to the shared client LAN. VRRP selects the client outbound gateway; inbound BGP traffic may enter through the backup CE. Device failure promotes the healthy backup and restoration preempts to the preferred CE. WAN tracking and timers are not modeled. The Internet cloud represents the selected ISP boundary, not provider transit or Internet-wide route selection. Provider policy can override prepend.')
     for index, raw in enumerate(scenarios, 1):
         s = raw.model_dump() if isinstance(raw, BaseModel) else raw
         doc.add_heading(('Senaryo ' if tr else 'Scenario ') + str(index), level=2)
+        if s.get('module'):
+            _table(doc, [
+                ('Modül / platform' if tr else 'Module / platform', s.get('technology', s['module']) + ' · ' + s.get('vendor', '')),
+                ('Kaynak / hedef' if tr else 'Source / destination', s.get('sourceDevice','') + ' → ' + s.get('targetDevice','')),
+                ('Model sonucu' if tr else 'Model result', s.get('modelStatus','')),
+                ('Model kapsamı' if tr else 'Model scope', s.get('modelScope','')),
+                ('Bulgular' if tr else 'Findings', '; '.join(s.get('findings',[])) or '—'),
+            ])
         outcome = ('Erişilebilir' if s['reachable'] else 'Yol yok') if tr else ('Reachable' if s['reachable'] else 'No path')
-        _table(doc, [
-            ('Kayıt zamanı' if tr else 'Recorded at', s['createdAt']),
-            ('Trafik yönü' if tr else 'Traffic direction', ('Çıkış · İstemci → Internet' if s['direction']=='outbound' else 'Giriş · Internet → İstemci') if tr else ('Outbound · Client → Internet' if s['direction']=='outbound' else 'Inbound · Internet → Client')),
-            ('İstemci LAN prefix’i' if tr else 'Client LAN prefix', s['clientPrefix']),
-            ('Internet girişi' if tr else 'Internet entry', s.get('internetEntry') or '—'),
-            ('Tercih edilen / aktif / yedek VRRP' if tr else 'Preferred / active / backup VRRP', ' / '.join(s.get(k) or '—' for k in ['preferredGateway','activeGateway','backupGateway'])),
-            ('Arızalı cihazlar' if tr else 'Failed devices', ', '.join(s['failedDevices']) or '—'),
-            ('Devre dışı bağlantılar' if tr else 'Disabled connections', ', '.join(s['failedLinks']) or '—'),
-            ('Arızasız başlangıç yolu' if tr else 'No-fault baseline path', _path(s['baselinePath'],tr)),
-            ('Senaryo yolu' if tr else 'Scenario path', _path(s['currentPath'],tr)),
-            ('Model sonucu' if tr else 'Model result', outcome),
-            ('Yol değişimi / ağ geçidi değişimi' if tr else 'Path change / gateway change', ' / '.join(('Evet' if flag else 'Hayır') if tr else ('Yes' if flag else 'No') for flag in [s['pathChanged'],s['gatewayChanged']])),
-        ])
+        if s.get('module'):
+            _table(doc, [
+                ('Kayıt zamanı' if tr else 'Recorded at', s['createdAt']),
+                ('Arızalı cihazlar' if tr else 'Failed devices', ', '.join(s['failedDevices']) or '—'),
+                ('Arızalı bağlantılar' if tr else 'Failed connections', ', '.join(s['failedLinks']) or '—'),
+                ('Başlangıç yolu' if tr else 'Baseline path', _path(s['baselinePath'],tr)),
+                ('Senaryo yolu' if tr else 'Scenario path', _path(s['currentPath'],tr)),
+            ])
+        else:
+            _table(doc, [
+                ('Kayıt zamanı' if tr else 'Recorded at', s['createdAt']),
+                ('Trafik yönü' if tr else 'Traffic direction', ('Çıkış · İstemci → Internet' if s['direction']=='outbound' else 'Giriş · Internet → İstemci') if tr else ('Outbound · Client → Internet' if s['direction']=='outbound' else 'Inbound · Internet → Client')),
+                ('İstemci LAN prefix’i' if tr else 'Client LAN prefix', s['clientPrefix']),
+                ('Internet girişi' if tr else 'Internet entry', s.get('internetEntry') or '—'),
+                ('Tercih edilen / aktif / yedek VRRP' if tr else 'Preferred / active / backup VRRP', ' / '.join(s.get(k) or '—' for k in ['preferredGateway','activeGateway','backupGateway'])),
+                ('Arızalı cihazlar' if tr else 'Failed devices', ', '.join(s['failedDevices']) or '—'),
+                ('Devre dışı bağlantılar' if tr else 'Disabled connections', ', '.join(s['failedLinks']) or '—'),
+                ('Arızasız başlangıç yolu' if tr else 'No-fault baseline path', _path(s['baselinePath'],tr)),
+                ('Senaryo yolu' if tr else 'Scenario path', _path(s['currentPath'],tr)),
+                ('Model sonucu' if tr else 'Model result', outcome),
+                ('Yol değişimi / ağ geçidi değişimi' if tr else 'Path change / gateway change', ' / '.join(('Evet' if flag else 'Hayır') if tr else ('Yes' if flag else 'No') for flag in [s['pathChanged'],s['gatewayChanged']])),
+            ])
         if s.get('topologyPng'):
             encoded=s['topologyPng']
             if not encoded.startswith('data:image/png;base64,'): raise ValueError('Invalid simulation topology image.')

@@ -1,4 +1,5 @@
-(function(){'use strict';const $=id=>document.getElementById(id),api=window.NetworkLab;let downNodes=new Set(),downLinks=new Set(),lastModel='',current=null,source='client',direction='outbound',target='ce1',policies={},preferredActive='ce1',clientPrefix='';
+(function(){'use strict';
+if(new URLSearchParams(location.search).get('workspace')==='1')return;const $=id=>document.getElementById(id),api=window.NetworkLab;let downNodes=new Set(),downLinks=new Set(),lastModel='',current=null,source='client',direction='outbound',target='ce1',policies={},preferredActive='ce1',clientPrefix='';
 function model(){return api.model();}function hostname(id){return ({client:'Client',lan:'Shared LAN',internet:'Internet'})[id]||model().nodes.find(n=>n.id===id)?.hostname||id;}
 function simulatedModel(){const m=JSON.parse(JSON.stringify(model()));for(const l of m.links)if(policies[l.id])Object.assign(l,policies[l.id]);return m;}
 function view(result){return direction==='inbound'?[result.internetInbound]:[result.clientOutbound];}

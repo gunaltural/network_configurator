@@ -142,7 +142,19 @@
  sidebar.querySelectorAll('[data-nc-module]').forEach(link=>link.onclick=e=>{if(main){e.preventDefault();openModule(link.dataset.ncModule);}});
  sidebar.querySelector('[data-nc-compare]').addEventListener('click',()=>{if(main)window.NetworkWorkspaceProject?.prepareCompare?.();else if(reporting){try{sessionStorage.setItem('networkConfigurator.compare.current',JSON.stringify(window.NetworkReportProject?.snapshot()));}catch{}}});
  sidebar.querySelector('[data-nc-discovery]').addEventListener('click',()=>{try{if(main)sessionStorage.setItem('networkConfigurator.workflow.design',JSON.stringify(window.NetworkWorkspaceProject.snapshot()));else if(reporting)sessionStorage.setItem('networkConfigurator.report.current',JSON.stringify(window.NetworkReportProject.snapshot()));}catch{}});
- sidebar.querySelector('[data-nc-lab]').addEventListener('click',()=>{if(main){try{const model=window.NetworkWorkspaceProject.prepareSimulation();sessionStorage.setItem('networkConfigurator.lab.bgp',JSON.stringify(model));}catch(e){sessionStorage.setItem('networkConfigurator.lab.bgp',JSON.stringify({error:e.message}));}}});
+ const labLink=sidebar.querySelector('[data-nc-lab]');
+ if(lab&&new URLSearchParams(location.search).get('workspace')==='1')labLink.href='/network-lab?workspace=1';
+ labLink.addEventListener('click',event=>{
+  if(!main)return;
+  try{
+   const api=window.NetworkWorkspaceProject;
+   if(api.diagnosticScope().module==='BGP'){
+    try{const model=api.prepareSimulation();sessionStorage.setItem('networkConfigurator.lab.bgp',JSON.stringify(model));labLink.href='/network-lab?from=design';}
+    catch{api.prepareWorkspaceSimulation();labLink.href='/network-lab?workspace=1';}
+   }else{api.prepareWorkspaceSimulation();labLink.href='/network-lab?workspace=1';}
+  }catch(error){event.preventDefault();const status=document.getElementById('simulationTransferStatus');if(status){status.hidden=false;status.textContent=error.message;}else alert(error.message);}
+ });
+
  const home=sidebar.querySelector('[data-nc-home]');
  if(main)home.onclick=e=>{e.preventDefault();document.getElementById('v3DashboardBtn').click();document.body.classList.remove('nc-menu-open');sync();};
  function openView(key){
