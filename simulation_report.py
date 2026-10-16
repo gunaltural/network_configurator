@@ -13,6 +13,8 @@ class SimulationPolicy(BaseModel):
     localPreference: int = Field(ge=0, le=4294967295)
     prependCount: int = Field(ge=0, le=10)
 class SimulationScenario(BaseModel):
+    roleStates: dict[Short, Short] = Field(default_factory=dict)
+    failureSequence: list[Short] = Field(default_factory=list, max_length=128)
     module: str = Field(default='', max_length=30)
     vendor: Short = ''
     technology: Short = ''
@@ -73,6 +75,8 @@ def append_simulation_scenarios(doc, scenarios, language='en'):
                 ('Model sonucu' if tr else 'Model result', s.get('modelStatus','')),
                 ('Model kapsamı' if tr else 'Model scope', s.get('modelScope','')),
                 ('Bulgular' if tr else 'Findings', '; '.join(s.get('findings',[])) or '—'),
+                ('Operasyonel roller' if tr else 'Operational roles', '; '.join(k+': '+v for k,v in s.get('roleStates',{}).items()) or '—'),
+                ('Arıza sırası' if tr else 'Failure sequence', ' → '.join(s.get('failureSequence',[])) or '—'),
             ])
         outcome = ('Erişilebilir' if s['reachable'] else 'Yol yok') if tr else ('Reachable' if s['reachable'] else 'No path')
         if s.get('module'):

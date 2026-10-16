@@ -19,10 +19,10 @@ try{
    await page.locator('#syntheticDeviceChoices input').first().waitFor({state:'attached'});
    assert.equal(await page.locator('#syntheticDeviceChoices input').count(),data.report.devices.length,module+' '+vendor+' devices');
    await page.locator('#wbFailures').click();
-   const devices=page.locator('#syntheticDeviceChoices input');await devices.first().check();if(await devices.count()>1)await devices.nth(1).check();await page.locator('#syntheticNodeDown').click();
+   const devices=page.locator('#syntheticDeviceChoices input');await devices.first().check();if(await devices.count()>1)await devices.nth(1).check();await page.locator(module==='VPC'?'#pairFail':'#syntheticNodeDown').click();
    assert.ok((await page.locator('#syntheticStatus').innerText()).includes('2 device')||await devices.count()===1);
-   await page.locator('#syntheticNodeUp').click();assert.equal(await devices.first().isChecked(),false);
-   const links=page.locator('#syntheticLinkChoices input');if(await links.count()){await links.first().check();await page.locator('#syntheticLinkDown').click();await page.locator('#syntheticLinkUp').click();assert.equal(await links.first().isChecked(),false);}
+   await page.locator(module==='VPC'?'#pairRestore':'#syntheticNodeUp').click();assert.equal(await devices.first().isChecked(),false);
+   const links=page.locator('#syntheticLinkChoices input');if(await links.count()){await links.first().check();await page.locator(module==='VPC'?'#pairFail':'#syntheticLinkDown').click();await page.locator(module==='VPC'?'#pairRestore':'#syntheticLinkUp').click();assert.equal(await links.first().isChecked(),false);}
    await page.locator('#syntheticRecord').click();
    await page.locator('#wbResults').click();await page.locator('#labSendEvidence').click();
    const report=await page.evaluate(()=>JSON.parse(sessionStorage.getItem('networkConfigurator.report.current')));assert.equal(report.source.module,module);assert.ok(report.simulationScenarios.length);

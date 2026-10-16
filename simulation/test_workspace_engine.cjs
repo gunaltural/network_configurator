@@ -9,7 +9,7 @@ for(const module of E.modules)for(const vendor of ['Cisco NX-OS','Cisco IOS-XE',
 }
 let m=model('OSPF');assert.equal(E.evaluate(m,{}, {source:'lower-1',target:'upper-1'}).path.cost,10);assert.deepEqual(E.evaluate(m,{links:['a']},{source:'lower-1',target:'upper-1'}).path.nodes,['lower-1','upper-2','upper-1']);
 assert.equal(E.evaluate(model('QOS'),{},{source:'lower-1',target:'upper-1',offeredRate:1000}).qos.admittedMbps,500);
-assert.equal(E.evaluate(model('VPC'),{links:['special-0']},{source:'lower-1',target:'upper-1'}).status,'conditional');
+assert.equal(E.evaluate(model('VPC'),{links:['special-0']},{source:'lower-1',target:'upper-1'}).status,'dual-active-risk');
 assert.equal(E.evaluate(model('STP'),{devices:['upper-1']},{source:'lower-1',target:'upper-2'}).root,'upper-2');
 m=model('BGP');m.bgp={nodes:[{id:'ce1'},{id:'ce2'},{id:'ce3'},{id:'isp1'}],links:[{id:'wan1',a:'ce1',b:'isp1',localPreference:100},{id:'wan2',a:'ce2',b:'isp1',localPreference:250},{id:'internal',a:'ce1',b:'ce2'}]};
 assert.deepEqual(E.evaluate(m,{}, {bgpSource:'ce1'}).path.nodes,['ce1','ce2','isp1']);

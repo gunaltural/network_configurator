@@ -24,7 +24,107 @@ function stpTree(model,downNodes,downLinks,preferredRoot){
  if(rootNode)for(const n of healthy){const p=shortest(model,n.id,rootNode.id,downNodes,downLinks,{},l=>!l.logical);for(const id of p?.links||[])tree.add(id);}
  return {root:rootNode?.id||null,links:tree};
 }
+// Cisco vPC state transitions, based on Cisco Best Practices pp.32,126–128
+// and Nexus 9000 10.5(x) vPC recovery/consistency guidance.
+function evaluateCiscoVpc(model,state={},options={}){
+ const peers=model.nodes.filter(n=>n.tier==='upper').slice(0,2),peerIds=peers.map(n=>n.id),cfg=model.settings.vpc||{};
+ const preferred=peerIds.includes(cfg.initialPrimary)?cfg.initialPrimary:peerIds[0];
+ const peerLinks=model.links.filter(l=>/peer-link/i.test(l.kind)),keep=model.links.filter(l=>/keepalive/i.test(l.kind));
+ const other=id=>peerIds.find(p=>p!==id),name=id=>model.nodes.find(n=>n.id===id)?.hostname||id;
+ const inspect=s=>{const down=new Set(s.devices||[]),links=new Set(s.links||[]),up=l=>!links.has(l.id)&&!down.has(l.a)&&!down.has(l.b);return {down,links,alive:peerIds.filter(p=>!down.has(p)),peer:peerLinks.some(up),keep:keep.length?keep.some(up):null,members:peerLinks.filter(up).length};};
+ let primary=preferred,suspended=null,dual=false,uncertain=false,previous=inspect({}),powerOutage=false,awaitRecovery=false,restoring=null;
+ const history=[...(state.events||[])];const last=history.at(-1);if(!last||JSON.stringify(last.devices)!==JSON.stringify(state.devices||[])||JSON.stringify(last.links)!==JSON.stringify(state.links||[]))history.push({devices:state.devices||[],links:state.links||[]});
+ for(const event of history){const now=inspect(event);
+  if(!now.alive.length){powerOutage=true;awaitRecovery=true;primary=null;suspended=null;restoring=null;dual=false;uncertain=false;}
+  else if(now.alive.length===1){const survivor=now.alive[0];if(primary!==survivor)primary=survivor;suspended=null;dual=false;uncertain=false;if(powerOutage)awaitRecovery=cfg.autoRecovery!==true||event.recoveryElapsed!==true;}
+  else {
+   if(!primary)primary=preferred;
+   if(now.peer){if(previous.alive.length===1&&now.alive.length===2&&cfg.delayRestore)restoring=peerIds.find(id=>!previous.alive.includes(id));if(dual)primary=other(primary);suspended=null;dual=false;uncertain=false;awaitRecovery=false;powerOutage=false;}
+   else if(now.keep===true){suspended=other(primary);dual=false;uncertain=false;}
+   else if(previous.peer&&!now.peer){
+    if(previous.keep===false){dual=true;suspended=null;}
+    else {uncertain=true;suspended=null;}
+   }
+   // Peer-link-first suspension is retained if keepalive subsequently disappears.
+  }
+  if(event.recoveryElapsed){if(cfg.autoRecovery&&now.alive.length===1){awaitRecovery=false;powerOutage=false;}restoring=null;}
+  previous=now;
+ }
+ const now=inspect(state),roles=Object.fromEntries(peerIds.map(id=>[id,now.down.has(id)?'DOWN':dual?'PRIMARY (dual-active)':uncertain?'ROLE UNCONFIRMED':id===primary?'PRIMARY':'SECONDARY']));
+ const blocked=new Set(),findings=[],add=(severity,code,description)=>findings.push({severity,code,description});
+ if(suspended){for(const l of model.links)if(l.a===suspended||l.b===suspended)if(!/peer-link|keepalive/i.test(l.kind)&&!l.logical)blocked.add(l.id);add('warning','SECONDARY_SUSPENDED',name(suspended)+' suspends its vPC member ports; associated vPC VLAN SVIs are affected unless an explicit exclusion is configured. Traffic uses '+name(primary)+'.');}
+ if(restoring){for(const l of model.links)if(!l.logical&&!/peer-link|keepalive/i.test(l.kind)&&[l.a,l.b].includes(restoring))blocked.add(l.id);add('warning','DELAY_RESTORE',name(restoring)+' is returning; vPC members await delay-restore ('+cfg.delayRestore+' s). Operational primary remains '+name(primary)+'.');}
+ if(state.conditions?.type1){const affected=cfg.gracefulConsistency===false?peerIds:[other(primary)];for(const l of model.links)if(!/peer-link|keepalive/i.test(l.kind)&&affected.some(id=>id===l.a||id===l.b))blocked.add(l.id);add('warning','TYPE1_MISMATCH',cfg.gracefulConsistency===false?'Mandatory mismatch: both sides suspended because graceful consistency-check is disabled.':'Mandatory mismatch: secondary vPC members suspended under graceful consistency-check.');}
+ if(state.conditions?.vlanMismatch)add('warning','VLAN_MISMATCH','Only selected service VLAN '+(model.settings.redundancy?.serviceVlan||'(design scope)')+' is unavailable; the vPC bundle and other consistent VLANs can remain operational.');
+ if(dual)add('critical','DUAL_ACTIVE','Keepalive failed before peer-link: both live peers act as operational primary. MAC/IGMP synchronization is lost; do not treat available links as healthy forwarding.');
+ if(uncertain)add('critical','DUAL_FAILURE_ORDER_UNKNOWN','Both control paths failed together. Failure order and detection timers are not established; dual-active risk, not a verified healthy forwarding state.');
+ if(now.peer&&now.keep===false)add('warning','KEEPALIVE_ONLY','Peer-keepalive loss alone does not suspend vPC members or change the traffic path while peer-link remains operational.');
+ if(now.peer&&now.members<peerLinks.length)add('warning','PEER_MEMBER_LOSS','A peer-link member failed; '+now.members+' of '+peerLinks.length+' members remain. Logical peer-link stays up with reduced redundancy/capacity.');
+ if(now.alive.length===1)add('warning','PEER_DEVICE_DOWN',name(now.alive[0])+' is the surviving operational primary; dual-homed member traffic uses its available local legs.');
+ if(awaitRecovery)add('warning','RECOVERY_WAIT',cfg.autoRecovery?'Pair power outage: lone returning peer waits for the configured auto-recovery interval ('+(cfg.autoDelay||240)+' s).':'Pair power outage: lone returning peer has no configured auto-recovery; service recovery requires peer adjacency or an explicit recovery procedure.');
+ if(!now.alive.length)add('critical','PAIR_DOWN','Both vPC peers are down; all attached vPC service paths are unavailable.');
+ const source=options.source&&model.nodes.some(n=>n.id===options.source&&n.tier==='lower')?options.source:model.nodes.find(n=>n.tier==='lower')?.id;
+ const access=model.links.filter(l=>[l.a,l.b].includes(source)&&peerIds.some(id=>[l.a,l.b].includes(id))&&!l.logical&&!/peer-link|keepalive/i.test(l.kind));
+ const paths=access.filter(l=>!now.down.has(source)&&!now.links.has(l.id)&&!blocked.has(l.id)&&!now.down.has(l.a)&&!now.down.has(l.b)&&!awaitRecovery&&!state.conditions?.vlanMismatch).map(l=>({nodes:[source,l.a===source?l.b:l.a],links:[l.id],cost:1}));
+ paths.sort((a,b)=>(a.nodes[1]===primary?-1:0)-(b.nodes[1]===primary?-1:0)||a.nodes[1].localeCompare(b.nodes[1]));
+ const baselinePaths=access.map(l=>({nodes:[source,l.a===source?l.b:l.a],links:[l.id],cost:1}));
+ const status=!paths.length?'no-path':dual||uncertain?'dual-active-risk':paths.length<baselinePaths.length||now.keep===false||now.members<peerLinks.length||findings.length?'degraded':'reachable';
+ const notes=['Steady-state vPC member forwarding model; healthy uplink, LACP and VLAN configuration assumed. No packet loss/convergence time measurement.',
+ 'Configured role priority initializes the baseline; operational roles are non-preemptive after peer recovery.',
+ 'Orphan ports, northbound L3 uplinks and specific SVI exceptions are not present in this imported dual-homed design and are not invented.'];
+ if(cfg.delayRestore)notes.push('Returning peer members are shown after the configured delay-restore ('+cfg.delayRestore+' s); no real timer is measured.');
+ return {module:'VPC',status,path:paths[0]||null,paths,baseline:baselinePaths[0]||null,baselinePaths,findings,notes,blockedLinks:[...blocked],affected:model.links.filter(l=>now.links.has(l.id)||now.down.has(l.a)||now.down.has(l.b)).map(l=>l.id),vpc:{primary,roles,suspended,dualActive:dual,uncertain,peerLinkUp:now.peer,keepaliveUp:now.keep,availableMembers:now.members,totalMembers:peerLinks.length,recoveryWait:awaitRecovery||!!restoring,source,leaves:model.nodes.filter(n=>n.tier==='lower').map(leaf=>{const links=model.links.filter(l=>[l.a,l.b].includes(leaf.id)&&peerIds.some(id=>[l.a,l.b].includes(id))&&!l.logical&&!/peer-link|keepalive/i.test(l.kind));const available=links.filter(l=>!now.down.has(leaf.id)&&!now.down.has(l.a)&&!now.down.has(l.b)&&!now.links.has(l.id)&&!blocked.has(l.id)&&!awaitRecovery&&!state.conditions?.vlanMismatch);return {id:leaf.id,hostname:leaf.hostname,available:available.length,total:links.length};})}};
+}
+function evaluateVendorPair(model,state={},options={}){
+ if(model.vendor==='Cisco NX-OS')return evaluateCiscoVpc(model,state,options);
+ const profile=model.settings.redundancy||{},peers=model.nodes.filter(n=>n.tier==='upper').slice(0,2),ids=peers.map(n=>n.id),name=id=>model.nodes.find(n=>n.id===id)?.hostname||id;
+ const stackwise=model.vendor==='Cisco IOS-XE',istack=model.vendor==='Huawei iStack',huawei=model.vendor==='Huawei_CE_SW',arista=model.vendor==='Arista EOS';
+ const peerLinks=model.links.filter(l=>/peer-link|SVL|Stack interconnect/i.test(l.kind)),detection=model.links.filter(l=>/keepalive|DAD|DFS|MAD/i.test(l.kind)),controls=model.links.filter(l=>/peer control/i.test(l.kind));
+ const inspect=s=>{const down=new Set(s.devices||[]),links=new Set(s.links||[]),up=l=>!links.has(l.id)&&!down.has(l.a)&&!down.has(l.b);return {down,links,alive:ids.filter(id=>!down.has(id)),peer:peerLinks.some(up),detection:detection.length?detection.some(up):null,control:controls.every(up),members:peerLinks.filter(up).length};};
+ let primary=profile.initialPrimary||ids[0],isolated=null,risk=false,recoveryWait=false,reloading=[],prev=inspect({});
+ const history=[...(state.events||[])];if(!history.length||JSON.stringify(history.at(-1).devices)!==JSON.stringify(state.devices||[])||JSON.stringify(history.at(-1).links)!==JSON.stringify(state.links||[]))history.push({devices:state.devices||[],links:state.links||[]});
+ for(const event of history){const now=inspect(event);
+  if(arista){const returned=now.alive.filter(id=>!prev.alive.includes(id));if(returned.length){reloading=[...new Set([...reloading,...returned])];recoveryWait=true;}}
+  if(!now.alive.length){primary=null;isolated=null;risk=false;recoveryWait=false;reloading=[];}
+  else if(now.alive.length===1){primary=now.alive[0];risk=false;if(isolated===primary)recoveryWait=true;}
+  else {
+   if(!primary)primary=profile.initialPrimary||ids[0];
+   if(now.peer&&now.control){if(!prev.peer&&isolated)recoveryWait=true;if(!recoveryWait)isolated=null;risk=false;}
+   else if(!now.peer||!now.control){
+    if(stackwise){if(prev.peer&&!now.peer){const original=primary;primary=ids.find(id=>id!==primary);if(now.detection===true)isolated=original;else risk=true;}else if(now.detection===true&&!isolated&&risk){isolated=ids.find(id=>id!==primary);risk=false;}}
+    else if(istack){if(now.detection===true&&profile.madWinner){primary=profile.madWinner;isolated=ids.find(id=>id!==primary);risk=false;}else if(!isolated)risk=true;}
+    else if(huawei){if(now.detection===true){isolated=ids.find(id=>id!==primary);risk=false;}else if(!isolated)risk=true;}
+    else if(arista){if(profile.dualPrimaryAction&&profile.heartbeatConfigured&&now.detection===true){isolated=ids.find(id=>id!==primary);risk=false;}else risk=true;}
+   }
+   if(prev.alive.length===1&&now.alive.length===2&&arista)recoveryWait=true;
+  }
+  if(event.recoveryElapsed){recoveryWait=false;reloading=[];if(now.peer&&now.control)isolated=null;}
+  prev=now;
+ }
+ const now=inspect(state),blocked=new Set(),findings=[],add=(severity,code,description)=>findings.push({severity,code,description});
+ if(isolated){for(const l of model.links)if(!l.logical&&!/peer-link|SVL|Stack interconnect|DAD|DFS|MAD|keepalive/i.test(l.kind)&&[l.a,l.b].includes(isolated))blocked.add(l.id);
+  add('warning','PROTECTED_PEER',stackwise?name(isolated)+' is the original active chassis in DAD recovery; the former standby '+name(primary)+' is now active.':istack?name(isolated)+' is in MAD Recovery; its service ports are shut. The surviving fragment forwards through '+name(primary)+'.':huawei?name(isolated)+' is the DFS backup in Error-Down protection. Imported M-LAG member interfaces on that peer do not forward.':name(isolated)+' is errdisabled by the explicitly configured dual-primary action.');}
+ if(risk)add('critical',arista?'MLAG_INDEPENDENT_PEERS':'DUAL_ACTIVE',arista?'MLAG association lost. Independent bridging/STP may occur; no independent heartbeat + errdisable action is configured in this design, so Cisco-style secondary suspension is not assumed.':'Interconnect lost without an effective independent detection path: both live fragments may be active; IP/MAC conflicts or split-brain cannot be treated as healthy forwarding.');
+ if(now.peer&&now.detection===false)add('warning','DETECTION_PATH_DOWN','The independent '+(stackwise?'DAD':istack?'MAD':'DFS DAD')+' path is down; existing traffic paths remain while the interconnect is healthy.');
+ if(now.peer&&now.members<peerLinks.length)add('warning','INTERCONNECT_MEMBER_DOWN',istack?'Stack ring degraded to chain; a surviving stack link maintains the logical stack.':'A physical interconnect member failed; the surviving member maintains the logical interconnect.');
+ if(now.alive.length===1)add('warning','PEER_DEVICE_DOWN','Service uses healthy local member links on '+name(now.alive[0])+'. No path is routed through an unrelated access switch.');
+ if(recoveryWait)add('warning','RECOVERY_WAIT',arista?'Returning peer is in reload-delay; confirm recovery only after the configured/platform reload-delay.':'Protected fragment remains in recovery; interconnect repair/rejoin or the platform-specific manual recovery procedure is required.');
+ if(huawei&&history.some(e=>inspect(e).peer===false)&&now.peer)add('info','RECOVERY_RENEGOTIATION','Peer-link recovery includes DFS renegotiation and M-LAG member recovery delay. The Huawei overview describes 240 seconds; exact platform/software configuration must be verified.');
+ if(state.conditions?.vlanMismatch)add('warning','VLAN_INCONSISTENT','Selected service VLAN is inconsistent; available physical member links do not prove VLAN forwarding.');
+ if(!now.alive.length)add('critical','PAIR_DOWN','Both peer devices are down; no imported service member can forward.');
+ const source=options.source&&model.nodes.some(n=>n.id===options.source&&n.tier==='lower')?options.source:model.nodes.find(n=>n.tier==='lower')?.id;
+ const access=model.links.filter(l=>!l.logical&&[l.a,l.b].includes(source)&&ids.some(id=>[l.a,l.b].includes(id))&&!/peer-link|SVL|Stack interconnect|DAD|DFS|MAD|keepalive/i.test(l.kind));
+ const valid=l=>!now.down.has(l.a)&&!now.down.has(l.b)&&!now.links.has(l.id)&&!blocked.has(l.id)&&!state.conditions?.vlanMismatch&&!(recoveryWait&&(reloading.length?reloading.some(id=>[l.a,l.b].includes(id)):[l.a,l.b].includes(isolated||ids.find(id=>id!==primary))));
+ const paths=access.filter(valid).map(l=>({nodes:[source,l.a===source?l.b:l.a],links:[l.id],cost:1})),baselinePaths=access.map(l=>({nodes:[source,l.a===source?l.b:l.a],links:[l.id],cost:1}));
+ paths.sort((a,b)=>(a.nodes[1]===primary?-1:0)-(b.nodes[1]===primary?-1:0));
+ const roleA=stackwise?'ACTIVE':istack||huawei?'MASTER':'PRIMARY',roleB=stackwise||istack?'STANDBY':huawei?'BACKUP':'SECONDARY';
+ const roles=Object.fromEntries(ids.map(id=>[id,now.down.has(id)?'DOWN':id===isolated?(stackwise||istack?'RECOVERY':huawei?'ERROR-DOWN':'ERRDISABLED'):risk?'ACTIVE / UNCONFIRMED':id===primary?roleA:roleB]));
+ const status=!paths.length?'no-path':risk?'dual-active-risk':findings.length||paths.length<baselinePaths.length?'degraded':'reachable';
+ const notes=[model.technology+' steady-state member forwarding model. Traffic endpoint is the logical redundant domain, not one physical chassis. No northbound uplink or orphan endpoint is invented.',arista?'Independent heartbeat is offered only if peer-address heartbeat is present in the imported configuration; the control SVI is not a second physical heartbeat link.':stackwise?'DAD isolates the original active after SVL loss; it does not apply the Cisco Nexus secondary-suspend rule.':istack?'One ring-link failure is not a split. All stack links lost requires MAD split handling and fragment recovery.':'DFS DAD distinguishes peer failure from peer-link failure; backup Error-Down applies only to modeled service interfaces.'];
+ return {module:'VPC',status,path:paths[0]||null,paths,baseline:baselinePaths[0]||null,baselinePaths,notes,findings,blockedLinks:[...blocked],affected:model.links.filter(l=>now.links.has(l.id)||now.down.has(l.a)||now.down.has(l.b)).map(l=>l.id),vpc:{primary,roles,suspended:isolated,dualActive:risk,uncertain:risk,peerLinkUp:now.peer,keepaliveUp:now.detection,availableMembers:now.members,totalMembers:peerLinks.length,recoveryWait,manualRecoveryRequired:!!isolated&&now.alive.length===1&&!now.peer,source,leaves:model.nodes.filter(n=>n.tier==='lower').map(leaf=>{const links=model.links.filter(l=>!l.logical&&[l.a,l.b].includes(leaf.id)&&ids.some(id=>[l.a,l.b].includes(id)));return {id:leaf.id,hostname:leaf.hostname,total:links.length,available:links.filter(valid).length};})}};
+}
 function evaluate(model,state={},options={}){
+ if(model.module==='VPC')return evaluateVendorPair(model,state,options);
  const dn=state.devices||[],dl=state.links||[],source=options.source||model.nodes[0].id,target=options.target||model.nodes.at(-1).id;
  const failed=new Set(dn),disabled=new Set(dl),notes=[],findings=[];
  let allowed=l=>!l.logical,path,baseline,rootState=null;
@@ -36,18 +136,6 @@ function evaluate(model,state={},options={}){
   notes.push('Synthetic equal-cost spanning tree; preferred configured core wins while available. Equal bridge priorities use device ID as a deterministic tie-break, not a learned bridge MAC.');
  }else if(model.module==='EVPN'){
   allowed=l=>true;notes.push('Logical EVPN session connectivity only. Imported overlay sessions do not establish an operational physical underlay or VNI forwarding.');
- }else if(model.module==='VPC'){
-  allowed=l=>!l.logical&&!/keepalive|DAD|DFS|MAD|peer control/i.test(l.kind);
-  const peers=model.nodes.filter(n=>n.tier==='upper').slice(0,2),peerLinks=model.links.filter(l=>/peer-link|SVL|stack.*link/i.test(l.kind)),liveness=model.links.filter(l=>/keepalive|DAD|DFS|MAD/i.test(l.kind));
-  const peerUp=peerLinks.some(active),bothAlive=peers.length===2&&peers.every(n=>!failed.has(n.id));
-  if(peerLinks.length&&!peerUp&&bothAlive)findings.push({severity:'critical',code:liveness.length&&!liveness.some(active)?'DUAL_LINK_FAILURE':'PEER_LINK_FAILURE',description:'Peer-link unavailable. Forwarding is conditional on vendor role and dual-active protection; inspect the vendor findings.'});
-  else if(peerUp&&peerLinks.some(l=>!active(l)))findings.push({severity:'warning',code:'PEER_LINK_REDUNDANCY_LOST',description:'A physical peer-link member is unavailable; another modeled member survives.'});
-  if(liveness.length&&!liveness.some(active)&&bothAlive)findings.push({severity:'warning',code:'LIVENESS_LOST',description:'All configured independent liveness paths are unavailable.'});
-  const controls=model.links.filter(l=>/peer control/i.test(l.kind));
-  if(bothAlive&&controls.some(l=>!active(l)))findings.push({severity:'critical',code:'MLAG_CONTROL_DOWN',description:'MLAG control session unavailable; peer association and forwarding require vendor-specific recovery assessment.'});
-  const stack=model.links.filter(l=>/Stack interconnect/i.test(l.kind));
-  if(bothAlive&&stack.length&&!stack.some(active))findings.push({severity:'critical',code:'STACK_PARTITION',description:'All imported stack interconnects are unavailable with both members alive. Multi-active detection and member recovery determine forwarding.'});
-  notes.push('Physical attachment path; LACP, VLAN, orphan-port and peer role behavior must also permit forwarding.');
  }else if(model.module==='OSPF')notes.push('Shortest path by modeled OSPF cost. Assumes compatible area, timers, authentication and MTU; no packet or convergence timer simulation.');
  else if(model.module==='QOS')notes.push('Policy arithmetic for the selected offered rate; queue scheduling, bursts and packet loss are not emulated.');
  else if(model.module==='BASIC')notes.push('Configured management endpoint reachability; server process health and authentication acceptance are separate.');
@@ -75,5 +163,5 @@ function evaluate(model,state={},options={}){
  const qos=model.module==='QOS'?{offeredMbps:rate,limitMbps:limit||null,admittedMbps:path?limit?Math.min(rate,limit):rate:0,excessMbps:path&&limit?Math.max(0,rate-limit):0}:null;
  return {module:model.module,path,baseline,notes,findings,status,affected,root:rootState?.root||null,blockedLinks:rootState?model.links.filter(l=>!l.logical&&active(l)&&!rootState.links.has(l.id)).map(l=>l.id):[],qos};
 }
-root.WorkspaceSimulationEngine={normalize,shortest,evaluate,modules};
+root.WorkspaceSimulationEngine={normalize,shortest,evaluate,evaluateCiscoVpc,evaluateVendorPair,modules};
 })(typeof window==='undefined'?globalThis:window);
