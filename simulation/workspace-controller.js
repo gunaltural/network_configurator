@@ -44,9 +44,9 @@ function draw(){
    const ids=line.dataset.labLinks?JSON.parse(line.dataset.labLinks):[line.dataset.labLink];if(!ids.length)continue;
    const failed=ids.filter(id=>{const l=model.links.find(l=>l.id===id);return l&&(state.links.includes(id)||state.devices.includes(l.a)||state.devices.includes(l.b));}).length;
    const blocked=ids.some(id=>current.blockedLinks.includes(id)),flow=ids.some(id=>selected.has(id));ids.forEach(id=>mappedIds.add(id));
-   line.style.setProperty('stroke',failed===ids.length?'#c93b4f':blocked||failed||current.status==='dual-active-risk'&&flow?'#c88616':flow?'#14865f':line.classList.contains('vpc-ka-line')?'#a45bc0':line.classList.contains('vpc-peer-line')?'#16835f':'#287bb5');
+   line.style.setProperty('stroke',failed===ids.length?'#c93b4f':blocked||failed||['dual-active-risk','split-brain'].includes(current.status)&&flow?'#c88616':flow?'#14865f':line.classList.contains('vpc-ka-line')?'#a45bc0':line.classList.contains('vpc-peer-line')?'#16835f':'#287bb5');
    line.style.setProperty('stroke-width',flow||failed||blocked?'3.5':'2.2');line.style.setProperty('stroke-dasharray',failed||blocked?'7 5':flow?'10 7':line.classList.contains('vpc-ka-line')?'8 6':'none');
-   if(flow&&!failed&&!blocked&&current.status!=='dual-active-risk'){line.classList.add('synthetic-flow');const x1=+line.getAttribute('x1'),y1=+line.getAttribute('y1'),x2=+line.getAttribute('x2'),y2=+line.getAttribute('y2'),mx=(x1+x2)/2,my=(y1+y2)/2,angle=Math.atan2(y1-y2,x1-x2),arrow=document.createElementNS(ns,'polyline');arrow.setAttribute('points',[[-8,-5],[0,0],[-8,5]].map(([x,y])=>[mx+x*Math.cos(angle)-y*Math.sin(angle),my+x*Math.sin(angle)+y*Math.cos(angle)].join(',')).join(' '));arrow.setAttribute('fill','none');arrow.setAttribute('stroke','#14865f');arrow.setAttribute('stroke-width','3');overlay.append(arrow);}
+   if(flow&&!failed&&!blocked&&!['dual-active-risk','split-brain'].includes(current.status)){line.classList.add('synthetic-flow');const x1=+line.getAttribute('x1'),y1=+line.getAttribute('y1'),x2=+line.getAttribute('x2'),y2=+line.getAttribute('y2'),mx=(x1+x2)/2,my=(y1+y2)/2,angle=Math.atan2(y1-y2,x1-x2),arrow=document.createElementNS(ns,'polyline');arrow.setAttribute('points',[[-8,-5],[0,0],[-8,5]].map(([x,y])=>[mx+x*Math.cos(angle)-y*Math.sin(angle),my+x*Math.sin(angle)+y*Math.cos(angle)].join(',')).join(' '));arrow.setAttribute('fill','none');arrow.setAttribute('stroke','#14865f');arrow.setAttribute('stroke-width','3');overlay.append(arrow);}
   }
  }
  for(const l of model.links){if(mappedIds.has(l.id)||isPair)continue;const a=points.get(l.a),b=points.get(l.b);if(!a||!b||a.x===b.x&&a.y===b.y)continue;
@@ -128,15 +128,27 @@ function setupPairUi(){
  const catalogue=document.createElement('label');catalogue.textContent='Documented scenario';const select=document.createElement('select');select.id='pairScenario';catalogue.append(select);
  const run=document.createElement('button');run.id='pairRunScenario';run.textContent='Run scenario';
  const peer=model.links.filter(l=>/peer-link|SVL|Stack interconnect/i.test(l.kind)).map(l=>l.id),detection=model.links.filter(l=>/keepalive|DAD|DFS|MAD|peer control/i.test(l.kind)).map(l=>l.id),peers=model.nodes.filter(n=>n.tier==='upper').slice(0,2);
- const catalogueItems=[{id:'baseline',name:'Healthy baseline',steps:[]},{id:'peer',name:'Complete interconnect failure',steps:[{links:peer}]}];
- if(peer.length>1)catalogueItems.push({id:'member',name:'One physical interconnect member fails',steps:[{links:[peer[0]]}]});
- if(detection.length){catalogueItems.push({id:'detection',name:'Detection / control path fails only',steps:[{links:detection}]},{id:'detect-peer',name:'Detection fails → interconnect fails',steps:[{links:detection},{links:peer}]},{id:'peer-detect',name:'Interconnect fails → detection fails',steps:[{links:peer},{links:detection}]});}
+ const terms=({'Cisco NX-OS':['vPC peer-link','peer-keepalive'],'Arista EOS':['MLAG peer-link','MLAG control SVI / session'],'Huawei_CE_SW':['M-LAG peer-link','DFS DAD heartbeat'],'Cisco IOS-XE':['SVL','DAD'],'Huawei iStack':['stack interconnect','MAD']})[model.vendor];
+ const catalogueItems=[{id:'baseline',name:'Healthy baseline',steps:[]},{id:'peer',name:'Complete '+terms[0]+' failure',steps:[{links:peer}]}];
+ if(peer.length>1)catalogueItems.push({id:'member',name:(model.vendor==='Huawei iStack'?'Ring → chain: one stack link fails':'One physical '+terms[0]+' member fails'),steps:[{links:[peer[0]]}]});
+ if(detection.length){catalogueItems.push({id:'simultaneous',name:terms[0]+' + '+terms[1]+' fail simultaneously',steps:[{links:[...peer,...detection]}]},{id:'detection',name:terms[1]+' fails only',steps:[{links:detection}]},{id:'detect-peer',name:terms[1]+' fails → '+terms[0]+' fails',steps:[{links:detection},{links:peer}]},{id:'peer-detect',name:terms[0]+' fails → '+terms[1]+' fails',steps:[{links:peer},{links:detection}]});}
+ if(detection.length)catalogueItems.push({id:'repair-detection',name:'Both paths lost → repair '+terms[1]+' first',steps:[{links:[...peer,...detection]},{links:peer,restoreLinks:true}]},{id:'repair-peer',name:'Both paths lost → repair '+terms[0]+' first',steps:[{links:[...peer,...detection]},{links:detection,restoreLinks:true}]},{id:'repair-both',name:'Both paths lost → repair both paths',steps:[{links:[...peer,...detection]},{links:[],restoreLinks:true}]});
  for(const p of peers)catalogueItems.push({id:p.id,name:p.hostname+' fails',steps:[{devices:[p.id]}]});
  catalogueItems.push({id:'peer-return',name:'Interconnect fails → recovers',steps:[{links:peer},{links:[],restoreLinks:true}]},{id:'both',name:'Both peers fail',steps:[{devices:peers.map(n=>n.id)}]},{id:'primary-return',name:'Primary fails → returns (operational role recovery)',steps:[{devices:[model.settings.vpc?.initialPrimary||model.settings.redundancy?.initialPrimary||peers[0].id]},{devices:[],restoreDevices:true}]},{id:'leaf-isolated',name:'Selected leaf loses both member links',dynamic:true,steps:[]});
  if(model.vendor==='Cisco NX-OS')catalogueItems.push({id:'type1',name:'Mandatory consistency mismatch',conditions:{type1:true},steps:[]},{id:'vlan',name:'Selected service VLAN inconsistent',conditions:{vlanMismatch:true},steps:[]},{id:'cold-recovery',name:'Pair power outage → one peer returns',steps:[{devices:peers.map(n=>n.id)},{devices:[peers[1].id],restoreDevices:true}]});
+ const initial=()=>model.settings.vpc?.initialPrimary||model.settings.redundancy?.initialPrimary||peers[0].id;
+ const survivor=()=>model.vendor==='Cisco IOS-XE'?peers.find(n=>n.id!==initial()).id:model.vendor==='Huawei iStack'?(model.settings.redundancy?.madWinner||initial()):initial();
+ catalogueItems.push({id:'protected-survivor-fails',name:'Protected '+terms[0]+' failure → forwarding chassis fails',steps:()=>[{links:peer},{devices:[survivor()]}]},
+ {id:'pair-restart',name:'Both chassis fail → both return',steps:[{devices:peers.map(n=>n.id)},{devices:[],restoreDevices:true}]},
+ {id:'leaf-device',name:'Selected leaf device fails',steps:()=>[{devices:[source]}]});
+ for(const p of peers){const access=()=>model.links.filter(l=>!l.logical&&[l.a,l.b].includes(source)&&[l.a,l.b].includes(p.id));catalogueItems.push(
+ {id:'access-'+p.id,name:'Selected leaf loses local members to '+p.hostname,steps:()=>[{links:access().map(l=>l.id)}]},
+ {id:'access-return-'+p.id,name:'Leaf members to '+p.hostname+' fail → recover',steps:()=>[{links:access().map(l=>l.id)},{links:[],restoreLinks:true}]},
+ {id:'access-device-'+p.id,name:'Leaf members to '+p.hostname+' fail → other chassis fails',steps:()=>[{links:access().map(l=>l.id)},{devices:peers.filter(n=>n.id!==p.id).map(n=>n.id)}]});}
+ const primaryReturn=catalogueItems.find(s=>s.id==='primary-return');primaryReturn.steps=()=>[{devices:[initial()]},{devices:[],restoreDevices:true}];
  for(const s of catalogueItems){const o=document.createElement('option');o.value=s.id;o.textContent=s.name;select.append(o);}
  run.onclick=()=>{const scenario=catalogueItems.find(s=>s.id===select.value);state={devices:[],links:[],events:[],conditions:scenario.conditions||{}};
-  const steps=scenario.dynamic?[{links:model.links.filter(l=>[l.a,l.b].includes(source)&&peers.some(n=>[l.a,l.b].includes(n.id))).map(l=>l.id)}]:scenario.steps;
+  const steps=scenario.dynamic?[{links:model.links.filter(l=>[l.a,l.b].includes(source)&&peers.some(n=>[l.a,l.b].includes(n.id))).map(l=>l.id)}]:typeof scenario.steps==='function'?scenario.steps():scenario.steps;
   for(const step of steps){state.devices=step.restoreDevices?[...(step.devices||[])]:[...new Set([...state.devices,...step.devices||[]])];state.links=step.restoreLinks?[...(step.links||[])]:[...new Set([...state.links,...step.links||[]])];checkpoint();}
   for(const id of ['syntheticNode','syntheticLink'])for(const o of $(id).options)o.selected=false;render();};
  const scenarioBox=document.createElement('div');scenarioBox.className='pair-catalogue';scenarioBox.append(catalogue,run);actions.after(scenarioBox);
@@ -146,8 +158,9 @@ function setupPairUi(){
 }
 function updatePairState(){
  const r=current.vpc;if(!r)return;const names=model.nodes.filter(n=>n.tier==='upper').slice(0,2).map(n=>name(n.id)+': '+r.roles[n.id]).join(' · ');
- $('pairState').textContent=names+' | '+(r.peerLinkUp?'Interconnect UP':'Interconnect DOWN')+' | '+(r.keepaliveUp===null?'Independent detection not configured':r.keepaliveUp?'Detection UP':'Detection DOWN');
- $('workspaceScope').textContent=current.findings[0]?.description||'Both peers and member paths are available. Traffic can use both local attachment legs.';
+ $('pairState').textContent=(current.status==='split-brain'?'SPLIT-BRAIN / DUAL-ACTIVE | ':'')+names+' | '+(r.peerLinkUp?'Interconnect UP':'Interconnect DOWN')+' | '+(r.keepaliveUp===null?'Independent detection not configured':r.keepaliveUp?'Detection UP':'Detection DOWN');
+ $('workspaceScope').textContent=(current.findings.find(f=>f.severity==='critical')||current.findings[0])?.description||'Both peers and member paths are available. Traffic can use both local attachment legs.';
+ const severity=current.findings.some(f=>f.severity==='critical')?'critical':current.status==='reachable'?'healthy':'warning';for(const id of ['pairState','workspaceScope']){$(id).dataset.severity=severity;$(id).style.background=severity==='critical'?'#fbe7e9':severity==='warning'?'#fff2d9':'#e5f2ec';$(id).style.color=severity==='critical'?'#8a2434':severity==='warning'?'#725116':'#28564a';}$('syntheticStatus').style.borderLeftColor=severity==='critical'?'#c93b4f':severity==='warning'?'#c88616':'#14865f';
  $('pairRecovery').hidden=!r.recoveryWait;$('pairRecovery').disabled=!!r.manualRecoveryRequired;$('pairRecovery').textContent=r.manualRecoveryRequired?'Manual platform recovery required':'Complete recovery interval (simulation)';
 }
 function render(){

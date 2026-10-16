@@ -26,8 +26,8 @@ class SimulationReportTests(unittest.TestCase):
         self.assertEqual(self.client.post('/api/network-lab/simulation-word',json={'name':'Pilot','scenarios':[bad]}).status_code,400)
     def test_module_report_preserves_conditional_result_and_omits_bgp_assumptions(self):
         scenario={**self.scenario, 'module':'VPC', 'vendor':'Arista EOS', 'technology':'MLAG',
-                  'sourceDevice':'LEAF-1', 'targetDevice':'CORE-1', 'modelStatus':'conditional',
-                  'modelScope':'Physical attachment only', 'findings':['Peer-link unavailable'],
+                  'sourceDevice':'LEAF-1', 'targetDevice':'CORE-1', 'modelStatus':'split-brain',
+                  'modelScope':'Physical attachment only', 'findings':['SPLIT-BRAIN / DUAL-ACTIVE: '+('Detailed synchronization impact. '*12)],
                   'roleStates':{'CORE-1':'PRIMARY','CORE-2':'SECONDARY'},
                   'failureSequence':['Peer-keepalive DOWN','Peer-link DOWN'],
                   'failedDevices':['CORE-'+str(i) for i in range(6)]}
@@ -35,7 +35,9 @@ class SimulationReportTests(unittest.TestCase):
         self.assertEqual(response.status_code,200)
         doc=Document(io.BytesIO(response.content))
         text='\n'.join(p.text for p in doc.paragraphs)+'\n'+'\n'.join(c.text for t in doc.tables for row in t.rows for c in row.cells)
-        self.assertIn('conditional',text)
+        self.assertIn('split-brain',text)
+        self.assertIn('SPLIT-BRAIN / DUAL-ACTIVE',text)
+        self.assertEqual(text.count('Detailed synchronization impact.'),12)
         self.assertIn('Arista EOS',text)
         self.assertIn('CORE-5',text)
         self.assertIn('CORE-1: PRIMARY',text)

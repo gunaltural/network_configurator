@@ -40,7 +40,7 @@ and exceptions are not inferred from a hostname.
 | Failed device/interconnect returns | Non-preemptive operational role; delay restore | Reload-delay / MLAG renegotiation | DFS negotiation and member recovery delay | Recovery reload and standby rejoin | Fragment restart and rejoin |
 
 The scenario catalogue is generated from the actual design, including:
-healthy baseline; one physical member loss where there are multiple members;
+healthy baseline; simultaneous interconnect and detection loss; one physical member loss where there are multiple members;
 complete interconnect loss; detection/control-only failure; both failure orders;
 each peer failure; both peers down; primary return; interconnect recovery; selected
 leaf's member links lost. Nexus additionally includes mandatory consistency
@@ -75,3 +75,51 @@ mismatch, service VLAN mismatch and pair outage with lone-peer auto-recovery.
   peer forwarding, protected peer, unprotected MLAG risk, both down, recovery,
   selection clearing and actual Word export.
 - General 32 module/vendor handoffs and existing BGP behavior remain covered.
+
+## Simultaneous Nexus control-path loss regression
+
+Cisco NX-OS vPC Fundamental Concepts, printed pp.19–20, explicitly documents
+complete double failure: both peers retain local vPC members, and the former
+secondary becomes operational primary. This is split-brain / dual-active, not
+unknown roles. Existing flows may continue; MAC/ARP and multicast synchronization
+loss can affect new flows and duplicate forwarding.
+https://www.cisco.com/c/dam/en/us/products/collateral/switches/nexus-7000-series-switches/C07-572835-00_NX-OS_vPC_DG.pdf
+
+A single Fail selected action is one atomic simulated failure event. Simultaneous
+loss and keepalive-first loss both report `split-brain`, two operational primaries,
+no protective suspension, and no healthy traffic animation. Peer-link-first loss
+initially suspends the secondary; configured auto-recovery is an explicit later
+transition that can reactivate it and create split-brain while both peers live
+(Best Practices pp.124,127). Tests assert roles, findings, order, topology state
+and recorded report output rather than only checking absence of runtime errors.
+
+## Expanded per-vendor fault and repair catalogue
+
+All five profiles expose atomic simultaneous failures, both sequential failure
+orders, each physical interconnect member, each chassis, selected leaf loss,
+each leaf-to-peer attachment group, attachment recovery and attachment loss
+followed by loss of the opposite chassis. Combined cases include both chassis
+restart, protected-domain forwarding chassis loss, and restoration of detection,
+interconnect or both after a double failure. Scenario names use vPC/keepalive,
+MLAG control SVI, DFS DAD, SVL/DAD or stack/MAD as appropriate.
+
+- EOS: loss of control SVI alone disables the association, even while the physical
+  peer-link survives. Repairing only the peer-link does not restore a failed SVI.
+  Reloaded peers are held through reload-delay. Optional independent heartbeat
+  and errdisable safeguards are only tested when explicitly present in a model.
+- Huawei M-LAG: backup service ports Error-Down under effective DFS DAD; peer
+  repair requires negotiation/member recovery. Recovered chassis restore the
+  original negotiated roles per Huawei's device-failure description, unlike
+  Nexus non-preemptive operational role recovery.
+- StackWise Virtual: DAD recovery isolates the original active; loss of the
+  forwarding chassis does not silently release the surviving Recovery chassis.
+  SVL repair leads to reload/rejoin before normal service is modeled.
+- iStack: ring loss degrades to a chain if another imported stack link survives;
+  a chain with a single imported interconnect splits when that link fails. MAD
+  elections need priority/MAC evidence. Equal priorities with no MAC data are
+  explicitly unconfirmed. A Recovery fragment is not revived by a timer while
+  the stack is still partitioned and requires platform recovery.
+
+Upstream paths, orphan ports, relay/proxy MAD topologies and exclusions are only
+modeled if represented in the imported design; they are not invented as extra
+failure targets.
