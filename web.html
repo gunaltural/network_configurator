@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Network Configurator v5.45.0</title>
+<title>Network Configurator v5.46.0</title>
 <style>
 :root{
   --bg:#0d1117;--panel:#161b22;--panel2:#1f2630;--line:#2b3440;
@@ -414,7 +414,7 @@ body.nc-simulation-action{padding-bottom:145px}body.nc-simulation-action #topolo
     <div class="logo">NC</div>
     <div><h1>Network Configurator</h1><small>Configure · Validate · Troubleshoot</small></div>
   </div>
-  <div class="badge">Version 5.45.0 · Simulation</div>
+  <div class="badge">Version 5.46.0 · Simulation</div>
 </header>
 
 <div class="layout">
@@ -5849,6 +5849,7 @@ renderModule();
      ps.value=data.workspace.platform;
      ps.dispatchEvent(new Event("change",{bubbles:true}));
    }
+   let finishRestore;window.__workspaceRestoreReady=new Promise(resolve=>{finishRestore=resolve;});
    setTimeout(()=>{
      const fields=safeProjectFields(data.fields);
      for(const id of ["bgpCeCount","bgpIspCount","bgpInternal","bgpConnectionsData"]){
@@ -5862,7 +5863,7 @@ renderModule();
      if(String(tech).toUpperCase()==="BGP")renderBgpDynamicCards();
      if(String(tech).toUpperCase()==="SDWAN")sdRestorePlanUI();
      if(typeof render==="function")render();
-     captureWorkspaceModule(tech);syncTopology();renderOutput();updateHealth();
+     captureWorkspaceModule(tech);syncTopology();renderOutput();updateHealth();finishRestore();
    },30);
  }
  function saveAs(forceName){
@@ -6276,6 +6277,14 @@ renderModule();
        if(value)clones[i].style.setProperty(property,value);
      });
    });
+   if(simulation&&tech==='VPC'){
+     const design=reportingDesign(),members=[...copy.querySelectorAll('.vpc-member-line')].filter(el=>Number(el.getAttribute('y1')||0)<450);
+     if(members.length===design.links.length)members.forEach((el,i)=>el.setAttribute('data-lab-link',design.links[i].id));
+     const peerIds=(design.specialLinks||[]).flatMap((l,i)=>/peer-link|SVL|Stack interconnect/i.test(l.kind)?['special-'+i]:[]);
+     const detectionIds=(design.specialLinks||[]).flatMap((l,i)=>/keepalive|DAD|DFS|MAD/i.test(l.kind)?['special-'+i]:[]);
+     const peerLines=[...copy.querySelectorAll('.vpc-peer-line')].filter(el=>Number(el.getAttribute('y1')||0)<450);peerLines.forEach((el,i)=>el.setAttribute('data-lab-links',JSON.stringify(peerLines.length===peerIds.length?[peerIds[i]]:peerIds)));
+     for(const el of [...copy.querySelectorAll('.vpc-ka-line')].filter(el=>Number(el.getAttribute('y1')||0)<450))el.setAttribute('data-lab-links',JSON.stringify(detectionIds));
+   }
    if(simulation)return new XMLSerializer().serializeToString(copy);
    copy.querySelectorAll('[data-bgp-connection]').forEach(line=>{line.classList.remove('bgp-selected-line');line.removeAttribute('tabindex');line.removeAttribute('role');line.removeAttribute('aria-pressed');line.querySelectorAll('.bgp-hit-target').forEach(path=>path.remove());line.querySelectorAll('path:not(.bgp-link-halo)').forEach(path=>{path.style.setProperty('stroke','#2fa8ff');path.style.setProperty('stroke-width','2.2');});});
    // The report has a white paper surface. Apply a lighter drawing palette to
@@ -6545,6 +6554,11 @@ function prepareWorkspaceSimulation(){
  if(!report?.devices?.length)throw Error('Complete the current module design before simulation.');
  const settings={preferredRoot:v('stpRoot')==='D2'?'upper-2':'upper-1',ospfCost:+v('ospfCost')||10,
   shapeRate:c('qosShaping')?+v('qosShapeRate'):0,policeRate:c('qosPolicing')?+v('qosPoliceRate'):0};
+ if(tech==='VPC'&&platform()==='Cisco NX-OS')settings.vpc={initialPrimary:+v('vpcRole1')<=+v('vpcRole2')?'upper-1':'upper-2',role1:+v('vpcRole1'),role2:+v('vpcRole2'),domain:v('vpcDomain'),peerPo:v('vpcPeerPo'),autoRecovery:c('vpcAutoRecovery'),autoDelay:+v('vpcAutoDelay')||240,delayRestore:c('vpcDelayRestoreEnable')?+v('vpcDelayRestore'):0,gracefulConsistency:c('vpcGracefulConsistency')};
+ if(tech==='VPC'){
+  const text=(report.configurations||[]).map(c=>c.text).join('\n');
+  settings.redundancy={initialPrimary:platform()==='Huawei_CE_SW'?(+v('hwPri1')>=+v('hwPri2')?'upper-1':'upper-2'):platform()==='Huawei iStack'?(+v('isPriority1')>=+v('isPriority2')?'upper-1':'upper-2'):'upper-1',roleKnown:['Cisco NX-OS','Huawei_CE_SW','Huawei iStack'].includes(platform()),heartbeatConfigured:/peer-address heartbeat /i.test(text),dualPrimaryAction:/dual-primary detection.*action errdisable/i.test(text),serviceVlan:(String(v(platform()==='Cisco NX-OS'?'vpcCreateVlans':platform()==='Arista EOS'?'arVlans':platform()==='Huawei_CE_SW'?'hwVlans':platform()==='Huawei iStack'?'isVlans':'swvVlans')).match(/\d+/)||[])[0]||'',stackTopology:v('isTopology'),madWinner:+v('isPriority1')===+v('isPriority2')?null:+v('isPriority1')>+v('isPriority2')?'upper-1':'upper-2'};
+ }
  let bgp=null;
  if(tech==='BGP'){
   const nodes=Array.from({length:+v('bgpCeCount')||2},(_,i)=>({id:'ce'+(i+1),hostname:bgpCe(i).name,asn:+v('bgpCustomerAs'),prefix:bgpCe(i).prefix}));

@@ -28,6 +28,8 @@ class SimulationReportTests(unittest.TestCase):
         scenario={**self.scenario, 'module':'VPC', 'vendor':'Arista EOS', 'technology':'MLAG',
                   'sourceDevice':'LEAF-1', 'targetDevice':'CORE-1', 'modelStatus':'conditional',
                   'modelScope':'Physical attachment only', 'findings':['Peer-link unavailable'],
+                  'roleStates':{'CORE-1':'PRIMARY','CORE-2':'SECONDARY'},
+                  'failureSequence':['Peer-keepalive DOWN','Peer-link DOWN'],
                   'failedDevices':['CORE-'+str(i) for i in range(6)]}
         response=self.client.post('/api/network-lab/simulation-word',json={'name':'MLAG scenario','scenarios':[scenario]})
         self.assertEqual(response.status_code,200)
@@ -36,6 +38,8 @@ class SimulationReportTests(unittest.TestCase):
         self.assertIn('conditional',text)
         self.assertIn('Arista EOS',text)
         self.assertIn('CORE-5',text)
+        self.assertIn('CORE-1: PRIMARY',text)
+        self.assertIn('Peer-keepalive DOWN → Peer-link DOWN',text)
         self.assertNotIn('Both CEs',text)
         self.assertNotIn('VRRP',text)
 
