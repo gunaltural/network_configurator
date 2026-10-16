@@ -35,7 +35,7 @@ try{
    }
    count++;console.log('PASS',module,vendor);
    if(module==='VPC'&&vendor==='Arista EOS')await page.screenshot({path:'/tmp/shared-vpc-simulation.png'});
-   await page.goto(base+'/?resume=1');await page.locator('#topologySimulation button').waitFor();
+   await page.goto(base+'/?resume=1');await page.evaluate(()=>window.__workspaceRestoreReady);await page.locator('#topologySimulation button').waitFor();
   }
  }
  assert.deepEqual(errors,[]);console.log(count+' module/vendor browser combinations passed');

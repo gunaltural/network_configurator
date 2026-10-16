@@ -5849,6 +5849,7 @@ renderModule();
      ps.value=data.workspace.platform;
      ps.dispatchEvent(new Event("change",{bubbles:true}));
    }
+   let finishRestore;window.__workspaceRestoreReady=new Promise(resolve=>{finishRestore=resolve;});
    setTimeout(()=>{
      const fields=safeProjectFields(data.fields);
      for(const id of ["bgpCeCount","bgpIspCount","bgpInternal","bgpConnectionsData"]){
@@ -5862,7 +5863,7 @@ renderModule();
      if(String(tech).toUpperCase()==="BGP")renderBgpDynamicCards();
      if(String(tech).toUpperCase()==="SDWAN")sdRestorePlanUI();
      if(typeof render==="function")render();
-     captureWorkspaceModule(tech);syncTopology();renderOutput();updateHealth();
+     captureWorkspaceModule(tech);syncTopology();renderOutput();updateHealth();finishRestore();
    },30);
  }
  function saveAs(forceName){
