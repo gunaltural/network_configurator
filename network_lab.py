@@ -120,6 +120,12 @@ def install_network_lab(app,base):
     @app.get('/vpc-mlag-simulation',response_class=HTMLResponse)
     def vpc_mlag_simulation_page():
         return HTMLResponse((base/'simulation'/'vpc-mlag-lab.html').read_text(encoding='utf-8'),headers={'Cache-Control':'no-store'})
+    @app.get('/simulation/workspace-engine.js')
+    def workspace_simulation_engine():
+        return Response((base/'simulation'/'workspace-engine.js').read_text(encoding='utf-8'),media_type='application/javascript',headers={'Cache-Control':'no-store'})
+    @app.get('/simulation/workspace-controller.js')
+    def workspace_simulation_controller():
+        return Response((base/'simulation'/'workspace-controller.js').read_text(encoding='utf-8'),media_type='application/javascript',headers={'Cache-Control':'no-store'})
     @app.get('/simulation/vendor-failure-engine.mjs')
     def vendor_failure_module():
         return Response((base/'simulation'/'vendor-failure-engine.mjs').read_text(encoding='utf-8'),media_type='text/javascript',headers={'Cache-Control':'no-store'})

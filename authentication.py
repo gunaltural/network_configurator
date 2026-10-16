@@ -146,6 +146,9 @@ def install_authentication(app, base_dir):
             'simulation/vpc-mlag-lab.html',
             'simulation/vendor-failure-engine.mjs',
             'synthetic-bgp.js',
+            'network-lab.html',
+            'simulation/workspace-engine.js',
+            'simulation/workspace-controller.js',
         )
         simulator_ready = all(
             (base_dir / name).is_file() for name in required_assets

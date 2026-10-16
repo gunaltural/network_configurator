@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Network Configurator v5.44.3</title>
+<title>Network Configurator v5.45.0</title>
 <style>
 :root{
   --bg:#0d1117;--panel:#161b22;--panel2:#1f2630;--line:#2b3440;
@@ -414,7 +414,7 @@ body.nc-simulation-action{padding-bottom:145px}body.nc-simulation-action #topolo
     <div class="logo">NC</div>
     <div><h1>Network Configurator</h1><small>Configure · Validate · Troubleshoot</small></div>
   </div>
-  <div class="badge">Version 5.44.3 · Simulation</div>
+  <div class="badge">Version 5.45.0 · Simulation</div>
 </header>
 
 <div class="layout">
@@ -1996,47 +1996,22 @@ function vpcLeafUi(){
 
 function ensureSimulationTrigger(){
  const host=document.getElementById('topologySimulation');if(!host)return;
- document.getElementById('topologyControls')?.querySelector('#bgpTestSimulation')?.remove();
- const vpcSupported=tech==='VPC'&&platform()!=='Huawei iStack';
- const bgpSupported=tech==='BGP';
- const show=bgpSupported||vpcSupported;
- host.hidden=!show;
- document.body.classList.toggle('nc-simulation-action',show);
- if(!show){host.replaceChildren();return;}
- const id=bgpSupported?'bgpTestSimulation':'vpcMlagSimLaunch';
- // A vendor change may preserve the same host; only rebuild if the module changes.
- if(host.querySelector('#'+id))return;
- const copy=bgpSupported?
-  '<strong>Validate your design before production</strong><span>Transfer this topology and supported BGP parameters to the simulation workspace.</span><small>Synthetic BGP analysis available · Real device emulation requires a central service</small>':
-  '<strong>vPC / MLAG failure simulation</strong><span>Use the active Technology Workspace topology, hostnames and physical links.</span><small>Vendor-specific expected behavior · Synthetic offline failure analysis</small>';
- host.innerHTML='<div class="simulation-next-icon" aria-hidden="true">▶</div><div class="simulation-next-copy">'+copy+'</div><button id="'+id+'" type="button">'+(bgpSupported?'Test in Simulation':'Test vPC / MLAG Failures')+' <span aria-hidden="true">→</span></button><p id="simulationTransferStatus" role="status" hidden></p>';
- // Keep existing BGP entry and preserve its design transfer behavior unchanged.
+ const supported=['BASIC','BGP','OSPF','STP','VPC','EVPN','QOS','SDWAN'].includes(tech);
+ host.hidden=!supported;document.body.classList.toggle('nc-simulation-action',supported);
+ if(!supported){host.replaceChildren();return;}
+ const id=tech==='BGP'?'bgpTestSimulation':tech==='VPC'?'vpcMlagSimLaunch':'workspaceSimLaunch';
+ if(host.dataset.module===tech&&host.querySelector('#'+id))return;
+ host.dataset.module=tech;
+ host.innerHTML='<div class="simulation-next-icon" aria-hidden="true">▶</div><div class="simulation-next-copy"><strong>Validate your design before production</strong><span>Transfer this topology and module parameters to the simulation workspace.</span><small>Multiple device and connection failures · Restore · Scenario reports</small></div><button id="'+id+'" type="button">Test in Simulation <span aria-hidden="true">→</span></button><p id="simulationTransferStatus" role="status" hidden></p>';
  host.querySelector('button').onclick=()=>{
   const status=document.getElementById('simulationTransferStatus');
   try{
-   const api=window.NetworkWorkspaceProject;
-   if(!api)throw Error('Technology Workspace is not ready. Reload the page.');
-   if(bgpSupported){
-    if(typeof api.labDesign!=='function')throw Error('BGP simulation transfer is not ready.');
-    const design=typeof api.prepareSimulation==='function'?api.prepareSimulation():api.labDesign();
-    sessionStorage.setItem('networkConfigurator.lab.bgp',JSON.stringify(design));
+   const api=window.NetworkWorkspaceProject;if(!api)throw Error('Technology Workspace is not ready. Reload the page.');
+   // Preserve the accepted BGP workbench for its original supported 2×2 model.
+   if(tech==='BGP'&&+v('bgpCeCount')===2&&+v('bgpIspCount')===2&&bgpEdges().length===4){
+    const design=api.prepareSimulation();sessionStorage.setItem('networkConfigurator.lab.bgp',JSON.stringify(design));
     location.assign('/network-lab?from=design');
-    return;
-   }
-   const source=typeof api.diagnosticDesign==='function'?api.diagnosticDesign():null;
-   if(source?.source?.module!=='VPC'||!Array.isArray(source.devices))throw Error('Current vPC/MLAG workspace design is unavailable.');
-   const topologySvg=api.simulationTopologySvg();
-   if(typeof topologySvg!=='string'||!topologySvg.trimStart().startsWith('<svg'))throw Error('Current Technology Workspace topology is not ready.');
-   const mapped=platform()==='Arista EOS'?'Arista EOS':platform()==='Huawei_CE_SW'?'Huawei CloudEngine':platform()==='Cisco IOS-XE'?'Cisco_StackWise':'Cisco NX-OS';
-   sessionStorage.setItem('networkConfigurator.mlagSimulation.vendor',mapped);
-   sessionStorage.setItem('networkConfigurator.mlagSimulation.topologySvg',topologySvg);
-   sessionStorage.setItem('networkConfigurator.mlagSimulation.design',JSON.stringify({
-    name:String(source.name||'').slice(0,100),vendor:mapped,technology:source.technology,
-    devices:source.devices.map(({id,hostname,tier})=>({id,hostname,tier})),
-    links:(source.links||[]).map(({id,a,b,upperPort,lowerPort,detail})=>({id,a,b,upperPort,lowerPort,detail})),
-    specialLinks:(source.specialLinks||[]).map(({kind,a,b,aPort,bPort,detail})=>({kind,a,b,aPort,bPort,detail}))
-   }));
-   location.assign('/vpc-mlag-simulation');
+   }else{api.prepareWorkspaceSimulation();location.assign('/network-lab?workspace=1');}
   }catch(e){status.hidden=false;status.textContent=e.message;}
  };
 }
@@ -6565,7 +6540,41 @@ function prepareSimulation(){
  sessionStorage.setItem('networkConfigurator.lab.context',JSON.stringify({projectId:project.project.id,model,report,topologySvg:workspaceTopologySvg(true)}));
  return model;
 }
-window.NetworkWorkspaceProject={simulationTopologySvg:()=>workspaceTopologySvg(true),prepareSimulation,labDesign:bgpLabDesign,snapshot,apply:applyProject,prepareCompare,diagnosticScope:()=>({module:tech,platform:platform()}),diagnosticDesign:reportingDesign,diagnosticResult:()=>window.__latestDiagnosticResult||null,rename:name=>{$("v3ProjectName").value=name;}};
+function prepareWorkspaceSimulation(){
+ const report=reportingDesign(),project=snapshot();
+ if(!report?.devices?.length)throw Error('Complete the current module design before simulation.');
+ const settings={preferredRoot:v('stpRoot')==='D2'?'upper-2':'upper-1',ospfCost:+v('ospfCost')||10,
+  shapeRate:c('qosShaping')?+v('qosShapeRate'):0,policeRate:c('qosPolicing')?+v('qosPoliceRate'):0};
+ let bgp=null;
+ if(tech==='BGP'){
+  const nodes=Array.from({length:+v('bgpCeCount')||2},(_,i)=>({id:'ce'+(i+1),hostname:bgpCe(i).name,asn:+v('bgpCustomerAs'),prefix:bgpCe(i).prefix}));
+  for(const i of bgpActiveUpstreams())nodes.push({id:'isp'+(i+1),hostname:bgpIsp(i).name,asn:+bgpIsp(i).asn,prefix:'198.18.255.1/32'});
+  const preferred=+v('bgpTeOutboundPreferredIsp'),enabled=c('bgpTeOutboundEnable')&&c('bgpTeLocalPref');
+  const links=bgpEdges().map(([ce,up,id])=>({id:'wan'+id,a:'ce'+(ce+1),b:'isp'+(up+1),localPreference:enabled?+(v(id===preferred?'bgpTeLocalPrefValue':'bgpTeBackupLocalPref')||100):100,prependCount:c('bgpTeInboundEnable')&&c('bgpTePrepend')&&id!==+v('bgpTeInboundPreferredIsp')?Math.max(1,+v('bgpTePrependCount')||3):0}));
+  if(v('bgpInternal')==='ibgp'&&+v('bgpCeCount')===2)links.push({id:'interconnect',a:'ce1',b:'ce2',localPreference:100});
+  const idMap=new Map(report.devices.map(d=>[d.id,nodes.find(n=>n.hostname===d.hostname)?.id||d.id]));
+  report.configurations=report.configurations.map(c=>({...c,deviceId:idMap.get(c.deviceId)||c.deviceId}));
+  for(const l of links){const original=report.links.find(x=>x.id==='bgp-connection-'+l.id.replace('wan',''));if(original)Object.assign(l,{upperPort:original.upperPort,lowerPort:original.lowerPort});}
+  bgp={nodes,links};report.devices=nodes.map((n,i)=>({...n,tier:n.id.startsWith('ce')?'upper':'lower',vendor:report.vendor,external:n.id.startsWith('isp')}));report.links=links;report.specialLinks=[];
+ }
+ if(tech==='BASIC'){
+  const managed=report.devices[0].id;
+  const endpoint=(id,hostname,address)=>{if(!address)return;report.devices.push({id,hostname:hostname+' · '+address,tier:'lower',external:true,vendor:report.vendor});report.links.push({id:managed+'--'+id,a:managed,b:id,kind:hostname,detail:address,logical:true});};
+  endpoint('oob','OOB gateway',v('gw'));
+  if(v('aaaType')!=='LOCAL'){endpoint('aaa1','AAA primary',v('aaa1'));endpoint('aaa2','AAA secondary',v('aaa2'));}
+  endpoint('ntp1','NTP primary',v('ntp1'));endpoint('ntp2','NTP secondary',v('ntp2'));endpoint('syslog','Syslog',v('syslog1'));endpoint('nms','NMS',v('nmsServer'));
+ }
+ if(tech==='SDWAN'){
+  const rows=sdSiteRows();if(!rows.length&&v('sdHostname').trim())rows.push(sdCurrentFields());
+  rows.forEach((row,i)=>{for(const n of [1,2]){const gw=row['sdWan'+n+'Gw'];if(!gw)continue;const id='transport-'+(i+1)+'-'+n;report.devices.push({id,hostname:row.sdHostname+' WAN-'+n+' · '+gw,tier:'lower',external:true,vendor:report.vendor});report.links.push({id:'wan-'+(i+1)+'-'+n,a:'upper-'+(i+1),b:id,upperPort:row['sdWan'+n+'If'],detail:row['sdWan'+n+'Color'],kind:'WAN transport'});}});
+ }
+ if(tech==='OSPF')report.links.forEach(l=>l.cost=settings.ospfCost);
+ report.topologySvg=workspaceTopologySvg();report.verificationCommands=reportVerificationCommands();
+ const context={schema:'network-configurator-workspace-simulation-v1',projectId:project.project.id,report,settings,bgp,topologySvg:workspaceTopologySvg(true)};
+ sessionStorage.setItem('networkConfigurator.workflow.design',JSON.stringify(project));
+ sessionStorage.setItem('networkConfigurator.lab.workspace',JSON.stringify(context));return context;
+}
+window.NetworkWorkspaceProject={simulationTopologySvg:()=>workspaceTopologySvg(true),prepareWorkspaceSimulation,prepareSimulation,labDesign:bgpLabDesign,snapshot,apply:applyProject,prepareCompare,diagnosticScope:()=>({module:tech,platform:platform()}),diagnosticDesign:reportingDesign,diagnosticResult:()=>window.__latestDiagnosticResult||null,rename:name=>{$("v3ProjectName").value=name;}};
 })();
 </script>
 

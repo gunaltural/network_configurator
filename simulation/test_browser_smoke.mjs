@@ -1,7 +1,8 @@
-import {chromium} from 'playwright';
+import {createRequire} from 'node:module';
+const {chromium}=createRequire(import.meta.url)('playwright');
 import assert from 'node:assert/strict';
 const base=process.env.SMOKE_URL||'http://127.0.0.1:8125';
-const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
+const browser=await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_EXECUTABLE||undefined,args:['--no-sandbox','--disable-dev-shm-usage']});
 const messages=[];
 const dialogs=[];
 const context=await browser.newContext({viewport:{width:1440,height:1000}});
@@ -16,41 +17,7 @@ async function navigateWorkspace(kind){
  await page.locator('#topologyArea svg').waitFor({state:'visible',timeout:15000});
 }
 try{
- // Browser smoke: actual Technology Workspace is the single topology source.
- await navigateWorkspace('VPC');
- for(const vendor of ['Cisco NX-OS','Arista EOS','Huawei_CE_SW','Cisco IOS-XE']){
-  await page.locator('#platform').selectOption(vendor);
-  await page.locator('#vpcMlagSimLaunch').waitFor({state:'visible',timeout:10000});
-  assert.equal(await page.locator('#vpcMlagSimLaunch').count(),1,'One native Simulator control for '+vendor);
-  assert.equal(await page.locator('#topologySimulation').isVisible(),true,'Simulator panel should be visible on '+vendor);
- }
- await page.locator('#platform').selectOption('Arista EOS');
- await page.locator('#topologyArea svg').waitFor({state:'visible'});
- const expected=await page.locator('#topologyArea svg').evaluate(el=>({viewBox:el.getAttribute('viewBox'),labels:[...el.querySelectorAll('text')].map(x=>x.textContent.trim()).filter(Boolean).slice(0,10)}));
- assert.ok(expected.viewBox,'Workspace SVG must have dimensions');
- const launch=page.locator('#vpcMlagSimLaunch');
- await launch.waitFor({state:'visible',timeout:12000});
- await launch.click();
- try{await page.waitForURL('**/vpc-mlag-simulation',{timeout:7500});}catch(e){
- await page.screenshot({path:'/tmp/mlag-browser-smoke.png',fullPage:true});
- throw Error('VPC launch failed: '+JSON.stringify({url:page.url(),dialogs,messages,scope:await page.evaluate(()=>window.NetworkWorkspaceProject?.diagnosticScope?.()),status:await page.locator('#topologySimulation').innerText().catch(()=>''),svg:await page.evaluate(()=>window.NetworkWorkspaceProject?.simulationTopologySvg?.().slice(0,110))}));
-}
- await page.locator('#workspaceTopologyVisual svg').waitFor({state:'visible'});
- const transferred=await page.locator('#workspaceTopologyVisual svg').evaluate(el=>({viewBox:el.getAttribute('viewBox'),labels:[...el.querySelectorAll('text')].map(x=>x.textContent.trim()).filter(Boolean).slice(0,10)}));
- assert.deepEqual(transferred.labels,expected.labels,'Simulation SVG must match the current Workspace labels');
- assert.equal(transferred.viewBox,expected.viewBox,'Simulation viewBox must match Workspace viewBox');
- // Failure and reset, using actual link choices.
- const available=page.locator('input[data-fault^="peerLink"]');
- assert.ok(await available.count()>0,'Peer member controls from design');
- await available.first().check();
- await page.locator('#fail').click();
- let report=JSON.parse(await page.locator('#report').innerText());
- assert.ok(report.failedConnections.length===1);
- await page.locator('#restore').click();
- report=JSON.parse(await page.locator('#report').innerText());
- assert.deepEqual(report.failedConnections,[]);
- assert.equal(await available.first().isChecked(),false);
- await page.screenshot({path:'/tmp/mlag-browser-smoke.png',fullPage:true});
+ // All module/vendor handoffs are covered in test_workspace_browser.mjs.
  // BGP test workspace to lab handoff and synthetic controls on actual app.
  await navigateWorkspace('BGP');
  const bgpLaunch=page.locator('#bgpTestSimulation');
@@ -67,5 +34,5 @@ try{
  }
  await page.screenshot({path:'/tmp/bgp-browser-smoke.png',fullPage:true});
  assert.deepEqual(messages,[],'No uncaught browser errors');
- console.log('Browser smoke passed: VPC Workspace SVG transfer, fail/restore, BGP simulator handoff.');
+ console.log('Browser smoke passed: preserved BGP simulator handoff and failure controls.');
 }finally{await browser.close();}

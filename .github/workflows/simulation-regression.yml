@@ -5,6 +5,11 @@ on:
       - "simulation/**"
       - "Dockerfile"
       - "synthetic-bgp.js"
+      - "synthetic-lab.js"
+      - "network-lab.html"
+      - "simulation-report.js"
+      - "simulation_report.py"
+      - "corporate-shell.js"
       - "web.html"
       - "network_lab.py"
       - "app.py"
@@ -41,6 +46,8 @@ jobs:
           python -m py_compile app.py network_lab.py
       - name: Simulation engine and UI regression
         run: node --test simulation/vendor-failure-engine.test.mjs simulation/test_bgp_end_to_end.mjs simulation/test_mlag_ui.mjs
+      - name: Shared module simulation engine and actual DOM transfers
+        run: node simulation/test_workspace_engine.cjs && node simulation/test_workspace_dom.cjs
       - name: Workspace integration and full existing regression suite
         run: npm test
       - name: Route and dynamic topology contract tests
@@ -60,12 +67,13 @@ jobs:
             sleep 1
           done
           node simulation/test_browser_smoke.mjs
+          node simulation/test_workspace_browser.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: simulator-browser-smoke
           path: |
-            /tmp/mlag-browser-smoke.png
+            /tmp/shared-vpc-simulation.png
             /tmp/bgp-browser-smoke.png
           if-no-files-found: ignore
 
@@ -83,7 +91,7 @@ jobs:
             if curl --fail --silent http://127.0.0.1:18080/healthz >/dev/null; then break; fi
             sleep 2
           done
-          curl --fail --silent --show-error http://127.0.0.1:18080/healthz | python -c 'import json,sys; from pathlib import Path; p=json.load(sys.stdin); assert p["ok"] is True and p["simulator_ready"] is True; assert p["version"]=="5.44.3", p'
+          curl --fail --silent --show-error http://127.0.0.1:18080/healthz | python -c 'import json,sys; from pathlib import Path; p=json.load(sys.stdin); assert p["ok"] is True and p["simulator_ready"] is True; assert p["version"]=="5.45.0", p'
           curl --fail --silent --show-error http://127.0.0.1:18080/vpc-mlag-simulation | grep -q 'Technology Workspace topology'
           curl --fail --silent --show-error http://127.0.0.1:18080/simulation/vendor-failure-engine.mjs | grep -q 'analyzeAccessImpact'
           curl --fail --silent --show-error http://127.0.0.1:18080/synthetic-bgp.js | grep -q 'SyntheticBGP'
