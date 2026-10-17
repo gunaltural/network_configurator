@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Network Configurator v5.46.3</title>
+<title>Network Configurator v5.46.4</title>
 <style>
 :root{
   --bg:#0d1117;--panel:#161b22;--panel2:#1f2630;--line:#2b3440;
@@ -362,7 +362,7 @@ pre{
 .topology-toolbar label{display:block;font-size:11px;color:#91aabd;margin-bottom:5px;font-weight:700;letter-spacing:.02em}
 .topology-toolbar select{width:100%;background:#07141f;color:#dceaf4;border:1px solid #29465d;border-radius:8px;padding:8px 9px}
 .topology-toolbar .topology-hint{font-size:11px;color:#7893a6;align-self:center;margin-left:auto}
-.simulation-next{display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-top:20px;padding:20px 24px;border:1px solid #87b3ca;border-left:5px solid #247794;border-radius:12px;background:linear-gradient(115deg,#dcecf5,#edf6fa);box-shadow:0 4px 12px #183e5c12}.simulation-next[hidden]{display:none}.simulation-next-icon{width:44px;height:44px;display:grid;place-items:center;border-radius:12px;background:#174e6b;color:#fff;flex:none}.simulation-next-copy{display:flex;flex-direction:column;gap:5px;flex:1;min-width:220px}.simulation-next-copy strong{color:#173f59;font-size:16px}.simulation-next-copy span{font-size:13px;color:#3c5a6d}.simulation-next-copy small{font-size:11px;color:#527184}:is(#bgpTestSimulation,#vpcMlagSimLaunch){background:#126184;color:#fff;border:1px solid #0c4f70;border-radius:9px;padding:14px 22px;font-weight:700;font-size:14px;box-shadow:0 3px 8px #144d6a25;cursor:pointer;white-space:nowrap}#bgpTestSimulation:hover{background:#0b4968}:is(#bgpTestSimulation,#vpcMlagSimLaunch):focus-visible{outline:3px solid #df9c35;outline-offset:3px}#simulationTransferStatus{flex-basis:100%;margin:0;color:#8a3c17;font-size:13px}@media(max-width:700px){:is(#bgpTestSimulation,#vpcMlagSimLaunch){width:100%}.simulation-next{padding:16px}}
+.simulation-next{display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-top:20px;padding:20px 24px;border:1px solid #87b3ca;border-left:5px solid #247794;border-radius:12px;background:linear-gradient(115deg,#dcecf5,#edf6fa);box-shadow:0 4px 12px #183e5c12}.simulation-next[hidden]{display:none}.simulation-next-icon{width:44px;height:44px;display:grid;place-items:center;border-radius:12px;background:#174e6b;color:#fff;flex:none}.simulation-next-copy{display:flex;flex-direction:column;gap:5px;flex:1;min-width:220px}.simulation-next-copy strong{color:#173f59;font-size:16px}.simulation-next-copy span{font-size:13px;color:#3c5a6d}.simulation-next-copy small{font-size:11px;color:#527184}#topologySimulation .simulation-launch{background:#126184;color:#fff;border:1px solid #0c4f70;border-radius:9px;padding:14px 22px;font-weight:700;font-size:14px;box-shadow:0 3px 8px #144d6a25;cursor:pointer;white-space:nowrap}#topologySimulation .simulation-launch:hover{background:#0b4968}#topologySimulation .simulation-launch:focus-visible{outline:3px solid #df9c35;outline-offset:3px}#simulationTransferStatus{flex-basis:100%;margin:0;color:#8a3c17;font-size:13px}@media(max-width:700px){#topologySimulation .simulation-launch{width:100%}.simulation-next{padding:16px}}
 body.nc-simulation-action{padding-bottom:145px}body.nc-simulation-action #topologyArea{position:relative;top:auto}body.nc-simulation-action .simulation-next{position:fixed;left:calc(var(--nc-sidebar,242px) + 24px);right:24px;bottom:16px;z-index:55;margin:0;max-height:170px;overflow:auto;box-shadow:0 6px 25px #173e5c30}body.nc-menu-collapsed.nc-simulation-action .simulation-next{left:24px}@media(max-width:800px){body.nc-simulation-action .simulation-next{left:12px;right:12px;bottom:8px;gap:10px;padding:12px}body.nc-simulation-action{padding-bottom:200px}.simulation-next-copy span{display:none}}
 </style>
 <link rel="stylesheet" href="/corporate-theme.css">
@@ -414,7 +414,7 @@ body.nc-simulation-action{padding-bottom:145px}body.nc-simulation-action #topolo
     <div class="logo">NC</div>
     <div><h1>Network Configurator</h1><small>Configure · Validate · Troubleshoot</small></div>
   </div>
-  <div class="badge">Version 5.46.3 · Simulation</div>
+  <div class="badge">Version 5.46.4 · Simulation</div>
 </header>
 
 <div class="layout">
@@ -2002,7 +2002,7 @@ function ensureSimulationTrigger(){
  const id=tech==='BGP'?'bgpTestSimulation':tech==='VPC'?'vpcMlagSimLaunch':'workspaceSimLaunch';
  if(host.dataset.module===tech&&host.querySelector('#'+id))return;
  host.dataset.module=tech;
- host.innerHTML='<div class="simulation-next-icon" aria-hidden="true">▶</div><div class="simulation-next-copy"><strong>Validate your design before production</strong><span>Transfer this topology and module parameters to the simulation workspace.</span><small>Multiple device and connection failures · Restore · Scenario reports</small></div><button id="'+id+'" type="button">Test in Simulation <span aria-hidden="true">→</span></button><p id="simulationTransferStatus" role="status" hidden></p>';
+ host.innerHTML='<div class="simulation-next-icon" aria-hidden="true">▶</div><div class="simulation-next-copy"><strong>Validate your design before production</strong><span>Transfer this topology and module parameters to the simulation workspace.</span><small>Multiple device and connection failures · Restore · Scenario reports</small></div><button id="'+id+'" class="simulation-launch" type="button">Test in Simulation <span aria-hidden="true">→</span></button><p id="simulationTransferStatus" role="status" hidden></p>';
  host.querySelector('button').onclick=()=>{
   const status=document.getElementById('simulationTransferStatus');
   try{
