@@ -10,8 +10,27 @@ for(const vendor of ['Cisco NX-OS','Arista EOS','Huawei_CE_SW','Cisco IOS-XE','H
  await page.locator('#topologySimulation button').click();await page.waitForURL('**/network-lab?workspace=1');await page.locator('#wbFailures').click();
  assert.equal(await page.locator('#wbPolicies').isVisible(),false,'No empty generic parameters panel');
  assert.equal(await page.locator('.pair-choice:visible').count(),4,'Four key domain components at the front, not leaf list');
+ // Native interconnect/control drawings must select every represented physical link.
+ for(const selector of ['.vpc-peer-line[data-lab-links]','.vpc-ka-line[data-lab-links]']){
+  await run('baseline');const line=page.locator('#labMap '+selector).first();
+  if(!await line.count())continue;
+  const ids=JSON.parse(await line.getAttribute('data-lab-links'));if(!ids.length)continue;
+  await page.locator('#wbCloseInspector').click();await line.click({force:true});
+  assert.deepEqual(await page.locator('#syntheticLink').evaluate(el=>[...el.selectedOptions].map(o=>o.value)),ids,vendor+' native bundle click selects represented members');
+  await page.locator('#pairFail').click();const failed=await record();
+  assert.equal(await page.locator('#labMap '+selector).first().getAttribute('data-visual-link-state'),'down',vendor+' selected native line visibly down');
+  assert.ok(failed.failedLinks.length>=ids.length,vendor+' applied bundle fault recorded');
+  assert.match(failed.topologySvg,/data-visual-link-state="down"/,vendor+' saved topology retains fault');
+  await page.locator('#pairRestore').click();assert.notEqual(await page.locator('#labMap '+selector).first().getAttribute('data-visual-link-state'),'down');
+ }
+ if(vendor==='Cisco NX-OS'){
+  await run('member');const partial=JSON.parse(await page.locator('#labEvidence').textContent());
+  assert.equal(partial.vpc.peerLinkUp,true,'One physical member loss keeps port-channel up');
+  assert.equal(await page.locator('#labMap [data-device-state="protected"]').count(),0,'Partial peer-link loss does not suspend secondary');
+  assert.equal(await page.locator('#labMap .vpc-peer-line[data-visual-link-state="down"]').count(),1,'Only the failed physical member is red');
+ }
  await run('upper-1');let s=await record();assert.ok(s.currentPath.includes(peerNames[1]),vendor+' peer failure must retain service via surviving peer');assert.ok(!s.currentPath.includes(peerNames[0]));assert.equal(s.modelStatus,'degraded');
- await run('peer');s=await record();
+ await run('peer');s=await record();assert.ok(await page.locator('#labMap .vpc-peer-line[data-visual-link-state=\"down\"]').count()>0,vendor+' interconnect scenario changes native topology');
  if(vendor==='Cisco NX-OS'){assert.match(await page.locator('#pairState').innerText(),/SECONDARY/);assert.ok(s.findings.some(f=>f.includes('suspends')));assert.ok(!s.currentPath.includes(peerNames[1]));await page.locator('#wbInspectorBody').evaluate(el=>el.scrollTop=0);await page.screenshot({path:'/tmp/cisco-vpc-peer-link-down.png'});}
  if(vendor==='Cisco IOS-XE'){assert.match(await page.locator('#pairState').innerText(),/RECOVERY/);assert.ok(s.currentPath.includes(peerNames[1]));assert.ok(!s.currentPath.includes(peerNames[0]));}
  if(vendor==='Arista EOS'){assert.equal(s.modelStatus,'dual-active-risk');assert.ok(s.findings.some(f=>f.includes('no independent heartbeat')));}
