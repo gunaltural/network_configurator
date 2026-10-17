@@ -49,4 +49,29 @@ class SimulationReportTests(unittest.TestCase):
         self.assertEqual(self.client.get('/simulation-report.js').status_code,200)
         self.assertEqual(self.client.get('/simulation-report.js').headers['cache-control'],'no-store')
 
+    def test_word_accepts_all_supported_bgp_policy_counts(self):
+        for count in [8,9,16,64]:
+            scenario={**self.scenario,'policies':[dict(connection='WAN-'+str(i),localPreference=100+i,prependCount=i%11) for i in range(count)]}
+            response=self.client.post('/api/network-lab/simulation-word',json={'name':'Multi-circuit BGP','scenarios':[scenario]})
+            self.assertEqual(response.status_code,200)
+            doc=Document(io.BytesIO(response.content))
+            self.assertEqual(len(doc.tables[-1].rows),count+1)
+        scenario['policies'].append(dict(connection='excess',localPreference=100,prependCount=0))
+        self.assertEqual(self.client.post('/api/network-lab/simulation-word',json={'scenarios':[scenario]}).status_code,422)
+
+    def test_before_after_images_and_structured_assessment_survive_word_export(self):
+        scenario={**self.scenario,'module':'VPC','technology':'vPC','policies':[],
+                  'baselineTopologyPng':self.scenario['topologyPng'],
+                  'metrics':[dict(metric='Available modeled paths',baseline='2',current='1',unit='paths')],
+                  'componentStates':[dict(component='SPINE-2',type='device',baseline='SECONDARY',current='DOWN',detail='Device failure')],
+                  'parameterChanges':[dict(parameter='OSPF cost',baseline='10',current='37',reason='Scenario input')],
+                  'assessment':{'en':dict(summary='Service path retained with reduced redundancy.',sections=[dict(title='Technical interpretation',paragraphs=['Only one service attachment remains.'])],checks=[dict(criterion='Continuity',expected='Eligible path',status='Not measured')],commands=[dict(command='show vpc brief',purpose='Verify operational roles',execution='Not executed')],references=[])}}
+        response=self.client.post('/api/network-lab/simulation-word',json={'name':'Assessment','scenarios':[scenario]})
+        self.assertEqual(response.status_code,200,response.text[:200] if response.status_code!=200 else '')
+        doc=Document(io.BytesIO(response.content));text='\n'.join(p.text for p in doc.paragraphs)+'\n'+'\n'.join(c.text for t in doc.tables for row in t.rows for c in row.cells)
+        self.assertEqual(len(doc.inline_shapes),2)
+        for value in ['Baseline topology','Scenario topology','SPINE-2','SECONDARY','DOWN','37','Not executed','show vpc brief','reduced redundancy']:
+            self.assertIn(value,text)
+        self.assertNotIn('Extra AS copies',text)
+
 if __name__=='__main__':unittest.main()

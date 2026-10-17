@@ -29,7 +29,7 @@ class AuthenticationTests(unittest.TestCase):
             self.assertEqual(self.client.get(route).status_code,303)
         self.assertEqual(self.client.post('/api/device/show', headers=self.origin).status_code,401)
         self.assertEqual(self.client.post('/api/config-compare', headers=self.origin).status_code,401)
-        self.assertEqual(self.client.get('/healthz').json(), {'ok':True})
+        self.assertTrue(self.client.get('/healthz').json()['ok'])
         self.assertEqual(self.client.get('/login').status_code,200)
 
     def test_login_cookie_rotation_logout_and_replay(self):

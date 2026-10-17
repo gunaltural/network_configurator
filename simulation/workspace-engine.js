@@ -20,9 +20,15 @@ function shortest(model,source,target,downNodes=[],downLinks=[],costs={},allowed
  if(!dist.has(target))return null;const nodes=[target],links=[];let p=target;while(p!==source){const v=prev.get(p);if(!v)return null;links.unshift(v.link);nodes.unshift(v.a);p=v.a;}return {nodes,links,cost:dist.get(target)};
 }
 function stpTree(model,downNodes,downLinks,preferredRoot){
- const healthy=model.nodes.filter(n=>!downNodes.includes(n.id)),rank=n=>n.id===preferredRoot?0:n.tier==='upper'?1:2,rootNode=healthy.sort((a,b)=>rank(a)-rank(b)||a.id.localeCompare(b.id))[0],tree=new Set();
- if(rootNode)for(const n of healthy){const p=shortest(model,n.id,rootNode.id,downNodes,downLinks,{},l=>!l.logical);for(const id of p?.links||[])tree.add(id);}
- return {root:rootNode?.id||null,links:tree};
+ const healthy=model.nodes.filter(n=>!downNodes.includes(n.id)),rank=n=>n.id===preferredRoot?0:n.tier==='upper'?1:2,tree=new Set(),roots=[],rootByNode={},remaining=new Set(healthy.map(n=>n.id));
+ const links=model.links.filter(l=>!l.logical&&l.enabled!==false&&!downLinks.includes(l.id)&&remaining.has(l.a)&&remaining.has(l.b));
+ while(remaining.size){
+  const component=new Set([remaining.values().next().value]),queue=[...component];
+  for(let i=0;i<queue.length;i++)for(const l of links){const next=l.a===queue[i]?l.b:l.b===queue[i]?l.a:null;if(next&&!component.has(next)){component.add(next);queue.push(next);}}
+  const rootNode=healthy.filter(n=>component.has(n.id)).sort((a,b)=>rank(a)-rank(b)||a.id.localeCompare(b.id))[0];roots.push(rootNode.id);
+  for(const id of component){remaining.delete(id);rootByNode[id]=rootNode.id;const p=shortest(model,rootNode.id,id,downNodes,downLinks,{},l=>!l.logical);for(const link of p?.links||[])tree.add(link);}
+ }
+ return {roots,rootByNode,links:tree};
 }
 // Cisco vPC state transitions, based on Cisco Best Practices pp.32,126–128
 // and Nexus 9000 10.5(x) vPC recovery/consistency guidance.
@@ -137,7 +143,7 @@ function evaluate(model,state={},options={}){
  if(model.module==='STP'){
   rootState=stpTree(model,dn,dl,options.preferredRoot||model.settings.preferredRoot);const initial=stpTree(model,[],[],model.settings.preferredRoot);
   allowed=l=>rootState.links.has(l.id);path=shortest(model,source,target,dn,dl,{},allowed);baseline=shortest(model,source,target,[],[],{},l=>initial.links.has(l.id));
-  notes.push('Synthetic equal-cost spanning tree; preferred configured core wins while available. Equal bridge priorities use device ID as a deterministic tie-break, not a learned bridge MAC.');
+  notes.push('Synthetic equal-cost spanning forest; each connected component elects its preferred available root. Equal bridge priorities use device ID as a deterministic tie-break, not a learned bridge MAC.');
  }else if(model.module==='EVPN'){
   allowed=l=>true;notes.push('Logical EVPN session connectivity only. Imported overlay sessions do not establish an operational physical underlay or VNI forwarding.');
  }else if(model.module==='OSPF')notes.push('Shortest path by modeled OSPF cost. Assumes compatible area, timers, authentication and MTU; no packet or convergence timer simulation.');
@@ -165,7 +171,7 @@ function evaluate(model,state={},options={}){
  let status=path?'reachable':'no-path';if(source===target){status=failed.has(source)?'no-path':'same-device';notes.push('Select distinct source and destination devices to assess a traffic path.');}if(model.module==='VPC'&&findings.some(f=>f.severity==='critical')&&path)status='conditional';
  const rate=Math.max(0,Number(options.offeredRate??100)),limits=[model.settings.shapeRate,model.settings.policeRate].map(Number).filter(v=>v>0),limit=limits.length?Math.min(...limits):0;
  const qos=model.module==='QOS'?{offeredMbps:rate,limitMbps:limit||null,admittedMbps:path?limit?Math.min(rate,limit):rate:0,excessMbps:path&&limit?Math.max(0,rate-limit):0}:null;
- return {module:model.module,path,baseline,notes,findings,status,affected,root:rootState?.root||null,blockedLinks:rootState?model.links.filter(l=>!l.logical&&active(l)&&!rootState.links.has(l.id)).map(l=>l.id):[],qos};
+ return {module:model.module,path,baseline,notes,findings,status,affected,root:rootState?.rootByNode[source]||null,roots:rootState?.roots||[],blockedLinks:rootState?model.links.filter(l=>!l.logical&&active(l)&&!rootState.links.has(l.id)).map(l=>l.id):[],qos};
 }
 root.WorkspaceSimulationEngine={normalize,shortest,evaluate,evaluateCiscoVpc,evaluateVendorPair,modules};
 })(typeof window==='undefined'?globalThis:window);
