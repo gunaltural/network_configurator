@@ -13,11 +13,20 @@ $('wbZoomOut').onclick=()=>changeZoom(zoom/1.2);$('wbZoomIn').onclick=()=>change
 $('wbFullscreen').onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else if(workspace.requestFullscreen)await workspace.requestFullscreen();else $('syntheticStatus').textContent='Full screen is unavailable in this browser. Use the browser full-screen control.';}catch(e){$('syntheticStatus').textContent='Full screen unavailable: '+e.message;}};
 viewport.tabIndex=0;
 viewport.addEventListener('wheel',event=>{event.preventDefault();const r=viewport.getBoundingClientRect();changeZoom(zoom*Math.exp(-event.deltaY*.0015),event.clientX-r.left,event.clientY-r.top);},{passive:false});
-const selectable=target=>target.closest?.('[data-bgp-device],[data-device],[data-bgp-connection],[data-bgp-interconnect],[data-lab-link]');
+const selectable=target=>target.closest?.('[data-bgp-device],[data-device],[data-bgp-connection],[data-bgp-interconnect],[data-lab-link],[data-lab-links]');
 viewport.addEventListener('pointerdown',event=>{if(event.button!==0||selectable(event.target))return;drag={id:event.pointerId,x:event.clientX,y:event.clientY,originX:x,originY:y};viewport.setPointerCapture?.(event.pointerId);viewport.classList.add('is-panning');});
 viewport.addEventListener('pointermove',event=>{if(!drag||drag.id!==event.pointerId)return;x=drag.originX+event.clientX-drag.x;y=drag.originY+event.clientY-drag.y;apply();});
 function stop(){drag=null;viewport.classList.remove('is-panning');}viewport.addEventListener('pointerup',stop);viewport.addEventListener('pointercancel',stop);
-viewport.addEventListener('click',event=>{const node=selectable(event.target);if(!node)return;const device=node.dataset.bgpDevice||node.dataset.device,link=node.dataset.bgpConnection?'wan'+node.dataset.bgpConnection:node.hasAttribute('data-bgp-interconnect')?'interconnect':node.dataset.labLink;if(!device&&!link)return;panel('failures');const select=$(device?'syntheticNode':'syntheticLink'),value=device||link;if([...select.options].some(o=>o.value===value))select.value=value;select.dispatchEvent(new Event('change'));$(device?'nodeFault':'linkFault').scrollIntoView?.({block:'nearest'});});
+viewport.addEventListener('click',event=>{
+ const node=selectable(event.target);if(!node)return;
+ const device=node.dataset.bgpDevice||node.dataset.device;
+ const link=node.dataset.bgpConnection?'wan'+node.dataset.bgpConnection:node.hasAttribute('data-bgp-interconnect')?'interconnect':node.dataset.labLink;
+ let values=device?[device]:link?[link]:[];
+ if(!device&&node.dataset.labLinks){try{const ids=JSON.parse(node.dataset.labLinks);if(Array.isArray(ids))values=ids.filter(id=>typeof id==='string');}catch{return;}}
+ const select=$(device?'syntheticNode':'syntheticLink'),available=new Set([...select.options].map(o=>o.value));values=values.filter(id=>available.has(id));if(!values.length)return;
+ panel('failures');for(const option of select.options)option.selected=values.includes(option.value);
+ select.dispatchEvent(new Event('change'));$(device?'nodeFault':'linkFault').scrollIntoView?.({block:'nearest'});
+});
 viewport.addEventListener('keydown',event=>{if(event.target!==viewport)return;const keys={ArrowLeft:[40,0],ArrowRight:[-40,0],ArrowUp:[0,40],ArrowDown:[0,-40]};if(keys[event.key]){event.preventDefault();x+=keys[event.key][0];y+=keys[event.key][1];apply();}else if(event.key==='Home'){event.preventDefault();fit();}else if(['+','=','-'].includes(event.key)){event.preventDefault();changeZoom(zoom*(event.key==='-'?1/1.2:1.2));}});
 document.addEventListener('keydown',event=>{if(event.key==='Escape'&&active)$('wbCloseInspector').click();});
 function count(){$('wbRecordCount').textContent=window.NetworkLab.scenarioRecords().length;}document.addEventListener('network-lab-scenarios-updated',count);
