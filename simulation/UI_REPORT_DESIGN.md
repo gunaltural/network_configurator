@@ -39,6 +39,10 @@ Bu ürünlerin lab/telemetri çalışma biçimleri bu kapsamın parçası değil
 
 Yukarıdaki sekiz arayüz önerisi bu sürümde bütünüyle uygulanmış sayılmaz. Yeni bir topoloji editörü veya bağımsız yeniden çizim önerilmemektedir.
 
+## 5.48.0 — ilk arayüz adımı
+
+Mevcut çizim, cihaz adları, portlar ve bağlantı geometrisi korunarak fiziksel arıza (×), protokol koruması (Ⅱ), doğrulanmamış servis (?) ve kısmi üye kaybı (!) ayrıştırıldı. Seçilen trafik yolundaki mevcut yön okları korundu. Hat açıklaması fiziksel durum ile protokol kararını ayrı ifade eder; koruma ve split-brain bağlantıları sağlıklı trafik animasyonu taşımaz. vPC/MLAG ve STP rol değişimleri tasarım başlangıcına göre işaretlenir. Simgelerin açıklaması kaydedilen SVG ve rapor görsellerine dahildir. Bu değişiklik simülasyon motorunu veya kabul edilen eski BGP akışını değiştirmez; önce/senaryo geçişi, olay adımları ve yeni seçim alanı sonraki adımlardır.
+
 ## Kabul ölçütleri
 
 Yerleşim ve port/hostname eşleşmesi aktarımda değişmemeli. Arıza, restore ve kayıt sonrasında seçili senaryo durumu korunmalı. Başlangıç görüntüsünde senaryo arızaları görünmemeli. Raporun gösterge ve bileşen tabloları kaydedilen model sonucuyla eşleşmeli. Degraded servis yolu ile split-brain belirsizliği ayrı tutulmalı. Dokuz ve desteklenen üst sınırdaki BGP devreleri rapor üretimini bozmamalı. Karma kayıtlar BGP politikası veya gateway bilgisini kaybetmemeli.
