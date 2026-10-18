@@ -11,7 +11,7 @@ Başlangıç sürümü 5.48.0 (`c1d379744a3f171b150aeff2f5009669122b09ce`). Tekn
 | Ayrıntılı senaryolar dar editör sütununda sıkışıyor | 1500 px masaüstünde rapor genişliği yaklaşık 517 px; görseller figure kenar boşluklarıyla yaklaşık 369 px | Simülasyondan açılan raporda geniş önizleme; düzenleyiciye tek düğmeyle dönüş; rapor verisi ve form girdileri korunur |
 | Mobil tablolar kelimeleri bölüyor | Beş sütunlu bileşen tablosunda durum, hostname ve port değerleri birkaç harfte bir bölünüyor | Rapor tablosu kendi alanında yatay kaydırılır; sayfanın tamamı yatay taşmaz; baskıda kaydırma kısıtı kaldırılır |
 
-Senaryo kayıt şeması ve simülasyon motoru değiştirilmemiştir. Önizleme genişletmesi yalnız ekran düzenidir; Word içeriğinin kaynağı aynı rapor verisidir.
+Nihai raporun PDF baskı kontrolünde sayfa sonunda yalnız kalan senaryo başlığı da düzeltildi; başlık takip eden içerikle birlikte taşınır. Senaryo kayıt şeması ve simülasyon motoru değiştirilmemiştir. Önizleme genişletmesi yalnız ekran düzenidir; Word içeriğinin kaynağı aynı rapor verisidir.
 
 ## Kontrol kapsamı
 
