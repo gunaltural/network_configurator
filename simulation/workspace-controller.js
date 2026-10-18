@@ -287,7 +287,7 @@ function attach(){
  if(report?.source?.projectId!==context.projectId||report?.source?.module!==model.module||report?.vendor!==context.report.vendor||report?.source?.generatedAt!==context.report.source.generatedAt)report=JSON.parse(JSON.stringify(context.report));
  const combined=new Map((report.simulationScenarios||[]).map(s=>[s.id,s]));for(const s of records)combined.set(s.id,s);report.simulationScenarios=[...combined.values()].slice(-40);sessionStorage.setItem('networkConfigurator.report.current',JSON.stringify(report));$('labResultStatus').textContent=records.length+' scenario(s) attached to '+model.technology+' report.';
 }
-$('labSendEvidence').onclick=attach;$('labContinueReport').onclick=()=>{attach();location.assign('/reporting?from=simulation');};
+$('labSendEvidence').onclick=attach;$('labContinueReport').onclick=()=>{try{attach();sessionStorage.removeItem('networkConfigurator.report.import');sessionStorage.setItem('networkConfigurator.report.handoff',JSON.stringify({from:'simulation',projectId:context.projectId,scenarioCount:records.length}));location.assign('/reporting?view=design&from=simulation&section=simulation');}catch(e){$('labResultStatus').textContent='Report transfer failed: '+e.message;}};
 const payload=()=>({name:(context.report.name||model.technology)+' simulation',language:$('simulationReportLanguage').value,scenarios:records});
 $('simulationPdf').onclick=()=>{try{window.SimulationReport.print(payload());}catch(e){$('simulationExportStatus').textContent=e.message;}};
 $('simulationWord').onclick=async()=>{try{await window.SimulationReport.word(payload());$('simulationExportStatus').textContent='Word report downloaded.';}catch(e){$('simulationExportStatus').textContent=e.message;}};
