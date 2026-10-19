@@ -45,6 +45,56 @@ try {
     .setInputFiles("/tmp/port-mapping-browser-workspace.json");
   await page.waitForFunction(() => window.PortMapping.sources().length === 1);
   assert.equal(await page.locator("#pmMap [data-group]").count(), 2);
+  page.once("dialog", (d) => d.accept());
+  await page.locator("#pmClear").click();
+  // RTF formatting can interrupt command headers; classify the decoded text.
+  await page.locator("#pmFiles").setInputFiles({
+    name: "sanitized-show-tech.rtf",
+    mimeType: "application/rtf",
+    buffer: Buffer.from(String.raw`{\rtf1
+------------------ \b show version\b0 ------------------\par
+Cisco IOS Software\par
+------------------ \b show running-config\b0 ------------------\par
+hostname LOCAL-SW\par
+username private secret NEVER-RETAIN-CONFIG\par
+------------------ \b show interfaces\b0 ------------------\par
+GigabitEthernet1/0/1 is up, line protocol is up\par
+ Description: CLIENT-NETWORK\par
+------------------ \b show mac-address-table\b0 ------------------\par
+10 0050.5684.1234 dynamic Gi1/0/1\par
+}`),
+  });
+  await page.waitForFunction(() => window.PortMapping.sources().length === 2);
+  assert.equal(await page.locator("#pmMap [data-device]").count(), 1);
+  assert.equal(await page.locator("#pmMap [data-group]").count(), 1);
+  assert.equal(await page.locator("#pmMap [data-link]").count(), 0);
+  assert.match(await page.locator("#pmTopologyEvidence").innerText(), /Local learning topology.*No CDP\/LLDP/);
+  assert.equal(await page.evaluate(() => JSON.stringify(PortMapping.sources()).includes("NEVER-RETAIN-CONFIG")), false);
+  await page.locator("#pmMap [data-group]").click();
+  assert.match(await page.locator("#pmInspector").innerText(), /CLIENT-NETWORK/);
+  if (process.env.SHOW_TECH_SAMPLE) {
+    page.once("dialog", (d) => d.accept());
+    await page.locator("#pmClear").click();
+    await page.locator("#pmFiles").setInputFiles(process.env.SHOW_TECH_SAMPLE);
+    await page.waitForFunction(() => window.PortMapping.model().endpoints.length > 1000);
+    const observed = await page.evaluate(() => ({
+      sources: PortMapping.sources().length,
+      devices: PortMapping.model().devices.length,
+      links: PortMapping.model().links.length,
+      endpoints: PortMapping.model().endpoints.length,
+      ports: PortMapping.model().groups.length,
+      branches: document.querySelectorAll("#pmMap [data-group]").length,
+    }));
+    assert.deepEqual(observed, { sources: 4, devices: 1, links: 0, endpoints: 1367, ports: 377, branches: 24 });
+    assert.equal(await page.locator("#pmMap [data-device]").count(), 1);
+    await page.reload();
+    await page.waitForFunction(() => window.PortMapping.model().endpoints.length === 1367);
+    assert.equal(await page.locator("#pmMap [data-device]").count(), 1);
+    console.log("Actual diagnostic import and saved-workspace reload:", observed);
+  }
+  page.once("dialog", (d) => d.accept());
+  await page.locator("#pmClear").click();
+  await page.locator("#pmExample").click();
   if (process.env.PORT_MAPPING_SAMPLE) {
     page.once("dialog", (d) => d.accept());
     await page.locator("#pmClear").click();
