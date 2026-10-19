@@ -8,7 +8,7 @@ let count=0;
 try{
  for(const module of ['BASIC','BGP','OSPF','STP','VPC','EVPN','QOS','SDWAN']){
   await page.goto(base+'/');await page.locator('#v3TechGrid button').filter({has:page.locator('h3',{hasText:module==='BASIC'?'System and Management':module==='VPC'?'vPC / MLAG':module})}).click();
-  await page.locator('#topologySimulation button').waitFor({state:'visible'});
+  await page.locator('#topologySimulation button').waitFor({state:'attached'});
   if(module==='SDWAN'){await page.locator('#sdLoadExample').click();await page.waitForFunction(()=>document.getElementById('sdExcelStatus').textContent.includes('Example loaded'));}
   const vendors=await page.locator('#platform option').evaluateAll(os=>os.filter(o=>!o.disabled&&!o.hidden).map(o=>o.value));
   for(const vendor of vendors){
@@ -16,7 +16,7 @@ try{
    const data=await page.evaluate(()=>window.NetworkWorkspaceProject.prepareWorkspaceSimulation());
    assert.equal(data.report.source.module,module);assert.equal(data.report.vendor,vendor);
    if(module==='BGP')await page.goto(base+'/network-lab?workspace=1');
-   else await Promise.all([page.waitForURL('**/network-lab?workspace=1'),page.locator('#topologySimulation button').click()]);
+   else await Promise.all([page.waitForURL('**/network-lab?workspace=1'),page.locator('#topologySimulation button').evaluate(button=>button.click())]);
    await page.locator('#syntheticDeviceChoices input').first().waitFor({state:'attached'});assert.equal(await page.locator('#labMap [data-topology-state]').count(),1,module+' state must appear on the topology');
    assert.equal(await page.locator('#syntheticDeviceChoices input').count(),data.report.devices.length,module+' '+vendor+' devices');
    await page.locator('#wbFailures').click();
@@ -48,7 +48,7 @@ try{
    }
    count++;console.log('PASS',module,vendor);
    if(module==='VPC'&&vendor==='Arista EOS')await page.screenshot({path:'/tmp/shared-vpc-simulation.png'});
-   await page.goto(base+'/?resume=1');await page.evaluate(()=>window.__workspaceRestoreReady);await page.locator('#topologySimulation button').waitFor();
+   await page.goto(base+'/?resume=1');await page.evaluate(()=>window.__workspaceRestoreReady);await page.locator('#topologySimulation button').waitFor({state:'attached'});
   }
  }
  assert.deepEqual(errors,[]);console.log(count+' module/vendor browser combinations passed');

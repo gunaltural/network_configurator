@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Network Configurator v5.52.3</title>
+<title>Network Configurator v5.52.4</title>
 <style>
 :root{
   --bg:#0d1117;--panel:#161b22;--panel2:#1f2630;--line:#2b3440;
@@ -415,7 +415,7 @@ body.nc-simulation-action{padding-bottom:145px}body.nc-simulation-action #topolo
     <div class="logo">NC</div>
     <div><h1>Network Configurator</h1><small>Configure · Validate · Troubleshoot</small></div>
   </div>
-  <div class="badge">Version 5.52.3 · Simulation</div>
+  <div class="badge">Version 5.52.4 · Simulation</div>
 </header>
 
 <div class="layout">
@@ -1998,14 +1998,14 @@ function vpcLeafUi(){
 function ensureSimulationTrigger(){
  const host=document.getElementById('topologySimulation');if(!host)return;
  const supported=['BASIC','BGP','OSPF','STP','VPC','EVPN','QOS','SDWAN'].includes(tech);
- host.hidden=!supported;document.body.classList.toggle('nc-simulation-action',supported);
+ host.hidden=true;document.body.classList.remove('nc-simulation-action');
  if(!supported){host.replaceChildren();return;}
  const id=tech==='BGP'?'bgpTestSimulation':tech==='VPC'?'vpcMlagSimLaunch':'workspaceSimLaunch';
  if(host.dataset.module===tech&&host.querySelector('#'+id))return;
  host.dataset.module=tech;
  host.innerHTML='<div class="simulation-next-icon" aria-hidden="true">▶</div><div class="simulation-next-copy"><strong>Validate your design before production</strong><span>Transfer this topology and module parameters to the simulation workspace.</span><small>Multiple device and connection failures · Restore · Scenario reports</small></div><button id="'+id+'" class="simulation-launch" type="button">Test in Simulation <span aria-hidden="true">→</span></button><p id="simulationTransferStatus" role="status" hidden></p>';
  host.querySelector('button').onclick=()=>{
-  const status=document.getElementById('simulationTransferStatus');
+  const status=document.getElementById('simulationTransferStatus');status.hidden=true;status.textContent='';
   try{
    const api=window.NetworkWorkspaceProject;if(!api)throw Error('Technology Workspace is not ready. Reload the page.');
    // Preserve the accepted BGP workbench for its original supported 2×2 model.
@@ -5729,7 +5729,7 @@ renderModule();
    d.innerHTML=`<div class="icon">${icon}</div><h3>${label}</h3><p>${desc}</p><span class="tag">${tag}</span>`;
    d.onclick=()=>openTech(key); grid.appendChild(d);
  });
- $("v3DashboardBtn").onclick=()=>{captureWorkspaceModule(tech);dashboard.classList.add("show");workspace.style.display="none";health.style.display="none";window.scrollTo({top:0,behavior:"smooth"});};
+ $("v3DashboardBtn").onclick=()=>{history.replaceState(null,"",location.pathname);captureWorkspaceModule(tech);dashboard.classList.add("show");workspace.style.display="none";health.style.display="none";window.scrollTo({top:0,behavior:"smooth"});};
 
  function updateHealth(){
    const plat=document.getElementById("platform");
@@ -6523,6 +6523,7 @@ renderModule();
    try{sessionStorage.setItem("networkConfigurator.workflow.design",JSON.stringify(snapshot()));}catch(error){console.warn("Draft checkpoint unavailable",error);}
  });
  const pristineProjectTemplate=JSON.parse(JSON.stringify(snapshot()));
+ const entryParams=new URLSearchParams(location.search);if(!["resume","workspace","tab","guided","simulation","project","section"].some(key=>entryParams.has(key)))window.addEventListener("pageshow",()=>$("v3DashboardBtn").click(),{once:true});
  if(new URLSearchParams(location.search).get("resume")==="1"){
    try{
      const saved=JSON.parse(sessionStorage.getItem("networkConfigurator.workflow.design")||"null");

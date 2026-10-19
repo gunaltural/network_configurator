@@ -21,9 +21,9 @@ try{
  // BGP test workspace to lab handoff and synthetic controls on actual app.
  await navigateWorkspace('BGP');
  const bgpLaunch=page.locator('#bgpTestSimulation');
- await bgpLaunch.waitFor({state:'visible',timeout:12000});
+ await bgpLaunch.waitFor({state:'attached',timeout:12000});
  // The 2x2 pilot parameters may differ: only assert a meaningful navigation if model valid.
- await bgpLaunch.click();
+ assert.equal(await bgpLaunch.isVisible(),false);await bgpLaunch.evaluate(button=>button.click());
  const loc=new URL(page.url());
  if(loc.pathname==='/network-lab'){
   await page.locator('#syntheticStatus').waitFor({state:'attached',timeout:15000});

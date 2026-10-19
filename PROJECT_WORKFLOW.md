@@ -35,3 +35,9 @@ Use existing inventory explicitly selects records from another archived module i
 Project completion focuses on deliverables: a single module offers Word/PDF without merging; multiple modules offer a combined report and individual reports in a disclosure. The completed workflow is collapsed for optional review. Recovery remains available during work and in independent simulation, without distracting from completed project delivery.
 
 Network Discovery removes split mode, width controls and the drag divider. SSH collection and CLI import are full-width alternatives; switching preserves entered values and existing split preferences open SSH view.
+
+### 5.52.4 dashboard entry and simulation banner
+
+Normal entry opens Dashboard. Home clears workspace/resume query parameters so a reload stays on Dashboard. Resume current project opens the retained design checkpoint; explicit project-load and guided workflow URLs still restore their intended workspace. Dashboard visibility updates do not snapshot a project mid-restore.
+
+The fixed Test in Simulation banner is hidden in every design workspace. Guided projects use the Simulation step and independent simulations use their Open simulation action. The internal topology handoff remains shared and is exercised by simulator integration tests. Transfer errors are surfaced in the workflow status.

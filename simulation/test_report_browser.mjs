@@ -3,7 +3,7 @@ const {chromium}=createRequire(import.meta.url)('playwright');
 const browser=await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_EXECUTABLE||undefined,args:['--no-sandbox','--disable-dev-shm-usage']}),ctx=await browser.newContext({viewport:{width:1500,height:1050}}),page=await ctx.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
 const base=process.env.SMOKE_URL||'http://127.0.0.1:8125';
 async function open(module){await page.goto(base+'/');await page.locator('#v3TechGrid button').filter({has:page.locator('h3',{hasText:module==='VPC'?'vPC / MLAG':module})}).click();}
-async function launch(){await page.locator('#topologySimulation button').click();await page.waitForURL('**/network-lab?*');await page.locator('#wbFailures').click();}
+async function launch(){await page.locator('#topologySimulation button').evaluate(button=>button.click());await page.waitForURL('**/network-lab?*');await page.locator('#wbFailures').click();}
 async function record(){await page.locator('#syntheticRecord').click();return page.evaluate(()=>window.NetworkLab.scenarioRecords().at(-1));}
 try{
  await open('STP');const design=await page.evaluate(()=>window.NetworkWorkspaceProject.prepareWorkspaceSimulation());await launch();const leaves=design.report.devices.filter(n=>n.tier==='lower'),root=design.settings.preferredRoot;
