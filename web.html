@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Network Configurator v5.52.2</title>
+<title>Network Configurator v5.52.3</title>
 <style>
 :root{
   --bg:#0d1117;--panel:#161b22;--panel2:#1f2630;--line:#2b3440;
@@ -415,7 +415,7 @@ body.nc-simulation-action{padding-bottom:145px}body.nc-simulation-action #topolo
     <div class="logo">NC</div>
     <div><h1>Network Configurator</h1><small>Configure · Validate · Troubleshoot</small></div>
   </div>
-  <div class="badge">Version 5.52.2 · Simulation</div>
+  <div class="badge">Version 5.52.3 · Simulation</div>
 </header>
 
 <div class="layout">
@@ -6408,7 +6408,7 @@ renderModule();
    const project=snapshot(),devices=[],links=[],specialLinks=[],parameters=[],configMap=new Map(),deviceIndex=new Map(),moduleReports=[];
    reports.forEach((report,moduleNo)=>{
      const map=new Map(),prefix=report.moduleKey.toLowerCase();
-     report.devices.forEach(device=>{const identity=`${device.vendor}|${String(device.logicalHostname||device.hostname||device.id).toLowerCase()}`,existing=deviceIndex.get(identity);let id=existing;if(!id){id=`${prefix}-${device.id}`;deviceIndex.set(identity,id);devices.push({...device,hostname:device.logicalHostname||device.hostname,id,tier:moduleNo===0?device.tier:"upper",index:devices.length+1});}map.set(device.id,id);});
+     report.devices.forEach(device=>{const identity=device.inventoryAssetId?`asset:${device.inventoryAssetId}`:`${device.vendor}|${String(device.logicalHostname||device.hostname||device.id).toLowerCase()}`,existing=deviceIndex.get(identity);let id=existing;if(!id){id=`${prefix}-${device.id}`;deviceIndex.set(identity,id);devices.push({...device,hostname:device.logicalHostname||device.hostname,id,tier:moduleNo===0?device.tier:"upper",index:devices.length+1});}map.set(device.id,id);});
      report.links.forEach((link,index)=>links.push({...link,id:`${prefix}-link-${index+1}`,a:map.get(link.a),b:map.get(link.b),detail:`${report.moduleTitle} · ${link.detail||"physical connection"}`}));
      (report.specialLinks||[]).forEach((link,index)=>specialLinks.push({...link,id:`${prefix}-special-${index+1}`,a:map.get(link.a),b:map.get(link.b),detail:`${report.moduleTitle} · ${link.detail||"control path"}`}));
      (report.parameters||[]).forEach(item=>parameters.push({...item,label:`${report.moduleTitle} · ${item.label}`}));
@@ -6614,7 +6614,7 @@ async function createGuidedProject(workflow){
  const fresh=JSON.parse(JSON.stringify(pristineProjectTemplate)),first=workflow.modules[0];fresh.project={id:workflow.projectId,name:workflow.name,updated:new Date().toISOString()};fresh.workspace={technology:first.key,platform:first.platform};fresh.fields.platform=first.platform;fresh.moduleStates={};fresh.projectWorkflow=workflow;fresh.networkDiscovery=null;fresh.pathDiagnostics=null;window.__modulePlatformLast={};applyProject(fresh);await window.__workspaceRestoreReady;await activateModule(first.key,first.platform);
 }
 async function mergeReportDocuments(reports){
- const combined=combineReports(reports),identity=d=>d.vendor+'|'+String(d.logicalHostname||d.hostname||d.id).toLowerCase(),ids=new Map(combined.devices.map(d=>[identity(d),d.id])),inventory=new Set(),manual=new Set(),ssh=new Set(),verification=[],scenarios=new Map();
+ const combined=combineReports(reports),identity=d=>d.inventoryAssetId?'asset:'+d.inventoryAssetId:d.vendor+'|'+String(d.logicalHostname||d.hostname||d.id).toLowerCase(),ids=new Map(combined.devices.map(d=>[identity(d),d.id])),inventory=new Set(),manual=new Set(),ssh=new Set(),verification=[],scenarios=new Map();
  for(const report of reports){const map=new Map(report.devices.map(d=>[d.id,ids.get(identity(d))]));for(const [key,target]of [['inventoryDeviceIds',inventory],['manualVisibleIds',manual],['sshVisibleIds',ssh]])for(const id of report[key]||[])if(map.has(id))target.add(map.get(id));for(const row of report.verificationPlan||[])if(map.get(row.deviceId))verification.push({...row,id:JSON.stringify([report.moduleKey,row.id]),deviceId:map.get(row.deviceId)});for(const scenario of report.simulationScenarios||[])scenarios.set(scenario.id,scenario);}
  combined.inventoryRevision=2;combined.inventoryDeviceIds=[...inventory];combined.manualVisibleIds=[...manual];combined.sshVisibleIds=[...ssh];combined.verificationPlan=verification;combined.simulationScenarios=[...scenarios.values()];combined.projectDetails=reports[0].projectDetails||{};combined.scope=reports.filter(r=>r.scope).map(r=>r.moduleTitle+'\n'+r.scope).join('\n\n');combined.language=reports[0].language||'en';combined.topologySvg=NetworkReportGuide.designPresentation(combined).svg;combined.topologyPng=await workspaceTopologyPng(combined.topologySvg);return combined;
 }

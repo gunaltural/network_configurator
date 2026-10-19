@@ -824,7 +824,8 @@
         const cached=JSON.parse(sessionStorage.getItem(`networkConfigurator.report.edit.${p.source.projectId}.${p.source.module}.${p.vendor}`)||"null");
         const compatible=current&&(!current.source||current.source.projectId===p.source.projectId);
         const old=compatible&&Array.isArray(current.inventoryDeviceIds)?current:cached;
-        if(old&&(!old.source||old.source.module!==p.source.module||old.vendor!==p.vendor)&&Array.isArray(old.inventoryDeviceIds)){
+        const guidedFlow=JSON.parse(sessionStorage.getItem("networkConfigurator.project.workflow.v1")||"null");
+        if(!(guidedFlow?.mode==="project"&&guidedFlow.projectId===p.source.projectId)&&old&&(!old.source||old.source.module!==p.source.module||old.vendor!==p.vendor)&&Array.isArray(old.inventoryDeviceIds)){
           normalizeInventoryProject(old);
           const ids=new Set(old.inventoryDeviceIds);
           const records=old.devices.filter(d=>ids.has(d.id));
@@ -847,7 +848,7 @@
           normalizeInventoryProject(old);
           const previous=new Map(old.devices.map(d=>[d.id,d]));
           p.inventoryRevision=2;p.inventoryDeviceIds=old.inventoryDeviceIds;p.manualVisibleIds=old.manualVisibleIds;p.sshVisibleIds=old.sshVisibleIds;p.scope=old.scope||"";p.projectDetails=old.projectDetails||{};p.projectExampleValues=old.projectExampleValues||{fields:{}};p.name=p.name||old.name||"";
-          p.devices.forEach(d=>{const saved=previous.get(d.id);if(!saved)return;for(const k of ["inventoryRecord","inventoryChannel","model","serial","modelSource","serialSource","target","observedAt","softwareVersion","softwareSource","observedHostname","collectionMethod","sshUsername","sshPort","discoveryId","discoveryIdentitySource"])d[k]=saved[k]||"";d.maintenance=saved.maintenance||{};d.inventoryWarnings=saved.inventoryWarnings||[];d.inventoryCommands=saved.inventoryCommands||[];});
+          p.devices.forEach(d=>{const saved=previous.get(d.id);if(!saved)return;for(const k of ["inventoryAssetId","inventoryRecord","inventoryChannel","model","serial","modelSource","serialSource","target","observedAt","softwareVersion","softwareSource","observedHostname","collectionMethod","sshUsername","sshPort","discoveryId","discoveryIdentitySource"])d[k]=saved[k]||"";d.maintenance=saved.maintenance||{};d.inventoryWarnings=saved.inventoryWarnings||[];d.inventoryCommands=saved.inventoryCommands||[];});
           p.devices.push(...old.devices.filter(d=>d.inventoryOnly&&!p.devices.some(x=>x.id===d.id)));
           const priorLinks=new Map(old.links.map(l=>[l.id,l]));
           p.links.forEach(l=>{const saved=priorLinks.get(l.id);if(!saved)return;l.speed=saved.speed||"";if(!l.upperPort)l.upperPort=saved.upperPort||"";if(!l.lowerPort)l.lowerPort=saved.lowerPort||"";});

@@ -25,3 +25,13 @@ Guided projects hide the design canvas Test in Simulation shortcut: simulation i
 ### 5.52.2 focused inventory and interactive workflow
 
 Inventory hides report preview and maintenance tabs and uses the full editor width. Guided projects use clickable delivery steps: Design, Inventory, Simulation, Module report and Next module (Finish project for the final module). Current and visited steps are indicated. Simulation requires reaching inventory; report access requires the simulator or existing scoped evidence/archive, and advancing modules requires completing the current report. Returning between steps preserves inventory and report drafts. The visited stage is additive module metadata and travels with saved projects.
+
+### 5.52.3 shared inventory and delivery clarity
+
+Guided module reports hide the legacy maintenance tab row. Their simulation toolbar retains only Save scenario for optional comparison snapshots; Module report is the single report transition and automatically records the current valid state if it was not already saved. Standalone simulation exports remain available.
+
+Use existing inventory explicitly selects records from another archived module in the same project and maps them to topology devices or additional inventory. Existing field values are preserved; serial conflicts and assigning two records to one device are rejected. Persistent asset identifiers prevent repeated reuse from duplicating a record and merge explicitly shared physical devices in the combined report while retaining module-specific designs, configurations and evidence. Legacy implicit cross-module inventory carry is disabled only for guided projects.
+
+Project completion focuses on deliverables: a single module offers Word/PDF without merging; multiple modules offer a combined report and individual reports in a disclosure. The completed workflow is collapsed for optional review. Recovery remains available during work and in independent simulation, without distracting from completed project delivery.
+
+Network Discovery removes split mode, width controls and the drag divider. SSH collection and CLI import are full-width alternatives; switching preserves entered values and existing split preferences open SSH view.

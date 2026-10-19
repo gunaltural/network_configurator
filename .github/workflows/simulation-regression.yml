@@ -7,6 +7,8 @@ on:
       - "synthetic-bgp.js"
       - "synthetic-lab.js"
       - "network-lab.html"
+      - "network-discovery.js"
+      - "test_discovery_resize.cjs"
       - "simulation-report.js"
       - "simulation-workbench.js"
       - "simulation_report.py"
@@ -45,7 +47,7 @@ jobs:
           npm install --no-save --ignore-scripts playwright
           npx playwright install --with-deps chromium
       - name: MAC port mapping regression
-        run: node test_port_mapping.cjs
+        run: node test_port_mapping.cjs && node test_discovery_resize.cjs
       - name: Syntax check modules
         run: |
           node --check simulation/vendor-failure-engine.mjs
@@ -115,7 +117,7 @@ jobs:
             if curl --fail --silent http://127.0.0.1:18080/healthz >/dev/null; then break; fi
             sleep 2
           done
-          curl --fail --silent --show-error http://127.0.0.1:18080/healthz | python -c 'import json,sys; from pathlib import Path; p=json.load(sys.stdin); assert p["ok"] is True and p["simulator_ready"] is True; assert p["version"]=="5.52.2", p'
+          curl --fail --silent --show-error http://127.0.0.1:18080/healthz | python -c 'import json,sys; from pathlib import Path; p=json.load(sys.stdin); assert p["ok"] is True and p["simulator_ready"] is True; assert p["version"]=="5.52.3", p'
           curl --fail --silent --show-error http://127.0.0.1:18080/vpc-mlag-simulation | grep -q 'Technology Workspace topology'
           curl --fail --silent --show-error http://127.0.0.1:18080/simulation/vendor-failure-engine.mjs | grep -q 'analyzeAccessImpact'
           curl --fail --silent --show-error http://127.0.0.1:18080/synthetic-bgp.js | grep -q 'SyntheticBGP'
