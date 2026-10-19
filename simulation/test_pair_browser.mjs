@@ -9,7 +9,11 @@ for(const vendor of ['Cisco NX-OS','Arista EOS','Huawei_CE_SW','Cisco IOS-XE','H
  await page.goto(base+'/');await page.locator('#v3TechGrid button').filter({has:page.locator('h3',{hasText:'vPC / MLAG'})}).click();await page.locator('#platform').selectOption(vendor);await page.waitForTimeout(100);
  const design=await page.evaluate(()=>window.NetworkWorkspaceProject.prepareWorkspaceSimulation());const peerNames=design.report.devices.filter(n=>n.tier==='upper').slice(0,2).map(n=>n.hostname);
  await page.locator('#topologySimulation button').click();await page.waitForURL('**/network-lab?workspace=1');await page.locator('#wbFailures').click();
- const geometry=await nativeGeometry();
+ if(vendor==='Cisco IOS-XE'){
+  assert.equal(await page.locator('#labMap [data-stackwise-dad][data-lab-links]').count(),1,'DAD is independently drawn and mapped');await page.screenshot({path:'/tmp/stackwise-all-leaf-paths.png'});
+  await run('peer');assert.equal(await page.locator('#pairRestore').textContent(),'Restore scenario');await page.locator('#pairRestore').click();let evidence=await page.locator('#labEvidence').textContent().then(JSON.parse);assert.equal(evidence.failures.links.length,0);assert.equal(evidence.vpc.peerLinkUp,true);assert.equal(evidence.vpc.recoveryWait,true);await page.screenshot({path:'/tmp/stackwise-recovery-action.png'});assert.equal(await page.locator('#pairRestore').textContent(),'Complete recovery (simulation)');await page.locator('#pairRestore').click();evidence=await page.locator('#labEvidence').textContent().then(JSON.parse);assert.equal(evidence.status,'reachable');assert.equal(evidence.vpc.recoveryWait,false);assert.equal(evidence.vpc.roles['upper-2'],'ACTIVE');assert.equal(await page.locator('#labMap .synthetic-flow').count(),design.report.links.length);await run('baseline');
+ }
+ const geometry=await nativeGeometry();for(const link of design.report.links)assert.equal(await page.locator('#labMap [data-lab-link="'+link.id+'"]').getAttribute('data-visual-link-state'),'forwarding',vendor+' all leafs show traffic on healthy members');assert.equal(await page.locator('#labMap [data-leaf-service]').count(),design.report.devices.filter(n=>n.tier==='lower'&&!n.external).length);
  assert.equal(await page.locator('#wbPolicies').isVisible(),false,'No empty generic parameters panel');
  assert.equal(await page.locator('.pair-choice:visible').count(),4,'Four key domain components at the front, not leaf list');
  // Native interconnect/control drawings must select every represented physical link.
@@ -17,7 +21,7 @@ for(const vendor of ['Cisco NX-OS','Arista EOS','Huawei_CE_SW','Cisco IOS-XE','H
   await run('baseline');const line=page.locator('#labMap '+selector).first();
   if(!await line.count())continue;
   const ids=JSON.parse(await line.getAttribute('data-lab-links'));if(!ids.length)continue;
-  await page.locator('#wbCloseInspector').click();await line.click({force:true});
+  await page.locator('#wbCloseInspector').click();const hit=await line.evaluate(el=>{const p=el.getPointAtLength(el.getTotalLength()/2),q=new DOMPoint(p.x,p.y).matrixTransform(el.getScreenCTM());return {x:q.x,y:q.y};});await page.mouse.click(hit.x,hit.y);
   assert.deepEqual(await page.locator('#syntheticLink').evaluate(el=>[...el.selectedOptions].map(o=>o.value)),ids,vendor+' native bundle click selects represented members');
   await page.locator('#pairFail').click();const failed=await record();
   assert.equal(await page.locator('#labMap '+selector).first().getAttribute('data-visual-link-state'),'down',vendor+' selected native line visibly down');
@@ -56,7 +60,7 @@ for(const vendor of ['Cisco NX-OS','Arista EOS','Huawei_CE_SW','Cisco IOS-XE','H
   if(id==='repair-both')assert.equal(s.modelStatus,'reachable');
   if(id==='access-upper-1'){assert.ok(s.currentPath.includes(peerNames[1]));assert.ok(!s.currentPath.includes(peerNames[0]));}
   if(id==='access-upper-2'){assert.ok(s.currentPath.includes(peerNames[0]));assert.ok(!s.currentPath.includes(peerNames[1]));}
-  if(id.startsWith('access-device-')||id==='leaf-device')assert.equal(s.modelStatus,'no-path');
+  if(id.startsWith('access-device-')||id==='leaf-device')assert.equal(s.modelStatus,'no-path');if(id==='leaf-device'){assert.ok(await page.locator('#labMap [data-leaf-service][data-service-state="available"]').count()>0,'Other leafs retain their own service paths');assert.match(s.topologySvg,/PARTIAL LEAF SERVICE LOSS/);assert.ok(s.syntheticOutputs.en[0].rows.some(row=>row[2]!=='0'),'Report preserves surviving leaf traffic');}
   if(id==='peer-return'&&vendor!=='Arista EOS'){assert.ok(await page.locator('#pairRecovery').isVisible());await page.locator('#pairRecovery').click();assert.equal((await record()).modelStatus,'reachable');}
   if(id==='pair-restart'&&vendor==='Arista EOS'){assert.equal(s.modelStatus,'no-path');await page.locator('#pairRecovery').click();assert.equal((await record()).modelStatus,'reachable');}
  }

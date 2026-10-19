@@ -60,7 +60,14 @@ class SyntheticOutput(BaseModel):
         if any(len(row)!=len(self.columns) for row in self.rows): raise ValueError('Synthetic output rows must match the column count.')
         return self
 
+class SyntheticCli(BaseModel):
+    device: Short
+    command: str = Field(max_length=300, pattern=r'^(show|display|get|diagnose)\s')
+    deviceAvailable: bool
+    output: str = Field(max_length=16000)
+
 class SimulationScenario(BaseModel):
+    syntheticCli: list[SyntheticCli] = Field(default_factory=list, max_length=3)
     evidenceVersion: int = Field(default=0, ge=0, le=1)
     pathAvailable: bool | None = None
     forwardingAssurance: Literal['modeled', 'unverified'] | None = None
@@ -141,7 +148,7 @@ def _matrix(doc, title, headers, rows):
     _format_table(table)
 
 def _metric(value, tr):
-    labels={'Selected modeled paths':'Seçilen model yolları','Eligible BGP paths':'Uygun BGP yolları','Usable upstream exits':'Kullanılabilir üst ağ çıkışları','Available eBGP adjacencies':'Kullanılabilir eBGP komşulukları','Available iBGP adjacencies':'Kullanılabilir iBGP komşulukları','Unavailable connections':'Kullanılamayan bağlantılar','Failed devices':'Arızalı cihazlar','Explicitly disabled connections':'Devre dışı bırakılan bağlantılar','paths':'yol','upstreams':'üst ağ','sessions':'komşuluk','connections':'bağlantı','devices':'cihaz','device':'cihaz','connection':'bağlantı','AVAILABLE IN DESIGN':'TASARIMDA KULLANILABİLİR','DOWN':'ARIZALI'}
+    labels={'Selected leaf service attachments':'Seçilen leaf hizmet bağlantıları','Unavailable physical connections':'Kullanılamayan fiziksel bağlantılar','Unavailable logical connections':'Kullanılamayan mantıksal bağlantılar','STP tree roots':'STP root sayısı','STP blocked connections':'STP bloklu bağlantıları','Selected OSPF path cost':'Seçilen OSPF yol maliyeti','Available logical sessions':'Kullanılabilir mantıksal oturumlar','Offered traffic':'Sunulan trafik','Modeled admitted traffic':'Modelde kabul edilen trafik','Configured policy limit':'Yapılandırılmış politika sınırı','Unserved modeled demand':'Modelde karşılanamayan talep','Available WAN transports':'Kullanılabilir WAN taşıyıcıları','Available management connections':'Kullanılabilir yönetim bağlantıları','Leafs with modeled service':'Modelde hizmet yolu bulunan leaf','Interconnect members':'Ara bağlantı üyeleri','Protected service connections':'Korumaya alınan hizmet bağlantıları','Forwarding assurance':'İletim durumu','roots':'root','cost':'maliyet','transports':'taşıyıcı','leafs':'leaf','members':'üye','Selected modeled paths':'Seçilen model yolları','Eligible BGP paths':'Uygun BGP yolları','Usable upstream exits':'Kullanılabilir üst ağ çıkışları','Available eBGP adjacencies':'Kullanılabilir eBGP komşulukları','Available iBGP adjacencies':'Kullanılabilir iBGP komşulukları','Unavailable connections':'Kullanılamayan bağlantılar','Failed devices':'Arızalı cihazlar','Explicitly disabled connections':'Devre dışı bırakılan bağlantılar','paths':'yol','upstreams':'üst ağ','sessions':'komşuluk','connections':'bağlantı','devices':'cihaz','device':'cihaz','connection':'bağlantı','AVAILABLE IN DESIGN':'TASARIMDA KULLANILABİLİR','DOWN':'ARIZALI'}
     return labels.get(value,value) if tr else value
 
 def _assessment(doc, s, tr):
@@ -151,18 +158,28 @@ def _assessment(doc, s, tr):
     doc.add_paragraph(a['summary'])
     bgp=not s.get('module') or s.get('module')=='BGP'
     outputs=s.get('syntheticOutputs',{}).get('tr' if tr else 'en',[])
-    rich=bool(outputs)
+    cli=s.get('syntheticCli',[])
+    rich=bool(outputs or cli)
+    if cli: outputs=[x for x in outputs if x['query'] in ['model.bgp.routes','model.pair.leaves','model.endpoint.paths']]
     _matrix(doc,'Karşılaştırmalı göstergeler' if tr else 'Comparative metrics',
             ['Gösterge','Başlangıç','Senaryo','Birim'] if tr else ['Metric','Baseline','Scenario','Unit'],
             [[_metric('Selected modeled paths' if bgp and not rich and k=='metric' and x[k]=='Available modeled paths' else x[k],tr) for k in ['metric','baseline','current','unit']] for x in s.get('metrics',[])])
     _matrix(doc,'Bileşenlerin önce ve sonra durumu' if tr else 'Component state before and after',
             ['Bileşen','Tür','Başlangıç','Senaryo','Ayrıntı'] if tr else ['Component','Type','Baseline','Scenario','Detail'],
-            [[_metric(x[k],tr) for k in ['component','type','baseline','current','detail']] for x in s.get('componentStates',[]) if not rich or any(word in x['current'] for word in ['DOWN','BLOCKED','UNVERIFIED','RECOVERY'])])
+            [[_metric(x[k],tr) for k in ['component','type','baseline','current','detail']] for x in s.get('componentStates',[]) if not rich or any(word in x['current'] for word in ['DOWN','BLOCKED','UNVERIFIED','RECOVERY']) or x['baseline']!=x['current'] and any(word in x['baseline']+' '+x['current'] for word in ['PRIMARY','SECONDARY','ACTIVE','STANDBY','MASTER','BACKUP','ROOT'])])
     _matrix(doc,'Tasarım ve senaryo parametreleri' if tr else 'Design and scenario parameters',
             ['Parametre','Tasarım','Senaryo','Gerekçe'] if tr else ['Parameter','Design','Scenario','Reason'],
             [[x[k] for k in ['parameter','baseline','current','reason']] for x in s.get('parameterChanges',[]) if not rich or x['baseline']!=x['current']])
+    if cli:
+        doc.add_heading('Sentetik show çıktıları' if tr else 'Synthetic show outputs',level=3)
+        doc.add_paragraph('Vendor komut biçimiyle sunulan model alanları; anlık cihaz CLI kaydı değildir.' if tr else 'Model fields presented with vendor command names; not a captured device CLI transcript.')
+        for item in cli:
+            doc.add_heading(item['device']+' · '+item['command'],level=3)
+            prompt='<'+item['device']+'>' if item['command'].startswith('display ') else item['device']+'#'
+            paragraph=doc.add_paragraph()
+            run=paragraph.add_run(prompt+' '+item['command']+'\n'+item['output']);run.font.name='Consolas';run.font.size=Pt(8)
     if outputs:
-        doc.add_heading('Sentetik BGP çıktıları' if tr else 'Synthetic BGP outputs',level=3)
+        doc.add_heading(('Sentetik BGP çıktıları' if tr else 'Synthetic BGP outputs') if bgp else ('Modüle özel sonuçlar' if tr else 'Module-specific results'),level=3)
         for output in outputs: _matrix(doc,output['title'],output['columns'],output['rows'])
     omitted={'Verification procedure','Scope and evidence limitations','Doğrulama prosedürü','Kapsam ve kanıt sınırları','Scenario objective','Baseline and design context','Applied events and parameters','Observed model behavior','Senaryonun amacı','Başlangıç ve tasarım bağlamı','Uygulanan olaylar ve parametreler','Gözlenen model davranışı'}
     for section in a.get('sections',[]):
@@ -172,10 +189,10 @@ def _assessment(doc, s, tr):
             if not paragraph.startswith(('No packet-loss percentage','Bu senaryoda ölçülmüş trafik kanıtı')):doc.add_paragraph(paragraph)
     _matrix(doc,'Kontrol ölçütleri ve kanıt durumu' if tr else 'Verification criteria and evidence status',
             ['Ölçüt','Beklenen','Kanıt durumu'] if tr else ['Criterion','Expected','Evidence status'],
-            [[x[k] for k in ['criterion','expected','status']] for x in ([] if bgp else a.get('checks',[]))])
+            [[x[k] for k in ['criterion','expected','status']] for x in ([] if bgp or rich else a.get('checks',[]))])
     _matrix(doc,'Doğrulama komut planı' if tr else 'Verification command plan',
             ['Komut','Amaç','Yürütme'] if tr else ['Command','Purpose','Execution'],
-            [[x[k] for k in ['command','purpose','execution']] for x in ([] if bgp else a.get('commands',[]))])
+            [[x[k] for k in ['command','purpose','execution']] for x in ([] if bgp or rich else a.get('commands',[]))])
     for ref in a.get('references',[]): doc.add_paragraph(ref['title']+' — '+ref['url'])
 
 def append_simulation_scenarios(doc, scenarios, language='en'):
