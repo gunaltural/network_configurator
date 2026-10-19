@@ -15,3 +15,7 @@ Per-module scenarios are preserved without reconstructing historical evidence. C
 ## Verification
 
 `test_project_workflow_browser.mjs` covers chooser cancellation, upfront multi-module selection, fresh defaults/identity, per-module inventory → simulation → report, scenario isolation, combined Word export, reload, full-project working-copy restore and archive rekeying, and independent OSPF simulation followed by recovery of the previous project. Existing workspace, project identity/library/roundtrip, reporting and simulation suites remain regression checks.
+
+### 5.52.1 navigation and chooser correction
+
+The simulation workflow bar and topology toolbar both expose **Open module report**. For a guided project, this action records the current valid simulation state if no snapshot exists, then transfers evidence through the existing simulator report handoff. Independent simulations keep their optional report export behavior. Technology selection uses fixed checkbox/name columns and a vendor column on desktop; vendor selection moves below the name on narrow screens.
