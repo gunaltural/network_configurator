@@ -50,7 +50,7 @@ jobs:
           node --check synthetic-bgp.js
           python -m py_compile app.py network_lab.py
       - name: Simulation engine and UI regression
-        run: node --test simulation/test_audit_regressions.mjs simulation/vendor-failure-engine.test.mjs simulation/test_bgp_end_to_end.mjs simulation/test_mlag_ui.mjs
+        run: node --test simulation/test_audit_regressions.mjs simulation/test_bgp_report.mjs simulation/vendor-failure-engine.test.mjs simulation/test_bgp_end_to_end.mjs simulation/test_mlag_ui.mjs
       - name: Preserved BGP client simulation and report API
         env:
           AUTH_ENABLED: '0'
@@ -107,7 +107,7 @@ jobs:
             if curl --fail --silent http://127.0.0.1:18080/healthz >/dev/null; then break; fi
             sleep 2
           done
-          curl --fail --silent --show-error http://127.0.0.1:18080/healthz | python -c 'import json,sys; from pathlib import Path; p=json.load(sys.stdin); assert p["ok"] is True and p["simulator_ready"] is True; assert p["version"]=="5.48.1", p'
+          curl --fail --silent --show-error http://127.0.0.1:18080/healthz | python -c 'import json,sys; from pathlib import Path; p=json.load(sys.stdin); assert p["ok"] is True and p["simulator_ready"] is True; assert p["version"]=="5.49.0", p'
           curl --fail --silent --show-error http://127.0.0.1:18080/vpc-mlag-simulation | grep -q 'Technology Workspace topology'
           curl --fail --silent --show-error http://127.0.0.1:18080/simulation/vendor-failure-engine.mjs | grep -q 'analyzeAccessImpact'
           curl --fail --silent --show-error http://127.0.0.1:18080/synthetic-bgp.js | grep -q 'SyntheticBGP'
