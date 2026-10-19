@@ -19,3 +19,5 @@ Per-module scenarios are preserved without reconstructing historical evidence. C
 ### 5.52.1 navigation and chooser correction
 
 The simulation workflow bar and topology toolbar both expose **Open module report**. For a guided project, this action records the current valid simulation state if no snapshot exists, then transfers evidence through the existing simulator report handoff. Independent simulations keep their optional report export behavior. Technology selection uses fixed checkbox/name columns and a vendor column on desktop; vendor selection moves below the name on narrow screens.
+
+Guided projects hide the design canvas Test in Simulation shortcut: simulation is entered through Continue to simulation after inventory. Standalone and legacy design workspaces retain their direct simulation entry. The native transfer handler remains shared by the ordered flow.
