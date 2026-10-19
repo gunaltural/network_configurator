@@ -111,16 +111,17 @@ class SimulationExport(BaseModel):
 
 def _format_table(table):
     # Keep compact evidence blocks together; allow large inventories to paginate.
-    compact = len(table.rows) <= 10
+    compact = len(table.rows) <= 6
     for index, row in enumerate(table.rows):
         row._tr.get_or_add_trPr().append(OxmlElement('w:cantSplit'))
         for cell in row.cells:
             margins=OxmlElement('w:tcMar')
             for side in ['top','bottom','left','right']:
-                item=OxmlElement('w:'+side);item.set(qn('w:w'),'75');item.set(qn('w:type'),'dxa');margins.append(item)
+                item=OxmlElement('w:'+side);item.set(qn('w:w'),'55');item.set(qn('w:type'),'dxa');margins.append(item)
             cell._tc.get_or_add_tcPr().append(margins)
             for paragraph in cell.paragraphs:
                 paragraph.paragraph_format.space_after=Pt(2)
+                for run in paragraph.runs: run.font.size=Pt(9)
                 paragraph.paragraph_format.keep_with_next=compact and index < len(table.rows)-1
 
 def _table(doc, rows):
@@ -177,6 +178,7 @@ def _assessment(doc, s, tr):
             doc.add_heading(item['device']+' · '+item['command'],level=3)
             prompt='<'+item['device']+'>' if item['command'].startswith('display ') else item['device']+'#'
             paragraph=doc.add_paragraph()
+            paragraph.paragraph_format.keep_together=True
             run=paragraph.add_run(prompt+' '+item['command']+'\n'+item['output']);run.font.name='Consolas';run.font.size=Pt(8)
     if outputs:
         doc.add_heading(('Sentetik BGP çıktıları' if tr else 'Synthetic BGP outputs') if bgp else ('Modüle özel sonuçlar' if tr else 'Module-specific results'),level=3)
