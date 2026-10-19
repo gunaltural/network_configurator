@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Network Configurator v5.48.1</title>
+<title>Network Configurator v5.49.0</title>
 <style>
 :root{
   --bg:#0d1117;--panel:#161b22;--panel2:#1f2630;--line:#2b3440;
@@ -414,7 +414,7 @@ body.nc-simulation-action{padding-bottom:145px}body.nc-simulation-action #topolo
     <div class="logo">NC</div>
     <div><h1>Network Configurator</h1><small>Configure · Validate · Troubleshoot</small></div>
   </div>
-  <div class="badge">Version 5.48.1 · Simulation</div>
+  <div class="badge">Version 5.49.0 · Simulation</div>
 </header>
 
 <div class="layout">
@@ -2167,12 +2167,12 @@ function syncTopology(){
     const label=(side,n,x,y,port,ip)=>{const detailed=edges.length<=8||c('bgpAllDetails')||k===bgpSelectedConnectionId,parts=[...(detailed&&c('bgpShowPorts')?[port]:[]),...(detailed&&c('bgpShowIps')?[ip]:[])];if(!parts.length)return '';const left=n%2===0,tx=x+(left?-69:69),anchor=left?'end':'start',ly=y+(Math.floor(n/2)*28);return `<text data-bgp-endpoint="${side}" x="${tx}" y="${ly}" text-anchor="${anchor}" fill="#45667c" font-family="Arial,sans-serif" font-size="9">${parts.map((part,j)=>`<tspan x="${tx}" dy="${j?11:0}">${esc(part)}</tspan>`).join('')}</text>`;};
     return `<g data-bgp-connection="${k}" style="cursor:pointer"><title>${esc(l.name+' · '+l.ceIf+' '+l.ceIp+' ↔ '+l.ispIf+' '+l.ispIp)}</title><path class="bgp-hit-target" d="${path}" fill="none" stroke="transparent" stroke-width="16" pointer-events="stroke"/><path class="bgp-link-halo" d="${path}" style="stroke:#edf5fa;stroke-width:7;fill:none;pointer-events:none"/><path d="${path}" style="stroke:#2fa8ff;stroke-width:2.2;fill:none"/><circle cx="${sx}" cy="126" r="2.5" fill="#2fa8ff"/><circle cx="${ex}" cy="318" r="2.5" fill="#2fa8ff"/>${label('remote',ra,ix[i],144,l.ispIf,l.ispIp)}${label('local',rb,cx[ceIndex],294-Math.floor(rb/2)*56,l.ceIf,l.ceIp)}</g>`;}).join('')}
 
-   ${internal==="ibgp"&&ceN===2?`<line x1="${cx[0]+68}" y1="348" x2="${cx[1]-68}" y2="348" style="stroke:#8065a8;stroke-width:2.6;stroke-dasharray:7 5;fill:none"/><rect x="400" y="331" width="150" height="22" rx="7" fill="#f3f0f8" stroke="#8065a8"/><text x="475" y="346" text-anchor="middle" style="fill:#8065a8;font-size:11px;font-weight:800">iBGP · CE-TO-CE</text>`:internal==="ibgp"&&ceN>2?`<line x1="${cx[0]}" y1="410" x2="${cx[ceN-1]}" y2="410" style="stroke:#8065a8;stroke-width:2.2;stroke-dasharray:7 5;fill:none"/>${cx.map(x=>`<line x1="${x}" y1="378" x2="${x}" y2="410" style="stroke:#8065a8;stroke-width:1.8;stroke-dasharray:5 4;fill:none"/>`).join("")}<text x="475" y="432" text-anchor="middle" style="fill:#8065a8;font-size:11px;font-weight:800">iBGP LOGICAL FULL-MESH</text>`:""}
-   ${internal==="ibgp"&&ceN===2?`<path data-bgp-interconnect="true" d="M ${cx[0]} 378 V 398 H ${cx[1]} V 378" fill="none" stroke="#93b4c8" stroke-width="2"/><text x="475" y="416" text-anchor="middle" class="vpc-small">CE interconnect · ${esc(v("bgpIbgpCe1If"))} ↔ ${esc(v("bgpIbgpCe2If"))}</text>`:""}
+   ${internal==="ibgp"&&ceN===2?`<line data-bgp-ibgp-session="true" x1="${cx[0]+68}" y1="348" x2="${cx[1]-68}" y2="348" style="stroke:#8065a8;stroke-width:2.6;stroke-dasharray:7 5;fill:none"/><rect x="400" y="331" width="150" height="22" rx="7" fill="#f3f0f8" stroke="#8065a8"/><text data-bgp-ibgp-label="true" x="475" y="346" text-anchor="middle" style="fill:#8065a8;font-size:11px;font-weight:800">iBGP · CE-TO-CE</text>`:internal==="ibgp"&&ceN>2?`<line x1="${cx[0]}" y1="410" x2="${cx[ceN-1]}" y2="410" style="stroke:#8065a8;stroke-width:2.2;stroke-dasharray:7 5;fill:none"/>${cx.map(x=>`<line x1="${x}" y1="378" x2="${x}" y2="410" style="stroke:#8065a8;stroke-width:1.8;stroke-dasharray:5 4;fill:none"/>`).join("")}<text x="475" y="432" text-anchor="middle" style="fill:#8065a8;font-size:11px;font-weight:800">iBGP LOGICAL FULL-MESH</text>`:""}
+   ${internal==="ibgp"&&ceN===2?`<path data-bgp-interconnect="true" d="M ${cx[0]} 378 V 398 H ${cx[1]} V 378" fill="none" stroke="#93b4c8" stroke-width="2"/><text x="475" y="416" text-anchor="middle" class="vpc-small">CE interconnect · ${esc(v("bgpIbgpCe1If"))} ${esc(v("bgpIbgpCe1Ip"))} ↔ ${esc(v("bgpIbgpCe2If"))} ${esc(v("bgpIbgpCe2Ip"))}</text>`:""}
    ${isps.map((o,i)=>bgpActiveUpstreams().includes(i)?`<g data-bgp-device="isp${i+1}"><rect x="${ix[i]-62}" y="66" width="124" height="60" rx="12" style="fill:url(#bgpNodeGrad);stroke:#4fb7f3;stroke-width:1.5"/><text x="${ix[i]}" y="92" text-anchor="middle" class="vpc-device-name">${esc(o.name)}</text><text x="${ix[i]}" y="111" text-anchor="middle" class="vpc-small">AS ${esc(o.asn)}</text></g>`:"").join("")}
    ${ces.map((o,i)=>`<g data-bgp-device="ce${i+1}"><rect x="${cx[i]-55}" y="318" width="110" height="60" rx="10" style="fill:url(#bgpNodeGrad);stroke:#4fb7f3;stroke-width:1.5"/><text x="${cx[i]}" y="345" text-anchor="middle" class="vpc-device-name">${esc(o.name)}</text><text x="${cx[i]}" y="364" text-anchor="middle" class="vpc-small">AS ${esc(v("bgpCustomerAs")||"65001")}</text></g>`).join("")}
    ${c('bgpShowContext')&&window.SyntheticBGP?.contextSvg?window.SyntheticBGP.contextSvg({ispXs:Object.values(ix),ispIds:Object.keys(ix).map(i=>'isp'+(+i+1)),ceXs:cx}):''}
-   <text x="475" y="450" text-anchor="middle" class="vpc-small">${edges.length} eBGP adjacencies · ${internal==="ibgp"?(ceN*(ceN-1)/2)+" iBGP sessions":"iBGP disabled"}</text>
+   <text data-bgp-session-counts="true" x="475" y="450" text-anchor="middle" class="vpc-small">${edges.length} eBGP adjacencies · ${internal==="ibgp"?(ceN*(ceN-1)/2)+" iBGP sessions":"iBGP disabled"}</text>
    </svg></div>`;
    area.querySelectorAll('[data-bgp-connection],[data-bgp-label]').forEach(line=>{const id=+(line.dataset.bgpConnection||line.dataset.bgpLabel);line.setAttribute('tabindex','0');line.setAttribute('role','button');line.setAttribute('aria-label','Select '+bgpConnectionName(id));line.onclick=()=>bgpHighlightConnection(id,true);line.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();bgpHighlightConnection(id,true);}};});bgpHighlightConnection(bgpSelectedConnectionId);return;
  }
@@ -6545,8 +6545,8 @@ function bgpLabDesign(){
  if(+v("bgpCeCount")!==2||+v("bgpIspCount")!==2||bgpEdges().length!==4)throw Error("The first lab release requires two CE routers, two upstream routers and four external links. Your design is unchanged.");
  const nodes=[0,1].map(i=>({id:'ce'+(i+1),hostname:bgpCe(i).name,asn:+v('bgpCustomerAs'),prefix:bgpCe(i).prefix})).concat([0,1].map(i=>({id:'isp'+(i+1),hostname:bgpIsp(i).name,asn:+bgpIsp(i).asn,prefix:'198.18.255.1/32'})));
  const preferred=+v('bgpTeOutboundPreferredIsp'),enabled=c('bgpTeOutboundEnable')&&c('bgpTeLocalPref');
- const links=bgpEdges().map(([ce,up,id])=>{const l=bgpLink(ce,up,id);return{id:'wan'+id,a:'ce'+(ce+1),b:'isp'+(up+1),aIp:l.ceIp,bIp:l.ispIp,localPreference:enabled?+(v(id===preferred?'bgpTeLocalPrefValue':'bgpTeBackupLocalPref')||100):100,prependCount:c('bgpTeInboundEnable')&&c('bgpTePrepend')&&id!==+v('bgpTeInboundPreferredIsp')?Math.max(1,+v('bgpTePrependCount')||3):0};});
- if(v('bgpInternal')==='ibgp')links.push({id:'interconnect',a:'ce1',b:'ce2',aIp:v('bgpIbgpCe1Ip'),bIp:v('bgpIbgpCe2Ip'),localPreference:100});
+ const links=bgpEdges().map(([ce,up,id])=>{const l=bgpLink(ce,up,id);return{id:'wan'+id,a:'ce'+(ce+1),b:'isp'+(up+1),aIp:l.ceIp,bIp:l.ispIp,aPort:l.ceIf,bPort:l.ispIf,localPreference:enabled?+(v(id===preferred?'bgpTeLocalPrefValue':'bgpTeBackupLocalPref')||100):100,prependCount:c('bgpTeInboundEnable')&&c('bgpTePrepend')&&id!==+v('bgpTeInboundPreferredIsp')?Math.max(1,+v('bgpTePrependCount')||3):0};});
+ if(v('bgpInternal')==='ibgp')links.push({id:'interconnect',a:'ce1',b:'ce2',aIp:v('bgpIbgpCe1Ip'),bIp:v('bgpIbgpCe2Ip'),aPort:v('bgpIbgpCe1If'),bPort:v('bgpIbgpCe2If'),localPreference:100});
  return {name:'bgp-pilot',image:'quay.io/frrouting/frr:10.7.1',source:'BGP workspace · '+platform()+' · protocol subset',nodes,links,failureLink:links[0].id};
 }
 function prepareSimulation(){
@@ -6571,8 +6571,8 @@ function prepareWorkspaceSimulation(){
   const nodes=Array.from({length:+v('bgpCeCount')||2},(_,i)=>({id:'ce'+(i+1),hostname:bgpCe(i).name,asn:+v('bgpCustomerAs'),prefix:bgpCe(i).prefix}));
   for(const i of bgpActiveUpstreams())nodes.push({id:'isp'+(i+1),hostname:bgpIsp(i).name,asn:+bgpIsp(i).asn,prefix:'198.18.255.1/32'});
   const preferred=+v('bgpTeOutboundPreferredIsp'),enabled=c('bgpTeOutboundEnable')&&c('bgpTeLocalPref');
-  const links=bgpEdges().map(([ce,up,id])=>({id:'wan'+id,a:'ce'+(ce+1),b:'isp'+(up+1),localPreference:enabled?+(v(id===preferred?'bgpTeLocalPrefValue':'bgpTeBackupLocalPref')||100):100,prependCount:c('bgpTeInboundEnable')&&c('bgpTePrepend')&&id!==+v('bgpTeInboundPreferredIsp')?Math.max(1,+v('bgpTePrependCount')||3):0}));
-  if(v('bgpInternal')==='ibgp'&&+v('bgpCeCount')===2)links.push({id:'interconnect',a:'ce1',b:'ce2',localPreference:100});
+  const links=bgpEdges().map(([ce,up,id])=>({id:'wan'+id,a:'ce'+(ce+1),b:'isp'+(up+1),aIp:bgpLink(ce,up,id).ceIp,bIp:bgpLink(ce,up,id).ispIp,aPort:bgpLink(ce,up,id).ceIf,bPort:bgpLink(ce,up,id).ispIf,localPreference:enabled?+(v(id===preferred?'bgpTeLocalPrefValue':'bgpTeBackupLocalPref')||100):100,prependCount:c('bgpTeInboundEnable')&&c('bgpTePrepend')&&id!==+v('bgpTeInboundPreferredIsp')?Math.max(1,+v('bgpTePrependCount')||3):0}));
+  if(v('bgpInternal')==='ibgp'&&+v('bgpCeCount')===2)links.push({id:'interconnect',a:'ce1',b:'ce2',aIp:v('bgpIbgpCe1Ip'),bIp:v('bgpIbgpCe2Ip'),aPort:v('bgpIbgpCe1If'),bPort:v('bgpIbgpCe2If'),localPreference:100});
   const idMap=new Map(report.devices.map(d=>[d.id,nodes.find(n=>n.hostname===d.hostname)?.id||d.id]));
   report.configurations=report.configurations.map(c=>({...c,deviceId:idMap.get(c.deviceId)||c.deviceId}));
   for(const l of links){const original=report.links.find(x=>x.id==='bgp-connection-'+l.id.replace('wan',''));if(original)Object.assign(l,{upperPort:original.upperPort,lowerPort:original.lowerPort});}

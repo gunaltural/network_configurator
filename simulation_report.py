@@ -2,10 +2,11 @@
 import base64
 from io import BytesIO
 from typing import Annotated, Literal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from docx import Document
 from docx.shared import Inches, Pt
 from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
 from PIL import Image
 
 Short = Annotated[str, Field(max_length=300)]
@@ -49,10 +50,21 @@ class ScenarioAssessment(BaseModel):
     checks: list[AssessmentCheck] = Field(default_factory=list, max_length=16)
     commands: list[AssessmentCommand] = Field(default_factory=list, max_length=40)
     references: list[AssessmentReference] = Field(default_factory=list, max_length=8)
+class SyntheticOutput(BaseModel):
+    query: Short
+    title: Short
+    columns: list[Short] = Field(min_length=1, max_length=10)
+    rows: list[list[Short]] = Field(default_factory=list, max_length=128)
+    @model_validator(mode='after')
+    def matching_columns(self):
+        if any(len(row)!=len(self.columns) for row in self.rows): raise ValueError('Synthetic output rows must match the column count.')
+        return self
+
 class SimulationScenario(BaseModel):
     evidenceVersion: int = Field(default=0, ge=0, le=1)
     pathAvailable: bool | None = None
     forwardingAssurance: Literal['modeled', 'unverified'] | None = None
+    syntheticOutputs: dict[Literal['en', 'tr'], Annotated[list[SyntheticOutput], Field(max_length=3)]] = Field(default_factory=dict)
     componentStates: list[ComponentState] = Field(default_factory=list, max_length=1024)
     parameterChanges: list[ParameterChange] = Field(default_factory=list, max_length=256)
     metrics: list[ScenarioMetric] = Field(default_factory=list, max_length=32)
@@ -90,12 +102,27 @@ class SimulationExport(BaseModel):
     language: Literal['en', 'tr'] = 'en'
     scenarios: list[SimulationScenario] = Field(min_length=1, max_length=40)
 
+def _format_table(table):
+    # Keep compact evidence blocks together; allow large inventories to paginate.
+    compact = len(table.rows) <= 10
+    for index, row in enumerate(table.rows):
+        row._tr.get_or_add_trPr().append(OxmlElement('w:cantSplit'))
+        for cell in row.cells:
+            margins=OxmlElement('w:tcMar')
+            for side in ['top','bottom','left','right']:
+                item=OxmlElement('w:'+side);item.set(qn('w:w'),'75');item.set(qn('w:type'),'dxa');margins.append(item)
+            cell._tc.get_or_add_tcPr().append(margins)
+            for paragraph in cell.paragraphs:
+                paragraph.paragraph_format.space_after=Pt(2)
+                paragraph.paragraph_format.keep_with_next=compact and index < len(table.rows)-1
+
 def _table(doc, rows):
     table = doc.add_table(rows=0, cols=2)
     table.style = 'Light Shading Accent 1'
     for label, value in rows:
         cells = table.add_row().cells
         cells[0].text, cells[1].text = str(label), str(value)
+    _format_table(table)
     doc.add_paragraph()
 
 def _path(value, tr):
@@ -111,41 +138,53 @@ def _matrix(doc, title, headers, rows):
     for cell, value in zip(table.rows[0].cells, headers): cell.text=str(value)
     for values in rows:
         for cell, value in zip(table.add_row().cells, values): cell.text=str(value)
+    _format_table(table)
+
+def _metric(value, tr):
+    labels={'Selected modeled paths':'Seçilen model yolları','Eligible BGP paths':'Uygun BGP yolları','Usable upstream exits':'Kullanılabilir üst ağ çıkışları','Available eBGP adjacencies':'Kullanılabilir eBGP komşulukları','Available iBGP adjacencies':'Kullanılabilir iBGP komşulukları','Unavailable connections':'Kullanılamayan bağlantılar','Failed devices':'Arızalı cihazlar','Explicitly disabled connections':'Devre dışı bırakılan bağlantılar','paths':'yol','upstreams':'üst ağ','sessions':'komşuluk','connections':'bağlantı','devices':'cihaz','device':'cihaz','connection':'bağlantı','AVAILABLE IN DESIGN':'TASARIMDA KULLANILABİLİR','DOWN':'ARIZALI'}
+    return labels.get(value,value) if tr else value
 
 def _assessment(doc, s, tr):
     a=s.get('assessment',{}).get('tr' if tr else 'en')
     if not a: return
     doc.add_heading('Senaryo değerlendirmesi' if tr else 'Scenario assessment',level=3)
     doc.add_paragraph(a['summary'])
+    bgp=not s.get('module') or s.get('module')=='BGP'
+    outputs=s.get('syntheticOutputs',{}).get('tr' if tr else 'en',[])
+    rich=bool(outputs)
     _matrix(doc,'Karşılaştırmalı göstergeler' if tr else 'Comparative metrics',
             ['Gösterge','Başlangıç','Senaryo','Birim'] if tr else ['Metric','Baseline','Scenario','Unit'],
-            [[x[k] for k in ['metric','baseline','current','unit']] for x in s.get('metrics',[])])
+            [[_metric('Selected modeled paths' if bgp and not rich and k=='metric' and x[k]=='Available modeled paths' else x[k],tr) for k in ['metric','baseline','current','unit']] for x in s.get('metrics',[])])
     _matrix(doc,'Bileşenlerin önce ve sonra durumu' if tr else 'Component state before and after',
             ['Bileşen','Tür','Başlangıç','Senaryo','Ayrıntı'] if tr else ['Component','Type','Baseline','Scenario','Detail'],
-            [[x[k] for k in ['component','type','baseline','current','detail']] for x in s.get('componentStates',[])])
+            [[_metric(x[k],tr) for k in ['component','type','baseline','current','detail']] for x in s.get('componentStates',[]) if not rich or any(word in x['current'] for word in ['DOWN','BLOCKED','UNVERIFIED','RECOVERY'])])
     _matrix(doc,'Tasarım ve senaryo parametreleri' if tr else 'Design and scenario parameters',
             ['Parametre','Tasarım','Senaryo','Gerekçe'] if tr else ['Parameter','Design','Scenario','Reason'],
-            [[x[k] for k in ['parameter','baseline','current','reason']] for x in s.get('parameterChanges',[])])
-    omitted={'Scenario objective','Baseline and design context','Applied events and parameters','Observed model behavior','Senaryonun amacı','Başlangıç ve tasarım bağlamı','Uygulanan olaylar ve parametreler','Gözlenen model davranışı'}
+            [[x[k] for k in ['parameter','baseline','current','reason']] for x in s.get('parameterChanges',[]) if not rich or x['baseline']!=x['current']])
+    if outputs:
+        doc.add_heading('Sentetik BGP çıktıları' if tr else 'Synthetic BGP outputs',level=3)
+        for output in outputs: _matrix(doc,output['title'],output['columns'],output['rows'])
+    omitted={'Verification procedure','Scope and evidence limitations','Doğrulama prosedürü','Kapsam ve kanıt sınırları','Scenario objective','Baseline and design context','Applied events and parameters','Observed model behavior','Senaryonun amacı','Başlangıç ve tasarım bağlamı','Uygulanan olaylar ve parametreler','Gözlenen model davranışı'}
     for section in a.get('sections',[]):
         if section['title'] in omitted: continue
         doc.add_heading(section['title'],level=3)
-        for paragraph in section['paragraphs']: doc.add_paragraph(paragraph)
+        for paragraph in section['paragraphs']:
+            if not paragraph.startswith(('No packet-loss percentage','Bu senaryoda ölçülmüş trafik kanıtı')):doc.add_paragraph(paragraph)
     _matrix(doc,'Kontrol ölçütleri ve kanıt durumu' if tr else 'Verification criteria and evidence status',
             ['Ölçüt','Beklenen','Kanıt durumu'] if tr else ['Criterion','Expected','Evidence status'],
-            [[x[k] for k in ['criterion','expected','status']] for x in a.get('checks',[])])
+            [[x[k] for k in ['criterion','expected','status']] for x in ([] if bgp else a.get('checks',[]))])
     _matrix(doc,'Doğrulama komut planı' if tr else 'Verification command plan',
             ['Komut','Amaç','Yürütme'] if tr else ['Command','Purpose','Execution'],
-            [[x[k] for k in ['command','purpose','execution']] for x in a.get('commands',[])])
+            [[x[k] for k in ['command','purpose','execution']] for x in ([] if bgp else a.get('commands',[]))])
     for ref in a.get('references',[]): doc.add_paragraph(ref['title']+' — '+ref['url'])
 
 def append_simulation_scenarios(doc, scenarios, language='en'):
     if not scenarios: return
     tr = language == 'tr'
     doc.add_heading('Simülasyon ve failover senaryoları' if tr else 'Simulation and failover scenarios', level=1)
-    doc.add_paragraph('Sentetik model sonuçlarıdır; gerçek cihaz, paket, kayıp veya yakınsama süresi ölçümü ve üretim kabul kanıtı değildir.' if tr else 'Synthetic model results; no real devices, packets, loss or convergence times are measured. These scenarios are not production acceptance evidence.')
+    doc.add_paragraph('Sentetik senaryo analizi · Tasarım ve arıza modelinden üretilmiştir.' if tr else 'Synthetic model results · Generated from the design and failure model.')
     if any(not (s.model_dump() if isinstance(s, BaseModel) else s).get("module") for s in scenarios):
-        doc.add_paragraph('Her iki CE ortak istemci LAN’ına doğrudan bağlıdır. VRRP istemci çıkış ağ geçidini seçer; gelen trafik BGP politikasına göre yedek CE’den de geçebilir. Aktif CE arızasında sağlıklı yedek devralır; tercih edilen CE geri geldiğinde tekrar aktif olur. WAN izleme ve zamanlayıcılar modellenmez. Internet bulutu seçilen ISP sınırını gösterir; sağlayıcı transit ağı veya Internet genelinde yol seçimi modellenmez. ISP politikası prepend etkisini değiştirebilir.' if tr else 'Both CEs directly attach to the shared client LAN. VRRP selects the client outbound gateway; inbound BGP traffic may enter through the backup CE. Device failure promotes the healthy backup and restoration preempts to the preferred CE. WAN tracking and timers are not modeled. The Internet cloud represents the selected ISP boundary, not provider transit or Internet-wide route selection. Provider policy can override prepend.')
+        doc.add_paragraph('Her iki CE ortak istemci LAN’ına doğrudan bağlıdır. VRRP istemci çıkış ağ geçidini seçer; gelen trafik BGP politikasına göre yedek CE’den de geçebilir. Aktif CE arızasında sağlıklı yedek devralır; tercih edilen CE geri geldiğinde tekrar aktif olur. Internet bulutu modellenen üst ağ sınırını gösterir.' if tr else 'Both CEs directly attach to the shared client LAN. VRRP selects the client outbound gateway; inbound BGP traffic may enter through the backup CE. Device failure promotes the healthy backup and restoration preempts to the preferred CE. The Internet cloud marks the modeled upstream boundary.')
     for index, raw in enumerate(scenarios, 1):
         s = raw.model_dump() if isinstance(raw, BaseModel) else raw
         doc.add_heading(('Senaryo ' if tr else 'Scenario ') + str(index), level=2)
@@ -193,7 +232,7 @@ def append_simulation_scenarios(doc, scenarios, language='en'):
             doc.add_heading(caption,level=3)
             doc.add_picture(BytesIO(data),width=Inches(6.5))
         _assessment(doc,s,tr)
-        if s['policies']:
+        if s['policies'] and not s.get('syntheticOutputs'):
             doc.add_heading('Uygulanan sentetik politikalar' if tr else 'Applied synthetic policies', level=3)
             table=doc.add_table(rows=1,cols=3);table.style='Light Shading Accent 1'
             for cell, label in zip(table.rows[0].cells, ['Bağlantı' if tr else 'Connection','Local Preference','Ek AS kopyası' if tr else 'Extra AS copies']):cell.text=label

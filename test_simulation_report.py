@@ -74,4 +74,17 @@ class SimulationReportTests(unittest.TestCase):
             self.assertIn(value,text)
         self.assertNotIn('Extra AS copies',text)
 
+    def test_synthetic_bgp_outputs_are_preserved_without_the_generic_command_plan(self):
+        scenario={**self.scenario,'syntheticOutputs':{},'assessment':{},'metrics':[dict(metric='Eligible BGP paths',baseline='4',current='1',unit='paths')]}
+        for language in ['en','tr']:
+            scenario['syntheticOutputs'][language]=[dict(query='model.bgp.neighbors',title='CE-2 BGP',columns=['Device','Peer','State'],rows=[['CE-2 172.16.20.1','ISP-2 172.16.20.2','Available']])]
+            scenario['assessment'][language]=dict(summary='CE-2 → ISP-2',sections=[dict(title='Service impact',paragraphs=['CE-1 and ISP-1 down.','No packet-loss percentage, outage duration or convergence time is reported because this scenario contains no measured traffic evidence.'])],commands=[dict(command='show bgp summary',purpose='generic',execution='Not executed')])
+            response=self.client.post('/api/network-lab/simulation-word',json={'name':'BGP evidence','language':language,'scenarios':[scenario]})
+            self.assertEqual(response.status_code,200,response.text[:200] if response.status_code!=200 else '')
+            doc=Document(io.BytesIO(response.content));text='\n'.join(p.text for p in doc.paragraphs)+'\n'+'\n'.join(c.text for t in doc.tables for row in t.rows for c in row.cells)
+            for value in ['CE-2 BGP','172.16.20.1','172.16.20.2','4','1']:self.assertIn(value,text)
+            self.assertNotIn('No packet-loss percentage',text);self.assertNotIn('show bgp summary',text);self.assertNotIn('Not executed',text)
+        scenario['syntheticOutputs']['en'][0]['rows'].append(['mismatched'])
+        self.assertEqual(self.client.post('/api/network-lab/simulation-word',json={'scenarios':[scenario]}).status_code,422)
+
 if __name__=='__main__':unittest.main()
