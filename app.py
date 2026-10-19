@@ -45,7 +45,7 @@ from config_compare import install_config_compare
 from network_lab import install_network_lab
 from lab_gateway import install_lab_gateway
 
-VERSION = "5.50.2"
+VERSION = "5.51.0"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
 # Keep the diagnostic entry point available with the authenticated page itself.
@@ -661,6 +661,23 @@ app = FastAPI(
 install_authentication(app, BASE_DIR)
 install_network_lab(app, BASE_DIR)
 install_lab_gateway(app)
+
+@app.get('/port-mapping', response_class=HTMLResponse)
+def port_mapping_page():
+    return HTMLResponse((BASE_DIR / 'port-mapping.html').read_text(encoding='utf-8'), headers={'Cache-Control':'no-store'})
+
+@app.get('/port-mapping-core.js')
+def port_mapping_core():
+    return Response((BASE_DIR / 'port-mapping-core.js').read_text(encoding='utf-8'), media_type='application/javascript', headers={'Cache-Control':'no-cache'})
+
+@app.get('/port-mapping.js')
+def port_mapping_script():
+    return Response((BASE_DIR / 'port-mapping.js').read_text(encoding='utf-8'), media_type='application/javascript', headers={'Cache-Control':'no-cache'})
+
+@app.get('/port-mapping-oui.json')
+def port_mapping_registry():
+    return Response((BASE_DIR / 'port-mapping-oui.json.gz').read_bytes(), media_type='application/json', headers={'Content-Encoding':'gzip','Cache-Control':'private, max-age=86400'})
+
 
 @app.get('/network-discovery', response_class=HTMLResponse)
 def network_discovery_page():
