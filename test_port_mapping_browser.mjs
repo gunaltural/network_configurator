@@ -64,7 +64,7 @@ GigabitEthernet1/0/1 is up, line protocol is up\par
 10 0050.5684.1234 dynamic Gi1/0/1\par
 }`),
   });
-  await page.waitForFunction(() => window.PortMapping.sources().length === 2);
+  await page.waitForFunction(() => window.PortMapping.sources().length === 3);
   assert.equal(await page.locator("#pmMap [data-device]").count(), 1);
   assert.equal(await page.locator("#pmMap [data-group]").count(), 1);
   assert.equal(await page.locator("#pmMap [data-link]").count(), 0);
@@ -85,11 +85,21 @@ GigabitEthernet1/0/1 is up, line protocol is up\par
       ports: PortMapping.model().groups.length,
       branches: document.querySelectorAll("#pmMap [data-group]").length,
     }));
-    assert.deepEqual(observed, { sources: 4, devices: 1, links: 0, endpoints: 1367, ports: 377, branches: 24 });
-    assert.equal(await page.locator("#pmMap [data-device]").count(), 1);
+    assert.deepEqual(observed, { sources: 11, devices: 3, links: 2, endpoints: 1367, ports: 379, branches: 0 });
+    assert.equal(await page.locator("#pmMap [data-device]").count(), 3);
+    assert.equal(await page.evaluate(() => PortMapping.model().links.every((l) => l.eventDerived)), true);
+    const realFacts = await page.evaluate(() => {
+      const d = PortMapping.model().devices.find((d) => d.seed);
+      return { vlans: Object.keys(d.vlans).length, stp: Object.keys(d.spanningTree).length, aggregation: Object.values(d.interfaces).filter((p) => p.portChannel).length };
+    });
+    assert.deepEqual(realFacts, { vlans: 50, stp: 46, aggregation: 57 });
+    await page.locator("#pmMap [data-link]").first().click();
+    assert.match(await page.locator("#pmInspector").innerText(), /Source: CDP diagnostic event/);
+    await page.locator("#pmView").selectOption("ports");
+    assert.equal(await page.locator("#pmMap [data-group]").count(), 24);
     await page.reload();
     await page.waitForFunction(() => window.PortMapping.model().endpoints.length === 1367);
-    assert.equal(await page.locator("#pmMap [data-device]").count(), 1);
+    assert.equal(await page.locator("#pmMap [data-device]").count(), 3);
     console.log("Actual diagnostic import and saved-workspace reload:", observed);
   }
   page.once("dialog", (d) => d.accept());
@@ -135,7 +145,7 @@ GigabitEthernet1/0/1 is up, line protocol is up\par
   );
   assert.equal(
     await page.evaluate(() => window.PortMapping.sources().length),
-    11,
+    13,
     "Button parses embedded TXT files through the normal import pipeline",
   );
   await page.locator("#pmTopologyExample").click();
@@ -144,7 +154,7 @@ GigabitEthernet1/0/1 is up, line protocol is up\par
   );
   assert.equal(
     await page.evaluate(() => window.PortMapping.sources().length),
-    11,
+    13,
     "Repeated example loads do not duplicate sources",
   );
   assert.equal(await page.locator("#pmMap [data-device]").count(), 4);
@@ -240,7 +250,7 @@ GigabitEthernet1/0/1 is up, line protocol is up\par
   );
   assert.equal(
     await page.evaluate(() => window.PortMapping.sources().length),
-    6,
+    7,
   );
   assert.equal(
     await page.evaluate(() =>
@@ -250,7 +260,7 @@ GigabitEthernet1/0/1 is up, line protocol is up\par
   );
   assert.match(
     await page.locator("#pmSupportCoverage").textContent(),
-    /6 sections/,
+    /7 sections/,
   );
   const sampleDownload = page.waitForEvent("download");
   await page
@@ -288,7 +298,7 @@ GigabitEthernet1/0/1 is up, line protocol is up\par
       () =>
         window.PortMapping.sources().filter((s) => s.site === "Default").length,
     ),
-    11,
+    13,
     "User-uploaded TXT captures stay intact when the embedded example is loaded",
   );
   assert.equal(
@@ -298,7 +308,7 @@ GigabitEthernet1/0/1 is up, line protocol is up\par
           (s) => s.sampleId === "embedded-tech-support-v1",
         ).length,
     ),
-    11,
+    13,
   );
   await page.screenshot({
     path: "/tmp/port-support-topology.png",

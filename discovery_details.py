@@ -10,7 +10,7 @@ DETAIL_COMMANDS = {
     'Huawei_CE_SW': ('display interface brief', 'display interface', 'display port vlan', 'display eth-trunk'),
     'Huawei iStack': ('display interface brief', 'display interface', 'display port vlan', 'display eth-trunk'),
 }
-PARSE_COMMANDS = {platform: commands + (() if platform.startswith('Huawei') else (('show interface','show interface trunk') if platform=='Cisco NX-OS' else ('show interfaces','show interfaces trunk'))) for platform, commands in DETAIL_COMMANDS.items()}
+PARSE_COMMANDS = {platform: commands + (() if platform.startswith('Huawei') else (('show interface','show interface trunk','show running-config') if platform=='Cisco NX-OS' else ('show interfaces','show interfaces trunk','show running-config'))) for platform, commands in DETAIL_COMMANDS.items()}
 PORT_RE = r'(?:[0-9]*[A-Za-z][A-Za-z0-9-]*\d+(?:[/.:]\d+)*|Port-Channel\d+|Eth-Trunk\d+)'
 
 def key(value):
@@ -58,6 +58,20 @@ def parse_interfaces(platform, evidence):
             if provenance not in r['evidence']: r['evidence'].append(provenance)
             return r
         for line in output.splitlines():
+            if command=='show running-config':
+                m=re.match(r'^interface\s+('+PORT_RE+r')\s*$',line,re.I)
+                if m:current=record(m[1]);continue
+                if re.match(r'^\S',line):current=None
+                if current is not None:
+                    for pattern,field in [(r'^\s*description\s+(.+)$','description'),(r'^\s*switchport mode\s+(.+)$','configuredMode'),(r'^\s*switchport access vlan\s+(\d+)','configuredAccessVlan'),(r'^\s*switchport trunk native vlan\s+(\d+)','configuredNativeVlan'),(r'^\s*switchport trunk allowed vlan\s+(.+)','configuredAllowedVlans'),(r'^\s*(?:ip )?vrf forwarding\s+(\S+)','vrf')]:
+                        m=re.match(pattern,line,re.I)
+                        if m:current[field]=m[1].strip()
+                    m=re.match(r'^\s*channel-group\s+(\d+)\b',line,re.I)
+                    if m:current['portChannel']='Po'+m[1]
+                    m=re.match(r'^\s*(?:ip|ipv6) address\s+(.+)',line,re.I)
+                    if m:current.setdefault('configuredAddresses',[]).append(m[1].strip())
+                    if line.strip() in ('shutdown','no shutdown'):current['configuredAdminState']=line.strip()
+                continue
             if command.endswith(' trunk'):
                 if re.search(r'Port\s+Mode\s+Encapsulation\s+Status\s+Native',line,re.I):trunk_section='native';continue
                 if re.search(r'Port\s+Vlans allowed on trunk',line,re.I):trunk_section='allowed';continue
@@ -90,6 +104,8 @@ def parse_interfaces(platform, evidence):
             m=re.match(r'^\s*(?:Name|Interface)\s*:\s*('+PORT_RE+r')\s*$',line,re.I)
             if m:current=record(m[1]);continue
             if current:
+                x=re.search(r'Internet address is\s+(\S+)',line,re.I)
+                if x:current.setdefault('addresses',[]).append(x[1])
                 for pattern, field in [(r'^\s*Description\s*:\s*(.*)$','description'),(r'^\s*Operational Mode\s*:\s*(.*)$','mode'),(r'^\s*(?:Access Mode VLAN|Port default VLAN|PVID)\s*:\s*(\S+).*','vlan'),(r'^\s*(?:Trunking Native Mode VLAN|Native VLAN)\s*:\s*(\S+).*','nativeVlan'),(r'^\s*Voice VLAN\s*:\s*(\S+).*','voiceVlan'),(r'^\s*(?:Trunking VLANs Enabled|Trunk VLANs Allowed|Trunk VLANs)\s*:\s*(.*)$','allowedVlans'),(r'^\s*Speed\s*:\s*(.*)$','speed'),(r'^\s*Line protocol current state\s*:\s*(.*)$','protocol'),(r'^\s*(?:Power drawn|Power consumption|PoE power)\s*:\s*(.*)$','power')]:
                     x=re.match(pattern,line,re.I)
                     if x:current[field]=x[1].strip()

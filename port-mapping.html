@@ -404,6 +404,10 @@
               </option>
               <option value="arp">ARP · IPv4 addresses</option>
               <option value="nd">ND · IPv6 neighbors</option>
+              <option value="vlans">VLAN names / status / port membership</option>
+              <option value="stp">Spanning-tree roles / forwarding state</option>
+              <option value="cdp-log">CDP events from diagnostic output</option>
+              <option value="identity">Device version / chassis inventory</option>
             </select></label
           ><label id="pmCommandLabel" hidden
             >Port command<select id="pmCommand"></select></label
@@ -560,7 +564,7 @@
               >
             </div>
             <p class="pm-legend">
-              Solid: both ends observed · dashed: one-sided neighbor · dotted:
+              Solid: both ends observed · dashed: one-sided neighbor or CDP event · dotted:
               learned MAC group. Select a switch, link or port. Highlighted
               paths show observed topology relationships, not measured traffic.
             </p>

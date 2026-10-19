@@ -14,6 +14,7 @@
       "show etherchannel summary",
       "show interfaces",
       "show interfaces trunk",
+      "show running-config",
     ],
     "Cisco NX-OS": [
       "show interface status",
@@ -22,6 +23,7 @@
       "show port-channel summary",
       "show interface",
       "show interface trunk",
+      "show running-config",
     ],
     "Arista EOS": [
       "show interfaces status",
@@ -30,6 +32,7 @@
       "show port-channel summary",
       "show interfaces",
       "show interfaces trunk",
+      "show running-config",
     ],
     Huawei_CE_SW: [
       "display interface brief",
@@ -91,6 +94,11 @@
         " · show ip arp / show ipv6 neighbors";
   }
   function detect(raw) {
+    if (/^\s*VLAN\s+Name\s+Status\s+Ports/im.test(raw)) return "vlans";
+    if (/^\s*(?:VLAN\d+|MST\d+)\s*$/im.test(raw) && /Spanning tree enabled/i.test(raw)) return "stp";
+    if (/%CDP-\d+-(?:DUPLEX|NATIVE_VLAN)_MISMATCH:/i.test(raw)) return "cdp-log";
+    if (/^\s*Protocol\s+Address\s+Age.*Hardware/im.test(raw)) return "arp";
+    if (/Device ID\s+Local Intrfce/i.test(raw)) return "cdp";
     if (/Device ID\s*:|Port ID\s*\(outgoing port\)/i.test(raw)) return "cdp";
     if (
       /Chassis\s*(?:id|ID)|LLDP neighbou?r|Local (?:Intf|Port id):/i.test(raw)
@@ -129,12 +137,13 @@
         .slice(0, 100),
       raw: C.textFromRtf(item.raw),
     };
+    if (s.kind === "interfaces" && s.command === "show running-config") s.raw = C.interfaceConfig(s.raw);
     s.originalCommand = String(item.originalCommand || "").slice(0, 300);
     s.sampleId =
       item.sampleId === "embedded-tech-support-v1" ? item.sampleId : "";
     if (
       !commands[s.platform] ||
-      !["mac", "lldp", "cdp", "interfaces", "arp", "nd"].includes(s.kind) ||
+      !["mac", "lldp", "cdp", "interfaces", "arp", "nd", "vlans", "stp", "cdp-log", "identity"].includes(s.kind) ||
       !Number.isFinite(Date.parse(s.importedAt))
     )
       throw Error("Invalid capture platform, type or time.");
@@ -314,7 +323,7 @@
     raw = C.textFromRtf(raw);
     if (
       $("pmKind").value === "support" ||
-      /(?:show tech[ -]support|display diagnostic-information)|[-=*]{3,}\s*(?:show|display)\s/i.test(
+      /(?:sh(?:o(?:w)?)? tech[ -]?support|display diagnostic-information)|[-=*]{3,}\s*(?:sh(?:o(?:w)?)?|display)\s/i.test(
         raw,
       )
     ) {
@@ -393,6 +402,7 @@
         e.vendor,
         e.type,
         e.site,
+        ...(e.vlanNames || []),
         ...e.addresses.flatMap((a) => [a.ip, a.vrf]),
         ...e.observations.flatMap((o) => [o.device, o.port]),
       ]
@@ -422,11 +432,13 @@
         (g) =>
           (!q && !v) ||
           g.rows.length ||
+          (v && !q && (g.detail.vlanMembership || []).some((x) => String(x.id) === v)) ||
           (!v &&
             [
               g.device,
               g.port,
               g.detail.description,
+              ...(g.detail.vlanMembership || []).map((v) => v.name),
               ...g.neighbors.map(
                 (n) => model.devices.find((d) => d.id === n.deviceId)?.hostname,
               ),
@@ -480,12 +492,15 @@
     const prior = $("pmVlan").value,
       vlans = [
         ...new Set(
-          model.endpoints.map((e) => e.vlan).filter((v) => v !== null),
+          [...model.endpoints.map((e) => e.vlan), ...model.devices.flatMap((d) => Object.keys(d.vlans || {}).map(Number))].filter((v) => v !== null),
         ),
       ].sort((a, b) => a - b);
     $("pmVlan").replaceChildren(
       new Option("All observed VLANs", ""),
-      ...vlans.map((v) => new Option("VLAN " + v, String(v))),
+      ...vlans.map((v) => {
+        const names = [...new Set(model.devices.map((d) => d.vlans?.[v]?.name).filter(Boolean))];
+        return new Option("VLAN " + v + (names.length ? " · " + names.join(" / ") : ""), String(v));
+      }),
     );
     $("pmVlan").value = vlans.includes(Number(prior)) ? prior : "";
     const focus = $("pmFocus").value;
@@ -719,7 +734,9 @@
     map.replaceChildren();
     $("pmTopologyEvidence").textContent = !model.links.length && sources.length
       ? "Local learning topology: " + model.devices.length + " device(s), " + model.groups.filter((g) => g.macCount).length + " ports with learned MACs. No CDP/LLDP neighbor links were found. Dotted branches show local port learning, not verified remote devices. Import neighbor output to connect switches."
-      : "Neighbor topology from imported CDP/LLDP evidence. Select a device to inspect its ports and clients.";
+      : model.links.some((l) => l.eventDerived)
+        ? "Topology combines neighbor tables and CDP diagnostic events. Select links for source evidence; select devices for VLAN, STP, ports and clients."
+        : "Neighbor topology from imported CDP/LLDP evidence. Select a device to inspect its ports and clients.";
     if ($("pmView").value === "ports" || !model.links.length) {
       drawPorts($("pmView").value !== "ports");
       return;
@@ -749,6 +766,8 @@
       ),
       q = $("pmSearch").value.trim().toLowerCase();
     let devices = model.devices.filter((d) => included.has(d.id));
+    const vlanFilter = $("pmVlan").value;
+    if (vlanFilter) for (const d of model.devices) if (d.vlans?.[vlanFilter]) relevant.add(d.id);
     if (q || $("pmVlan").value)
       devices = devices.filter(
         (d) =>
@@ -817,7 +836,7 @@
     const displayGroups = groups
       .filter((g) => g.macCount)
       .map((g) => {
-        const peers = [...new Set(g.neighbors.map((n) => n.deviceId))],
+        const peers = [...new Set(g.neighbors.filter((n) => !n.eventDerived).map((n) => n.deviceId))],
           peer =
             peers.length === 1
               ? model.devices.find((d) => d.id === peers[0])
@@ -1014,6 +1033,12 @@
       ["Voice VLAN", d.voiceVlan],
       ["Allowed VLANs", d.allowedVlans],
       ["Observed VLANs", g.vlans.join(", ")],
+      ["VLAN names / membership", (d.vlanMembership || []).map((v) => v.id + " " + v.name + " (" + v.status + ")").join(", ")],
+      ["Configured mode / access VLAN", [d.configuredMode, d.configuredAccessVlan].filter(Boolean).join(" / ")],
+      ["Configured native / allowed VLANs", [d.configuredNativeVlan, d.configuredAllowedVlans].filter(Boolean).join(" / ")],
+      ["Configured administration", d.configuredAdminState],
+      ["Local interface addresses", (d.addresses || []).join(", ")],
+      ["Configured addresses / VRF", [...(d.configuredAddresses || []), d.vrf].filter(Boolean).join(" / ")],
       ["Speed / duplex", [d.speed, d.duplex].filter(Boolean).join(" / ")],
       ["Aggregation", d.portChannel || g.members.map((m) => m.port).join(", ")],
       ["PoE", d.power],
@@ -1028,6 +1053,10 @@
     ])
       field(grid, label, value);
     root.append(grid);
+    if (d.spanningTree?.length) {
+      root.append(node("h3", "Spanning-tree evidence by VLAN / instance"));
+      for (const stp of d.spanningTree) root.append(node("p", stp.instance + " · " + stp.role + " / " + stp.state + " · cost " + stp.cost + " · " + stp.type));
+    }
     for (const n of g.neighbors) {
       const peer = model.devices.find((d) => d.id === n.deviceId);
       action(
@@ -1130,6 +1159,10 @@
         ["Chassis ID", d.chassisId],
         ["Description", d.description],
         ["Identity source", d.identitySource],
+        ["Model / serial", [d.model, d.serial].filter(Boolean).join(" / ")],
+        ["Software version", d.softwareVersion],
+        ["VLAN database", Object.values(d.vlans || {}).map((v) => v.id + " " + v.name + " (" + v.status + ")").join(", ")],
+        ["STP root instances", Object.values(d.spanningTree || {}).filter((s) => s.root).map((s) => s.instance).join(", ")],
       ])
         field(grid, k, v);
       root.append(grid);
@@ -1180,6 +1213,10 @@
             "pm-source-meta",
           ),
         );
+      for (const o of l.observations.filter((o) => o.eventDerived)) {
+        root.append(node("p", "Source: CDP diagnostic event · " + (o.eventTime || o.command)));
+        root.append(node("pre", o.raw || "", "pm-raw"));
+      }
       return;
     }
     if (selectionType === "client") {
@@ -1190,6 +1227,7 @@
       for (const [k, v] of [
         ["MAC", C.display(e.mac)],
         ["Site / VLAN", e.site + " / " + (e.vlan ?? "unknown")],
+        ["VLAN name", (e.vlanNames || []).join(" / ")],
         ["Organization", e.vendor],
         ["Type", e.type],
         ["Type evidence", e.typeEvidence],
@@ -1781,6 +1819,10 @@
         "Attachment",
         "Source",
         "Captured at",
+        "VLAN name",
+        "Configured mode / access VLAN",
+        "STP by VLAN / instance",
+        "Local addresses / VRF",
       ],
     ];
     for (const g of selectionType === "port" && selected
@@ -1806,6 +1848,10 @@
           g.attachment,
           s?.filename,
           r.observedAt,
+          r.vlanName,
+          [g.detail.configuredMode, g.detail.configuredAccessVlan].filter(Boolean).join(" / "),
+          (g.detail.spanningTree || []).map((s) => s.instance + " " + s.role + " " + s.state).join("; "),
+          [...(g.detail.addresses || []), ...(g.detail.configuredAddresses || []), g.detail.vrf].filter(Boolean).join("; "),
         ]);
       }
     exportCsv("port-mapping.csv", data);

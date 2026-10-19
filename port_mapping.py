@@ -2,10 +2,85 @@
 import ipaddress
 import re
 from datetime import datetime, timezone
-from network_discovery import COMMANDS, build_graph, parse_neighbors, advertised_vendor, uid
-from discovery_details import PARSE_COMMANDS, enrich_graph, key
+from network_discovery import COMMANDS, build_graph, parse_neighbors, advertised_vendor, uid, port
+from discovery_details import PARSE_COMMANDS, enrich_graph, key, PORT_RE
 
 MAC = re.compile(r'\b(?:[0-9a-f]{4}[.\-]){2}[0-9a-f]{4}\b|\b(?:[0-9a-f]{2}:){5}[0-9a-f]{2}\b', re.I)
+
+
+def cdp_events(raw):
+    """Extract both link endpoints from complete CDP diagnostic events."""
+    records = {}
+    for number, line in enumerate(raw.splitlines(), 1):
+        m = re.search(r'%CDP-\d+-(?:DUPLEX|NATIVE_VLAN)_MISMATCH:.*?discovered on (\S+)\s*\([^)]*\),\s*with (\S+)\s+(\S+)\s*\(', line, re.I)
+        if not m:
+            continue
+        local, remote = port(m[1]), port(m[3])
+        if not re.fullmatch(PORT_RE, local) or not re.fullmatch(PORT_RE, remote):
+            continue
+        records[(local, m[2].lower(), remote)] = {'localPort':local, 'remotePort':remote, 'hostname':m[2],
+            'managementAddresses':[], 'raw':line.strip(), 'line':number,
+            'eventTime':line.split('%CDP-',1)[0].strip()}
+    return list(records.values())
+
+
+def enrich_facts(device, source):
+    provenance = {'command':source.get('originalCommand') or source.get('command',''), 'sourceId':source['id'], 'observedAt':source['importedAt']}
+    def interface(name):
+        return device['interfaces'].setdefault(key(name), {'port':name, 'evidence':[]})
+    if source['kind'] == 'vlans':
+        current, table = None, False
+        vlans = {}
+        for number, line in enumerate(source['raw'].splitlines(), 1):
+            if re.match(r'^\s*VLAN\s+Name\s+Status\s+Ports', line, re.I):table=True;continue
+            if not table:continue
+            m = re.match(r'^\s*(\d{1,4})\s+(.+?)\s+(active|act/\S+|suspend\S*|shutdown)\s*(.*)$', line, re.I)
+            if m and 1 <= int(m[1]) <= 4094:
+                current = {'id':int(m[1]), 'name':m[2].strip(), 'status':m[3], 'ports':[], **provenance, 'line':number}
+                for detail in device['interfaces'].values():
+                    detail['vlanMembership']=[v for v in detail.get('vlanMembership',[]) if v['id']!=current['id']]
+                vlans[str(current['id'])] = current
+                ports = m[4]
+            elif current and re.match(r'^\s+\S',line) and all(re.fullmatch(PORT_RE,p.strip()) for p in line.strip().split(',')):
+                ports = line
+            elif not line.strip() or re.match(r'^\s*-+',line):continue
+            else:table=False;current=None;continue
+            for name in ports.split(','):
+                name=name.strip()
+                if not name or not re.fullmatch(PORT_RE,name):continue
+                if name not in current['ports']:current['ports'].append(name)
+                detail=interface(name)
+                detail.setdefault('vlanMembership',[]).append({'id':current['id'],'name':current['name'],'status':current['status']})
+                if provenance not in detail['evidence']:detail['evidence'].append(provenance)
+        device.setdefault('vlans',{}).update(vlans)
+    elif source['kind'] == 'stp':
+        current=None
+        for number,line in enumerate(source['raw'].splitlines(),1):
+            m=re.match(r'^\s*(VLAN\d+|MST\d+)\s*$',line,re.I)
+            if m:
+                scope=m[1].upper();current={'instance':scope, 'root':False, 'ports':[], **provenance}
+                for detail in device['interfaces'].values():
+                    detail['spanningTree']=[s for s in detail.get('spanningTree',[]) if s['instance']!=scope]
+                device.setdefault('spanningTree',{})[scope]=current;continue
+            if not current:continue
+            if 'This bridge is the root' in line:current['root']=True
+            m=re.match(r'^\s*('+PORT_RE+r')\s+(Root|Desg|Altn|Back|Mstr|Master|Alternate|Designated)\s+(FWD|BLK|LRN|LIS|DIS|BKN\S*)\s+(\d+)\s+\S+\s*(.*)',line,re.I)
+            if m:
+                row={'instance':current['instance'],'role':m[2],'state':m[3],'cost':int(m[4]),'type':m[5].strip(),'line':number, **provenance}
+                current['ports'].append({'port':m[1],**row});detail=interface(m[1]);detail.setdefault('spanningTree',[]).append(row)
+                if provenance not in detail['evidence']:detail['evidence'].append(provenance)
+    elif source['kind'] == 'identity':
+        output=source['raw']
+        if 'inventory' in source.get('command','') or re.search(r'NAME\s*:.*\n.*PID\s*:',output):
+            blocks=re.split(r'(?=\bNAME\s*:)',output,flags=re.I)
+            chassis=next((b for b in blocks if re.search(r'NAME\s*:\s*[\"\x27](?:Chassis|Switch|Router)\b',b,re.I)),'')
+            m=re.search(r'PID\s*:\s*([^,\r\n]+).*?SN\s*:\s*([^,\r\n]+)',chassis,re.I|re.S)
+            if m:device['model'],device['serial']=m[1].strip(),m[2].strip()
+        else:
+            for pattern,field in [(r'(?im)^\s*cisco\s+(\S+)\s+\([^\r\n]*\)\s+processor','model'),(r'(?im)^\s*Processor board ID\s+(\S+)','serial'),(r'(?im)^.*(?:Cisco IOS Software.*?Version|IOS \(tm\).*?Version|Cisco IOS XE Software, Version|NXOS: version|system: version)\s+([^,\s]+)','softwareVersion')]:
+                m=re.search(pattern,output)
+                if m and not device.get(field):device[field]=m[1]
+        device.setdefault('identityEvidence',[]).append(provenance)
 
 
 def stamp(value):
@@ -56,7 +131,7 @@ def analyze(sources):
     graph = {'devices':[], 'links':[], 'warnings':[], 'generatedAt':now}
     bindings, arp, active_ids = {}, [], []
     for site in sorted({s.get('site','Default') for s in latest.values()}):
-        batch = [s for s in latest.values() if s.get('site','Default')==site]
+        batch = sorted((s for s in latest.values() if s.get('site','Default')==site),key=lambda s:stamp(s['importedAt']))
         discovery = []
         for s in batch:
             if s['platform'] not in COMMANDS:
@@ -69,10 +144,13 @@ def analyze(sources):
                               'observedAt':s['importedAt'], 'origin':'CLI import',
                               'interfaceEvidence':[{'command':s['command'], 'output':s['raw'], 'platform':s['platform'],
                                                     'observedAt':s['importedAt'], 'snapshotKey':s.get('originalCommand') or s['command'], 'origin':'CLI import'}] if s['kind']=='interfaces' else []})
+            if s['kind']=='cdp-log':
+                discovery[-1].update(protocol='cdp',neighborRecords=cdp_events(s['raw']),eventDerived=True,evidenceCommand=s.get('command','')+' · CDP events',origin='CDP diagnostic event')
         g = enrich_graph(build_graph(discovery), discovery)
         prefix = uid(site)+'-'
         for d in g['devices']:
             d['id'] = prefix+d['id'];d['site']=site;d['capabilities']=[];d['role']='Unknown'
+            if not d['seed'] and d.get('sources')==['CDP diagnostic event']:d['identitySource']='CDP diagnostic event'
         for edge in g['links']:
             edge['id']=prefix+edge['id'];edge['a']=prefix+edge['a'];edge['b']=prefix+edge['b']
             for obs in edge['observations']:
@@ -82,6 +160,7 @@ def analyze(sources):
             if len(candidates)!=1:
                 graph['warnings'].append(s['device']+': capture identity is ambiguous; supply a unique device name and management IP.');continue
             local=candidates[0];bindings[s['id']]=local['id'];active_ids.append(s['id'])
+            if s['kind'] in ('vlans','stp','identity'):enrich_facts(local,s)
             if s['kind'] in ('arp','nd'):
                 rows=addresses(s);arp.extend(rows)
                 if not rows:graph['warnings'].append(s['device']+': no complete IP/MAC rows parsed from '+s['kind'].upper()+'.')
