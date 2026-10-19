@@ -45,6 +45,19 @@ class SimulationReportTests(unittest.TestCase):
         self.assertNotIn('Both CEs',text)
         self.assertNotIn('VRRP',text)
 
+    def test_synthetic_cli_preserves_failed_and_live_observers(self):
+        scenario={**self.scenario,'module':'VPC','policies':[],
+                  'syntheticCli':[dict(device='SPINE-2',command='show vpc brief',deviceAvailable=True,output='Peer-link: DOWN\nRole: SECONDARY\nEthernet1/1 | LEAF-2 | PROTECTED / BLOCKED'),
+                                  dict(device='SPINE-1',command='show vpc brief',deviceAvailable=False,output='DEVICE UNAVAILABLE')],
+                  'assessment':{'en':dict(summary='Peer-link failure',sections=[],checks=[],commands=[],references=[])}}
+        response=self.client.post('/api/network-lab/simulation-word',json={'name':'Synthetic CLI','scenarios':[scenario]})
+        self.assertEqual(response.status_code,200)
+        doc=Document(io.BytesIO(response.content));text='\n'.join(p.text for p in doc.paragraphs)
+        for value in ['Synthetic show outputs','SPINE-2# show vpc brief','LEAF-2','PROTECTED / BLOCKED','DEVICE UNAVAILABLE']:self.assertIn(value,text)
+        self.assertNotIn('Not executed',text)
+        scenario['syntheticCli'][0]['command']='configure terminal'
+        self.assertEqual(self.client.post('/api/network-lab/simulation-word',json={'scenarios':[scenario]}).status_code,422)
+
     def test_assets_available(self):
         self.assertEqual(self.client.get('/simulation-report.js').status_code,200)
         self.assertEqual(self.client.get('/simulation-report.js').headers['cache-control'],'no-store')

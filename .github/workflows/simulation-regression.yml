@@ -58,7 +58,7 @@ jobs:
           node test_synthetic_bgp.cjs
           python -m unittest test_simulation_report test_authentication -q
       - name: Shared module simulation engine and actual DOM transfers
-        run: node simulation/test_workspace_engine.cjs && node simulation/test_pair_behavior.cjs && node simulation/test_workspace_dom.cjs
+        run: node simulation/test_protocol_report.cjs && node simulation/test_workspace_engine.cjs && node simulation/test_pair_behavior.cjs && node simulation/test_workspace_dom.cjs
       - name: Workspace integration and full existing regression suite
         run: npm test
       - name: Route and dynamic topology contract tests
@@ -107,7 +107,7 @@ jobs:
             if curl --fail --silent http://127.0.0.1:18080/healthz >/dev/null; then break; fi
             sleep 2
           done
-          curl --fail --silent --show-error http://127.0.0.1:18080/healthz | python -c 'import json,sys; from pathlib import Path; p=json.load(sys.stdin); assert p["ok"] is True and p["simulator_ready"] is True; assert p["version"]=="5.49.0", p'
+          curl --fail --silent --show-error http://127.0.0.1:18080/healthz | python -c 'import json,sys; from pathlib import Path; p=json.load(sys.stdin); assert p["ok"] is True and p["simulator_ready"] is True; assert p["version"]=="5.50.0", p'
           curl --fail --silent --show-error http://127.0.0.1:18080/vpc-mlag-simulation | grep -q 'Technology Workspace topology'
           curl --fail --silent --show-error http://127.0.0.1:18080/simulation/vendor-failure-engine.mjs | grep -q 'analyzeAccessImpact'
           curl --fail --silent --show-error http://127.0.0.1:18080/synthetic-bgp.js | grep -q 'SyntheticBGP'

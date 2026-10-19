@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Network Configurator v5.49.0</title>
+<title>Network Configurator v5.50.0</title>
 <style>
 :root{
   --bg:#0d1117;--panel:#161b22;--panel2:#1f2630;--line:#2b3440;
@@ -414,7 +414,7 @@ body.nc-simulation-action{padding-bottom:145px}body.nc-simulation-action #topolo
     <div class="logo">NC</div>
     <div><h1>Network Configurator</h1><small>Configure · Validate · Troubleshoot</small></div>
   </div>
-  <div class="badge">Version 5.49.0 · Simulation</div>
+  <div class="badge">Version 5.50.0 · Simulation</div>
 </header>
 
 <div class="layout">
@@ -2186,10 +2186,13 @@ function syncTopology(){
      area.innerHTML=`<div class="vpc-svg-wrap"><svg class="vpc-svg" viewBox="0 0 950 480" role="img" aria-label="Cisco StackWise Virtual spine leaf topology">
        <rect x="250" y="48" width="450" height="165" rx="18" class="vpc-domain-box"/>
        <text x="475" y="75" text-anchor="middle" class="vpc-domain-title">STACKWISE VIRTUAL DOMAIN ${dom}</text>
-       <line x1="405" y1="143" x2="545" y2="143" class="vpc-peer-line"/><line x1="405" y1="152" x2="545" y2="152" class="vpc-peer-line"/>
-       <text x="475" y="120" text-anchor="middle" class="vpc-peer-title">SVL · LINK ${esc(v("swvLinkId")||"1")}</text>
+       <path d="M 355 140 V 100 H 595 V 140" class="vpc-ka-line" data-stackwise-dad="true" fill="none"/>
+       <text x="475" y="94" text-anchor="middle" class="vpc-small">DAD · Dual-active detection</text>
+       <text x="343" y="115" text-anchor="end" class="vpc-small">${esc(v("swvDad1"))}</text><text x="607" y="115" text-anchor="start" class="vpc-small">${esc(v("swvDad2"))}</text>
+       <line x1="413" y1="153" x2="537" y2="153" class="vpc-peer-line"/><line x1="413" y1="162" x2="537" y2="162" class="vpc-peer-line"/>
+       <text x="475" y="130" text-anchor="middle" class="vpc-peer-title">SVL · LINK ${esc(v("swvLinkId")||"1")}</text>
        ${[[355,"SWITCH-1"],[595,"SWITCH-2"]].map(([x,nm])=>`<g><rect x="${x-58}" y="140" width="116" height="66" rx="10" class="vpc-device"/><text x="${x}" y="176" text-anchor="middle" class="vpc-device-name">${nm}</text></g>`).join("")}
-       <text x="475" y="198" text-anchor="middle" class="vpc-small">${host} · DAD ${esc(v("swvDad1"))} ↔ ${esc(v("swvDad2"))}</text>
+       <text x="475" y="198" text-anchor="middle" class="vpc-small">${host}</text>
        ${pos.map(x=>`<line x1="355" y1="206" x2="${x}" y2="345" class="vpc-member-line"/><line x1="595" y1="206" x2="${x}" y2="345" class="vpc-member-line"/>`).join("")}
        ${pos.map((x,i)=>`<ellipse cx="${x}" cy="333" rx="45" ry="16" class="vpc-po-badge"/><text x="${x}" y="338" text-anchor="middle" class="vpc-po-title">Po${po[i]}</text>`).join("")}
        ${pos.map((x,i)=>`<g><rect x="${x-55}" y="365" width="110" height="58" rx="10" class="vpc-device"/><text x="${x}" y="399" text-anchor="middle" class="vpc-device-name">${leaves[i]}</text></g>`).join("")}
