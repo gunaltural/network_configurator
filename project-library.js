@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-const reportPage=!!document.getElementById('reportLanguage'),discoveryPage=!!document.getElementById('networkDiscovery'),contextKey='networkConfigurator.library.context';
+const reportPage=!!document.getElementById('reportLanguage'),discoveryPage=!!document.getElementById('networkDiscovery'),inventoryPage=reportPage&&new URLSearchParams(location.search).get('context')==='inventory',contextKey=inventoryPage?'networkConfigurator.inventory.library.context':'networkConfigurator.library.context';
 let available=false,username='',offset=0,total=0,busy=false;
 const read=key=>{try{return JSON.parse(sessionStorage.getItem(key)||'null');}catch{return null;}};
 const clean=value=>Array.isArray(value)?value.map(clean):value&&typeof value==='object'?Object.fromEntries(Object.entries(value).filter(([key])=>!/password|passwd|secret|token|private.?key|credential/i.test(key)).map(([key,v])=>[key,clean(v)])):value;
@@ -17,7 +17,7 @@ $('[data-library-close]').onclick=close;panel.onclick=e=>{if(e.target===panel)cl
 document.addEventListener('keydown',e=>{if(panel.hidden)return;if(e.key==='Escape')close();if(e.key==='Tab'){const items=[...panel.querySelectorAll('button,input,a,summary')].filter(el=>!el.disabled&&!el.hidden&&el.getClientRects().length);if(!items.length)return;const first=items[0],last=items.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}});
 async function api(path,options){const r=await fetch(path,options);let data;try{data=await r.json();}catch{throw Error('Unable to read the project service response.');}if(!r.ok){const error=Error(typeof data.detail==='string'?data.detail:'Project request failed.');error.status=r.status;throw error;}return data;}
 function collect(designOverride){
- const design=designOverride||window.NetworkWorkspaceProject?.snapshot()||read('networkConfigurator.workflow.design');
+ const design=inventoryPage?null:designOverride||window.NetworkWorkspaceProject?.snapshot()||read('networkConfigurator.workflow.design');
  let report=window.NetworkReportProject?.snapshot()||read('networkConfigurator.report.current');
  if(design&&report?.source?.projectId&&report.source.projectId!==(design.project?.id||'active'))report=null;
  const nativeName=reportPage?report?.name:design?.project?.name;
@@ -36,12 +36,12 @@ function independentIdentity(bundle){const id='p_'+(crypto.randomUUID?crypto.ran
 function syncSavedName(bundle){
  window.NetworkWorkspaceProject?.rename?.(bundle.name);window.NetworkReportProject?.rename?.(bundle.name);
  if(bundle.design)sessionStorage.setItem('networkConfigurator.workflow.design',JSON.stringify(bundle.design));
- if(bundle.reporting)sessionStorage.setItem('networkConfigurator.report.current',JSON.stringify(bundle.reporting));
+ if(bundle.reporting)sessionStorage.setItem(bundle.reporting.source?.module==='INVENTORY'?'networkConfigurator.inventory.current':'networkConfigurator.report.current',JSON.stringify(bundle.reporting));
 }
-function setContext(record){sessionStorage.setItem(contextKey,JSON.stringify({id:record.id,version:record.version,updated_at:record.updated_at,name:record.name,username}));}
+function setContext(record){sessionStorage.setItem(record.document?.reporting?.source?.module==='INVENTORY'&&!record.document?.design?'networkConfigurator.inventory.library.context':'networkConfigurator.library.context',JSON.stringify({id:record.id,version:record.version,updated_at:record.updated_at,name:record.name,username}));}
 async function persist(document,{copy=false,note='',activate=true,createRevision=false}={}){
  const current=copy?null:context();const result=await api('/api/projects'+(current?'/'+current.id:''),{method:current?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({document:clean(document),version:current?.version,expected_updated_at:current?.updated_at,create_revision:createRevision,note})});
- if(activate)setContext(result);await recentProjects();return result;
+ if(activate)setContext({...result,document});await recentProjects();return result;
 }
 function controls(){panel.querySelectorAll('[data-library-save],[data-library-revision],[data-library-copy],[data-library-local] button').forEach(button=>button.disabled=busy||(!available&&button.textContent!=='Delete local copy'));}
 async function save(copy=false,designOverride,createRevision=false){
@@ -59,6 +59,7 @@ $('[data-library-export]').onclick=()=>{try{exportFile();}catch(error){status(er
 function restore(document,{destination,workingCopy=false}={}){
  validateBundle(document);
  document=clean(document);
+ if(document.reporting?.source?.module==='INVENTORY'&&!document.design){if(workingCopy){sessionStorage.removeItem('networkConfigurator.inventory.library.context');independentIdentity(document);}sessionStorage.setItem('networkConfigurator.inventory.current',JSON.stringify(document.reporting));if(inventoryPage&&window.NetworkReportProject){window.NetworkReportProject.apply(document.reporting);close();}else location.assign('/reporting?view=inventory&context=inventory');return;}
  sessionStorage.removeItem('networkConfigurator.compare.current');
  for(const key of Object.keys(sessionStorage)){if(key.startsWith("networkConfigurator.report.edit."))sessionStorage.removeItem(key);}
  if(document.design?.project)document.design.project.name=document.name;if(document.reporting)document.reporting.name=document.name;
@@ -68,7 +69,7 @@ function restore(document,{destination,workingCopy=false}={}){
  destination=destination||(discoveryPage?'discovery':document.design?'design':'report');
  if(destination==='discovery'&&document.design&&window.NetworkWorkspaceProject){window.NetworkWorkspaceProject.apply(document.design);close();return;}
  if(destination==='design'&&document.design&&window.NetworkWorkspaceProject){window.NetworkWorkspaceProject.apply(document.design);close();}
- else if(destination==='report'&&document.reporting&&window.NetworkReportProject){window.NetworkReportProject.apply(document.reporting);window.ProjectWorkflow?.restore(document.design?.projectWorkflow||null,document.design?.project?.id||document.reporting?.source?.projectId);sessionStorage.removeItem('networkConfigurator.report.import');close();}
+ else if(destination==='report'&&document.reporting&&window.NetworkReportProject&&!inventoryPage){window.NetworkReportProject.apply(document.reporting);window.ProjectWorkflow?.restore(document.design?.projectWorkflow||null,document.design?.project?.id||document.reporting?.source?.projectId);sessionStorage.removeItem('networkConfigurator.report.import');close();}
  else location.assign(destination==='design'&&document.design?'/?resume=1':'/reporting?view=design');
 }
 async function open(id,destination){try{const record=await api('/api/projects/'+id);validateBundle(record.document);setContext(record);restore(record.document,{destination});}catch(error){status(error.message,true);}}
