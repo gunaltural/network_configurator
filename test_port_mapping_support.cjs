@@ -113,6 +113,47 @@ assert.throws(
   /multiple device prompts/,
 );
 assert.throws(() => C.extractSupport("random text"), /No multi-command/);
+const fs = require("node:fs");
+const sampleSources = [];
+for (const filename of [
+  "CORE-01-show-tech-support.txt",
+  "ACCESS-01-show-tech-support.txt",
+]) {
+  const extracted = C.extractSupport(
+    fs.readFileSync("samples/port-mapping/" + filename, "utf8"),
+    { filename, site: "Default", importedAt: "2026-10-19T18:00:00Z" },
+  );
+  for (const s of extracted.sections)
+    sampleSources.push({
+      ...s,
+      id: "sample-" + sampleSources.length,
+      rows: s.kind === "mac" ? C.parse(s.raw).rows : [],
+    });
+}
+const sampleEvidence = JSON.parse(
+  execFileSync(
+    "python",
+    [
+      "-c",
+      "import json,sys;from port_mapping import analyze;print(json.dumps(analyze(json.load(sys.stdin))))",
+    ],
+    { input: JSON.stringify(sampleSources), encoding: "utf8" },
+  ),
+);
+const sampleModel = C.correlate(sampleSources, sampleEvidence);
+assert.equal(sampleModel.devices.length, 4);
+assert.equal(sampleModel.links.length, 3);
+assert.equal(
+  sampleModel.links.filter((l) => l.state === "Both ends observed").length,
+  1,
+);
+assert.equal(sampleModel.endpoints.length, 4);
+assert.ok(sampleModel.endpoints.every((e) => e.observations.length === 2));
+assert.ok(
+  sampleModel.endpoints
+    .find((e) => e.mac === "005056841234")
+    .addresses.some((a) => a.ip === "2001:db8:10::101"),
+);
 module.exports = { capture };
 console.log(
   "Diagnostic bundles: Cisco/Arista/Huawei headers, platform/hostname detection, summary neighbors, per-port snapshots, trunk VLANs, original line provenance, VRF case and unrelated configuration/log exclusion passed.",

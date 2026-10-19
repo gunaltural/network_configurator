@@ -1,0 +1,43 @@
+SYNTHETIC DEMONSTRATION ONLY - generated test data, not a production device capture.
+Documentation addresses (192.0.2.0/24 and 2001:db8::/32) are used throughout.
+
+CORE-01#show tech-support
+------------------ show version ------------------
+Cisco Nexus Operating System (NX-OS) Software - synthetic example
+Device name: CORE-01
+------------------ show running-config ------------------
+hostname CORE-01
+! Synthetic configuration section; intentionally omitted by the importer.
+------------------ show lldp neighbors detail ------------------
+Chassis id: 001c.7300.0010
+Port id: Ethernet49
+Local Port id: Ethernet1/1
+System Name: ACCESS-01
+System Description: Arista Networks EOS - synthetic example
+Enabled Capabilities: Bridge
+Management Address: 192.0.2.11
+------------------ show mac address-table ------------------
+VLAN MAC Address Type Ports
+10 0050.5684.1234 dynamic Eth1/1
+10 0050.56ab.cdef dynamic Eth1/1
+20 001b.6301.0203 dynamic Eth1/1
+30 0011.2200.0044 dynamic Eth1/1
+------------------ show interface status ------------------
+Port Name Status Vlan Duplex Speed Type
+Eth1/1 ACCESS-01-UPLINK connected trunk full 10G 10GBASE-SR
+------------------ show interface trunk ------------------
+Port Mode Encapsulation Status Native vlan
+Eth1/1 on 802.1q trunking 10
+Port Vlans allowed on trunk
+Eth1/1 10,20,30,40
+------------------ show ip arp vrf USERS ------------------
+Address Age MAC Address Interface
+192.0.2.101 00:00:20 0050.5684.1234 Vlan10
+192.0.2.102 00:00:20 0050.56ab.cdef Vlan10
+192.0.2.120 00:00:20 001b.6301.0203 Vlan20
+192.0.2.144 00:00:20 0011.2200.0044 Vlan30
+------------------ show ipv6 neighbors vrf USERS ------------------
+IPv6 Address Age Link-layer Address State Interface
+2001:db8:10::101 0 0050.5684.1234 REACH Vlan10
+------------------ show logging ------------------
+Synthetic end marker. Unrelated log sections are not retained.

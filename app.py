@@ -687,6 +687,16 @@ def project_workflow_script():
 def port_mapping_page():
     return HTMLResponse((BASE_DIR / 'port-mapping.html').read_text(encoding='utf-8'), headers={'Cache-Control':'no-store'})
 
+@app.get('/port-mapping-sample.zip')
+def port_mapping_sample():
+    from io import BytesIO
+    from zipfile import ZipFile, ZIP_DEFLATED
+    output = BytesIO()
+    with ZipFile(output, 'w', compression=ZIP_DEFLATED) as archive:
+        for filename in ('README.txt', 'CORE-01-show-tech-support.txt', 'ACCESS-01-show-tech-support.txt'):
+            archive.writestr(filename, (BASE_DIR / 'samples' / 'port-mapping' / filename).read_bytes())
+    return Response(output.getvalue(), media_type='application/zip', headers={'Content-Disposition':'attachment; filename="port-mapping-synthetic-samples.zip"','Cache-Control':'no-store'})
+
 @app.get('/port-mapping-core.js')
 def port_mapping_core():
     return Response((BASE_DIR / 'port-mapping-core.js').read_text(encoding='utf-8'), media_type='application/javascript', headers={'Cache-Control':'no-cache'})

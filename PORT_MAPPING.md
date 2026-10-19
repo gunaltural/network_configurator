@@ -4,6 +4,8 @@ The independent `/port-mapping` workspace correlates neighbor discovery, interfa
 
 ## Diagnostic-file workflow
 
+The workspace offers `/port-mapping-sample.zip`: two clearly labelled synthetic Cisco NX-OS / Arista diagnostic TXT files plus a Turkish/English README. Extract and upload both files. Expected: 4 neighbor devices, 3 links (one reciprocal), 4 consolidated MAC/VLAN identities, 8 learning observations, IPv4/IPv6 and VRF USERS. The downloadable files are tested against the same parser used by imports.
+
 Upload one `show tech-support` file per Cisco IOS-XE, NX-OS or Arista switch, or the corresponding Huawei VRP/iStack `display diagnostic-information` text. TXT, LOG, RTF and gzip-compressed text are accepted. Recognized command separators include dashed/equals/asterisk headings and CLI prompts. Individual command imports and old `mac-port-mapping-v1` workspaces remain supported.
 
 The browser extracts relevant neighbor, MAC, interface, aggregation and ARP/ND sections. Platform is detected from the version section; hostname comes from a CLI prompt or the hostname/sysname statement. Unrelated running configuration and logs are omitted from retained evidence. The extractor reports missing categories, oversized/unparseable sections and pagination markers. A bundle with no recognizable usable sections leaves the existing workspace intact. Files containing multiple device prompts must be split by device.

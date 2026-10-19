@@ -153,13 +153,11 @@ try {
     "./test_port_mapping_support.cjs",
   );
   const { gzipSync } = createRequire(import.meta.url)("node:zlib");
-  await page
-    .locator("#pmFiles")
-    .setInputFiles({
-      name: "CORE-show-tech.log.gz",
-      mimeType: "application/gzip",
-      buffer: gzipSync(Buffer.from(capture)),
-    });
+  await page.locator("#pmFiles").setInputFiles({
+    name: "CORE-show-tech.log.gz",
+    mimeType: "application/gzip",
+    buffer: gzipSync(Buffer.from(capture)),
+  });
   await page.waitForFunction(
     () => window.PortMapping.model().links.length === 1,
   );
@@ -183,6 +181,33 @@ try {
     await page.locator("#pmSupportCoverage").textContent(),
     /6 sections/,
   );
+  const sampleDownload = page.waitForEvent("download");
+  await page
+    .getByRole("link", {
+      name: "Download synthetic tech-support examples (ZIP)",
+    })
+    .click();
+  assert.equal(
+    (await sampleDownload).suggestedFilename(),
+    "port-mapping-synthetic-samples.zip",
+  );
+  page.once("dialog", (d) => d.accept());
+  await page.locator("#pmClear").click();
+  await page
+    .locator("#pmFiles")
+    .setInputFiles([
+      "samples/port-mapping/CORE-01-show-tech-support.txt",
+      "samples/port-mapping/ACCESS-01-show-tech-support.txt",
+    ]);
+  await page.waitForFunction(
+    () =>
+      window.PortMapping.model().devices.length === 4 &&
+      window.PortMapping.model().endpoints.length === 4 &&
+      window.PortMapping.model().endpoints.every(
+        (e) => e.observations.length === 2,
+      ),
+  );
+  assert.equal(await page.locator("#pmClientRows tr").count(), 4);
   await page.screenshot({
     path: "/tmp/port-support-topology.png",
     fullPage: true,
