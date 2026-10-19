@@ -840,7 +840,7 @@
           p.sshVisibleIds=(old.sshVisibleIds||[]).map(id=>mapping.get(id)).filter(Boolean);
           p.inventoryRevision=2;p.projectDetails=old.projectDetails||{};p.projectExampleValues=old.projectExampleValues||{fields:{}};p.scope=p.scope||old.scope||"";
         }
-        if(old?.verificationPlan)p.verificationPlan=old.verificationPlan;
+        if(old?.verificationPlan&&!Array.isArray(p.verificationPlan))p.verificationPlan=old.verificationPlan;
         const scenarioPrevious=compatible&&current?.source?.projectId===p.source.projectId?current:cached;
         if(!Array.isArray(p.simulationScenarios)&&Array.isArray(scenarioPrevious?.simulationScenarios))p.simulationScenarios=scenarioPrevious.simulationScenarios;
         if(old?.source && old.source.module===p.source.module && old.vendor===p.vendor && Array.isArray(old.devices)){
@@ -855,7 +855,7 @@
       }catch(e){console.warn("Prior documentation could not be read",e);}
     }
     if(!refresh)normalizeInventoryProject(p);else p.inventoryRevision=2;
-    state={...p,simulationScenarios:Array.isArray(p.simulationScenarios)?p.simulationScenarios.slice(0,40):[],projectDetails:p.projectDetails&&typeof p.projectDetails==="object"?p.projectDetails:{},language:p.language==="tr"?"tr":"en",name:String(p.name||""),scope:String(p.scope||""),roles:p.roles||null,specialLinks:Array.isArray(p.specialLinks)?p.specialLinks:[],parameters:Array.isArray(p.parameters)?p.parameters:[],configurations:Array.isArray(p.configurations)?p.configurations:[],source:p.source||null,techPlacement:p.techPlacement==="spine"?"upper":p.techPlacement==="leaf"?"lower":p.techPlacement==="upper"?"upper":"lower",upperCount:Math.min(p.source?64:8,Math.max(1,+p.upperCount||1)),lowerCount:p.source?Math.min(16,Math.max(0,+p.lowerCount||0)):Math.min(16,Math.max(1,+p.lowerCount||1))};
+    state={...p,simulationScenarios:Array.isArray(p.simulationScenarios)?p.simulationScenarios.slice(0,320):[],projectDetails:p.projectDetails&&typeof p.projectDetails==="object"?p.projectDetails:{},language:p.language==="tr"?"tr":"en",name:String(p.name||""),scope:String(p.scope||""),roles:p.roles||null,specialLinks:Array.isArray(p.specialLinks)?p.specialLinks:[],parameters:Array.isArray(p.parameters)?p.parameters:[],configurations:Array.isArray(p.configurations)?p.configurations:[],source:p.source||null,techPlacement:p.techPlacement==="spine"?"upper":p.techPlacement==="leaf"?"lower":p.techPlacement==="upper"?"upper":"lower",upperCount:Math.min(p.source?64:8,Math.max(1,+p.upperCount||1)),lowerCount:p.source?Math.min(16,Math.max(0,+p.lowerCount||0)):Math.min(16,Math.max(1,+p.lowerCount||1))};
     $("reportLanguage").value=state.language;$("projectName").value=state.name;$("vendor").value=state.vendor;$("architecture").value=state.architecture;$("upperCount").value=state.upperCount;$("lowerCount").value=state.lowerCount;$("scope").value=state.scope;$("techPlacement").value=state.techPlacement;syncTopology();renderEditor();
   }
   $("openProject").addEventListener("change",async e=>{const file=e.target.files[0];if(!file)return;try{const data=JSON.parse(await file.text());if(data.schema==="network-configurator-project-v1")window.NetworkProjects.openFile(data);else{openReport(data);window.NetworkProjects?.reset();}}catch(err){alert("Could not open project: "+err.message);}finally{e.target.value="";}});
@@ -879,5 +879,6 @@
 window.NetworkReportProject={snapshot:()=>JSON.parse(JSON.stringify(state)),apply:p=>openReport(p),rename:name=>{state.name=name;$("projectName").value=name;renderReport();}};
 })();
 </script>
+<script src="/project-workflow.js"></script>
 </body>
 </html>

@@ -146,6 +146,7 @@
  const labLink=sidebar.querySelector('[data-nc-lab]');
  if(lab&&new URLSearchParams(location.search).get('workspace')==='1')labLink.href='/network-lab?workspace=1';
  labLink.addEventListener('click',event=>{
+  if(window.ProjectWorkflow)return;
   if(!main)return;
   try{
    const api=window.NetworkWorkspaceProject;

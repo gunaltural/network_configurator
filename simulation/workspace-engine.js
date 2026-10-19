@@ -4,7 +4,7 @@ const modules=['BASIC','BGP','OSPF','STP','VPC','EVPN','QOS','SDWAN'];
 function normalize(context){
  const r=context.report,module=r?.source?.module;
  if(!modules.includes(module))throw Error('This workspace has no configured simulation model.');
- const nodes=(r.devices||[]).map(n=>({...n})),ids=new Set(nodes.map(n=>n.id));
+ const nodes=(r.devices||[]).filter(n=>!n.inventoryOnly).map(n=>({...n})),ids=new Set(nodes.map(n=>n.id));
  if(!nodes.length||ids.size!==nodes.length)throw Error('The design needs unique devices.');
  const links=[...(r.links||[]).map(l=>({...l,kind:l.kind||'Connection'})),...(r.specialLinks||[]).map((l,i)=>({...l,id:l.id||'special-'+i,logical:l.logical===true}))].filter(l=>l.enabled!==false);
  if(new Set(links.map(l=>l.id)).size!==links.length||links.some(l=>!ids.has(l.a)||!ids.has(l.b)))throw Error('The design contains invalid or duplicate connections.');

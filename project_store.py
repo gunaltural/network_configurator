@@ -9,7 +9,7 @@ from typing import Any
 from fastapi import HTTPException, Request
 from pydantic import BaseModel, Field
 
-MAX_DOCUMENT_BYTES = 4 * 1024 * 1024
+MAX_DOCUMENT_BYTES = 16 * 1024 * 1024
 SECRET_KEY = re.compile(r'password|passwd|secret|token|private.?key|credential', re.I)
 
 
@@ -56,7 +56,7 @@ def normalize_document(value):
     if document.get('reporting'):document['reporting']['name']=name
     encoded = json.dumps(document,ensure_ascii=False,separators=(',',':'))
     if len(encoded.encode()) > MAX_DOCUMENT_BYTES:
-        raise ValueError('Project exceeds the 4 MB document limit. Export it to a file instead.')
+        raise ValueError('Project exceeds the 16 MB document limit. Export it to a file instead.')
     return document, encoded
 
 
@@ -106,7 +106,10 @@ class ProjectRepository:
         vendors=set(filter(None,[text(design.get('workspace',{}).get('platform')),text(report.get('vendor'))]))
         for module in report.get('moduleReports',[]):
             if text(module.get('vendor')): vendors.add(module['vendor'])
+        planned=(design.get('projectWorkflow') or {}).get('modules',[]) if isinstance(design.get('projectWorkflow'),dict) else []
         modules=set(design.get('moduleStates',{}))
+        modules.update(m['key'] for m in planned if isinstance(m,dict) and m.get('key') in ('BASIC','BGP','OSPF','STP','VPC','EVPN','QOS','SDWAN'))
+        vendors.update(m['platform'] for m in planned if isinstance(m,dict) and isinstance(m.get('platform'),str))
         if text(design.get('workspace',{}).get('technology')): modules.add(design['workspace']['technology'])
         modules.update(m.get('module') for m in report.get('moduleReports',[]) if text(m.get('module')))
         inventory_ids=set(report.get('inventoryDeviceIds',[]))

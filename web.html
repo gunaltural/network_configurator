@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Network Configurator v5.51.0</title>
+<title>Network Configurator v5.52.0</title>
 <style>
 :root{
   --bg:#0d1117;--panel:#161b22;--panel2:#1f2630;--line:#2b3440;
@@ -369,6 +369,7 @@ body.nc-simulation-action{padding-bottom:145px}body.nc-simulation-action #topolo
 <script src="/corporate-shell.js" defer></script>
 <script src="/path-diagnostics.js" defer></script>
 <script src="/project-library.js" defer></script>
+<script src="/project-workflow.js" defer></script>
 <script src="/huawei-istack.js"></script>
 </head>
 <body>
@@ -414,7 +415,7 @@ body.nc-simulation-action{padding-bottom:145px}body.nc-simulation-action #topolo
     <div class="logo">NC</div>
     <div><h1>Network Configurator</h1><small>Configure · Validate · Troubleshoot</small></div>
   </div>
-  <div class="badge">Version 5.51.0 · Simulation</div>
+  <div class="badge">Version 5.52.0 · Simulation</div>
 </header>
 
 <div class="layout">
@@ -5777,6 +5778,7 @@ renderModule();
      moduleStates:Object.fromEntries(Object.entries(window.__workspaceModuleStates).map(([key,value])=>[key,{...value,fields:safeProjectFields(value.fields)}])),
      fields,
      pathDiagnostics:window.NetworkPathDiagnostics?.snapshot()||null,
+     projectWorkflow:window.ProjectWorkflow?.forProject(currentProjectId)||(window.__projectWorkflowState?.projectId===currentProjectId?window.__projectWorkflowState:null),
      networkDiscovery:window.__networkDiscoveryState||null
    };
 
@@ -5827,6 +5829,7 @@ renderModule();
      management:get("sdMgmtCidr"),
      routers:sdPlanRows()
    };
+   if(doc.projectWorkflow)doc.projectWorkflow.name=doc.project.name;
    return doc;
  }
  function store(){try{return JSON.parse(localStorage.getItem(STORE)||"{}")}catch(e){return {}}}
@@ -5840,6 +5843,7 @@ renderModule();
    const meta=data.project&&typeof data.project==="object"?data.project:null;
    $("v3ProjectName").value=meta?.name||data.project||"Untitled Network Project";
    currentProjectId=meta?.id||data.id||null;
+   window.__projectWorkflowState=data.projectWorkflow||null;window.ProjectWorkflow?.restore(data.projectWorkflow||null,currentProjectId);
    // The target module must exist before restoring its dynamic controls.
    const tech=data.workspace?.technology||data.activeTech;
    window.__workspaceModuleStates=Object.fromEntries(Object.entries(data.moduleStates||{}).filter(([key])=>COMBINABLE_MODULES.includes(key)).map(([key,value])=>[key,{...value,fields:safeProjectFields(value.fields)}]));
@@ -5866,7 +5870,7 @@ renderModule();
      if(String(tech).toUpperCase()==="BGP")renderBgpDynamicCards();
      if(String(tech).toUpperCase()==="SDWAN")sdRestorePlanUI();
      if(typeof render==="function")render();
-     captureWorkspaceModule(tech);syncTopology();renderOutput();updateHealth();finishRestore();
+     captureWorkspaceModule(tech);syncTopology();renderOutput();updateHealth();finishRestore();document.dispatchEvent(new Event("network-workspace-restored"));
    },30);
  }
  function saveAs(forceName){
@@ -6518,6 +6522,7 @@ renderModule();
  document.addEventListener("nc-auth-expired",()=>{
    try{sessionStorage.setItem("networkConfigurator.workflow.design",JSON.stringify(snapshot()));}catch(error){console.warn("Draft checkpoint unavailable",error);}
  });
+ const pristineProjectTemplate=JSON.parse(JSON.stringify(snapshot()));
  if(new URLSearchParams(location.search).get("resume")==="1"){
    try{
      const saved=JSON.parse(sessionStorage.getItem("networkConfigurator.workflow.design")||"null");
@@ -6555,6 +6560,7 @@ function bgpLabDesign(){
 function prepareSimulation(){
  const model=window.NetworkWorkspaceProject.labDesign(),project=snapshot(),report=reportingDesign();
  report.topologySvg=workspaceTopologySvg();report.verificationCommands=reportVerificationCommands();
+ const merged=window.ProjectWorkflow?.mergeModuleDraft(report);if(merged)Object.assign(report,merged);
  sessionStorage.setItem('networkConfigurator.workflow.design',JSON.stringify(project));
  sessionStorage.setItem('networkConfigurator.lab.context',JSON.stringify({projectId:project.project.id,model,report,topologySvg:workspaceTopologySvg(true)}));
  return model;
@@ -6594,11 +6600,25 @@ function prepareWorkspaceSimulation(){
  }
  if(tech==='OSPF')report.links.forEach(l=>l.cost=settings.ospfCost);
  report.topologySvg=workspaceTopologySvg();report.verificationCommands=reportVerificationCommands();
+ const merged=window.ProjectWorkflow?.mergeModuleDraft(report);if(merged)Object.assign(report,merged);
  const context={schema:'network-configurator-workspace-simulation-v1',projectId:project.project.id,report,settings,bgp,topologySvg:workspaceTopologySvg(true,report)};
  sessionStorage.setItem('networkConfigurator.workflow.design',JSON.stringify(project));
  sessionStorage.setItem('networkConfigurator.lab.workspace',JSON.stringify(context));return context;
 }
-window.NetworkWorkspaceProject={simulationTopologySvg:()=>workspaceTopologySvg(true),prepareWorkspaceSimulation,prepareSimulation,labDesign:bgpLabDesign,snapshot,apply:applyProject,prepareCompare,diagnosticScope:()=>({module:tech,platform:platform()}),diagnosticDesign:reportingDesign,diagnosticResult:()=>window.__latestDiagnosticResult||null,rename:name=>{$("v3ProjectName").value=name;}};
+async function activateModule(key,requestedPlatform){
+ captureWorkspaceModule(tech);openTech(key);await new Promise(r=>setTimeout(r,70));restoreWorkspaceModule(key);
+ if(requestedPlatform&&platform()!==requestedPlatform){if(![...$('platform').options].some(o=>o.value===requestedPlatform))throw Error('Unsupported module vendor.');const saved=window.__workspaceModuleStates[key];window.__workspaceModuleStates[key]={...saved,platform:requestedPlatform,fields:saved?.platform===requestedPlatform?saved.fields:{}};$('platform').value=requestedPlatform;renderModule();await new Promise(r=>setTimeout(r,70));restoreWorkspaceModule(key);}
+ renderOutput();syncTopology();captureWorkspaceModule(key);
+}
+async function createGuidedProject(workflow){
+ const fresh=JSON.parse(JSON.stringify(pristineProjectTemplate)),first=workflow.modules[0];fresh.project={id:workflow.projectId,name:workflow.name,updated:new Date().toISOString()};fresh.workspace={technology:first.key,platform:first.platform};fresh.fields.platform=first.platform;fresh.moduleStates={};fresh.projectWorkflow=workflow;fresh.networkDiscovery=null;fresh.pathDiagnostics=null;window.__modulePlatformLast={};applyProject(fresh);await window.__workspaceRestoreReady;await activateModule(first.key,first.platform);
+}
+async function mergeReportDocuments(reports){
+ const combined=combineReports(reports),identity=d=>d.vendor+'|'+String(d.logicalHostname||d.hostname||d.id).toLowerCase(),ids=new Map(combined.devices.map(d=>[identity(d),d.id])),inventory=new Set(),manual=new Set(),ssh=new Set(),verification=[],scenarios=new Map();
+ for(const report of reports){const map=new Map(report.devices.map(d=>[d.id,ids.get(identity(d))]));for(const [key,target]of [['inventoryDeviceIds',inventory],['manualVisibleIds',manual],['sshVisibleIds',ssh]])for(const id of report[key]||[])if(map.has(id))target.add(map.get(id));for(const row of report.verificationPlan||[])if(map.get(row.deviceId))verification.push({...row,id:JSON.stringify([report.moduleKey,row.id]),deviceId:map.get(row.deviceId)});for(const scenario of report.simulationScenarios||[])scenarios.set(scenario.id,scenario);}
+ combined.inventoryRevision=2;combined.inventoryDeviceIds=[...inventory];combined.manualVisibleIds=[...manual];combined.sshVisibleIds=[...ssh];combined.verificationPlan=verification;combined.simulationScenarios=[...scenarios.values()];combined.projectDetails=reports[0].projectDetails||{};combined.scope=reports.filter(r=>r.scope).map(r=>r.moduleTitle+'\n'+r.scope).join('\n\n');combined.language=reports[0].language||'en';combined.topologySvg=NetworkReportGuide.designPresentation(combined).svg;combined.topologyPng=await workspaceTopologyPng(combined.topologySvg);return combined;
+}
+window.NetworkWorkspaceProject={activateModule,createGuidedProject,moduleReport:collectModuleReport,mergeReportDocuments,simulationTopologySvg:()=>workspaceTopologySvg(true),prepareWorkspaceSimulation,prepareSimulation,labDesign:bgpLabDesign,snapshot,apply:applyProject,prepareCompare,diagnosticScope:()=>({module:tech,platform:platform()}),diagnosticDesign:reportingDesign,diagnosticResult:()=>window.__latestDiagnosticResult||null,rename:name=>{$("v3ProjectName").value=name;}};
 })();
 </script>
 
