@@ -45,7 +45,7 @@ from config_compare import install_config_compare
 from network_lab import install_network_lab
 from lab_gateway import install_lab_gateway
 
-VERSION = "5.51.0"
+VERSION = "5.52.0"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
 # Keep the diagnostic entry point available with the authenticated page itself.
@@ -380,7 +380,7 @@ class ReportWordRequest(BaseModel):
     parameters: List[ReportParameter] = Field(default_factory=list)
     configurations: List[ReportConfiguration] = Field(default_factory=list)
     topologyPng: str = Field(default="", max_length=3000000)
-    simulationScenarios: List[SimulationScenario] = Field(default_factory=list, max_length=40)
+    simulationScenarios: List[SimulationScenario] = Field(default_factory=list, max_length=320)
     verificationPlan: List[ReportVerificationRecord] = Field(default_factory=list, max_length=2000)
     unifiedDesign: bool = False
     technicalDesign: ReportTechnicalDesign | None = None
@@ -661,6 +661,10 @@ app = FastAPI(
 install_authentication(app, BASE_DIR)
 install_network_lab(app, BASE_DIR)
 install_lab_gateway(app)
+
+@app.get('/project-workflow.js')
+def project_workflow_script():
+    return Response((BASE_DIR / 'project-workflow.js').read_text(encoding='utf-8'), media_type='application/javascript', headers={'Cache-Control':'no-cache'})
 
 @app.get('/port-mapping', response_class=HTMLResponse)
 def port_mapping_page():

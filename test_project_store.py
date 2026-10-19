@@ -39,6 +39,15 @@ class ProjectStoreTests(unittest.TestCase):
         self.assertEqual(self.repo.get('engineer',first['id'])['name'],'Updated lab')
         self.assertEqual(len(self.repo.revisions('engineer',first['id'])['revisions']),2)
         self.assertEqual(self.repo.revision('engineer',first['id'],1)['document']['name'],'Synthetic lab')
+    def test_guided_module_archives_survive_storage_and_planned_scope_is_visible(self):
+        payload=document()
+        flow={'schema':'guided-network-project-v1','projectId':payload['design']['project']['id'],'name':payload['name'],'mode':'project','active':0,'stage':'inventory','modules':[{'key':'BGP','platform':'Cisco NX-OS','status':'in-progress'},{'key':'VPC','platform':'Arista EOS','status':'not-started','report':{'codec':'json','data':'{"schema":"network-configurator-report-v1"}'}}]}
+        payload['design']['projectWorkflow']=flow
+        saved=self.repo.save('one',payload)
+        self.assertIn('VPC',saved['modules']);self.assertIn('Arista EOS',saved['vendors'])
+        restored=self.repo.get('one',saved['id'])['document']['design']['projectWorkflow']
+        self.assertEqual(restored,flow)
+
     def test_save_keeps_revision_and_blocks_stale_tabs(self):
         first=self.repo.save('one',document())
         updated=self.repo.save('one',document('Edited'),first['id'],1,expected_updated_at=first['updated_at'])
@@ -94,7 +103,7 @@ class ProjectStoreTests(unittest.TestCase):
                 with self.assertRaises(ValueError):normalize_document(payload)
         payload=document();payload['design']['moduleStates']['BGP']=None
         with self.assertRaises(ValueError):normalize_document(payload)
-        payload=document();payload['design']['fields']['large']='a'*(4*1024*1024)
+        payload=document();payload['design']['fields']['large']='a'*(16*1024*1024)
         with self.assertRaises(ValueError):normalize_document(payload)
     def test_standalone_report_accepts_no_technology_source(self):
         payload=document();payload['design']=None;payload['reporting']['source']=None
