@@ -41,7 +41,7 @@ function syncSavedName(bundle){
 function setContext(record){sessionStorage.setItem(record.document?.reporting?.source?.module==='INVENTORY'&&!record.document?.design?'networkConfigurator.inventory.library.context':'networkConfigurator.library.context',JSON.stringify({id:record.id,version:record.version,updated_at:record.updated_at,name:record.name,username}));}
 async function persist(document,{copy=false,note='',activate=true,createRevision=false}={}){
  const current=copy?null:context();const result=await api('/api/projects'+(current?'/'+current.id:''),{method:current?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({document:clean(document),version:current?.version,expected_updated_at:current?.updated_at,create_revision:createRevision,note})});
- if(activate)setContext(result);await recentProjects();return result;
+ if(activate)setContext({...result,document});await recentProjects();return result;
 }
 function controls(){panel.querySelectorAll('[data-library-save],[data-library-revision],[data-library-copy],[data-library-local] button').forEach(button=>button.disabled=busy||(!available&&button.textContent!=='Delete local copy'));}
 async function save(copy=false,designOverride,createRevision=false){
