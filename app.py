@@ -33,6 +33,7 @@ from sdwan_excel import parse_sdwan_excel
 from network_discovery import COMMANDS as DISCOVERY_COMMANDS, build_graph as build_discovery_graph
 from discovery_details import DETAIL_COMMANDS, enrich_graph as enrich_discovery_graph
 from discovery_report import build_discovery_report
+from port_mapping import analyze as analyze_port_mapping
 from fastapi.responses import HTMLResponse, StreamingResponse, Response, JSONResponse
 from pydantic import BaseModel, Field
 import uvicorn
@@ -45,7 +46,7 @@ from config_compare import install_config_compare
 from network_lab import install_network_lab
 from lab_gateway import install_lab_gateway
 
-VERSION = "5.52.4"
+VERSION = "5.53.0"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
 # Keep the diagnostic entry point available with the authenticated page itself.
@@ -214,6 +215,22 @@ class DiscoverySource(BaseModel):
 
 class DiscoveryParseRequest(BaseModel):
     sources: List[DiscoverySource] = Field(min_length=1, max_length=50)
+
+class PortMappingEvidence(BaseModel):
+    id: str = Field(min_length=1, max_length=100)
+    device: str = Field(min_length=1, max_length=120)
+    site: str = Field(default='Default', min_length=1, max_length=100)
+    target: str = Field(default='', max_length=253)
+    platform: Literal['Cisco IOS-XE', 'Cisco NX-OS', 'Arista EOS', 'Huawei_CE_SW', 'Huawei iStack'] = 'Cisco IOS-XE'
+    kind: Literal['mac','lldp','cdp','interfaces','arp','nd'] = 'mac'
+    command: str = Field(default='', max_length=100)
+    originalCommand: str = Field(default='', max_length=300)
+    vrf: str = Field(default='', max_length=100)
+    importedAt: str = Field(max_length=80)
+    raw: str = Field(max_length=3000000)
+
+class PortMappingAnalyzeRequest(BaseModel):
+    sources: List[PortMappingEvidence] = Field(min_length=1, max_length=100)
 
 class DiscoverySSHRequest(DeviceRequest):
     protocol: Literal['lldp', 'cdp', 'both'] = 'lldp'
@@ -673,6 +690,13 @@ def port_mapping_page():
 @app.get('/port-mapping-core.js')
 def port_mapping_core():
     return Response((BASE_DIR / 'port-mapping-core.js').read_text(encoding='utf-8'), media_type='application/javascript', headers={'Cache-Control':'no-cache'})
+
+@app.post('/api/port-mapping/analyze')
+def port_mapping_analyze(p: PortMappingAnalyzeRequest):
+    try:
+        return analyze_port_mapping([s.model_dump() for s in p.sources])
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
 
 @app.get('/port-mapping.js')
 def port_mapping_script():

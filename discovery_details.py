@@ -10,6 +10,7 @@ DETAIL_COMMANDS = {
     'Huawei_CE_SW': ('display interface brief', 'display interface', 'display port vlan', 'display eth-trunk'),
     'Huawei iStack': ('display interface brief', 'display interface', 'display port vlan', 'display eth-trunk'),
 }
+PARSE_COMMANDS = {platform: commands + (() if platform.startswith('Huawei') else (('show interface','show interface trunk') if platform=='Cisco NX-OS' else ('show interfaces','show interfaces trunk'))) for platform, commands in DETAIL_COMMANDS.items()}
 PORT_RE = r'(?:[0-9]*[A-Za-z][A-Za-z0-9-]*\d+(?:[/.:]\d+)*|Port-Channel\d+|Eth-Trunk\d+)'
 
 def key(value):
@@ -37,18 +38,18 @@ def parse_interfaces(platform, evidence):
     # absent from that capture. Merge different commands in observation order.
     latest = {}
     for item in evidence:
-        identity = (item.get('platform') or platform, item['command'])
+        identity = (item.get('platform') or platform, item.get('snapshotKey') or item['command'])
         if identity not in latest or observation_order(item) >= observation_order(latest[identity]):
             latest[identity] = item
     for item in sorted(latest.values(), key=observation_order):
         command, output = item['command'], item['output'].replace('\r', '')
         evidence_platform = item.get('platform') or platform
-        if command not in DETAIL_COMMANDS[evidence_platform]:
+        if command not in PARSE_COMMANDS[evidence_platform]:
             raise ValueError('Unsupported interface evidence command for this platform.')
         if re.search(r'invalid (?:input|command)|unrecognized command|unknown command|incomplete command|(?:^|\n)\s*(?:%|Error:)', output, re.I):
             warnings.append(command + ': command output reported an error; interface fields were not inferred.')
             continue
-        current, accepted, aggregate = None, 0, None
+        current, accepted, aggregate, trunk_section = None, 0, None, ''
         def record(name):
             nonlocal accepted
             accepted += 1
@@ -57,6 +58,19 @@ def parse_interfaces(platform, evidence):
             if provenance not in r['evidence']: r['evidence'].append(provenance)
             return r
         for line in output.splitlines():
+            if command.endswith(' trunk'):
+                if re.search(r'Port\s+Mode\s+Encapsulation\s+Status\s+Native',line,re.I):trunk_section='native';continue
+                if re.search(r'Port\s+Vlans allowed on trunk',line,re.I):trunk_section='allowed';continue
+                if re.search(r'Port\s+Vlans allowed and active',line,re.I):trunk_section='active';continue
+                if re.search(r'Port\s+Vlans in spanning tree forwarding',line,re.I):trunk_section='forwarding';continue
+                m=re.match(r'^\s*('+PORT_RE+r')\s+(.*)$',line,re.I)
+                if m and trunk_section=='native':
+                    fields=m[2].split()
+                    if len(fields)>=4:
+                        r=record(m[1]);r.update(mode='trunk',nativeVlan=fields[-1],trunkStatus=fields[-2])
+                    continue
+                if m and trunk_section in ('allowed','active','forwarding'):
+                    r=record(m[1]);r[{'allowed':'allowedVlans','active':'activeVlans','forwarding':'forwardingVlans'}[trunk_section]]=m[2].strip();continue
             # IOS/NX-OS/EOS status table, descriptions may contain spaces.
             m = re.match(r'^\s*('+PORT_RE+r')\s+(?:(.*?)\s+)?(connected|notconnect|notconnec|disabled|err-disabled|errDisabl|inactive|monitoring|sfpAbsent|xcvrAbsen|suspended|notpresent|unknown|routed|up|down)\s+(\S+)\s+(\S+)\s+(\S+)(?:\s+.*)?$', line, re.I)
             if m and 'status' in command:
@@ -76,11 +90,15 @@ def parse_interfaces(platform, evidence):
             m=re.match(r'^\s*(?:Name|Interface)\s*:\s*('+PORT_RE+r')\s*$',line,re.I)
             if m:current=record(m[1]);continue
             if current:
-                for pattern, field in [(r'^\s*Description\s*:\s*(.*)$','description'),(r'^\s*Operational Mode\s*:\s*(.*)$','mode'),(r'^\s*(?:Access Mode VLAN|Port default VLAN|PVID)\s*:\s*(\S+).*','vlan'),(r'^\s*(?:Trunking VLANs Enabled|Trunk VLANs Allowed|Trunk VLANs)\s*:\s*(.*)$','allowedVlans'),(r'^\s*Speed\s*:\s*(.*)$','speed'),(r'^\s*Line protocol current state\s*:\s*(.*)$','protocol')]:
+                for pattern, field in [(r'^\s*Description\s*:\s*(.*)$','description'),(r'^\s*Operational Mode\s*:\s*(.*)$','mode'),(r'^\s*(?:Access Mode VLAN|Port default VLAN|PVID)\s*:\s*(\S+).*','vlan'),(r'^\s*(?:Trunking Native Mode VLAN|Native VLAN)\s*:\s*(\S+).*','nativeVlan'),(r'^\s*Voice VLAN\s*:\s*(\S+).*','voiceVlan'),(r'^\s*(?:Trunking VLANs Enabled|Trunk VLANs Allowed|Trunk VLANs)\s*:\s*(.*)$','allowedVlans'),(r'^\s*Speed\s*:\s*(.*)$','speed'),(r'^\s*Line protocol current state\s*:\s*(.*)$','protocol'),(r'^\s*(?:Power drawn|Power consumption|PoE power)\s*:\s*(.*)$','power')]:
                     x=re.match(pattern,line,re.I)
                     if x:current[field]=x[1].strip()
                 x=re.search(r'(\S+)\s+duplex,\s+(\S+(?:\s*[GMK]b/s)?)',line,re.I)
                 if x:current['duplex'],current['speed']=x[1],x[2]
+                x=re.search(r'(\d+)\s+input errors.*?(\d+)\s+CRC',line,re.I)
+                if x:current['inputErrors'],current['crcErrors']=x[1],x[2]
+                x=re.search(r'(\d+)\s+output errors',line,re.I)
+                if x:current['outputErrors']=x[1]
             # IOS/NX-OS/EOS port-channel membership.
             if 'summary' in command:
                 m=re.match(r'^\s*\d+\s+(Po\d+|Port-Channel\d+)\([^)]*\)\s+.*',line,re.I)

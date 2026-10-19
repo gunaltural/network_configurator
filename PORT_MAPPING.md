@@ -1,17 +1,39 @@
-# MAC port mapping v1
+# Network topology and port mapping · 5.53.0
 
-Open **Inventory → MAC Port Mapping** (`/port-mapping`). Upload text/log/RTF captures or paste Cisco IOS/NX-OS, Arista EOS or Huawei VRP MAC table rows. Each source has an editable device label. Files are parsed locally in the browser; the existing login boundary protects the workspace and registry assets.
+The independent `/port-mapping` workspace correlates neighbor discovery, interface evidence, MAC learning and IP/MAC tables. It does not execute imported CLI text or alter technology project data.
 
-The topology groups learned MACs by imported source and port. It is a MAC learning map, not physical neighbor discovery. Operational switchport mode remains unknown until supporting output is available. Virtual gateway addresses, multicast and local/system records are retained as infrastructure evidence, excluded from endpoint groups. A device count or device model is not inferred from address registration. IPv4/IPv6 mapping, LLDP/CDP merging, direct neighbor verification, traffic simulation, and switchport configuration import are outside v1.
+## Diagnostic-file workflow
 
-Search and VLAN filters apply to topology and records. Selecting a port scopes the table and CSV to it. The inspector includes original capture lines. Workspace JSON includes raw source captures, labels, import times and optional imported registry overrides; JSON restore reparses sources rather than trusting stored results. Nothing is saved automatically. CSV includes source filename and import date; import date is not a measured capture time.
+Upload one `show tech-support` file per Cisco IOS-XE, NX-OS or Arista switch, or the corresponding Huawei VRP/iStack `display diagnostic-information` text. TXT, LOG, RTF and gzip-compressed text are accepted. Recognized command separators include dashed/equals/asterisk headings and CLI prompts. Individual command imports and old `mac-port-mapping-v1` workspaces remain supported.
 
-Limits: 3 MB per capture, 50,000 parsed records per source, 20 sources, 10 MB aggregate raw text. Tables are paginated to 100 rows; topology to 24 port groups.
+The browser extracts relevant neighbor, MAC, interface, aggregation and ARP/ND sections. Platform is detected from the version section; hostname comes from a CLI prompt or the hostname/sysname statement. Unrelated running configuration and logs are omitted from retained evidence. The extractor reports missing categories, oversized/unparseable sections and pagination markers. A bundle with no recognizable usable sections leaves the existing workspace intact. Files containing multiple device prompts must be split by device.
 
-## Address organizations
+Limits: diagnostic text up to 50 MB; each retained section up to 3 MB; at most 100 retained sources and 10 MB text in a workspace; graph at most 500 devices and 2,000 links. Gzip expansion is bounded. ZIP/TAR archives are not unpacked. Neighbor and interface sections are submitted to the application's authenticated parsing endpoint; MAC-only analysis remains in the browser.
 
-Bundled registry: IEEE MA-L and IAB listings packaged by netaddr 1.3.0, with 39,659 prefixes. Packaged 2026-10-19; original registry effective date is unknown. See `port-mapping-registry-NOTICE.txt` for attribution and netaddr license. The route serves a gzip-compressed JSON snapshot; no external lookup is required. IEEE MA-L/MA-M/MA-S CSV imports can refresh/extend lookup. Matching uses 36, 28 then 24 bits; locally administered and multicast addresses are not assigned a manufacturer from the OUI database.
+## Correlation and presentation
+
+- LLDP/CDP detailed and supported summary formats establish advertised neighbor connections and local/remote ports. Reverse observations consolidate into a single link, with both-end confirmation separate from one-sided observation.
+- Site/fabric scopes prevent identical names/MACs in different networks from collapsing. Use consistent names and management addresses across captures; ambiguous identities are reported.
+- Port status, descriptions, operational switchport mode, access/native/voice/allowed VLANs, link speed, aggregation membership, available errors and PoE fields enrich each port. Missing fields remain uncollected. Numbers of learned MACs never determine access/trunk mode.
+- MAC/VLAN observations consolidate per site. Transit observations remain attached to the same identity instead of duplicating the client. Switch uplinks and remote NVE/VXLAN learning do not become physical client locations. Multiple candidate edge locations remain explicit, including possible dual attachment or movement.
+- Neighbor chassis MAC and advertised capabilities can identify a phone, AP, switch/bridge or router. OUI lookup identifies the registered organization only. Engineer hostname/type/notes annotations have explicit provenance.
+- ARP/ND addresses retain VRF, observed VLAN, source and time. Records without an SVI VLAN are labelled as unscoped rather than asserted to match a VLAN.
+- Newest device/command/VRF snapshots supersede previous captures. Explicit empty MAC tables remove old learning; per-interface diagnostic sections retain independent snapshot identities. Raw active and superseded captures remain inspectable.
+
+The main map shows neighbor links and expandable learned-port groups. Port groups learned through a network-device connection are associated with that neighbor when the last access port is unknown. Phone/AP downstream groups are placed beside their advertised neighbor. Device focus and neighborhood depth limit large maps; port view supports paging. MAC/IP/hostname/vendor/port search and VLAN filters apply to tables and maps. Highlighted relationships traverse the discovered graph; they are not measured traffic or an STP forwarding-path claim.
+
+Each switch, link, port and consolidated client opens its evidence inspector. Source commands, original diagnostic line ranges and timestamps remain available. Supplied capture time is used when entered; otherwise times are import times. Access/native VLAN conflicts, multiple neighbors, multiple edge candidates and down-port/MAC evidence are review notes.
+
+## Persistence and export
+
+The independent browser draft uses `networkConfigurator.portMapping.v2`. Explicit JSON export stores raw extracted sections, custom OUI prefixes, coverage notes and client annotations; restore reparses the original sections. Old v1 files import as MAC-only workspaces. Network Discovery JSON can be opened without changing the source project. CSV exports cover port observations or consolidated clients; SVG exports the current topology. Print/Save PDF uses current filters and topology scope.
 
 ## Verification
 
-`node test_port_mapping.cjs` checks row formats, RTF, VLAN identity, infrastructure classification, registry matching, filters and safe workspace restore. `node test_port_mapping_browser.mjs` checks actual file upload/download and navigation. Optionally pass `PORT_MAPPING_SAMPLE=/path/to/show_mac_address.rtf` to check the private acceptance capture: 1,371 dynamic rows, 123 port groups, zero unmatched MAC-bearing lines, Gi4/48 147 distinct MACs, Gi1/20 145. The private capture is not included in this repository.
+The bundled offline organization registry retains its existing attribution: IEEE MA-L and IAB listings packaged by netaddr 1.3.0 (39,659 prefixes; packaged 2026-10-19; original registry effective date unknown). See `port-mapping-registry-NOTICE.txt` for attribution and license. Optional IEEE CSV imports extend MA-L/MA-M/MA-S prefixes; longest-prefix matching takes precedence, and multicast/locally administered MACs remain unassigned.
+
+The private v1 RTF acceptance capture is not committed. `PORT_MAPPING_SAMPLE=/path/to/show_mac_address.rtf node test_port_mapping_browser.mjs` retains its expected 1,371 dynamic rows, 123 port groups, zero unmatched MAC-bearing lines and original port counts.
+
+`test_port_mapping.cjs` preserves the original MAC/RTF/OUI/import behavior. `test_port_mapping_topology.cjs` exercises cross-vendor neighbor/port correlation, reciprocal links, LAG transit, phone/AP identities, MAC deduplication, path highlighting, IPv4/IPv6/VRF, site isolation, dual attachment, overlay learning, annotations and newest empty snapshots. `test_port_mapping_support.cjs` exercises diagnostic extraction, summary neighbors, per-port sections, trunk VLANs and omission of unrelated config/log output. `test_port_mapping_api.py` verifies import does not contact devices. Chromium verifies gzip upload, actual API parsing, topology interactions, drafts, annotations, JSON restore and mobile layout.
+
+Diagnostic command lists and formatting vary by vendor/platform/release. Coverage is determined from the supplied file; a missing section is not treated as an empty table or absence of neighbors. Initial fixtures are synthetic representative outputs, not validation of the customer's live network.

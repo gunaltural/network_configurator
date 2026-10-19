@@ -25,6 +25,8 @@ def port(value):
     for name, short in [('TenGigabitEthernet', 'Te'), ('GigabitEthernet', 'Gi'), ('FastEthernet', 'Fa'), ('Ethernet', 'Eth'), ('Port-Channel', 'Po')]:
         if value.lower().startswith(name.lower()):
             return short + value[len(name):]
+    for name, short in [('Gig','Gi'),('Ten','Te'),('Fas','Fa'),('Et','Eth')]:
+        if re.match('^'+name+r'\d',value,re.I): return short+value[len(name):]
     return value
 
 
@@ -74,7 +76,8 @@ def parse_neighbors(platform, protocol, output):
         if protocol == 'cdp' and k == 'deviceid':
             flush(); current['hostname'] = v; mgmt = False; continue
         if protocol == 'lldp' and k in ('localintf', 'localinterface', 'localportid', 'localport'):
-            flush(); current['localPort'] = v; mgmt = False; continue
+            if current.get('localPort'): flush()
+            current['localPort'] = v; mgmt = False; continue
         if protocol == 'lldp' and k == 'neighborindex' and current.get('remotePort'):
             local = current.get('localPort'); flush(); current['localPort'] = local
         if protocol == 'cdp' and k == 'interface':
@@ -88,12 +91,19 @@ def parse_neighbors(platform, protocol, output):
         elif k in ('chassisid', 'neighborchassisid'):
             # A second neighbor on the same local port starts another record.
             if current.get('remotePort'):
-                local = current.get('localPort'); flush(); current['localPort'] = local
+                local = current.get('localPort') if not platform.startswith('Cisco') else None
+                flush()
+                if local: current['localPort'] = local
             current['chassisId'] = v
         elif k == 'platform' and protocol == 'cdp':
             current['description'] = v.split(',')[0].strip()
+            capability = re.search(r'Capabilities:\s*(.*)', v, re.I)
+            if capability: current['capabilities'] = [capability[1].strip()]
         elif k in ('systemdescription', 'sysdescription'):
             current['description'] = v
+        elif k in ('enabledcapabilities', 'enabledcapability', 'systemcapabilities', 'systemcapabilitiessupported', 'systemcapabilitiesenabled'):
+            if k.startswith('enabled') or k.endswith('enabled') or not current.get('capabilities'):
+                current['capabilities'] = [x.strip() for x in re.split('[,;]', v) if x.strip()]
         if k in ('managementaddress', 'managementaddresses', 'mgmtaddress', 'mgmtaddresses', 'entryaddresses', 'managementaddressvalue'):
             mgmt = True
             for address in ips(v):
@@ -104,6 +114,32 @@ def parse_neighbors(platform, protocol, output):
         elif k and k not in ('managementaddresssubtype', 'addresssubtype'):
             mgmt = False
     flush()
+    if not records:
+        # Support bundles often contain only neighbor summary tables.
+        p = r'(?:GigabitEthernet|TenGigabitEthernet|FastEthernet|Ethernet|Gig|Ten|Fas|Eth|Gi|Te|Fa|Et|GE|XGE|10GE|25GE|40GE|100GE|Po|Port-channel)\s*\d[\w/.:\-]*'
+        table, pending = '', ''
+        for line in output.splitlines():
+            if re.search(r'Device\s+ID\s+Local\s+(?:Intrfce|Intf)',line,re.I):table='cdp' if protocol=='cdp' else 'cisco';continue
+            if re.search(r'Port\s+Neighbor Device ID\s+Neighbor Port ID',line,re.I):table='arista';continue
+            if re.search(r'Local\s+(?:Intf|Interface).*Neighbor',line,re.I) and platform.startswith('Huawei'):
+                table='huawei-expiry' if re.search(r'Local\s+Interface\s+Exptime',line,re.I) else 'huawei';continue
+            r=None
+            if table in ('cdp','cisco'):
+                candidate=(pending+' '+line.strip()) if pending and re.match(r'^\s*'+p+r'\s+\d',line,re.I) else line
+                m=re.match(r'^\s*(\S+)\s+('+p+r')\s+\d+\s+(.*?)\s+('+p+r')\s*$',candidate,re.I)
+                if m:
+                    caps=m[3].split();r={'hostname':m[1],'localPort':port(m[2]),'remotePort':port(m[4]),'managementAddresses':[],'capabilities':['Switch'] if protocol=='cdp' and 'S' in caps else caps}
+                pending=line.strip() if re.match(r'^\s*[\w.\-]+\s*$',line) else ''
+            elif table=='arista':
+                m=re.match(r'^\s*('+p+r')\s+(\S+)\s+(\S+)\s+\d+\s*$',line,re.I)
+                if m:r={'localPort':port(m[1]),'hostname':m[2],'remotePort':port(m[3]),'managementAddresses':[]}
+            elif table=='huawei':
+                m=re.match(r'^\s*('+p+r')\s+(\S+)\s+(\S+)\s+\d+\s*$',line,re.I)
+                if m:r={'localPort':port(m[1]),'hostname':m[2],'remotePort':port(m[3]),'managementAddresses':[]}
+            elif table=='huawei-expiry':
+                m=re.match(r'^\s*('+p+r')\s+\d+\s+(\S+)\s+(\S+)\s*$',line,re.I)
+                if m:r={'localPort':port(m[1]),'remotePort':port(m[2]),'hostname':m[3],'managementAddresses':[]}
+            if r:records.append(r)
     if not records:
         if ERROR.search(output): warnings.append('Neighbor command reported an error or discovery protocol is disabled.')
         elif not re.search(r'0\s+(?:LLDP\s+)?neighbors?|no\s+(?:LLDP\s+|CDP\s+)?neighbors?|total\s+(?:entries|neighbors)\s*:?\s*0|total.*displayed\s*:\s*0', output, re.I):

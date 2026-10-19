@@ -1,31 +1,1868 @@
-(()=>{'use strict';const C=window.PortMappingCore,$=id=>document.getElementById(id),ns='http://www.w3.org/2000/svg';let sources=[],db={},baseDb={},customDb={},registry={},page=0,rowPage=0,selected='',groups=[];const PAGE=24,ROWS=100;
-const node=(tag,text,cls)=>{const el=document.createElement(tag);if(text!==undefined)el.textContent=text;if(cls)el.className=cls;return el;};
-function status(text,error=false){$('pmStatus').textContent=text;$('pmStatus').classList.toggle('error',error);}
-function add(raw,device,filename='Pasted output'){if(sources.reduce((n,s)=>n+s.raw.length,0)+raw.length>10000000)throw Error('Workspace limit is 10 MB of capture text.');if(sources.length>=20)throw Error('Maximum 20 sources. Remove an existing source first.');const parsed=C.parse(raw);if(parsed.rows.length>50000)throw Error('Limit each source to 50,000 parsed records.');sources.push({id:crypto.randomUUID(),device:device.trim().slice(0,120)||'Imported switch',filename,importedAt:new Date().toISOString(),raw,...parsed});selected='';page=0;rowPage=0;render();status(parsed.rows.length+' records imported from '+filename+'.'+(parsed.warnings.length?' '+parsed.warnings.join(' '):''));}
-function matches(row){const vlan=$('pmVlan').value,q=$('pmSearch').value.trim().toLowerCase(),macQuery=C.normalize(q);return (!vlan||String(row.vlan)===vlan)&&(!q||[row.device,row.port,row.vendor,C.display(row.mac),row.mac,row.kind].join(' ').toLowerCase().includes(q)||macQuery.length>=4&&row.mac.includes(macQuery));}
-function filtered(){return C.groups(sources,db).map(g=>({...g,rows:g.rows.filter(matches)})).filter(g=>g.rows.length).map(g=>({...g,macCount:new Set(g.rows.map(r=>r.mac)).size,vlans:[...new Set(g.rows.map(r=>r.vlan).filter(x=>x!==null))].sort((a,b)=>a-b)}));}
-function render(){
- $('pmResults').hidden=!sources.length;$('pmSources').replaceChildren();for(const s of sources){const div=node('div'),edit=node('input'),label=node('span',' · '+s.filename+' · '+s.rows.length+' records · '+new Date(s.importedAt).toLocaleString()),b=node('button','Remove');edit.value=s.device;edit.maxLength=120;edit.setAttribute('aria-label','Device label for '+s.filename);edit.onchange=()=>{s.device=edit.value.trim()||'Imported switch';render();};b.onclick=()=>{sources=sources.filter(x=>x.id!==s.id);selected='';render();};div.append(edit,label,b);$('pmSources').append(div);}
- const old=$('pmVlan').value;$('pmVlan').replaceChildren(new Option('All observed VLANs',''));const vlans=[...new Set(sources.flatMap(s=>s.rows.filter(r=>!['Multicast','Virtual gateway','Local/system'].includes(r.kind)).map(r=>r.vlan).filter(x=>x!==null)))].sort((a,b)=>a-b);for(const v of vlans)$('pmVlan').add(new Option('VLAN '+v,String(v)));$('pmVlan').value=vlans.includes(Number(old))?old:'';
- groups=filtered();if(!groups.some(g=>g.id===selected))selected='';page=Math.min(page,Math.max(0,Math.ceil(groups.length/PAGE)-1));const all=C.groups(sources,db),records=all.flatMap(g=>g.rows);$('pmCounts').replaceChildren();for(const [value,label]of [[sources.length,'Imported sources'],[new Set(records.map(r=>r.mac)).size,'Distinct learned MACs'],[all.length,'Port groups'],[vlans.length,'Observed VLANs']]){const el=node('div',undefined,'pm-metric');el.append(node('strong',String(value)),node('span',label));$('pmCounts').append(el);}draw();inspect();table();excluded();
-}
-function svg(tag,attrs,text,parent=$('pmMap')){const el=document.createElementNS(ns,tag);for(const [k,v]of Object.entries(attrs))el.setAttribute(k,v);if(text!==undefined)el.textContent=text;parent.append(el);return el;}
-function draw(){const map=$('pmMap');map.replaceChildren();const subset=groups.slice(page*PAGE,(page+1)*PAGE),devices=[...new Set(subset.map(g=>g.sourceId))],rows=Math.max(1,Math.ceil(subset.length/4)),height=175+rows*100;map.setAttribute('viewBox','0 0 900 '+height);
- if(!subset.length)svg('text',{x:450,y:100,'text-anchor':'middle',fill:'#5b7486'},'No matching port groups.');
- const compact=devices.length>4,centers=new Map(devices.map((id,i)=>[id,compact?450:900*(i+1)/(devices.length+1)]));for(const id of (compact?[devices[0]]:devices)){const x=centers.get(id),source=sources.find(s=>s.id===id);svg('rect',{x:x-75,y:15,width:150,height:55,rx:8,fill:'#dceaf4',stroke:'#2b607d'});const label=svg('text',{x,y:39,'text-anchor':'middle','font-size':12,fill:'#214860'},compact?devices.length+' imported sources':source.device.length>21?source.device.slice(0,19)+'…':source.device);svg('title',{},source.device,label);svg('text',{x,y:57,'text-anchor':'middle','font-size':10,fill:'#526f83'},'Imported MAC table');}
- for(const [i,g]of subset.entries()){const x=25+(i%4)*220,y=115+Math.floor(i/4)*100,active=selected===g.id;svg('path',{d:`M ${centers.get(g.sourceId)} 70 V 88 H ${x+95} V ${y}`,stroke:'#8aa5b8','stroke-width':1,'stroke-dasharray':'5 5',fill:'none'});const box=svg('g',{'data-group':g.id,tabindex:0,role:'button','aria-label':g.device+' '+g.port+' '+g.macCount+' learned MACs'});svg('rect',{x,y,width:190,height:74,rx:8,fill:active?'#e3f2f5':'#fff',stroke:active?'#157b90':'#b7cdda','stroke-width':active?2:1},undefined,box);svg('text',{x:x+12,y:y+20,'font-size':13,'font-weight':'bold',fill:'#224a63'},g.port,box);svg('text',{x:x+12,y:y+40,'font-size':11,fill:'#47687e'},(compact?g.device.slice(0,20)+' · ':'')+g.macCount+' MACs · '+g.vlans.length+' VLANs',box);svg('text',{x:x+12,y:y+59,'font-size':10,fill:'#7a622b'},'Mode: unknown · learned via port',box);box.onclick=()=>{selected=selected===g.id?'':g.id;rowPage=0;render();};box.onkeydown=e=>{if(['Enter',' '].includes(e.key)){e.preventDefault();box.onclick();}};}
- $('pmPage').textContent=(page+1)+' / '+Math.max(1,Math.ceil(groups.length/PAGE))+' · '+groups.length+' matching ports';$('pmPrev').disabled=page===0;$('pmNext').disabled=(page+1)*PAGE>=groups.length;
-}
-function inspect(){const g=groups.find(g=>g.id===selected),el=$('pmInspector');el.replaceChildren();$('pmInspectorTitle').textContent=g?g.device+' · '+g.port:'Port evidence';if(!g){el.append(node('p','Select a port group. Search and VLAN filters apply to both the map and records.'));return;}const source=sources.find(s=>s.id===g.sourceId);for(const [label,value]of [['Switchport mode','Unknown — switchport/trunk output required'],['Attachment',g.attachment],['Observed VLANs',g.vlans.join(', ')||'Not reported'],['Distinct MACs in current filter',String(g.macCount)],['Source',source.filename],['Imported',new Date(source.importedAt).toLocaleString()]]){el.append(node('strong',label),node('p',value));}const vendors=[...new Set(g.rows.map(r=>r.vendor))];el.append(node('strong','MAC registered organizations'),node('p',vendors.join(' · ')));const details=node('details'),summary=node('summary','Original row evidence · first 20 matches');details.append(summary);for(const r of g.rows.slice(0,20))details.append(node('pre','Line '+r.line+': '+r.raw,'pm-evidence'));el.append(details);}
-function table(){const scoped=selected?groups.filter(g=>g.id===selected):groups,rows=scoped.flatMap(g=>g.rows);rowPage=Math.min(rowPage,Math.max(0,Math.ceil(rows.length/ROWS)-1));$('pmTableScope').textContent=(selected?'Selected port':'All matching ports')+' · '+rows.length+' MAC/VLAN records. Organizations identify address registrations; device type is not established by OUI alone.';$('pmRows').replaceChildren();for(const r of rows.slice(rowPage*ROWS,(rowPage+1)*ROWS)){const tr=node('tr');for(const v of [r.device+' / '+r.port,r.vlan??'Not reported',C.display(r.mac),r.vendor,r.kind+' / '+r.type])tr.append(node('td',String(v)));$('pmRows').append(tr);}$('pmRowPage').textContent=(rowPage+1)+' / '+Math.max(1,Math.ceil(rows.length/ROWS));$('pmRowPrev').disabled=!rowPage;$('pmRowNext').disabled=(rowPage+1)*ROWS>=rows.length;}
-function excluded(){const el=$('pmExcluded');el.replaceChildren();for(const s of sources){const counts={};for(const r of s.rows)if(['Multicast','Virtual gateway','Local/system'].includes(r.kind)||r.type==='blackhole')counts[r.kind]=(counts[r.kind]||0)+1;el.append(node('p',s.device+': '+(Object.entries(counts).map(([k,v])=>k+' '+v).join(' · ')||'No infrastructure rows excluded.')+' · '+s.skipped+' unmatched MAC-bearing lines.'));for(const warning of s.warnings)el.append(node('p',warning,'pm-warning'));}}
-function download(name,content,type){const url=URL.createObjectURL(new Blob([content],{type})),a=node('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
-function csv(value){value=String(value??'');if(/^[=+@\-\t\r]/.test(value))value="'"+value;return '"'+value.replace(/"/g,'""')+'"';}
-async function loadFiles(files){for(const file of files){try{if(file.size>(file.name.toLowerCase().endsWith('.json')?30000000:3000000))throw Error('Capture limit is 3 MB; saved workspace limit is 30 MB.');const raw=await file.text();if(file.name.toLowerCase().endsWith('.json')){const data=JSON.parse(raw);if(data.schema!=='mac-port-mapping-v1'||!Array.isArray(data.sources)||data.sources.length>20)throw Error('This is not a supported port mapping workspace.');if(data.sources.reduce((n,s)=>n+(typeof s.raw==='string'?s.raw.length:0),0)>10000000)throw Error('Workspace exceeds 10 MB of capture text.');const incoming=[];for(const s of data.sources){if(typeof s.raw!=='string'||typeof s.device!=='string')throw Error('Workspace source is incomplete.');const parsed=C.parse(s.raw);if(parsed.rows.length>50000)throw Error('Too many records.');incoming.push({id:crypto.randomUUID(),device:s.device.slice(0,120),filename:String(s.filename||'Workspace import').slice(0,200),importedAt:s.importedAt&&Number.isFinite(Date.parse(s.importedAt))?s.importedAt:new Date().toISOString(),raw:s.raw,...parsed});}const overrides=data.organizationPrefixes||{};if(Object.keys(overrides).length>60000||Object.entries(overrides).some(([k,v])=>!/^(?:[0-9A-F]{6}|[0-9A-F]{7}|[0-9A-F]{9})$/.test(k)||typeof v!=='string'||v.length>300))throw Error('Invalid saved organization registry.');customDb={...overrides};db={...baseDb,...customDb};sources=incoming;selected='';page=rowPage=0;render();status('Workspace restored.');}else add(raw,file.name.replace(/\.[^.]+$/,''),file.name);}catch(e){status(file.name+': '+e.message,true);}}$('pmFiles').value='';}
-$('pmFiles').onchange=e=>loadFiles(e.target.files);$('pmAnalyze').onclick=()=>{try{add($('pmRaw').value,$('pmDevice').value);}catch(e){status(e.message,true);}};$('pmExample').onclick=()=>{try{add('Vlan Mac Address Type Ports\n10 0050.5684.1234 DYNAMIC Gi1/1\n20 001b.6301.0203 DYNAMIC Gi1/1\n30 0050.56ab.cdef DYNAMIC Po10\n10 0000.0c07.ac0a STATIC Router\n10 3333.0000.0001 STATIC Gi1/1','Example switch','Example · demonstration only');}catch(e){status(e.message,true);}};
-for(const id of ['pmSearch','pmVlan'])$(id).addEventListener('input',()=>{page=rowPage=0;selected='';render();});$('pmPrev').onclick=()=>{page--;draw();};$('pmNext').onclick=()=>{page++;draw();};$('pmRowPrev').onclick=()=>{rowPage--;table();};$('pmRowNext').onclick=()=>{rowPage++;table();};$('pmClear').onclick=()=>{if(!confirm('Clear imported port mapping sources?'))return;sources=[];selected='';page=rowPage=0;render();status('Workspace cleared.');};
-$('pmCsv').onclick=()=>{const data=[['Device','Port','Observed VLAN','MAC','Organization','Address class','Entry type','Switchport mode','Attachment','Source','Imported at']];for(const g of (selected?groups.filter(g=>g.id===selected):groups))for(const r of g.rows){const s=sources.find(s=>s.id===g.sourceId);data.push([g.device,g.port,r.vlan,C.display(r.mac),r.vendor,r.kind,r.type,g.mode,g.attachment,s.filename,s.importedAt]);}download('port-mapping.csv','\ufeff'+data.map(r=>r.map(csv).join(',')).join('\r\n'),'text/csv;charset=utf-8');};
-$('pmSave').onclick=()=>download('port-mapping-workspace.json',JSON.stringify({schema:'mac-port-mapping-v1',registry,organizationPrefixes:customDb,sources:sources.map(({device,filename,importedAt,raw})=>({device,filename,importedAt,raw}))},null,2),'application/json');
-$('pmOuiFile').onchange=async e=>{try{const file=e.target.files[0];if(!file)return;if(file.size>12000000)throw Error('Registry file exceeds 12 MB.');const text=await file.text();let added=0;for(const line of text.split(/\r?\n/)){const m=line.match(/^(?:MA-L|MA-M|MA-S|IAB),([0-9A-Fa-f]{6,9}),("(?:[^"]|"")*"|[^,]+)/);if(!m||![6,7,9].includes(m[1].length))continue;customDb[m[1].toUpperCase()]=m[2].replace(/^"|"$/g,'').replace(/""/g,'"');db[m[1].toUpperCase()]=customDb[m[1].toUpperCase()];added++;}if(!added)throw Error('Use IEEE CSV with Registry, Assignment, Organization Name columns.');registry={...registry,custom:file.name};$('pmDatabase').textContent=Object.keys(db).length+' organization prefixes · custom import '+file.name;render();status(added+' registry prefixes imported.');}catch(err){status(err.message,true);}e.target.value='';};
-fetch('/port-mapping-oui.json').then(r=>{if(!r.ok)throw Error();return r.json();}).then(data=>{baseDb=data.prefixes;db={...baseDb,...customDb};registry=data.metadata;$('pmDatabase').textContent=Object.keys(db).length+' organization prefixes · '+registry.source+' · '+registry.date+'. Longer prefixes take priority. Locally administered MACs remain unassigned.';render();}).catch(()=>{$('pmDatabase').textContent='Bundled registry unavailable. Import IEEE CSV to enable organization lookup; port mapping remains available.';});
-window.PortMapping={parse:C.parse,sources:()=>sources,loadFiles,groups:()=>groups};})();
+(() => {
+  "use strict";
+  const C = window.PortMappingCore,
+    $ = (id) => document.getElementById(id),
+    ns = "http://www.w3.org/2000/svg",
+    DRAFT = "networkConfigurator.portMapping.v2",
+    PAGE = 24,
+    ROWS = 100;
+  const commands = {
+    "Cisco IOS-XE": [
+      "show interfaces status",
+      "show interfaces description",
+      "show interfaces switchport",
+      "show etherchannel summary",
+      "show interfaces",
+      "show interfaces trunk",
+    ],
+    "Cisco NX-OS": [
+      "show interface status",
+      "show interface description",
+      "show interface switchport",
+      "show port-channel summary",
+      "show interface",
+      "show interface trunk",
+    ],
+    "Arista EOS": [
+      "show interfaces status",
+      "show interfaces description",
+      "show interfaces switchport",
+      "show port-channel summary",
+      "show interfaces",
+      "show interfaces trunk",
+    ],
+    Huawei_CE_SW: [
+      "display interface brief",
+      "display interface",
+      "display port vlan",
+      "display eth-trunk",
+    ],
+    "Huawei iStack": [
+      "display interface brief",
+      "display interface",
+      "display port vlan",
+      "display eth-trunk",
+    ],
+  };
+  let sources = [],
+    db = {},
+    baseDb = {},
+    customDb = {},
+    registry = {},
+    annotations = {},
+    importReports = [],
+    evidence = null,
+    model = C.correlate([], null),
+    groups = [],
+    selected = "",
+    selectionType = "port",
+    page = 0,
+    rowPage = 0,
+    clientPage = 0,
+    working = false,
+    revision = 0;
+  const node = (tag, text, cls) => {
+    const el = document.createElement(tag);
+    if (text !== undefined) el.textContent = text;
+    if (cls) el.className = cls;
+    return el;
+  };
+  function status(text, error = false) {
+    $("pmStatus").textContent = text;
+    $("pmStatus").classList.toggle("error", error);
+  }
+  function hint() {
+    const platform = $("pmPlatform").value,
+      kind = $("pmKind").value;
+    $("pmCommandLabel").hidden = kind !== "interfaces";
+    const prior = $("pmCommand").value;
+    $("pmCommand").replaceChildren(
+      ...commands[platform].map((c) => new Option(c, c)),
+    );
+    if (commands[platform].includes(prior)) $("pmCommand").value = prior;
+    $("pmCommandHint").textContent = platform.startsWith("Huawei")
+      ? "Recommended: display lldp neighbor · display mac-address · display port vlan · display eth-trunk · display arp / display ipv6 neighbors"
+      : "Recommended: show lldp neighbors detail" +
+        (platform.startsWith("Cisco") ? " / show cdp neighbors detail" : "") +
+        " · show mac address-table · " +
+        commands[platform][2] +
+        " · " +
+        commands[platform][3] +
+        " · show ip arp / show ipv6 neighbors";
+  }
+  function detect(raw) {
+    if (/Device ID\s*:|Port ID\s*\(outgoing port\)/i.test(raw)) return "cdp";
+    if (
+      /Chassis\s*(?:id|ID)|LLDP neighbou?r|Local (?:Intf|Port id):/i.test(raw)
+    )
+      return "lldp";
+    return "mac";
+  }
+  function normalizeSource(item) {
+    if (
+      !item ||
+      typeof item.raw !== "string" ||
+      typeof item.device !== "string" ||
+      item.raw.length > 3000000 ||
+      !item.device.trim()
+    )
+      throw Error(
+        "Capture must contain a device name and at most 3 MB of text.",
+      );
+    const s = {
+      id: crypto.randomUUID(),
+      device: item.device.trim().slice(0, 120),
+      filename: String(item.filename || "Imported capture").slice(0, 200),
+      importedAt: item.importedAt || new Date().toISOString(),
+      site:
+        String(item.site || "Default")
+          .trim()
+          .slice(0, 100) || "Default",
+      target: String(item.target || "")
+        .trim()
+        .slice(0, 253),
+      platform: item.platform || "Cisco IOS-XE",
+      kind: item.kind && item.kind !== "auto" ? item.kind : detect(item.raw),
+      command: String(item.command || "").slice(0, 100),
+      vrf: String(item.vrf || "")
+        .trim()
+        .slice(0, 100),
+      raw: C.textFromRtf(item.raw),
+    };
+    s.originalCommand = String(item.originalCommand || "").slice(0, 300);
+    if (
+      !commands[s.platform] ||
+      !["mac", "lldp", "cdp", "interfaces", "arp", "nd"].includes(s.kind) ||
+      !Number.isFinite(Date.parse(s.importedAt))
+    )
+      throw Error("Invalid capture platform, type or time.");
+    if (s.kind === "interfaces" && !commands[s.platform].includes(s.command))
+      throw Error("Select the port command used for this capture.");
+    if (s.kind === "cdp" && !s.platform.startsWith("Cisco"))
+      throw Error("Use LLDP for this platform.");
+    if (s.kind === "mac") {
+      Object.assign(s, C.parse(s.raw));
+      if (s.rows.length > 50000)
+        throw Error("Limit each MAC source to 50,000 parsed records.");
+    } else s.rows = [];
+    return s;
+  }
+  function currentSource(raw, device, filename) {
+    const captured = $("pmCapturedAt").value;
+    return normalizeSource({
+      raw,
+      device,
+      filename,
+      platform: $("pmPlatform").value,
+      site: $("pmSite").value,
+      target: $("pmTarget").value,
+      kind: $("pmKind").value,
+      command: $("pmKind").value === "interfaces" ? $("pmCommand").value : "",
+      vrf: $("pmVrf").value,
+      importedAt: captured
+        ? new Date(captured).toISOString()
+        : new Date().toISOString(),
+    });
+  }
+  function bundle() {
+    return {
+      schema: "mac-port-mapping-v2",
+      registry,
+      organizationPrefixes: customDb,
+      annotations,
+      importReports,
+      sources: sources.map(
+        ({
+          device,
+          filename,
+          importedAt,
+          raw,
+          site,
+          target,
+          platform,
+          kind,
+          command,
+          originalCommand,
+          vrf,
+        }) => ({
+          device,
+          filename,
+          importedAt,
+          raw,
+          site,
+          target,
+          platform,
+          kind,
+          command,
+          originalCommand,
+          vrf,
+        }),
+      ),
+    };
+  }
+  function saveDraft() {
+    try {
+      localStorage.setItem(DRAFT, JSON.stringify(bundle()));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  async function analyze(next = sources, { persist = true } = {}) {
+    if (working)
+      throw Error("Wait for the current evidence analysis to complete.");
+    if (
+      next.length > 100 ||
+      next.reduce((n, s) => n + s.raw.length, 0) > 10000000
+    )
+      throw Error("Workspace limit: 100 sources / 10 MB of text.");
+    working = true;
+    revision++;
+    const generation = revision;
+    for (const id of ["pmAnalyze", "pmFiles", "pmTopologyExample", "pmExample"])
+      $(id).disabled = true;
+    try {
+      let result = null;
+      if (next.some((s) => s.kind !== "mac")) {
+        const response = await fetch("/api/port-mapping/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sources: next.map(
+              ({
+                id,
+                device,
+                site,
+                target,
+                platform,
+                kind,
+                command,
+                originalCommand,
+                vrf,
+                importedAt,
+                raw,
+              }) => ({
+                id,
+                device,
+                site,
+                target,
+                platform,
+                kind,
+                command,
+                originalCommand,
+                vrf,
+                importedAt,
+                raw,
+              }),
+            ),
+          }),
+        });
+        let data;
+        try {
+          data = await response.json();
+        } catch {
+          throw Error("Unable to read topology analysis response.");
+        }
+        if (!response.ok)
+          throw Error(
+            typeof data.detail === "string"
+              ? data.detail
+              : "Evidence was rejected. Check capture size and fields.",
+          );
+        result = data;
+      }
+      if (generation !== revision) return;
+      sources = next;
+      evidence = result;
+      model = C.correlate(sources, evidence, db, annotations);
+      selected = "";
+      page = rowPage = clientPage = 0;
+      render();
+      const saved = !persist || saveDraft();
+      status(
+        sources.length +
+          " captures · " +
+          model.devices.length +
+          " devices · " +
+          model.links.length +
+          " neighbor links · " +
+          model.endpoints.length +
+          " consolidated MAC/VLAN identities." +
+          (!saved
+            ? " Browser draft storage is full; use Save workspace JSON to retain this work."
+            : ""),
+      );
+    } finally {
+      working = false;
+      for (const id of [
+        "pmAnalyze",
+        "pmFiles",
+        "pmTopologyExample",
+        "pmExample",
+      ])
+        $(id).disabled = false;
+      $("pmSources")
+        .querySelectorAll("button")
+        .forEach((b) => (b.disabled = false));
+    }
+  }
+  async function add(raw, device, filename = "Pasted output") {
+    if (
+      $("pmKind").value === "support" ||
+      /(?:show tech[ -]support|display diagnostic-information)|[-=*]{3,}\s*(?:show|display)\s/i.test(
+        raw,
+      )
+    ) {
+      const extracted = C.extractSupport(raw, {
+          device,
+          filename,
+          platform: $("pmPlatform").value,
+          site: $("pmSite").value,
+          target: $("pmTarget").value,
+          vrf: $("pmVrf").value,
+          importedAt: $("pmCapturedAt").value
+            ? new Date($("pmCapturedAt").value).toISOString()
+            : new Date().toISOString(),
+        }),
+        incoming = [],
+        warnings = [...extracted.warnings];
+      for (const s of extracted.sections) {
+        try {
+          incoming.push(normalizeSource(s));
+        } catch (e) {
+          warnings.push(s.command + ": " + e.message);
+        }
+      }
+      if (!incoming.length)
+        throw Error("No usable topology sections found. " + warnings.join(" "));
+      const report = {
+        filename,
+        device: extracted.device,
+        platform: extracted.platform,
+        commands: extracted.commandCount,
+        imported: incoming.length,
+        skipped: extracted.skipped,
+        missing: extracted.missing,
+        warnings,
+      };
+      const old = importReports;
+      importReports = [...importReports, report].slice(-30);
+      try {
+        await analyze([...sources, ...incoming]);
+      } catch (e) {
+        importReports = old;
+        throw e;
+      }
+      status(
+        filename +
+          ": " +
+          incoming.length +
+          " topology sections imported from " +
+          extracted.commandCount +
+          " commands. Missing: " +
+          (extracted.missing.join(", ") || "none") +
+          (warnings.length
+            ? " · " + warnings.length + " notes; open import coverage."
+            : ""),
+      );
+      return;
+    }
+    return analyze([...sources, currentSource(raw, device, filename)]);
+  }
+  function endpointMatches(e) {
+    const q = $("pmSearch").value.trim().toLowerCase(),
+      v = $("pmVlan").value;
+    if (v && String(e.vlan) !== v) return false;
+    const macQuery = C.normalize(q);
+    return (
+      !q ||
+      [
+        e.hostname,
+        e.mac,
+        C.display(e.mac),
+        e.vendor,
+        e.type,
+        e.site,
+        ...e.addresses.flatMap((a) => [a.ip, a.vrf]),
+        ...e.observations.flatMap((o) => [o.device, o.port]),
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(q) ||
+      (macQuery.length >= 4 && e.mac.includes(macQuery))
+    );
+  }
+  function visibleEndpoints() {
+    return model.endpoints.filter(endpointMatches);
+  }
+  function filteredGroups() {
+    const ids = new Set(visibleEndpoints().map((e) => e.id)),
+      q = $("pmSearch").value.trim().toLowerCase(),
+      v = $("pmVlan").value;
+    return model.groups
+      .map((g) => ({
+        ...g,
+        rows: g.rows.filter((r) =>
+          ids.has([g.site, r.vlan ?? "unknown", r.mac].join("|")),
+        ),
+      }))
+      .filter(
+        (g) =>
+          (!q && !v) ||
+          g.rows.length ||
+          (!v &&
+            [
+              g.device,
+              g.port,
+              g.detail.description,
+              ...g.neighbors.map(
+                (n) => model.devices.find((d) => d.id === n.deviceId)?.hostname,
+              ),
+            ]
+              .join(" ")
+              .toLowerCase()
+              .includes(q)),
+      );
+  }
+  function render() {
+    $("pmResults").hidden = !sources.length;
+    $("pmSources").replaceChildren();
+    const active = new Set(
+      evidence?.activeSourceIds || sources.map((s) => s.id),
+    );
+    for (const s of sources) {
+      const div = node("div"),
+        edit = node("input"),
+        label = node(
+          "span",
+          " · " +
+            s.kind.toUpperCase() +
+            " · " +
+            s.filename +
+            " · " +
+            new Date(s.importedAt).toLocaleString() +
+            (active.has(s.id) ? "" : " · superseded / unresolved"),
+          "pm-source-meta",
+        ),
+        remove = node("button", "Remove");
+      edit.value = s.device;
+      edit.maxLength = 120;
+      edit.setAttribute("aria-label", "Device label for " + s.filename);
+      edit.onchange = () =>
+        analyze(
+          sources.map((x) =>
+            x.id === s.id ? { ...x, device: edit.value.trim() || s.device } : x,
+          ),
+        ).catch((e) => {
+          status(e.message, true);
+          edit.value = s.device;
+        });
+      remove.disabled = working;
+      remove.onclick = () =>
+        analyze(sources.filter((x) => x.id !== s.id)).catch((e) =>
+          status(e.message, true),
+        );
+      div.append(edit, label, remove);
+      $("pmSources").append(div);
+    }
+    const prior = $("pmVlan").value,
+      vlans = [
+        ...new Set(
+          model.endpoints.map((e) => e.vlan).filter((v) => v !== null),
+        ),
+      ].sort((a, b) => a - b);
+    $("pmVlan").replaceChildren(
+      new Option("All observed VLANs", ""),
+      ...vlans.map((v) => new Option("VLAN " + v, String(v))),
+    );
+    $("pmVlan").value = vlans.includes(Number(prior)) ? prior : "";
+    const focus = $("pmFocus").value;
+    $("pmFocus").replaceChildren(
+      new Option("All devices", ""),
+      ...model.devices.map(
+        (d) => new Option(d.hostname + " · " + d.site, d.id),
+      ),
+    );
+    $("pmFocus").value = model.devices.some((d) => d.id === focus) ? focus : "";
+    groups = filteredGroups();
+    page = Math.min(page, Math.max(0, Math.ceil(groups.length / PAGE) - 1));
+    $("pmCounts").replaceChildren();
+    for (const [value, label] of [
+      [model.devices.length, "Observed devices"],
+      [model.links.length, "Neighbor links"],
+      [model.endpoints.length, "MAC / VLAN identities"],
+      [model.groups.length, "Observed ports"],
+    ]) {
+      const el = node("div", undefined, "pm-metric");
+      el.append(node("strong", String(value)), node("span", label));
+      $("pmCounts").append(el);
+    }
+    $("pmHealth").replaceChildren();
+    for (const t of [
+      model.links.filter((l) => l.state === "Both ends observed").length +
+        " links confirmed at both ends",
+      model.endpoints.filter((e) => e.locations.length > 1).length +
+        " clients with multiple edge candidates",
+      model.issues.length + " review notes",
+    ])
+      $("pmHealth").append(node("span", t));
+    $("pmSupportCoverage").replaceChildren();
+    for (const report of importReports) {
+      const d = node("details");
+      d.append(
+        node(
+          "summary",
+          report.filename +
+            " · " +
+            report.device +
+            " · " +
+            report.imported +
+            " sections / " +
+            report.commands +
+            " commands",
+        ),
+        node(
+          "p",
+          "Missing evidence: " +
+            (report.missing?.join(", ") || "none") +
+            " · " +
+            report.skipped +
+            " unrelated sections omitted.",
+        ),
+      );
+      for (const note of report.warnings || [])
+        d.append(node("p", note, "pm-warning"));
+      $("pmSupportCoverage").append(d);
+    }
+    draw();
+    inspect();
+    table();
+    clientTable();
+    excluded();
+  }
+  function svg(tag, attrs, text, parent = $("pmMap")) {
+    const el = document.createElementNS(ns, tag);
+    for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+    if (text !== undefined) el.textContent = text;
+    parent.append(el);
+    return el;
+  }
+  function clickable(el, fn) {
+    el.setAttribute("tabindex", "0");
+    el.setAttribute("role", "button");
+    el.onclick = fn;
+    el.onkeydown = (e) => {
+      if (["Enter", " "].includes(e.key)) {
+        e.preventDefault();
+        fn();
+      }
+    };
+  }
+  function select(id, type = "port") {
+    selected = id;
+    selectionType = type;
+    rowPage = clientPage = 0;
+    draw();
+    inspect();
+    table();
+    clientTable();
+  }
+  function portBox(g, x, y, parent = $("pmMap")) {
+    const active = selected === g.id,
+      box = svg(
+        "g",
+        {
+          "data-group": g.id,
+          "aria-label":
+            g.device + " " + g.port + " " + g.macCount + " learned MACs",
+        },
+        undefined,
+        parent,
+      );
+    svg(
+      "rect",
+      {
+        x,
+        y,
+        width: 190,
+        height: 76,
+        rx: 8,
+        fill: active ? "#d9f0f4" : "#fff",
+        stroke: active ? "#167b90" : "#acc6d7",
+        "stroke-width": active ? 2 : 1,
+      },
+      undefined,
+      box,
+    );
+    svg(
+      "text",
+      {
+        x: x + 12,
+        y: y + 20,
+        "font-size": 12,
+        "font-weight": "bold",
+        fill: "#224a63",
+      },
+      g.displayTitle || g.port,
+      box,
+    );
+    svg(
+      "text",
+      { x: x + 12, y: y + 40, "font-size": 11, fill: "#47687e" },
+      g.macCount + " MACs · VLAN " + (g.vlans.join(",") || "—").slice(0, 23),
+      box,
+    );
+    svg(
+      "text",
+      { x: x + 12, y: y + 60, "font-size": 10, fill: "#70603b" },
+      g.mode +
+        " · " +
+        (g.remote
+          ? "overlay"
+          : g.infrastructure
+            ? "transit"
+            : "edge candidate"),
+      box,
+    );
+    clickable(box, () => select(selected === g.id ? "" : g.id));
+    return box;
+  }
+  function drawPorts() {
+    const map = $("pmMap"),
+      subset = groups.slice(page * PAGE, (page + 1) * PAGE),
+      ids = [...new Set(subset.map((g) => g.deviceId))],
+      height = 180 + Math.max(1, Math.ceil(subset.length / 4)) * 110;
+    map.setAttribute("viewBox", "0 0 1000 " + height);
+    const centers = new Map(
+      ids.map((id, i) => [id, (1000 * (i + 1)) / (ids.length + 1)]),
+    );
+    if (ids.length <= 5)
+      for (const id of ids) {
+        const x = centers.get(id);
+        svg("rect", {
+          x: x - 75,
+          y: 15,
+          width: 150,
+          height: 55,
+          rx: 8,
+          fill: "#dceaf4",
+          stroke: "#2b607d",
+        });
+        svg(
+          "text",
+          {
+            x,
+            y: 46,
+            "text-anchor": "middle",
+            "font-size": 12,
+            fill: "#214860",
+          },
+          model.devices.find((d) => d.id === id).hostname.slice(0, 22),
+        );
+      }
+    for (const [i, g] of subset.entries()) {
+      const x = 25 + (i % 4) * 245,
+        y = 120 + Math.floor(i / 4) * 110;
+      if (ids.length <= 5)
+        svg("path", {
+          d: `M ${centers.get(g.deviceId)} 70 V 95 H ${x + 95} V ${y}`,
+          stroke: "#8aa5b8",
+          "stroke-dasharray": "3 5",
+          fill: "none",
+        });
+      portBox(g, x, y);
+    }
+    $("pmPrev").hidden = $("pmNext").hidden = false;
+    $("pmPage").textContent =
+      page +
+      1 +
+      " / " +
+      Math.max(1, Math.ceil(groups.length / PAGE)) +
+      " · " +
+      groups.length +
+      " matching ports";
+    $("pmPrev").disabled = !page;
+    $("pmNext").disabled = (page + 1) * PAGE >= groups.length;
+  }
+  function draw() {
+    const map = $("pmMap");
+    map.replaceChildren();
+    if ($("pmView").value === "ports" || !model.links.length) {
+      drawPorts();
+      return;
+    }
+    $("pmPrev").hidden = $("pmNext").hidden = true;
+    const focus = $("pmFocus").value,
+      depth = Number($("pmDepth").value),
+      included = new Set(focus ? [focus] : model.devices.map((d) => d.id));
+    let frontier = focus ? [focus] : [];
+    for (let step = 0; step < depth; step++) {
+      const next = [];
+      for (const l of model.links) {
+        if (frontier.includes(l.a) && !included.has(l.b)) {
+          included.add(l.b);
+          next.push(l.b);
+        }
+        if (frontier.includes(l.b) && !included.has(l.a)) {
+          included.add(l.a);
+          next.push(l.a);
+        }
+      }
+      frontier = next;
+    }
+    const endpoints = visibleEndpoints(),
+      relevant = new Set(
+        endpoints.flatMap((e) => e.observations.map((o) => o.deviceId)),
+      ),
+      q = $("pmSearch").value.trim().toLowerCase();
+    let devices = model.devices.filter((d) => included.has(d.id));
+    if (q || $("pmVlan").value)
+      devices = devices.filter(
+        (d) =>
+          relevant.has(d.id) ||
+          ([d.hostname, d.vendor, d.site].join(" ").toLowerCase().includes(q) &&
+            !$("pmVlan").value),
+      );
+    const limit = 60;
+    devices = devices.slice(0, limit);
+    const visible = new Set(devices.map((d) => d.id)),
+      positions = new Map(),
+      connectedLinks = model.links.filter(
+        (l) => visible.has(l.a) && visible.has(l.b),
+      );
+    const remaining = new Set(devices.map((d) => d.id));
+    let row = 0;
+    while (remaining.size) {
+      const root =
+        focus && remaining.has(focus)
+          ? focus
+          : [...remaining].sort(
+              (a, b) =>
+                model.links.filter((l) => l.a === b || l.b === b).length -
+                model.links.filter((l) => l.a === a || l.b === a).length,
+            )[0];
+      let layer = [root];
+      remaining.delete(root);
+      while (layer.length) {
+        for (let chunk = 0; chunk < layer.length; chunk += 4) {
+          const part = layer.slice(chunk, chunk + 4);
+          part.forEach((id, i) =>
+            positions.set(id, {
+              x: (1000 * (i + 1)) / (part.length + 1),
+              y: 85 + row * 250,
+            }),
+          );
+          row++;
+        }
+        const next = [];
+        for (const id of layer)
+          for (const l of connectedLinks) {
+            const peer = l.a === id ? l.b : l.b === id ? l.a : null;
+            if (peer && remaining.has(peer)) {
+              remaining.delete(peer);
+              next.push(peer);
+            }
+          }
+        layer = next;
+      }
+    }
+    const height = Math.max(360, row * 250 + 90);
+    map.setAttribute("viewBox", "0 0 1000 " + height);
+    const selectedEndpoint =
+        selectionType === "client"
+          ? model.endpoints.find((e) => e.id === selected)
+          : null,
+      highlighted = new Set(
+        (selectedEndpoint
+          ? [selectedEndpoint]
+          : q
+            ? endpoints.slice(0, 30)
+            : []
+        ).flatMap((e) => C.trace(model, e)),
+      );
+    const endpointById = new Map(model.endpoints.map((e) => [e.id, e]));
+    const displayGroups = groups
+      .filter((g) => g.macCount)
+      .map((g) => {
+        const peers = [...new Set(g.neighbors.map((n) => n.deviceId))],
+          peer =
+            peers.length === 1
+              ? model.devices.find((d) => d.id === peers[0])
+              : null;
+        if (g.infrastructure) {
+          const unresolved = g.endpointIds
+            .map((id) => endpointById.get(id))
+            .filter((e) => e && e.locations.length === 0);
+          if (!peer || !unresolved.length) return null;
+          return {
+            ...g,
+            anchorId: peer.id,
+            macCount: new Set(unresolved.map((e) => e.mac)).size,
+            displayTitle: "via " + g.device + " " + g.port,
+          };
+        }
+        if (peer && ["Phone", "Access point"].includes(peer.role)) {
+          const downstream = g.endpointIds
+            .map((id) => endpointById.get(id))
+            .filter((e) => e && e.neighborId !== peer.id);
+          if (!downstream.length) return null;
+          return {
+            ...g,
+            anchorId: peer.id,
+            macCount: new Set(downstream.map((e) => e.mac)).size,
+            displayTitle: "via " + g.port + " · " + g.device,
+          };
+        }
+        return { ...g, anchorId: g.deviceId };
+      })
+      .filter(Boolean);
+    for (const l of connectedLinks) {
+      const a = positions.get(l.a),
+        b = positions.get(l.b),
+        active = selected === l.id || highlighted.has(l.id),
+        line = svg("g", {
+          "data-link": l.id,
+          "aria-label": l.aPort + " to " + l.bPort,
+        });
+      const same = a.y === b.y,
+        path = same
+          ? `M ${a.x} ${a.y - 25} Q ${(a.x + b.x) / 2} ${a.y - 110} ${b.x} ${b.y - 25}`
+          : `M ${a.x} ${a.y + 30} L ${b.x} ${b.y - 30}`;
+      svg(
+        "path",
+        { d: path, stroke: "transparent", "stroke-width": 18, fill: "none" },
+        undefined,
+        line,
+      );
+      svg(
+        "path",
+        {
+          d: path,
+          stroke: active ? "#db8b18" : l.issues.length ? "#b84957" : "#5790ab",
+          "stroke-width": active ? 4 : 2,
+          "stroke-dasharray": l.state === "Both ends observed" ? "" : "7 5",
+          fill: "none",
+        },
+        undefined,
+        line,
+      );
+      const label =
+        l.aPort +
+        " ↔ " +
+        l.bPort +
+        (l.aggregate ? " · " + l.aggregate : "") +
+        (l.speed ? " · " + l.speed : "");
+      svg("title", {}, label, line);
+      svg(
+        "text",
+        {
+          x: (a.x + b.x) / 2,
+          y: same ? a.y - 65 : (a.y + b.y) / 2 - 12,
+          "text-anchor": "middle",
+          "font-size": 10,
+          fill: "#3c6178",
+          stroke: "#f5f9fc",
+          "stroke-width": 4,
+          "paint-order": "stroke",
+        },
+        label.slice(0, 64),
+        line,
+      );
+      clickable(line, () => select(l.id, "link"));
+    }
+    for (const d of devices) {
+      const p = positions.get(d.id),
+        box = svg("g", {
+          "data-device": d.id,
+          "aria-label": d.hostname + " " + d.role,
+        });
+      svg(
+        "rect",
+        {
+          x: p.x - 90,
+          y: p.y - 30,
+          width: 180,
+          height: 60,
+          rx: 10,
+          fill: selected === d.id ? "#cceaf1" : d.seed ? "#dceaf4" : "#eaf0e5",
+          stroke: "#467794",
+          "stroke-width": selected === d.id ? 3 : 1,
+        },
+        undefined,
+        box,
+      );
+      svg(
+        "text",
+        {
+          x: p.x,
+          y: p.y - 4,
+          "text-anchor": "middle",
+          "font-size": 12,
+          "font-weight": "bold",
+          fill: "#214860",
+        },
+        d.hostname.slice(0, 25),
+        box,
+      );
+      svg(
+        "text",
+        {
+          x: p.x,
+          y: p.y + 16,
+          "text-anchor": "middle",
+          "font-size": 10,
+          fill: "#526f83",
+        },
+        (d.vendor || d.role || "Neighbor") + " · " + d.site,
+        box,
+      );
+      svg(
+        "title",
+        {},
+        d.hostname + " · " + (d.description || d.role || ""),
+        box,
+      );
+      clickable(box, () => select(d.id, "device"));
+      if ($("pmClients").value === "yes") {
+        const local = displayGroups.filter((g) => g.anchorId === d.id);
+        for (const [i, g] of local.slice(0, 2).entries()) {
+          const x = p.x - 95,
+            y = p.y + 50 + i * 78;
+          svg("path", {
+            d: `M ${p.x} ${p.y + 30} V ${y}`,
+            stroke: "#92adbc",
+            "stroke-dasharray": "2 5",
+            fill: "none",
+          });
+          const child = svg("g", {
+            transform: "translate(" + (x + 19) + " " + y + ") scale(.8)",
+          });
+          portBox(g, 0, 0, child);
+        }
+        if (local.length > 2)
+          svg(
+            "text",
+            {
+              x: p.x,
+              y: p.y + 210,
+              "text-anchor": "middle",
+              "font-size": 10,
+              fill: "#587286",
+            },
+            "+" + (local.length - 2) + " ports · select switch",
+          );
+      }
+    }
+    $("pmPage").textContent =
+      devices.length +
+      " devices · " +
+      connectedLinks.length +
+      " links" +
+      (model.devices.length > limit
+        ? " · first 60 shown; use Focus device"
+        : "");
+  }
+  function field(root, label, value) {
+    const cell = node("div");
+    cell.append(
+      node("strong", label),
+      node(
+        "p",
+        value === undefined || value === null || value === ""
+          ? "Not collected"
+          : String(value),
+      ),
+    );
+    root.append(cell);
+  }
+  function action(root, label, fn) {
+    const b = node("button", label);
+    b.type = "button";
+    b.onclick = fn;
+    root.append(b);
+    return b;
+  }
+  function portDetails(root, g) {
+    const grid = node("div", undefined, "pm-detail-grid"),
+      d = g.detail;
+    for (const [label, value] of [
+      ["Switch / site", g.device + " / " + g.site],
+      ["Local port", g.port],
+      ["Description", d.description],
+      ["Operational status", d.status],
+      ["Protocol status", d.protocol],
+      [
+        "Switchport mode",
+        g.mode === "Unknown"
+          ? "Unknown — switchport/trunk output required"
+          : g.mode,
+      ],
+      ["Access / PVID", d.vlan],
+      ["Native VLAN", d.nativeVlan],
+      ["Voice VLAN", d.voiceVlan],
+      ["Allowed VLANs", d.allowedVlans],
+      ["Observed VLANs", g.vlans.join(", ")],
+      ["Speed / duplex", [d.speed, d.duplex].filter(Boolean).join(" / ")],
+      ["Aggregation", d.portChannel || g.members.map((m) => m.port).join(", ")],
+      ["PoE", d.power],
+      [
+        "Input / CRC / output errors",
+        [d.inputErrors, d.crcErrors, d.outputErrors]
+          .filter((x) => x !== undefined)
+          .join(" / "),
+      ],
+      ["Learning", g.attachment],
+      ["Distinct learned MACs", g.macCount],
+    ])
+      field(grid, label, value);
+    root.append(grid);
+    for (const n of g.neighbors) {
+      const peer = model.devices.find((d) => d.id === n.deviceId);
+      action(
+        root,
+        "Neighbor: " + peer.hostname + " / " + n.port + " · " + n.state,
+        () => select(peer.id, "device"),
+      );
+    }
+    if (g.members.length) {
+      root.append(node("h3", "Physical members"));
+      for (const m of g.members)
+        action(root, m.port + " · " + (m.status || "state not collected"), () =>
+          select(g.deviceId + "|" + C.portKey(m.port)),
+        );
+    }
+    for (const note of g.issues) root.append(node("p", note, "pm-warning"));
+    const clients = visibleEndpoints().filter((e) =>
+      e.observations.some((o) => o.groupId === g.id),
+    );
+    root.append(
+      node(
+        "h3",
+        (g.infrastructure
+          ? "Learned through this connection"
+          : "Clients / learned identities") +
+          " · " +
+          clients.length,
+      ),
+    );
+    for (const e of clients.slice(0, 100)) clientCard(root, e);
+    if (clients.length > 100)
+      root.append(node("p", "First 100 shown. Use search or VLAN filters."));
+    const details = node("details");
+    details.append(node("summary", "Original evidence"));
+    for (const r of g.rows.slice(0, 30)) {
+      const source = sources.find((s) => s.id === r.sourceId);
+      details.append(
+        node(
+          "pre",
+          (source?.filename || "Capture") +
+            " · " +
+            r.observedAt +
+            " · line " +
+            r.line +
+            "\n" +
+            r.raw,
+          "pm-evidence",
+        ),
+      );
+    }
+    for (const e of d.evidence || [])
+      details.append(node("p", e.command + " · " + e.observedAt));
+    root.append(details);
+  }
+  function clientCard(root, e) {
+    const card = node("div", undefined, "pm-client");
+    card.append(
+      node("strong", e.hostname || C.display(e.mac)),
+      node(
+        "p",
+        "VLAN " + (e.vlan ?? "unknown") + " · " + e.vendor + " · " + e.type,
+      ),
+    );
+    card.append(
+      node(
+        "p",
+        e.addresses.map((a) => a.ip + " [" + a.vrf + "]").join(", ") ||
+          "IP not collected",
+      ),
+    );
+    card.append(node("p", e.placement));
+    action(card, "Inspect client & observed path", () =>
+      select(e.id, "client"),
+    );
+    root.append(card);
+  }
+  function inspect() {
+    const root = $("pmInspector");
+    root.replaceChildren();
+    if (!selected) {
+      $("pmInspectorTitle").textContent = "Topology evidence";
+      root.append(
+        node(
+          "p",
+          "Select a switch, connection or port. Search highlights matching clients and their observed topology relationships.",
+        ),
+      );
+      return;
+    }
+    if (selectionType === "device") {
+      const d = model.devices.find((x) => x.id === selected);
+      if (!d) return;
+      $("pmInspectorTitle").textContent = d.hostname;
+      const grid = node("div", undefined, "pm-detail-grid");
+      for (const [k, v] of [
+        ["Site", d.site],
+        ["Platform / organization", d.vendor],
+        ["Advertised role", d.role],
+        ["Management addresses", d.managementAddresses.join(", ")],
+        ["Chassis ID", d.chassisId],
+        ["Description", d.description],
+        ["Identity source", d.identitySource],
+      ])
+        field(grid, k, v);
+      root.append(grid);
+      action(root, "Focus this device", () => {
+        $("pmFocus").value = d.id;
+        draw();
+      });
+      root.append(node("h3", "Ports"));
+      for (const g of groups.filter((g) => g.deviceId === d.id))
+        action(root, g.port + " · " + g.macCount + " MACs · " + g.mode, () =>
+          select(g.id),
+        );
+      return;
+    }
+    if (selectionType === "link") {
+      const l = model.links.find((x) => x.id === selected);
+      if (!l) return;
+      $("pmInspectorTitle").textContent = "Connection evidence";
+      const a = model.devices.find((d) => d.id === l.a),
+        b = model.devices.find((d) => d.id === l.b);
+      root.append(
+        node(
+          "p",
+          a.hostname + " " + l.aPort + " ↔ " + b.hostname + " " + l.bPort,
+        ),
+        node("p", l.state + " · " + l.protocols.join(" + ")),
+        node("p", "Status: " + l.status),
+      );
+      for (const note of l.issues) root.append(node("p", note, "pm-warning"));
+      for (const side of ["a", "b"])
+        action(
+          root,
+          "Inspect " +
+            model.devices.find((d) => d.id === l[side]).hostname +
+            " " +
+            l[side + "Port"],
+          () => select(l[side] + "|" + C.portKey(l[side + "Port"])),
+        );
+      for (const o of l.observations)
+        root.append(
+          node(
+            "p",
+            model.devices.find((d) => d.id === o.device)?.hostname +
+              " · " +
+              o.command +
+              " · " +
+              o.observedAt,
+            "pm-source-meta",
+          ),
+        );
+      return;
+    }
+    if (selectionType === "client") {
+      const e = model.endpoints.find((x) => x.id === selected);
+      if (!e) return;
+      $("pmInspectorTitle").textContent = e.hostname || C.display(e.mac);
+      const grid = node("div", undefined, "pm-detail-grid");
+      for (const [k, v] of [
+        ["MAC", C.display(e.mac)],
+        ["Site / VLAN", e.site + " / " + (e.vlan ?? "unknown")],
+        ["Organization", e.vendor],
+        ["Type", e.type],
+        ["Type evidence", e.typeEvidence],
+        ["Attachment assessment", e.placement],
+      ])
+        field(grid, k, v);
+      root.append(grid);
+      for (const a of e.addresses)
+        root.append(
+          node(
+            "p",
+            a.ip +
+              " · VRF " +
+              a.vrf +
+              " · " +
+              a.scope +
+              " · " +
+              a.device +
+              " · " +
+              a.observedAt,
+          ),
+        );
+      if (e.neighborId)
+        action(root, "Open discovered neighbor", () =>
+          select(e.neighborId, "device"),
+        );
+      root.append(node("h3", "All switch observations"));
+      for (const o of e.observations) {
+        action(
+          root,
+          o.device +
+            " / " +
+            o.port +
+            " · " +
+            (o.remote
+              ? "remote overlay"
+              : e.locations.includes(o.groupId)
+                ? "edge candidate"
+                : "transit / aggregation"),
+          () => select(o.groupId),
+        );
+        root.append(
+          node(
+            "p",
+            o.observedAt + " · MAC capture VRF " + o.vrf,
+            "pm-source-meta",
+          ),
+        );
+      }
+      const form = node("form", undefined, "pm-annotation");
+      form.append(node("h3", "Engineer annotation"));
+      const name = node("input"),
+        type = node("select"),
+        notes = node("textarea");
+      name.value = annotations[e.id]?.hostname || e.hostname;
+      name.maxLength = 200;
+      name.setAttribute("aria-label", "Client hostname");
+      name.placeholder = "Client hostname";
+      for (const value of [
+        "Unknown",
+        "PC / workstation",
+        "Server / VM",
+        "Phone",
+        "Access point",
+        "Printer",
+        "Camera",
+        "Switch / bridge",
+        "Router",
+        "Firewall",
+        "Other",
+      ])
+        type.add(new Option(value, value));
+      type.value = annotations[e.id]?.type || e.type;
+      if (!type.value) type.value = "Unknown";
+      type.setAttribute("aria-label", "Client device type");
+      notes.value = annotations[e.id]?.notes || "";
+      notes.maxLength = 1000;
+      notes.setAttribute("aria-label", "Client notes");
+      const save = node("button", "Save annotation");
+      save.type = "submit";
+      form.append(name, type, notes, save);
+      form.onsubmit = (event) => {
+        event.preventDefault();
+        annotations[e.id] = {
+          hostname: name.value,
+          type: type.value,
+          notes: notes.value,
+        };
+        model = C.correlate(sources, evidence, db, annotations);
+        saveDraft();
+        render();
+      };
+      root.append(form);
+      return;
+    }
+    const g = model.groups.find((x) => x.id === selected);
+    if (g) {
+      $("pmInspectorTitle").textContent = g.device + " · " + g.port;
+      portDetails(root, g);
+    }
+  }
+  function table() {
+    let scoped = groups;
+    if (selectionType === "port" && selected)
+      scoped = groups.filter((g) => g.id === selected);
+    else if (selectionType === "device" && selected)
+      scoped = groups.filter((g) => g.deviceId === selected);
+    else if (selectionType === "client" && selected) {
+      const e = model.endpoints.find((e) => e.id === selected);
+      scoped = groups.map((g) => ({
+        ...g,
+        rows: g.rows.filter((r) => r.mac === e?.mac && r.vlan === e?.vlan),
+      }));
+    }
+    const rows = scoped.flatMap((g) => g.rows);
+    rowPage = Math.min(rowPage, Math.max(0, Math.ceil(rows.length / ROWS) - 1));
+    $("pmTableScope").textContent =
+      rows.length +
+      " MAC/VLAN learning observations · selected scope and filters apply.";
+    $("pmRows").replaceChildren();
+    for (const r of rows.slice(rowPage * ROWS, (rowPage + 1) * ROWS)) {
+      const tr = node("tr");
+      for (const v of [
+        r.device + " / " + r.port,
+        r.vlan ?? "Not reported",
+        C.display(r.mac),
+        r.vendor,
+        r.kind + " / " + r.type,
+      ])
+        tr.append(node("td", String(v)));
+      $("pmRows").append(tr);
+    }
+    $("pmRowPage").textContent =
+      rowPage + 1 + " / " + Math.max(1, Math.ceil(rows.length / ROWS));
+    $("pmRowPrev").disabled = !rowPage;
+    $("pmRowNext").disabled = (rowPage + 1) * ROWS >= rows.length;
+  }
+  function clientTable() {
+    let rows = visibleEndpoints();
+    if (selectionType === "port" && selected)
+      rows = rows.filter((e) =>
+        e.observations.some((o) => o.groupId === selected),
+      );
+    if (selectionType === "device" && selected)
+      rows = rows.filter((e) =>
+        e.observations.some((o) => o.deviceId === selected),
+      );
+    clientPage = Math.min(
+      clientPage,
+      Math.max(0, Math.ceil(rows.length / ROWS) - 1),
+    );
+    $("pmClientRows").replaceChildren();
+    for (const e of rows.slice(clientPage * ROWS, (clientPage + 1) * ROWS)) {
+      const tr = node("tr"),
+        name = node("td");
+      const b = action(
+        name,
+        (e.hostname ? e.hostname + " · " : "") + C.display(e.mac),
+        () => select(e.id, "client"),
+      );
+      b.className = "pm-table-action";
+      tr.append(name);
+      for (const text of [
+        e.addresses.map((a) => a.ip + " [" + a.vrf + "]").join(", ") ||
+          "Not collected",
+        e.vlan ?? "Unknown",
+        e.vendor + " / " + e.type,
+        e.locations.length
+          ? e.locations
+              .map((id) => {
+                const g = model.groups.find((g) => g.id === id);
+                return g.device + " / " + g.port;
+              })
+              .join(", ")
+          : e.placement,
+        e.observations.length + " observations",
+      ])
+        tr.append(node("td", String(text)));
+      $("pmClientRows").append(tr);
+    }
+    $("pmClientPage").textContent =
+      clientPage +
+      1 +
+      " / " +
+      Math.max(1, Math.ceil(rows.length / ROWS)) +
+      " · " +
+      rows.length +
+      " identities";
+    $("pmClientPrev").disabled = !clientPage;
+    $("pmClientNext").disabled = (clientPage + 1) * ROWS >= rows.length;
+  }
+  function excluded() {
+    const root = $("pmExcluded");
+    root.replaceChildren();
+    for (const note of model.issues) root.append(node("p", note, "pm-warning"));
+    for (const s of sources) {
+      const counts = {};
+      for (const r of s.rows)
+        if (
+          ["Multicast", "Virtual gateway", "Local/system"].includes(r.kind) ||
+          r.type === "blackhole"
+        )
+          counts[r.kind] = (counts[r.kind] || 0) + 1;
+      const details = node("details");
+      details.append(
+        node(
+          "summary",
+          s.device +
+            " · " +
+            s.kind.toUpperCase() +
+            " · " +
+            s.filename +
+            " · " +
+            (Object.entries(counts)
+              .map(([k, v]) => k + " " + v)
+              .join(" · ") || "Evidence retained") +
+            " · " +
+            (s.skipped || 0) +
+            " unmatched MAC-bearing lines",
+        ),
+        node("pre", s.raw, "pm-evidence"),
+      );
+      for (const warning of s.warnings || [])
+        details.append(node("p", warning, "pm-warning"));
+      root.append(details);
+    }
+  }
+  function download(name, content, type) {
+    const url = URL.createObjectURL(new Blob([content], { type })),
+      a = node("a");
+    a.href = url;
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  function csv(value) {
+    value = String(value ?? "");
+    if (/^[=+@\-\t\r]/.test(value)) value = "'" + value;
+    return '"' + value.replace(/"/g, '""') + '"';
+  }
+  function exportCsv(name, rows) {
+    download(
+      name,
+      "\ufeff" + rows.map((r) => r.map(csv).join(",")).join("\r\n"),
+      "text/csv;charset=utf-8",
+    );
+  }
+  async function restore(data) {
+    if (
+      ![
+        "mac-port-mapping-v1",
+        "mac-port-mapping-v2",
+        "network-discovery-v1",
+      ].includes(data.schema) ||
+      !Array.isArray(data.sources) ||
+      data.sources.length > 100
+    )
+      throw Error("This is not a supported port mapping workspace.");
+    let next = [];
+    if (data.schema === "network-discovery-v1") {
+      for (const s of data.sources) {
+        next.push(
+          normalizeSource({
+            device: s.deviceName,
+            raw: s.output,
+            platform: s.platform,
+            kind: s.protocol,
+            target: s.target,
+            filename: "Discovery " + s.protocol,
+            importedAt: s.observedAt || new Date().toISOString(),
+          }),
+        );
+        for (const d of s.interfaceEvidence || [])
+          next.push(
+            normalizeSource({
+              device: s.deviceName,
+              target: s.target,
+              platform: d.platform || s.platform,
+              kind: "interfaces",
+              command: d.command,
+              raw: d.output,
+              filename: "Discovery " + d.command,
+              importedAt:
+                d.observedAt || s.observedAt || new Date().toISOString(),
+            }),
+          );
+      }
+    } else next = data.sources.map(normalizeSource);
+    const overrides = data.organizationPrefixes || {};
+    if (
+      Object.keys(overrides).length > 60000 ||
+      Object.entries(overrides).some(
+        ([k, v]) =>
+          !/^(?:[0-9A-F]{6}|[0-9A-F]{7}|[0-9A-F]{9})$/.test(k) ||
+          typeof v !== "string" ||
+          v.length > 300,
+      )
+    )
+      throw Error("Invalid saved organization registry.");
+    const notes = data.annotations || {};
+    if (
+      typeof notes !== "object" ||
+      Array.isArray(notes) ||
+      JSON.stringify(notes).length > 2000000 ||
+      Object.values(notes).some(
+        (v) =>
+          !v ||
+          typeof v !== "object" ||
+          ["hostname", "type", "notes"].some(
+            (k) => v[k] !== undefined && typeof v[k] !== "string",
+          ),
+      )
+    )
+      throw Error("Invalid client annotations.");
+    const oldAnnotations = annotations,
+      oldDb = customDb,
+      oldReports = importReports;
+    try {
+      annotations = { ...notes };
+      customDb = { ...overrides };
+      importReports = Array.isArray(data.importReports)
+        ? data.importReports
+            .slice(-30)
+            .filter(
+              (r) =>
+                r &&
+                typeof r.filename === "string" &&
+                Array.isArray(r.warnings) &&
+                Array.isArray(r.missing),
+            )
+        : [];
+      db = { ...baseDb, ...customDb };
+      await analyze(next);
+    } catch (e) {
+      annotations = oldAnnotations;
+      customDb = oldDb;
+      importReports = oldReports;
+      db = { ...baseDb, ...customDb };
+      throw e;
+    }
+  }
+  async function loadFiles(files) {
+    for (const file of files) {
+      try {
+        if (file.size > 50000000)
+          throw Error("Diagnostic file limit is 50 MB.");
+        let raw;
+        if (/\.gz$/i.test(file.name)) {
+          const reader = file
+              .stream()
+              .pipeThrough(new DecompressionStream("gzip"))
+              .getReader(),
+            chunks = [];
+          let bytes = 0;
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            bytes += value.length;
+            if (bytes > 50000000) {
+              await reader.cancel();
+              throw Error("Expanded diagnostic file exceeds 50 MB.");
+            }
+            chunks.push(value);
+          }
+          raw = await new Blob(chunks).text();
+        } else raw = await file.text();
+        if (/\.json$/i.test(file.name)) await restore(JSON.parse(raw));
+        else
+          await add(
+            raw,
+            $("pmDevice").value.trim() &&
+              $("pmDevice").value !== "Imported switch"
+              ? $("pmDevice").value
+              : file.name.replace(/\.(?:txt|log|rtf|gz)$/i, "").split("__")[0],
+            file.name,
+          );
+      } catch (e) {
+        status(file.name + ": " + e.message, true);
+      }
+    }
+    $("pmFiles").value = "";
+  }
+  function demoSources() {
+    const at = "2026-10-19T12:00:00Z",
+      make = (device, platform, kind, raw, command = "") =>
+        normalizeSource({
+          device,
+          platform,
+          kind,
+          raw,
+          command,
+          filename: "Synthetic demonstration · " + kind,
+          importedAt: at,
+          site: "Demo",
+        });
+    return [
+      make(
+        "CORE-01",
+        "Cisco NX-OS",
+        "lldp",
+        "Local Port id: Ethernet1/1\nChassis id: 001c.7300.0010\nPort id: Ethernet49\nSystem Name: ACCESS-01\nSystem Description: Arista Networks EOS\nEnabled Capabilities: Bridge\nManagement Address: 192.0.2.11",
+      ),
+      make(
+        "ACCESS-01",
+        "Arista EOS",
+        "lldp",
+        "Interface Ethernet49 detected 1 LLDP neighbors:\n - Chassis ID: 0011.2200.0001\n - Port ID: Ethernet1/1\n - System Name: CORE-01\n - System Description: Cisco Nexus NX-OS\n - Enabled Capabilities: Bridge, Router\n - Management Address: 192.0.2.10\nInterface Ethernet2 detected 1 LLDP neighbors:\n - Chassis ID: 001b.6301.0203\n - Port ID: eth0\n - System Name: PHONE-01\n - Enabled Capabilities: Telephone\nInterface Ethernet3 detected 1 LLDP neighbors:\n - Chassis ID: 0011.2200.0030\n - Port ID: eth0\n - System Name: AP-01\n - Enabled Capabilities: WLAN Access Point",
+      ),
+      make(
+        "CORE-01",
+        "Cisco NX-OS",
+        "mac",
+        "10 0050.5684.1234 dynamic Eth1/1\n20 001b.6301.0203 dynamic Eth1/1\n10 0050.56ab.cdef dynamic Eth1/1\n30 0011.2200.0044 dynamic Eth1/1",
+      ),
+      make(
+        "ACCESS-01",
+        "Arista EOS",
+        "mac",
+        "10 0050.5684.1234 dynamic Et1\n20 001b.6301.0203 dynamic Et2\n10 0050.56ab.cdef dynamic Et2\n30 0011.2200.0044 dynamic Et3",
+      ),
+      make(
+        "ACCESS-01",
+        "Arista EOS",
+        "interfaces",
+        "Name: Ethernet1\nOperational Mode: static access\nAccess Mode VLAN: 10\nName: Ethernet2\nOperational Mode: static access\nAccess Mode VLAN: 10\nVoice VLAN: 20\nName: Ethernet3\nOperational Mode: trunk\nTrunking Native Mode VLAN: 30\nTrunking VLANs Enabled: 30,40\nName: Ethernet49\nOperational Mode: trunk\nTrunking VLANs Enabled: 10,20,30,40",
+        "show interfaces switchport",
+      ),
+      make(
+        "ACCESS-01",
+        "Arista EOS",
+        "interfaces",
+        "Et1 USER-01 connected 10 a-full a-1000 10/100/1000\nEt2 PHONE-PC connected 10 a-full a-1000 10/100/1000\nEt3 ACCESS-POINT connected trunk full 1G 1000BASE-T\nEt49 CORE-UPLINK connected trunk full 10G 10GBASE-SR",
+        "show interfaces status",
+      ),
+      make(
+        "CORE-01",
+        "Cisco NX-OS",
+        "arp",
+        "192.0.2.101 00:00:20 0050.5684.1234 Vlan10\n192.0.2.102 00:00:20 0050.56ab.cdef Vlan10\n192.0.2.120 00:00:20 001b.6301.0203 Vlan20\n192.0.2.144 00:00:20 0011.2200.0044 Vlan30",
+      ),
+    ];
+  }
+  $("pmFiles").onchange = (e) => loadFiles(e.target.files);
+  $("pmAnalyze").onclick = () =>
+    add($("pmRaw").value, $("pmDevice").value).catch((e) =>
+      status(e.message, true),
+    );
+  $("pmTopologyExample").onclick = () =>
+    analyze([...sources, ...demoSources()]).catch((e) =>
+      status(e.message, true),
+    );
+  $("pmExample").onclick = () =>
+    analyze([
+      ...sources,
+      normalizeSource({
+        raw: "Vlan Mac Address Type Ports\n10 0050.5684.1234 DYNAMIC Gi1/1\n20 001b.6301.0203 DYNAMIC Gi1/1\n30 0050.56ab.cdef DYNAMIC Po10\n10 0000.0c07.ac0a STATIC Router\n10 3333.0000.0001 STATIC Gi1/1",
+        device: "Example switch",
+        filename: "Example · demonstration only",
+        kind: "mac",
+      }),
+    ]).catch((e) => status(e.message, true));
+  for (const id of ["pmPlatform", "pmKind"]) $(id).onchange = hint;
+  for (const id of ["pmSearch", "pmVlan"])
+    $(id).addEventListener("input", () => {
+      page = rowPage = clientPage = 0;
+      selected = "";
+      render();
+    });
+  for (const id of ["pmView", "pmFocus", "pmDepth", "pmClients"])
+    $(id).onchange = draw;
+  $("pmPrev").onclick = () => {
+    page--;
+    draw();
+  };
+  $("pmNext").onclick = () => {
+    page++;
+    draw();
+  };
+  $("pmRowPrev").onclick = () => {
+    rowPage--;
+    table();
+  };
+  $("pmRowNext").onclick = () => {
+    rowPage++;
+    table();
+  };
+  $("pmClientPrev").onclick = () => {
+    clientPage--;
+    clientTable();
+  };
+  $("pmClientNext").onclick = () => {
+    clientPage++;
+    clientTable();
+  };
+  $("pmClear").onclick = () => {
+    if (working) return status("Wait for analysis to complete.", true);
+    if (!confirm("Clear imported port mapping evidence and annotations?"))
+      return;
+    sources = [];
+    evidence = null;
+    annotations = {};
+    importReports = [];
+    model = C.correlate([], null);
+    selected = "";
+    page = rowPage = clientPage = 0;
+    localStorage.removeItem(DRAFT);
+    render();
+    status("Workspace cleared.");
+  };
+  $("pmCsv").onclick = () => {
+    const data = [
+      [
+        "Site",
+        "Device",
+        "Port",
+        "Observed VLAN",
+        "MAC",
+        "Organization",
+        "Switchport mode",
+        "Access VLAN",
+        "Native VLAN",
+        "Voice VLAN",
+        "Allowed VLANs",
+        "Status",
+        "Speed",
+        "Aggregation",
+        "Attachment",
+        "Source",
+        "Captured at",
+      ],
+    ];
+    for (const g of selectionType === "port" && selected
+      ? groups.filter((g) => g.id === selected)
+      : groups)
+      for (const r of g.rows) {
+        const s = sources.find((s) => s.id === r.sourceId);
+        data.push([
+          g.site,
+          g.device,
+          g.port,
+          r.vlan,
+          C.display(r.mac),
+          r.vendor,
+          g.mode,
+          g.detail.vlan,
+          g.detail.nativeVlan,
+          g.detail.voiceVlan,
+          g.detail.allowedVlans,
+          g.detail.status,
+          g.detail.speed,
+          g.detail.portChannel,
+          g.attachment,
+          s?.filename,
+          r.observedAt,
+        ]);
+      }
+    exportCsv("port-mapping.csv", data);
+  };
+  $("pmClientCsv").onclick = () =>
+    exportCsv("consolidated-clients.csv", [
+      [
+        "Site",
+        "VLAN",
+        "MAC",
+        "Hostname",
+        "Organization",
+        "Type",
+        "Type evidence",
+        "IP / VRF",
+        "Candidate ports",
+        "Placement",
+        "Observed at",
+        "Notes",
+      ],
+      ...visibleEndpoints().map((e) => [
+        e.site,
+        e.vlan,
+        C.display(e.mac),
+        e.hostname,
+        e.vendor,
+        e.type,
+        e.typeEvidence,
+        e.addresses.map((a) => a.ip + " [" + a.vrf + "] " + a.scope).join("; "),
+        e.locations
+          .map((id) => {
+            const g = model.groups.find((g) => g.id === id);
+            return g.device + " / " + g.port;
+          })
+          .join("; "),
+        e.placement,
+        e.observations.map((o) => o.observedAt).join("; "),
+        e.notes,
+      ]),
+    ]);
+  $("pmSave").onclick = () =>
+    download(
+      "port-mapping-workspace.json",
+      JSON.stringify(bundle(), null, 2),
+      "application/json",
+    );
+  $("pmSvg").onclick = () => {
+    const copy = $("pmMap").cloneNode(true);
+    copy.setAttribute("xmlns", ns);
+    download(
+      "network-port-topology.svg",
+      new XMLSerializer().serializeToString(copy),
+      "image/svg+xml",
+    );
+  };
+  $("pmPrint").onclick = () => window.print();
+  $("pmOuiFile").onchange = async (e) => {
+    try {
+      const file = e.target.files[0];
+      if (!file) return;
+      if (file.size > 12000000) throw Error("Registry file exceeds 12 MB.");
+      let added = 0;
+      for (const line of (await file.text()).split(/\r?\n/)) {
+        const m = line.match(
+          /^(?:MA-L|MA-M|MA-S|IAB),([0-9A-Fa-f]{6,9}),("(?:[^"]|"")*"|[^,]+)/,
+        );
+        if (!m || ![6, 7, 9].includes(m[1].length)) continue;
+        customDb[m[1].toUpperCase()] = m[2]
+          .replace(/^"|"$/g, "")
+          .replace(/""/g, '"');
+        added++;
+      }
+      if (!added)
+        throw Error(
+          "Use IEEE CSV with Registry, Assignment, Organization Name columns.",
+        );
+      db = { ...baseDb, ...customDb };
+      registry = { ...registry, custom: file.name };
+      model = C.correlate(sources, evidence, db, annotations);
+      saveDraft();
+      render();
+      status(added + " organization prefixes imported.");
+    } catch (err) {
+      status(err.message, true);
+    }
+    e.target.value = "";
+  };
+  hint();
+  fetch("/port-mapping-oui.json")
+    .then((r) => {
+      if (!r.ok) throw Error();
+      return r.json();
+    })
+    .then((data) => {
+      baseDb = data.prefixes;
+      db = { ...baseDb, ...customDb };
+      registry = data.metadata;
+      $("pmDatabase").textContent =
+        Object.keys(db).length +
+        " organization prefixes · " +
+        registry.source +
+        " · " +
+        registry.date +
+        ". Local/randomized MACs remain unassigned.";
+      model = C.correlate(sources, evidence, db, annotations);
+      render();
+    })
+    .catch(() => {
+      $("pmDatabase").textContent =
+        "Bundled registry unavailable. Import IEEE CSV for organization lookup.";
+    });
+  window.PortMapping = {
+    parse: C.parse,
+    sources: () => sources,
+    loadFiles,
+    groups: () => groups,
+    model: () => model,
+    restore,
+    analyze,
+    demoSources,
+  };
+  try {
+    const draft = localStorage.getItem(DRAFT);
+    if (draft)
+      restore(JSON.parse(draft)).catch((e) =>
+        status("Saved draft retained; unable to restore: " + e.message, true),
+      );
+  } catch (e) {
+    status(
+      "Unable to read browser draft. Import a saved JSON workspace.",
+      true,
+    );
+  }
+})();
