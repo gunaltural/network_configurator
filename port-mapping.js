@@ -311,6 +311,7 @@
     }
   }
   async function add(raw, device, filename = "Pasted output") {
+    raw = C.textFromRtf(raw);
     if (
       $("pmKind").value === "support" ||
       /(?:show tech[ -]support|display diagnostic-information)|[-=*]{3,}\s*(?:show|display)\s/i.test(
@@ -638,10 +639,13 @@
     clickable(box, () => select(selected === g.id ? "" : g.id));
     return box;
   }
-  function drawPorts() {
-    const map = $("pmMap"),
-      subset = groups.slice(page * PAGE, (page + 1) * PAGE),
-      ids = [...new Set(subset.map((g) => g.deviceId))],
+  function drawPorts(localTopology = false) {
+    const focus = $("pmFocus").value,
+      available = groups.filter((g) => (!focus || g.deviceId === focus) && (!localTopology || g.macCount)),
+      map = $("pmMap");
+    page = Math.min(page, Math.max(0, Math.ceil(available.length / PAGE) - 1));
+    const subset = localTopology && $("pmClients").value === "no" ? [] : available.slice(page * PAGE, (page + 1) * PAGE),
+      ids = subset.length ? [...new Set(subset.map((g) => g.deviceId))] : model.devices.filter((d) => !focus || d.id === focus).map((d) => d.id),
       height = 180 + Math.max(1, Math.ceil(subset.length / 4)) * 110;
     map.setAttribute("viewBox", "0 0 1000 " + height);
     const centers = new Map(
@@ -650,6 +654,8 @@
     if (ids.length <= 5)
       for (const id of ids) {
         const x = centers.get(id);
+        const device = model.devices.find((d) => d.id === id),
+          box = svg("g", { "data-device": id, "aria-label": device.hostname });
         svg("rect", {
           x: x - 75,
           y: 15,
@@ -658,7 +664,7 @@
           rx: 8,
           fill: "#dceaf4",
           stroke: "#2b607d",
-        });
+        }, undefined, box);
         svg(
           "text",
           {
@@ -668,38 +674,54 @@
             "font-size": 12,
             fill: "#214860",
           },
-          model.devices.find((d) => d.id === id).hostname.slice(0, 22),
+          device.hostname.slice(0, 22),
+          box,
         );
+        clickable(box, () => select(id, "device"));
       }
     for (const [i, g] of subset.entries()) {
       const x = 25 + (i % 4) * 245,
         y = 120 + Math.floor(i / 4) * 110;
       if (ids.length <= 5)
         svg("path", {
-          d: `M ${centers.get(g.deviceId)} 70 V 95 H ${x + 95} V ${y}`,
+          d: localTopology
+            ? `M ${centers.get(g.deviceId)} 70 V 95 H ${x + 45} V ${y + 15} H ${x + 80}`
+            : `M ${centers.get(g.deviceId)} 70 V 95 H ${x + 95} V ${y}`,
           stroke: "#8aa5b8",
           "stroke-dasharray": "3 5",
           fill: "none",
         });
-      portBox(g, x, y);
+      if (localTopology) {
+        const group = svg("g", { "data-group": g.id, "aria-label": g.port + " · " + g.macCount + " learned MACs" });
+        svg("rect", { x: x + 8, y: y - 2, width: 174, height: 75, fill: "transparent", "pointer-events": "all" }, undefined, group);
+        svg("circle", { cx: x + 95, cy: y + 15, r: 15, fill: selected === g.id ? "#cceaf1" : "#dceaf4", stroke: "#467794" }, undefined, group);
+        svg("text", { x: x + 95, y: y + 19, "text-anchor": "middle", "font-size": 11, fill: "#214860" }, String(g.macCount), group);
+        svg("text", { x: x + 95, y: y + 48, "text-anchor": "middle", "font-size": 12, fill: "#214860" }, g.port, group);
+        svg("text", { x: x + 95, y: y + 66, "text-anchor": "middle", "font-size": 10, fill: "#526f83" }, g.mode + " · VLAN " + (g.vlans.join(",") || "—").slice(0, 23), group);
+        svg("title", {}, g.macCount + " learned MACs; select for clients and original evidence. Remote device identity is not established by MAC learning.", group);
+        clickable(group, () => select(g.id));
+      } else portBox(g, x, y);
     }
     $("pmPrev").hidden = $("pmNext").hidden = false;
     $("pmPage").textContent =
       page +
       1 +
       " / " +
-      Math.max(1, Math.ceil(groups.length / PAGE)) +
+      Math.max(1, Math.ceil(available.length / PAGE)) +
       " · " +
-      groups.length +
+      available.length +
       " matching ports";
     $("pmPrev").disabled = !page;
-    $("pmNext").disabled = (page + 1) * PAGE >= groups.length;
+    $("pmNext").disabled = (page + 1) * PAGE >= available.length;
   }
   function draw() {
     const map = $("pmMap");
     map.replaceChildren();
+    $("pmTopologyEvidence").textContent = !model.links.length && sources.length
+      ? "Local learning topology: " + model.devices.length + " device(s), " + model.groups.filter((g) => g.macCount).length + " ports with learned MACs. No CDP/LLDP neighbor links were found. Dotted branches show local port learning, not verified remote devices. Import neighbor output to connect switches."
+      : "Neighbor topology from imported CDP/LLDP evidence. Select a device to inspect its ports and clients.";
     if ($("pmView").value === "ports" || !model.links.length) {
-      drawPorts();
+      drawPorts($("pmView").value !== "ports");
       return;
     }
     $("pmPrev").hidden = $("pmNext").hidden = true;
