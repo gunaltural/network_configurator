@@ -42,7 +42,7 @@ def safe_next(value):
     if not value.startswith('/') or value.startswith('//') or '\\' in value or any(ord(c) < 32 for c in value):
         return '/'
     parsed = urlsplit(value)
-    return value if not parsed.netloc and parsed.path in ('/', '/reporting', '/config-compare', '/network-discovery') else '/'
+    return value if not parsed.netloc and parsed.path in ('/', '/reporting', '/config-compare', '/network-discovery', '/port-mapping') else '/'
 
 
 class LoginRequest(BaseModel):

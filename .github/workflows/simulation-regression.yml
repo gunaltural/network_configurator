@@ -18,6 +18,8 @@ on:
       - "test_simulation_report.py"
       - "network_lab.py"
       - "app.py"
+      - "port-mapping*"
+      - "test_port_mapping*"
       - "authentication.py"
       - ".github/workflows/render-live-verification.yml"
       - ".github/workflows/simulation-regression.yml"
@@ -40,6 +42,8 @@ jobs:
           python -m pip install httpx2
           npm install --no-save --ignore-scripts playwright
           npx playwright install --with-deps chromium
+      - name: MAC port mapping regression
+        run: node test_port_mapping.cjs
       - name: Syntax check modules
         run: |
           node --check simulation/vendor-failure-engine.mjs
@@ -77,6 +81,7 @@ jobs:
             if curl -fsS http://127.0.0.1:8125/healthz >/dev/null; then break; fi
             sleep 1
           done
+          node test_port_mapping_browser.mjs
           node simulation/test_browser_smoke.mjs
           node simulation/test_workspace_browser.mjs
           node simulation/test_pair_browser.mjs
@@ -107,7 +112,7 @@ jobs:
             if curl --fail --silent http://127.0.0.1:18080/healthz >/dev/null; then break; fi
             sleep 2
           done
-          curl --fail --silent --show-error http://127.0.0.1:18080/healthz | python -c 'import json,sys; from pathlib import Path; p=json.load(sys.stdin); assert p["ok"] is True and p["simulator_ready"] is True; assert p["version"]=="5.50.2", p'
+          curl --fail --silent --show-error http://127.0.0.1:18080/healthz | python -c 'import json,sys; from pathlib import Path; p=json.load(sys.stdin); assert p["ok"] is True and p["simulator_ready"] is True; assert p["version"]=="5.51.0", p'
           curl --fail --silent --show-error http://127.0.0.1:18080/vpc-mlag-simulation | grep -q 'Technology Workspace topology'
           curl --fail --silent --show-error http://127.0.0.1:18080/simulation/vendor-failure-engine.mjs | grep -q 'analyzeAccessImpact'
           curl --fail --silent --show-error http://127.0.0.1:18080/synthetic-bgp.js | grep -q 'SyntheticBGP'
