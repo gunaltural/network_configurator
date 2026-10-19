@@ -19,15 +19,15 @@ New scenarios include a small set of synthetic command blocks. Command names are
 
 Generic command plans and repeated unmeasured checklists are omitted for new rich captures. Changes to roles/root remain in before/after comparisons. Historical scenarios are rendered from their stored evidence without reconstructed synthetic output.
 
-## All leaf traffic correction
+## Selected source traffic
 
-The shared pair engine already evaluated the selected leaf accurately. The renderer incorrectly used only that selected leaf's paths to form its highlighted connection set. It now evaluates each imported leaf under the same device/link failures, ordered events, conditions and recovery state, then draws the union of usable service paths. Arrow direction follows each leaf's own path. Failed, protected, recovering and unverified members retain their distinct states.
+Traffic arrows show only paths evaluated for the Traffic from selection. Switching the source updates the highlighted links, path status and detailed analysis together. Other healthy leaf connections remain available without traffic arrows. Failure of the selected leaf displays NO MODELED PATH even when another leaf remains available. Split-brain never produces healthy green forwarding animations.
 
-A selected-leaf outage no longer labels the whole topology as having no path when other leafs retain service. Per-leaf path badges, a partial-service-loss ribbon and a report table distinguish selected-source analysis from domain-wide service state. Split-brain never produces healthy green forwarding animations.
+Independent per-leaf availability remains report evidence; it does not imply simultaneous traffic from every leaf.
 
 ## Verification
 
-Coverage includes actual DOM transfers for all 32 module/vendor combinations, command provenance, module-specific report scenarios, bilingual Word API validation, safe escaping and unavailable observers. Browser coverage checks healthy paths for every leaf, isolated leaf failure, peer protection, partitions, recovery and existing vendor failure catalogues. Bilingual PDF and Word output and final-report handoff remain release checks.
+Coverage includes actual DOM transfers for all 32 module/vendor combinations, command provenance, module-specific report scenarios, bilingual Word API validation, safe escaping and unavailable observers. Browser coverage checks source switching and source-specific paths, isolated leaf failure, peer protection, partitions, recovery and existing vendor failure catalogues. Bilingual PDF and Word output and final-report handoff remain release checks.
 
 Command references reviewed:
 - Cisco vPC command reference: https://developer.cisco.com/docs/nx-api-cli-reference-for-the-cisco-nexus-7000-series-platform/vpc-commands/
@@ -44,4 +44,4 @@ The original native diagram included DAD port text but no DAD connection shape. 
 
 ## Other module topology coverage
 
-STP, OSPF and QoS now show all imported leaf paths to the selected destination, excluding failed and blocked connections. SD-WAN shows its configured local transport paths. System/Management retains endpoint connectivity evidence without representing AAA or monitoring service success as traffic. Detailed analysis and command evidence retain the selected source. An endpoint-path report table captures those scopes independently. EVPN retains logical-session semantics and the accepted BGP flow selection is preserved.
+All module topology arrows follow the selected source and destination, excluding failed and blocked connections. The report can retain independent endpoint availability evidence. EVPN retains logical-session semantics and the accepted BGP flow selection is preserved.
