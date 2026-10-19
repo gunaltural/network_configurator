@@ -684,7 +684,9 @@
         y = 120 + Math.floor(i / 4) * 110;
       if (ids.length <= 5)
         svg("path", {
-          d: `M ${centers.get(g.deviceId)} 70 V 95 H ${x + 95} V ${y}`,
+          d: localTopology
+            ? `M ${centers.get(g.deviceId)} 70 V 95 H ${x + 45} V ${y + 15} H ${x + 80}`
+            : `M ${centers.get(g.deviceId)} 70 V 95 H ${x + 95} V ${y}`,
           stroke: "#8aa5b8",
           "stroke-dasharray": "3 5",
           fill: "none",
