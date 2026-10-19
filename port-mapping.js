@@ -335,6 +335,8 @@
       }
       if (!incoming.length)
         throw Error("No usable topology sections found. " + warnings.join(" "));
+      const importedKinds=new Set(incoming.map(s=>s.kind));
+      const missing=['lldp / cdp','mac','interfaces','arp / nd'].filter(category=>!category.split(' / ').some(kind=>importedKinds.has(kind)));
       const report = {
         filename,
         device: extracted.device,
@@ -342,7 +344,7 @@
         commands: extracted.commandCount,
         imported: incoming.length,
         skipped: extracted.skipped,
-        missing: extracted.missing,
+        missing,
         warnings,
       };
       const old = importReports;
@@ -360,7 +362,7 @@
           " topology sections imported from " +
           extracted.commandCount +
           " commands. Missing: " +
-          (extracted.missing.join(", ") || "none") +
+          (missing.join(", ") || "none") +
           (warnings.length
             ? " · " + warnings.length + " notes; open import coverage."
             : ""),
@@ -389,7 +391,7 @@
         .join(" ")
         .toLowerCase()
         .includes(q) ||
-      (macQuery.length >= 4 && e.mac.includes(macQuery))
+      (/^[0-9a-f:.\-\s]+$/i.test(q) && macQuery.length >= 4 && e.mac.includes(macQuery))
     );
   }
   function visibleEndpoints() {

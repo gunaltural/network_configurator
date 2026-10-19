@@ -48,7 +48,7 @@ def label(line):
 
 
 def parse_neighbors(platform, protocol, output):
-    """Detail formats only. Preserve gaps rather than guessing a local port."""
+    """Parse detailed/summary evidence, preserving gaps rather than guessing ports."""
     if platform not in COMMANDS or protocol not in COMMANDS[platform]:
         raise ValueError('Unsupported platform / neighbor protocol.')
     output = output.replace('\r', '').replace('\x1b', '')
