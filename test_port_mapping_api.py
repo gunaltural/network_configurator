@@ -27,6 +27,13 @@ class PortMappingApiTests(unittest.TestCase):
             self.assertEqual(len(archive.namelist()),3)
             for name in ('CORE-01-show-tech-support.txt','ACCESS-01-show-tech-support.txt'):
                 self.assertIn(b'SYNTHETIC DEMONSTRATION ONLY',archive.read(name))
+        embedded=TestClient(app.app).get('/api/port-mapping/samples')
+        self.assertEqual(embedded.status_code,200)
+        self.assertTrue(embedded.json()['synthetic'])
+        self.assertEqual(len(embedded.json()['files']),2)
+        with ZipFile(BytesIO(response.content)) as archive:
+            for item in embedded.json()['files']:
+                self.assertEqual(item['text'],archive.read(item['name']).decode('utf-8'))
 
 
 if __name__=='__main__':unittest.main()

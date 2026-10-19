@@ -130,6 +130,8 @@
       raw: C.textFromRtf(item.raw),
     };
     s.originalCommand = String(item.originalCommand || "").slice(0, 300);
+    s.sampleId =
+      item.sampleId === "embedded-tech-support-v1" ? item.sampleId : "";
     if (
       !commands[s.platform] ||
       !["mac", "lldp", "cdp", "interfaces", "arp", "nd"].includes(s.kind) ||
@@ -183,6 +185,7 @@
           kind,
           command,
           originalCommand,
+          sampleId,
           vrf,
         }) => ({
           device,
@@ -195,6 +198,7 @@
           kind,
           command,
           originalCommand,
+          sampleId,
           vrf,
         }),
       ),
@@ -1632,10 +1636,72 @@
     add($("pmRaw").value, $("pmDevice").value).catch((e) =>
       status(e.message, true),
     );
-  $("pmTopologyExample").onclick = () =>
-    analyze([...sources, ...demoSources()]).catch((e) =>
-      status(e.message, true),
-    );
+  let loadingExample = false;
+  async function useExampleFiles() {
+    if (working || loadingExample) return;
+    loadingExample = true;
+    $("pmTopologyExample").disabled = true;
+    let previousReports = null;
+    try {
+      const response = await fetch("/api/port-mapping/samples");
+      if (!response.ok) throw Error("Unable to load embedded example files.");
+      const data = await response.json();
+      if (
+        data.synthetic !== true ||
+        !Array.isArray(data.files) ||
+        data.files.length !== 2
+      )
+        throw Error("Invalid example file package.");
+      const sampleId = "embedded-tech-support-v1",
+        incoming = [],
+        reports = [];
+      for (const file of data.files) {
+        if (typeof file.name !== "string" || typeof file.text !== "string")
+          throw Error("Example file is incomplete.");
+        const extracted = C.extractSupport(file.text, {
+          filename: file.name,
+          site: "Synthetic example",
+          importedAt: new Date().toISOString(),
+        });
+        for (const section of extracted.sections)
+          incoming.push(normalizeSource({ ...section, sampleId }));
+        reports.push({
+          sampleId,
+          filename: file.name,
+          device: extracted.device,
+          platform: extracted.platform,
+          commands: extracted.commandCount,
+          imported: extracted.sections.length,
+          skipped: extracted.skipped,
+          missing: extracted.missing,
+          warnings: extracted.warnings,
+        });
+      }
+      if (working)
+        throw Error(
+          "Wait for the current import to finish, then use the example files.",
+        );
+      previousReports = importReports;
+      importReports = [
+        ...importReports.filter((r) => r.sampleId !== sampleId),
+        ...reports,
+      ].slice(-30);
+      await analyze([
+        ...sources.filter((s) => s.sampleId !== sampleId),
+        ...incoming,
+      ]);
+      status(
+        "Embedded synthetic TXT examples loaded and analyzed. Existing imported evidence retained. Select a switch, link or client to explore.",
+      );
+    } catch (error) {
+      if (previousReports) importReports = previousReports;
+      status(error.message, true);
+    } finally {
+      loadingExample = false;
+      $("pmTopologyExample").disabled = working;
+    }
+  }
+  $("pmTopologyExample").onclick = useExampleFiles;
   $("pmExample").onclick = () =>
     analyze([
       ...sources,

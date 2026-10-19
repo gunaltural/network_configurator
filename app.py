@@ -46,7 +46,7 @@ from config_compare import install_config_compare
 from network_lab import install_network_lab
 from lab_gateway import install_lab_gateway
 
-VERSION = "5.53.0"
+VERSION = "5.53.1"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
 # Keep the diagnostic entry point available with the authenticated page itself.
@@ -696,6 +696,13 @@ def port_mapping_sample():
         for filename in ('README.txt', 'CORE-01-show-tech-support.txt', 'ACCESS-01-show-tech-support.txt'):
             archive.writestr(filename, (BASE_DIR / 'samples' / 'port-mapping' / filename).read_bytes())
     return Response(output.getvalue(), media_type='application/zip', headers={'Content-Disposition':'attachment; filename="port-mapping-synthetic-samples.zip"','Cache-Control':'no-store'})
+
+@app.get('/api/port-mapping/samples')
+def port_mapping_samples():
+    return JSONResponse({'synthetic':True,'files':[
+        {'name':filename,'text':(BASE_DIR / 'samples' / 'port-mapping' / filename).read_text(encoding='utf-8')}
+        for filename in ('CORE-01-show-tech-support.txt','ACCESS-01-show-tech-support.txt')
+    ]}, headers={'Cache-Control':'no-store'})
 
 @app.get('/port-mapping-core.js')
 def port_mapping_core():

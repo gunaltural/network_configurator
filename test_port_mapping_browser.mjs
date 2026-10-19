@@ -76,6 +76,27 @@ try {
   await page.waitForFunction(
     () => window.PortMapping.model().links.length === 3,
   );
+  assert.equal(
+    await page
+      .locator("#pmTopologyExample")
+      .textContent()
+      .then((t) => t.trim()),
+    "Use example files",
+  );
+  assert.equal(
+    await page.evaluate(() => window.PortMapping.sources().length),
+    11,
+    "Button parses embedded TXT files through the normal import pipeline",
+  );
+  await page.locator("#pmTopologyExample").click();
+  await page.waitForFunction(
+    () => !document.getElementById("pmTopologyExample").disabled,
+  );
+  assert.equal(
+    await page.evaluate(() => window.PortMapping.sources().length),
+    11,
+    "Repeated example loads do not duplicate sources",
+  );
   assert.equal(await page.locator("#pmMap [data-device]").count(), 4);
   assert.equal(await page.locator("#pmClientRows tr").count(), 4);
   assert.equal(
@@ -208,6 +229,27 @@ try {
       ),
   );
   assert.equal(await page.locator("#pmClientRows tr").count(), 4);
+  await page.locator("#pmTopologyExample").click();
+  await page.waitForFunction(
+    () => !document.getElementById("pmTopologyExample").disabled,
+  );
+  assert.equal(
+    await page.evaluate(
+      () =>
+        window.PortMapping.sources().filter((s) => s.site === "Default").length,
+    ),
+    11,
+    "User-uploaded TXT captures stay intact when the embedded example is loaded",
+  );
+  assert.equal(
+    await page.evaluate(
+      () =>
+        window.PortMapping.sources().filter(
+          (s) => s.sampleId === "embedded-tech-support-v1",
+        ).length,
+    ),
+    11,
+  );
   await page.screenshot({
     path: "/tmp/port-support-topology.png",
     fullPage: true,

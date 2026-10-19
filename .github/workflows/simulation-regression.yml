@@ -125,7 +125,8 @@ jobs:
             if curl --fail --silent http://127.0.0.1:18080/healthz >/dev/null; then break; fi
             sleep 2
           done
-          curl --fail --silent --show-error http://127.0.0.1:18080/healthz | python -c 'import json,sys; p=json.load(sys.stdin); assert p["ok"] is True and p["simulator_ready"] is True; assert p["version"]=="5.53.0", p'
+          curl --fail --silent --show-error http://127.0.0.1:18080/healthz | python -c 'import json,sys; p=json.load(sys.stdin); assert p["ok"] is True and p["simulator_ready"] is True; assert p["version"]=="5.53.1", p'
+          curl --fail --silent --show-error http://127.0.0.1:18080/api/port-mapping/samples | python -c 'import json,sys; p=json.load(sys.stdin); assert p["synthetic"] is True and len(p["files"])==2; assert all("SYNTHETIC DEMONSTRATION ONLY" in f["text"] for f in p["files"])'
           curl --fail --silent --show-error http://127.0.0.1:18080/port-mapping | python -c 'import sys; assert "pmSupportCoverage" in sys.stdin.read()'
           curl --fail --silent --show-error http://127.0.0.1:18080/port-mapping-sample.zip | python -c 'import sys,io,zipfile; z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())); assert len(z.namelist())==3; assert b"SYNTHETIC DEMONSTRATION ONLY" in z.read("CORE-01-show-tech-support.txt")'
           curl --fail --silent --show-error -H 'Content-Type: application/json' --data '{"sources":[{"id":"smoke","device":"CORE","platform":"Cisco IOS-XE","kind":"lldp","raw":"Local Intf: Gi1/0/1\nChassis id: 0011.2233.4455\nPort id: Gi1/0/48\nSystem Name: ACCESS","importedAt":"2026-10-19T15:00:00Z"}]}' http://127.0.0.1:18080/api/port-mapping/analyze | python -c 'import json,sys; p=json.load(sys.stdin); assert len(p["graph"]["links"])==1, p'
