@@ -934,34 +934,13 @@
         box,
       );
       clickable(box, () => select(d.id, "device"));
+      // Keep topology nodes and links unobstructed. Port/client evidence
+      // is available in the existing interactive device inspector.
       if ($("pmClients").value === "yes") {
         const local = displayGroups.filter((g) => g.anchorId === d.id);
-        for (const [i, g] of local.slice(0, 2).entries()) {
-          const x = p.x - 95,
-            y = p.y + 50 + i * 78;
-          svg("path", {
-            d: `M ${p.x} ${p.y + 30} V ${y}`,
-            stroke: "#92adbc",
-            "stroke-dasharray": "2 5",
-            fill: "none",
-          });
-          const child = svg("g", {
-            transform: "translate(" + (x + 19) + " " + y + ") scale(.8)",
-          });
-          portBox(g, 0, 0, child);
+        if (local.length) {
+          svg("title", {}, local.length + " learned port groups · select device for details", box);
         }
-        if (local.length > 2)
-          svg(
-            "text",
-            {
-              x: p.x,
-              y: p.y + 210,
-              "text-anchor": "middle",
-              "font-size": 10,
-              fill: "#587286",
-            },
-            "+" + (local.length - 2) + " ports · select switch",
-          );
       }
     }
     $("pmPage").textContent =
