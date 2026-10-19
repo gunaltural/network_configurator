@@ -189,3 +189,36 @@ assert.equal(
 console.log(
   "Port topology: reciprocal and one-sided neighbors, real NX-OS ordering, five switch platforms, port-channel transit, phone/AP roles, client dedup/path, IP/VRF, dual attachment, overlay, site isolation, annotations and newest empty snapshot passed.",
 );
+const largeRows = Array.from({ length: 12000 }, (_, i) => ({
+  vlan: 10,
+  mac: "001122" + i.toString(16).padStart(6, "0"),
+  port: "Po1",
+  type: "dynamic",
+  kind: "Unicast",
+}));
+const large = C.correlate(
+  [
+    {
+      id: "large",
+      device: "CORE",
+      kind: "mac",
+      importedAt: "2026-10-19T12:00:00Z",
+      rows: largeRows,
+    },
+  ],
+  {
+    graph: { devices: [], links: [], warnings: [] },
+    addresses: largeRows.map((r) => ({
+      site: "Default",
+      mac: r.mac,
+      vlan: 10,
+      ip: "192.0.2.10",
+      vrf: "BLUE",
+    })),
+  },
+);
+assert.equal(large.endpoints.length, 12000);
+assert.ok(large.endpoints.every((e) => e.addresses.length === 1));
+console.log(
+  "Large uplink: 12,000 MAC/ARP correlations retain complete client identities.",
+);

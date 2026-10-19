@@ -458,9 +458,16 @@
         evidence?.activeSourceIds || [...latest.values()].map((s) => s.id),
       ),
       portGroups = new Map(),
+      rowKeys = new Map(),
+      addressIndex = new Map(),
       issues = [...(graph.warnings || [])],
       endpoints = new Map();
     const deviceById = new Map(devices.map((d) => [d.id, d]));
+    for (const address of evidence?.addresses || []) {
+      const key = address.site + "|" + address.mac;
+      if (!addressIndex.has(key)) addressIndex.set(key, []);
+      addressIndex.get(key).push(address);
+    }
     function bound(s) {
       if (bindings[s.id]) return bindings[s.id];
       const id = "local-" + (s.site || "Default") + "|" + s.device;
@@ -522,13 +529,12 @@
           vrf: s.vrf || "default",
           observedAt: s.importedAt,
         };
-        if (
-          !g.rows.some(
-            (x) =>
-              x.mac === row.mac && x.vlan === row.vlan && x.type === row.type,
-          )
-        )
+        if (!rowKeys.has(id)) rowKeys.set(id, new Set());
+        const rowKey = [row.mac, row.vlan, row.type].join("|");
+        if (!rowKeys.get(id).has(rowKey)) {
+          rowKeys.get(id).add(rowKey);
           g.rows.push(row);
+        }
       }
     }
     // A configured interface or discovered neighbor remains inspectable without a MAC capture.
@@ -692,7 +698,7 @@
         e.hostname = identity[0].hostname;
         e.typeEvidence = "Neighbor chassis ID and advertised capabilities";
       }
-      const addressRows = (evidence?.addresses || []).filter(
+      const addressRows = (addressIndex.get(e.site + "|" + e.mac) || []).filter(
         (a) =>
           a.site === e.site &&
           a.mac === e.mac &&
