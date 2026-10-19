@@ -191,17 +191,21 @@ def build_graph(sources):
     for s in sources:
         origin = s.get('origin','CLI import'); timestamp = s.get('observedAt','')
         local = add(s['deviceName'], ips(s.get('target','')), platform=s['platform'], seed=True, identity=s.get('identity'), observed=timestamp, origin=origin)
-        records, issues = parse_neighbors(s['platform'], s['protocol'], s['output'])
+        records, issues = (s['neighborRecords'], []) if 'neighborRecords' in s else parse_neighbors(s['platform'], s['protocol'], s['output'])
         warnings.extend(f"{s['deviceName']} · {s['protocol'].upper()}: {x}" for x in issues)
         for r in records:
-            remote = add(r.get('hostname',''), r['managementAddresses'], r.get('chassisId',''), advertised_vendor(r.get('description','')), observed=timestamp, origin=s['protocol'].upper()+' advertisement')
+            event_derived = s.get('eventDerived', False)
+            remote = add(r.get('hostname',''), r['managementAddresses'], r.get('chassisId',''), advertised_vendor(r.get('description','')), observed=timestamp, origin='CDP diagnostic event' if event_derived else s['protocol'].upper()+' advertisement')
             if remote == local:
                 warnings.append(f"{s['deviceName']}: self-referencing neighbor was excluded."); continue
             endpoints = sorted([(local,r['localPort']), (remote,r['remotePort'])])
             ident = 'link-' + uid(str(endpoints))
             e = edges.setdefault(ident, {'id':ident,'a':endpoints[0][0],'aPort':endpoints[0][1],'b':endpoints[1][0],'bPort':endpoints[1][1],'protocols':[],'observations':[],'state':'One-sided observation'})
             if s['protocol'].upper() not in e['protocols']: e['protocols'].append(s['protocol'].upper())
-            e['observations'].append({'device':local,'command':COMMANDS[s['platform']][s['protocol']], 'observedAt':timestamp,'origin':origin})
-            if {x['device'] for x in e['observations']} == {e['a'],e['b']}: e['state'] = 'Both ends observed'
+            e['observations'].append({'device':local,'command':s.get('evidenceCommand') or COMMANDS[s['platform']][s['protocol']], 'observedAt':timestamp,'origin':origin,
+                                      'eventDerived':event_derived, **({k:r[k] for k in ('raw','line','eventTime') if k in r} if event_derived else {})})
+            advertised = {x['device'] for x in e['observations'] if not x.get('eventDerived')}
+            e['eventDerived'] = not bool(advertised)
+            e['state'] = 'Both ends observed' if advertised == {e['a'],e['b']} else 'One-sided observation' if advertised else 'CDP diagnostic event'
     if len(devices)>500 or len(edges)>2000: raise ValueError('Discovery exceeds 500 devices / 2000 links. Reduce the scope.')
     return {'devices':list(devices.values()),'links':list(edges.values()),'warnings':list(dict.fromkeys(warnings)), 'generatedAt':datetime.now(timezone.utc).isoformat()}

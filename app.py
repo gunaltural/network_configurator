@@ -46,7 +46,7 @@ from config_compare import install_config_compare
 from network_lab import install_network_lab
 from lab_gateway import install_lab_gateway
 
-VERSION = "5.53.2"
+VERSION = "5.53.3"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
 # Keep the diagnostic entry point available with the authenticated page itself.
@@ -222,7 +222,7 @@ class PortMappingEvidence(BaseModel):
     site: str = Field(default='Default', min_length=1, max_length=100)
     target: str = Field(default='', max_length=253)
     platform: Literal['Cisco IOS-XE', 'Cisco NX-OS', 'Arista EOS', 'Huawei_CE_SW', 'Huawei iStack'] = 'Cisco IOS-XE'
-    kind: Literal['mac','lldp','cdp','interfaces','arp','nd'] = 'mac'
+    kind: Literal['mac','lldp','cdp','interfaces','arp','nd','vlans','stp','cdp-log','identity'] = 'mac'
     command: str = Field(default='', max_length=100)
     originalCommand: str = Field(default='', max_length=300)
     vrf: str = Field(default='', max_length=100)

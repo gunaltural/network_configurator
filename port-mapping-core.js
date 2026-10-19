@@ -200,6 +200,20 @@
   }
   const display = (mac) =>
     normalize(mac).match(/.{2}/g)?.join(":") || String(mac);
+  function diagnosticCommand(value) {
+    const words = value.trim().split(/\s+/);
+    if (/^sh(?:o(?:w)?)?$/i.test(words[0])) words[0] = "show";
+    const aliases = { int: "interfaces", inter: "interfaces", nei: "neighbors", neigh: "neighbors", neig: "neighbors", det: "detail", summ: "summary", run: "running-config", ver: "version", desc: "description" };
+    return words.map((w, i) => i < 4 ? (aliases[w.toLowerCase()] || w) : w).join(" ");
+  }
+  function interfaceConfig(body) {
+    let inside = false;
+    return body.split("\n").map((line) => {
+      if (/^interface\s+[A-Za-z][\w./:-]*\d[\w./:-]*\s*$/i.test(line)) { inside = true; return line; }
+      if (/^\S/.test(line)) inside = false;
+      return inside && /^\s+(?:description\s+.+|switchport(?:\s+(?:mode\s+(?:access|trunk|dynamic\s+\S+)|access vlan\s+\d+|voice vlan\s+\d+|trunk (?:native vlan\s+\d+|allowed vlan\s+[\d, -]+)))?|channel-group\s+\d+(?:\s+mode\s+\S+)?|(?:ip|ipv6) address\s+[\da-fA-F.:/]+(?:\s+[\d.]+)?(?:\s+secondary)?|(?:ip )?vrf forwarding\s+\S+|(?:no )?shutdown|mtu\s+\d+|speed\s+\S+|duplex\s+\S+)\s*$/i.test(line) ? line : "";
+    }).join("\n");
+  }
   function extractSupport(raw, meta = {}) {
     if (typeof raw !== "string" || raw.length > 50000000)
       throw Error("Diagnostic text limit is 50 MB.");
@@ -214,7 +228,7 @@
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i],
         m = line.match(
-          /^\s*(?:(?:[-=*#~]{2,}\s*)|(?:[\w.\-/():]+[#>]\s*)|(?:<[^>]+>\s*)|(?:\d+[.)]\s*))?(?:\[\s*)?((?:show|display)\s+[a-z][a-z0-9 _./:|\-]*?)(?:\s*\])?(?:\s*[-=*#~]{2,})?\s*$/i,
+          /^\s*(?:(?:[-=*#~]{2,}\s*)|(?:[\w.\-/():]+[#>]\s*)|(?:<[^>]+>\s*)|(?:\d+[.)]\s*))?(?:\[\s*)?((?:sh(?:o(?:w)?)?|display)\s+[a-z][a-z0-9 _./:|*\-]*?)(?:\s*\])?(?:\s*[-=*#~]{2,})?\s*$/i,
         );
       if (m) {
         if (block) {
@@ -222,14 +236,15 @@
           blocks.push(block);
         }
         const prompt =
-          line.match(/^\s*([\w.\-]+)[#>]\s*(?:show|display)/i) ||
+          line.match(/^\s*([\w.\-]+)[#>]\s*(?:sh(?:o(?:w)?)?|display)\s/i) ||
           line.match(/^\s*<([^>]+)>\s*display/i);
         if (prompt) {
           promptNames.add(prompt[1]);
           if (!localName) localName = prompt[1];
         }
         block = {
-          command: m[1].trim().replace(/\s+/g, " "),
+          command: diagnosticCommand(m[1]),
+          originalCommand: m[1].trim().replace(/\s+/g, " "),
           start: i + 2,
           lines: [],
         };
@@ -276,9 +291,15 @@
     const sections = [];
     let skipped = 0;
     for (const b of blocks) {
-      const original = b.command,
-        command = original.toLowerCase(),
-        body = b.lines.join("\n").trim();
+      const original = b.originalCommand || b.command,
+        command = b.command.toLowerCase();
+      let body = b.lines.join("\n").trim();
+      // Crash/stack diagnostics can embed CDP syslog events outside show logging.
+      // Retain only complete, relevant events, never the surrounding crash/config text.
+      if (!/^(?:show (?:running|startup)-config|display current-configuration)/.test(command)) {
+        const events = b.lines.map((line) => /%CDP-\d+-(?:DUPLEX|NATIVE_VLAN)_MISMATCH:.*\bwith\s+\S+\s+\S+\s+\(/i.test(line) ? line : "").join("\n").trim();
+        if (events) sections.push({ ...meta, device: localName || meta.device || "Imported switch", platform, kind: "cdp-log", command: b.command, originalCommand: original, raw: events, filename: (meta.filename || "Diagnostic capture") + " · " + original + " · CDP events · lines " + b.start + "–" + b.end });
+      }
       let kind = "",
         canonical = command,
         vrf = meta.vrf || "";
@@ -291,13 +312,22 @@
         kind = "mac";
       else if (/^(?:show|display) lldp neighbou?rs?\b/.test(command))
         kind = "lldp";
-      else if (/^show cdp neighbors\b/.test(command)) kind = "cdp";
+      else if (/^show cdp (?:neighbors|entry)\b/.test(command)) kind = "cdp";
       else if (/^show (?:ip arp|arp)\b|^display arp\b/.test(command))
         kind = "arp";
       else if (
         /^show ipv6 neighbors\b|^display ipv6 neighbou?rs?\b/.test(command)
       )
         kind = "nd";
+      else if (/^show vlan(?:\s+(?:brief|id\b.*|name\b.*))?$/.test(command)) kind = "vlans";
+      else if (/^show spanning-tree(?:\s+(?:active|vlan\b.*|interface\b.*|mst\b.*))?$/.test(command)) kind = "stp";
+      else if (/^show (?:version|inventory)$/.test(command)) kind = "identity";
+      else if (/^show running-config$/.test(command)) {
+        kind = "interfaces";
+        canonical = "show running-config";
+        body = interfaceConfig(body).trim();
+        if (!body) { skipped++; continue; }
+      }
       else if (/^show interfaces?\b/.test(command)) {
         kind = "interfaces";
         const base =
@@ -527,6 +557,7 @@
           site: d.site || "Default",
           vendor: organization(r.mac, db) || "Unknown",
           vrf: s.vrf || "default",
+          vlanName: d.vlans?.[r.vlan]?.name || "",
           observedAt: s.importedAt,
         };
         if (!rowKeys.has(id)) rowKeys.set(id, new Set());
@@ -586,6 +617,7 @@
           linkId: l.id,
           state: l.state,
           protocols: l.protocols,
+          eventDerived: Boolean(l.eventDerived),
         });
       }
     for (const g of portGroups.values()) {
@@ -626,7 +658,7 @@
           .filter(Boolean),
       ];
       const peers = peerGroups
-        .flatMap((p) => p.neighbors)
+        .flatMap((p) => p.neighbors.filter((n) => !n.eventDerived))
         .map((n) => deviceById.get(n.deviceId))
         .filter(Boolean);
       g.infrastructure = peers.some(
@@ -637,11 +669,13 @@
         ? "Remote overlay learning"
         : g.infrastructure
           ? "Transit toward discovered network device"
-          : g.neighbors.length
+          : g.neighbors.some((n) => !n.eventDerived)
             ? "Neighbor observed; additional MACs may be behind it"
+            : g.neighbors.length
+              ? "Neighbor association from CDP diagnostic event"
             : "Edge candidate; direct attachment unconfirmed";
       g.issues = [];
-      if (new Set(g.neighbors.map((n) => n.deviceId)).size > 1)
+      if (new Set(g.neighbors.filter((n) => !n.eventDerived).map((n) => n.deviceId)).size > 1)
         g.issues.push(
           "Multiple advertised neighbors on this port; inspect shared media or conflicting snapshots.",
         );
@@ -662,6 +696,7 @@
             vlan: r.vlan,
             vendor: r.vendor,
             observations: [],
+            vlanNames: [],
             locations: [],
             addresses: [],
             type: "Unknown",
@@ -670,6 +705,7 @@
             notes: "",
           });
         const e = endpoints.get(id);
+        if (r.vlanName && !e.vlanNames.includes(r.vlanName)) e.vlanNames.push(r.vlanName);
         e.observations.push({
           groupId: g.id,
           deviceId: g.deviceId,
@@ -830,6 +866,7 @@
     correlate,
     trace,
     extractSupport,
+    interfaceConfig,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.PortMappingCore = api;

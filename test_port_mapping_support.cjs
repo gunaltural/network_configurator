@@ -36,7 +36,7 @@ const result = C.extractSupport(capture, {
 });
 assert.equal(result.device, "CORE");
 assert.equal(result.platform, "Cisco IOS-XE");
-assert.equal(result.sections.length, 6);
+assert.equal(result.sections.length, 7);
 assert.deepEqual(result.missing, []);
 assert.ok(!JSON.stringify(result.sections).includes("MUST-NOT-BE"));
 assert.equal(result.sections.find((s) => s.kind === "arp").vrf, "BLUE");
@@ -104,7 +104,7 @@ const eos = C.extractSupport(
   { device: "EOS-01" },
 );
 assert.equal(eos.platform, "Arista EOS");
-assert.equal(eos.sections.length, 2);
+assert.equal(eos.sections.length, 3);
 assert.throws(
   () =>
     C.extractSupport(
@@ -155,6 +155,79 @@ assert.ok(
     .addresses.some((a) => a.ip === "2001:db8:10::101"),
 );
 module.exports = { capture };
+const enrichedCapture = `LOCAL#sh tech-support
+---------------- sh ver ----------------
+Cisco IOS Software, Test Software, Version 15.2(4), RELEASE
+---------------- sh run ----------------
+hostname LOCAL
+username private secret EXCLUDED-SECRET
+interface GigabitEthernet1/0/1
+ description CLIENTS
+ switchport mode access
+ switchport access vlan 10
+ channel-group 1 mode active
+ authentication password EXCLUDED-PORT-SECRET
+interface Vlan10
+ ip address 192.0.2.1 255.255.255.0
+!
+---------------- sh int switchport ----------------
+Name: Gi1/0/1
+Operational Mode: static access
+Access Mode VLAN: 10 (USERS)
+---------------- sh vlan brief ----------------
+VLAN Name Status Ports
+---- ---------------- ---- ----------------
+10 USERS active Gi1/0/1,
+                         Gi1/0/2
+20 EMPTY active
+VLAN Type SAID MTU
+10 enet 100010 1500
+---------------- sh spanning-tree active ----------------
+VLAN0010
+ This bridge is the root
+Interface Role Sts Cost Prio.Nbr Type
+Gi1/0/1 Desg FWD 4 128.1 P2p
+Gi1/0/2 Altn BLK 4 128.2 P2p
+---------------- sh mac-address-table ----------------
+10 0050.5684.1234 dynamic Gi1/0/1
+---------------- sh arp vrf BLUE ----------------
+Internet 192.0.2.101 0 0050.5684.1234 ARPA Vlan10
+---------------- sh stacks ----------------
+PRIVATE-CRASH-MEMORY-OMITTED
+123: 1w2d: %CDP-4-DUPLEX_MISMATCH: duplex mismatch discovered on GigabitEthernet1/0/2 (not half duplex), with PEER mgmt0 (half duplex).
+124: 1w2d: %CDP-4-DUPLEX_MISMATCH: duplex mismatch discovered on GigabitEthernet1/0/2 (not half duplex), with PEER mgmt0 (half duplex).
+`;
+const facts = C.extractSupport(enrichedCapture, {filename: "sanitized.txt", site: "Default", importedAt: "2026-10-19T22:00:00Z"});
+assert.equal(facts.device, "LOCAL");
+assert.ok(!JSON.stringify(facts.sections).includes("EXCLUDED-"));
+assert.ok(!JSON.stringify(facts.sections).includes("PRIVATE-CRASH"));
+const factSources = facts.sections.map((s, i) => ({...s, id: "fact-" + i, rows: s.kind === "mac" ? C.parse(s.raw).rows : []}));
+function analyzeFacts(sources) {
+  return JSON.parse(execFileSync("python", ["-c", "import json,sys;from port_mapping import analyze;print(json.dumps(analyze(json.load(sys.stdin))))"], {input: JSON.stringify(sources), encoding: "utf8"}));
+}
+const factModel = C.correlate(factSources, analyzeFacts(factSources));
+const local = factModel.devices.find((d) => d.seed), port = local.interfaces["gi1/0/1"];
+assert.equal(factModel.devices.length, 2);
+assert.equal(factModel.links.length, 1, "Repeated CDP diagnostic events consolidate to one link");
+assert.equal(factModel.links[0].eventDerived, true);
+assert.equal(factModel.links[0].observations[0].command, "show stacks · CDP events");
+assert.deepEqual(local.vlans["10"].ports, ["Gi1/0/1", "Gi1/0/2"]);
+assert.equal(Object.keys(local.vlans).length, 2, "The VLAN Type/SAID table is not parsed as membership");
+assert.equal(local.spanningTree.VLAN0010.root, true);
+assert.equal(local.interfaces["gi1/0/2"].spanningTree[0].state, "BLK");
+assert.equal(port.configuredMode, "access");
+assert.equal(port.mode, "static access", "Configured mode remains separate from operational evidence");
+assert.equal(port.portChannel, "Po1");
+assert.deepEqual(local.interfaces.vlan10.configuredAddresses, ["192.0.2.1 255.255.255.0"]);
+assert.deepEqual(factModel.endpoints[0].vlanNames, ["USERS"]);
+assert.equal(factModel.endpoints[0].addresses[0].ip, "192.0.2.101");
+assert.equal(factModel.endpoints[0].addresses[0].vrf, "BLUE");
+const advertised = {...factSources[0], id: "advertised", kind: "cdp", command: "show cdp neighbors detail", originalCommand: "show cdp neighbors detail", raw: "Device ID: PEER\nInterface: GigabitEthernet1/0/2, Port ID (outgoing port): mgmt0\nCapabilities: Switch", rows: []};
+const merged = C.correlate([...factSources, advertised], analyzeFacts([...factSources, advertised]));
+assert.equal(merged.links.length, 1, "CDP table and diagnostic event reconcile the same two ports");
+assert.equal(merged.links[0].eventDerived, false);
+assert.ok(merged.links[0].observations.some((o) => o.eventDerived));
+console.log("Diagnostic evidence fusion: abbreviated commands, VLAN names/wrapped port membership, STP roles, selected interface configuration, ARP/VRF, CDP events and neighbor-table reconciliation passed.");
 console.log(
   "Diagnostic bundles: Cisco/Arista/Huawei headers, platform/hostname detection, summary neighbors, per-port snapshots, trunk VLANs, original line provenance, VRF case and unrelated configuration/log exclusion passed.",
 );
