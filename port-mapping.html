@@ -1,9 +1,646 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Port Mapping · Network Configurator</title><link rel="stylesheet" href="/corporate-theme.css"><style>
-*{box-sizing:border-box}body{background:#eaf1f6;color:#183b50;font:14px Arial,sans-serif}.mapping-topbar{padding:22px 28px;background:#fff;border-bottom:1px solid #c4d3df;display:flex;gap:25px;align-items:center}.pm-main{padding:22px;max-width:1550px;margin:auto}.pm-card{background:#fff;border:1px solid #bfd0dc;border-radius:12px;padding:20px;margin-bottom:18px}h1{font-size:24px;margin:0 0 8px}h2{font-size:17px;margin:0 0 14px}p{line-height:1.6}label{display:flex;flex-direction:column;gap:7px;font-size:12px;font-weight:bold}input,select,textarea,button{font:inherit;color:inherit;border:1px solid #b9cbd8;border-radius:6px;padding:9px;background:#fff}button{cursor:pointer}button:hover{background:#edf4f8}button.primary{background:#245574;color:white}button:disabled{opacity:.45;cursor:default}.pm-tools{display:flex;gap:10px;align-items:end;flex-wrap:wrap}.pm-tools label{flex:1;min-width:150px}textarea{width:100%;margin-top:12px;min-height:120px;font-family:monospace}.pm-hint{color:#5b7486;font-size:12px}.pm-status{padding:12px;border-left:4px solid #337b9a;background:#f1f7fb;margin:12px 0}.pm-status.error{border-color:#b3364d}.pm-counts{display:flex;gap:12px;flex-wrap:wrap}.pm-metric{flex:1;min-width:130px;background:#f2f7fa;border:1px solid #c9d9e4;border-radius:8px;padding:14px}.pm-metric strong{display:block;font-size:24px;margin-bottom:5px}.pm-workbench>*{min-width:0}.pm-workbench{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(280px,1fr);gap:18px}.pm-map{overflow:auto;background:#f5f9fc;border:1px solid #c7d9e4;border-radius:8px}.pm-map svg{width:100%;min-width:500px;display:block}.pm-map [data-group]{cursor:pointer}.pm-map [data-group]:focus rect{stroke:#bb7d10;stroke-width:3}.pm-scroll{overflow:auto;max-height:460px}table{width:100%;border-collapse:collapse;font-size:12px}th{text-align:left;background:#eaf2f7;position:sticky;top:0}th,td{padding:10px;border-bottom:1px solid #d7e2e9;vertical-align:top}td{overflow-wrap:anywhere}.pm-pill{display:inline-block;background:#eaf2f7;border-radius:4px;padding:3px 6px;font-size:11px}.pm-nav{flex-wrap:wrap;display:flex;align-items:center;gap:12px;justify-content:center;margin-top:12px}.pm-warning{background:#fff8e9;padding:10px;border-radius:6px}.pm-evidence{white-space:pre-wrap;overflow-wrap:anywhere;font:11px monospace}.pm-sources button{margin-left:10px}.pm-sources{line-height:2.2}#pmResults[hidden]{display:none}@media(max-width:1050px){.pm-workbench{grid-template-columns:minmax(0,1fr)}.pm-main{padding:12px}}@media print{.nc-sidebar,.mapping-topbar,.pm-input,.pm-tools,.pm-nav,button{display:none!important}.pm-main{padding:0}.pm-workbench{display:block}.pm-scroll{max-height:none}.pm-card{break-inside:avoid}body{background:white}}
-</style></head><body><header class="mapping-topbar"><strong>Network Discovery & Port Mapping</strong><a href="/network-discovery">Neighbor discovery</a></header><main id="portMapping" class="pm-main"><h1>MAC address port mapping</h1><p>Explore where MAC addresses are learned, grouped by switch, port and VLAN.</p>
-<section class="pm-card pm-input"><h2>Import MAC table evidence</h2><div class="pm-tools"><label>Device name · for pasted output<input id="pmDevice" maxlength="120" value="Imported switch"></label><label>Upload captures · TXT, LOG, RTF or saved workspace<input id="pmFiles" type="file" multiple accept=".txt,.log,.rtf,.json"></label><button id="pmExample" type="button">Try example</button></div><details><summary>Paste command output</summary><textarea id="pmRaw" maxlength="3000000" aria-label="MAC table command output" placeholder="Paste show mac address-table or display mac-address output"></textarea><button class="primary" id="pmAnalyze" type="button">Add to map</button></details><p class="pm-hint">Files are analyzed in your browser. Each uploaded capture is a separate source; use its filename as the device name. Supported row formats: Cisco IOS/NX-OS, Arista EOS and Huawei VRP. Maximum 3 MB per capture, 20 sources per workspace.</p><details><summary>Manufacturer database</summary><p id="pmDatabase" class="pm-hint">Loading bundled MAC organization registry…</p><label>Optional IEEE MA-L / MA-M / MA-S CSV import<input id="pmOuiFile" type="file" accept=".csv"></label></details><div id="pmStatus" class="pm-status" role="status" aria-live="polite">Upload a MAC table or try the example.</div><div id="pmSources" class="pm-sources"></div></section>
-<div id="pmResults" hidden><section class="pm-card"><div id="pmCounts" class="pm-counts"></div><p class="pm-hint">Counts describe learned addresses and MAC/VLAN records, not a physical device inventory. Virtual gateways, multicast and local/system entries are kept as evidence and excluded from endpoint groups.</p><div class="pm-tools"><label>Search MAC, port, device or organization<input id="pmSearch" type="search" placeholder="00:50:56, Gi1/20, VMware…"></label><label>Observed VLAN<select id="pmVlan"><option value="">All observed VLANs</option></select></label><button id="pmCsv">Export port mapping CSV</button><button id="pmSave">Save workspace JSON</button><button id="pmClear">Clear workspace</button></div></section>
-<div class="pm-workbench"><section class="pm-card"><h2>Port learning topology</h2><p class="pm-hint">Dashed connections mean “MAC addresses learned via this port”. They do not establish a physical neighbor or traffic flow. Select a port group to inspect its records.</p><div class="pm-map"><svg id="pmMap" viewBox="0 0 900 600" role="img" aria-label="MAC learning port groups"></svg></div><div class="pm-nav"><button id="pmPrev">Previous</button><span id="pmPage"></span><button id="pmNext">Next</button></div></section>
-<aside class="pm-card"><h2 id="pmInspectorTitle">Port evidence</h2><div id="pmInspector">Select a port group.</div></aside></div>
-<section class="pm-card"><h2>Matching MAC records</h2><p id="pmTableScope" class="pm-hint"></p><div class="pm-scroll"><table><thead><tr><th>Device / port</th><th>VLAN</th><th>MAC address</th><th>Organization</th><th>Address class / entry type</th></tr></thead><tbody id="pmRows"></tbody></table></div><div class="pm-nav"><button id="pmRowPrev">Previous records</button><span id="pmRowPage"></span><button id="pmRowNext">Next records</button></div></section>
-<details class="pm-card"><summary>Excluded infrastructure records and parsing notes</summary><div id="pmExcluded" class="pm-scroll"></div></details></div></main><script src="/port-mapping-core.js"></script><script src="/port-mapping.js"></script><script src="/corporate-shell.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Port Mapping · Network Configurator</title>
+    <link rel="stylesheet" href="/corporate-theme.css" />
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        background: #eaf1f6;
+        color: #183b50;
+        font:
+          14px Arial,
+          sans-serif;
+      }
+      .mapping-topbar {
+        padding: 22px 28px;
+        background: #fff;
+        border-bottom: 1px solid #c4d3df;
+        display: flex;
+        gap: 25px;
+        align-items: center;
+      }
+      .pm-main {
+        padding: 22px;
+        max-width: 1550px;
+        margin: auto;
+      }
+      .pm-card {
+        background: #fff;
+        border: 1px solid #bfd0dc;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 18px;
+      }
+      h1 {
+        font-size: 24px;
+        margin: 0 0 8px;
+      }
+      h2 {
+        font-size: 17px;
+        margin: 0 0 14px;
+      }
+      p {
+        line-height: 1.6;
+      }
+      label {
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+        font-size: 12px;
+        font-weight: bold;
+      }
+      input,
+      select,
+      textarea,
+      button {
+        font: inherit;
+        color: inherit;
+        border: 1px solid #b9cbd8;
+        border-radius: 6px;
+        padding: 9px;
+        background: #fff;
+      }
+      button {
+        cursor: pointer;
+      }
+      button:hover {
+        background: #edf4f8;
+      }
+      button.primary {
+        background: #245574;
+        color: white;
+      }
+      button:disabled {
+        opacity: 0.45;
+        cursor: default;
+      }
+      .pm-tools {
+        display: flex;
+        gap: 10px;
+        align-items: end;
+        flex-wrap: wrap;
+      }
+      .pm-tools label {
+        flex: 1;
+        min-width: 150px;
+      }
+      textarea {
+        width: 100%;
+        margin-top: 12px;
+        min-height: 120px;
+        font-family: monospace;
+      }
+      .pm-hint {
+        color: #5b7486;
+        font-size: 12px;
+      }
+      .pm-status {
+        padding: 12px;
+        border-left: 4px solid #337b9a;
+        background: #f1f7fb;
+        margin: 12px 0;
+      }
+      .pm-status.error {
+        border-color: #b3364d;
+      }
+      .pm-counts {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .pm-metric {
+        flex: 1;
+        min-width: 130px;
+        background: #f2f7fa;
+        border: 1px solid #c9d9e4;
+        border-radius: 8px;
+        padding: 14px;
+      }
+      .pm-metric strong {
+        display: block;
+        font-size: 24px;
+        margin-bottom: 5px;
+      }
+      .pm-workbench > * {
+        min-width: 0;
+      }
+      .pm-workbench {
+        display: grid;
+        grid-template-columns: minmax(0, 1.65fr) minmax(280px, 1fr);
+        gap: 18px;
+      }
+      .pm-map {
+        overflow: auto;
+        background: #f5f9fc;
+        border: 1px solid #c7d9e4;
+        border-radius: 8px;
+      }
+      .pm-map svg {
+        width: 100%;
+        min-width: 500px;
+        display: block;
+      }
+      .pm-map [data-group] {
+        cursor: pointer;
+      }
+      .pm-map [data-group]:focus rect {
+        stroke: #bb7d10;
+        stroke-width: 3;
+      }
+      .pm-scroll {
+        overflow: auto;
+        max-height: 460px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+      }
+      th {
+        text-align: left;
+        background: #eaf2f7;
+        position: sticky;
+        top: 0;
+      }
+      th,
+      td {
+        padding: 10px;
+        border-bottom: 1px solid #d7e2e9;
+        vertical-align: top;
+      }
+      td {
+        overflow-wrap: anywhere;
+      }
+      .pm-pill {
+        display: inline-block;
+        background: #eaf2f7;
+        border-radius: 4px;
+        padding: 3px 6px;
+        font-size: 11px;
+      }
+      .pm-nav {
+        flex-wrap: wrap;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        justify-content: center;
+        margin-top: 12px;
+      }
+      .pm-warning {
+        background: #fff8e9;
+        padding: 10px;
+        border-radius: 6px;
+      }
+      .pm-evidence {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        font: 11px monospace;
+      }
+      .pm-sources button {
+        margin-left: 10px;
+      }
+      .pm-sources {
+        line-height: 2.2;
+      }
+      #pmResults[hidden] {
+        display: none;
+      }
+      @media (max-width: 1050px) {
+        .pm-workbench {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        .pm-main {
+          padding: 12px;
+        }
+      }
+      @media print {
+        .nc-sidebar,
+        .mapping-topbar,
+        .pm-input,
+        .pm-tools,
+        .pm-nav,
+        button {
+          display: none !important;
+        }
+        .pm-main {
+          padding: 0;
+        }
+        .pm-workbench {
+          display: block;
+        }
+        .pm-scroll {
+          max-height: none;
+        }
+        .pm-card {
+          break-inside: avoid;
+        }
+        body {
+          background: white;
+        }
+      }
+      .pm-topology-toolbar {
+        margin: 14px 0;
+      }
+      .pm-map [data-device],
+      .pm-map [data-link] {
+        cursor: pointer;
+      }
+      .pm-client {
+        border: 1px solid #d0dfe8;
+        border-radius: 8px;
+        padding: 12px;
+        margin: 10px 0;
+        background: #f7fafc;
+      }
+      .pm-client p {
+        margin: 5px 0;
+      }
+      .pm-client button {
+        margin-top: 8px;
+      }
+      .pm-health {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin: 12px 0;
+      }
+      .pm-health span {
+        padding: 6px 10px;
+        background: #edf5f8;
+        border-radius: 5px;
+        font-size: 12px;
+      }
+      .pm-legend {
+        font-size: 12px;
+        color: #526c7d;
+      }
+      .pm-detail-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+      .pm-detail-grid p {
+        margin: 4px 0;
+      }
+      .pm-detail-grid strong {
+        font-size: 11px;
+        color: #577286;
+      }
+      .pm-map-wrap {
+        max-height: 760px;
+        overflow: auto;
+      }
+      .pm-map svg {
+        min-width: 800px;
+      }
+      .pm-sources input {
+        max-width: 210px;
+      }
+      .pm-sources > div {
+        border-bottom: 1px solid #e0e9ef;
+        padding: 6px 0;
+      }
+      .pm-table-action {
+        padding: 3px 7px;
+      }
+      .pm-annotation {
+        display: grid;
+        gap: 10px;
+      }
+      .pm-source-meta {
+        font-size: 11px;
+        color: #587185;
+      }
+      .pm-selected {
+        background: #e6f4f7;
+      }
+      .pm-tools select {
+        max-width: 100%;
+      }
+      #pmInspector {
+        max-height: 820px;
+        overflow: auto;
+      }
+      #pmSearch {
+        min-width: 0;
+        width: 100%;
+      }
+      @media (max-width: 650px) {
+        .mapping-topbar {
+          padding: 15px;
+          flex-wrap: wrap;
+        }
+        .pm-tools label {
+          min-width: 140px;
+        }
+        .pm-detail-grid {
+          grid-template-columns: 1fr;
+        }
+        .pm-card {
+          padding: 14px;
+        }
+        .pm-sources input {
+          max-width: 100%;
+        }
+        .pm-map svg {
+          min-width: 800px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="mapping-topbar">
+      <strong>Network Discovery & Port Mapping</strong
+      ><a href="/network-discovery">Neighbor discovery</a>
+    </header>
+    <main id="portMapping" class="pm-main">
+      <h1>Network topology & port mapping</h1>
+      <p>
+        Connect switch neighbors, port configuration and learned clients in one
+        evidence-based map.
+      </p>
+      <section class="pm-card pm-input">
+        <h2>Add device evidence</h2>
+        <div class="pm-tools">
+          <label
+            >Device name<input
+              id="pmDevice"
+              maxlength="120"
+              value="Imported switch" /></label
+          ><label
+            >Platform<select id="pmPlatform">
+              <option>Cisco IOS-XE</option>
+              <option>Cisco NX-OS</option>
+              <option>Arista EOS</option>
+              <option>Huawei_CE_SW</option>
+              <option>Huawei iStack</option>
+            </select></label
+          ><label
+            >Site / fabric<input
+              id="pmSite"
+              maxlength="100"
+              value="Default" /></label
+          ><label
+            >Management IP · optional<input id="pmTarget" maxlength="253"
+          /></label>
+        </div>
+        <div class="pm-tools pm-topology-toolbar">
+          <label
+            >Evidence type<select id="pmKind">
+              <option value="auto">Detect diagnostic / MAC / neighbors</option>
+              <option value="support">
+                Show tech-support / diagnostic bundle
+              </option>
+              <option value="mac">MAC address table</option>
+              <option value="lldp">LLDP neighbors · detail or summary</option>
+              <option value="cdp">CDP neighbors · detail or summary</option>
+              <option value="interfaces">
+                Port status / switchport / aggregation
+              </option>
+              <option value="arp">ARP · IPv4 addresses</option>
+              <option value="nd">ND · IPv6 neighbors</option>
+            </select></label
+          ><label id="pmCommandLabel" hidden
+            >Port command<select id="pmCommand"></select></label
+          ><label
+            >VRF · for MAC / ARP / ND<input
+              id="pmVrf"
+              maxlength="100"
+              placeholder="default" /></label
+          ><label
+            >Captured at · optional<input
+              id="pmCapturedAt"
+              type="datetime-local"
+          /></label>
+        </div>
+        <div class="pm-tools">
+          <label
+            >Upload diagnostic TXT / LOG / RTF / GZIP / workspace JSON<input
+              id="pmFiles"
+              type="file"
+              multiple
+              accept=".txt,.log,.rtf,.json,.gz" /></label
+          ><button id="pmTopologyExample" class="primary" type="button">
+            Try multi-switch topology</button
+          ><button id="pmExample" type="button">MAC-only example</button>
+          <a href="/port-mapping-sample.zip" download
+            >Download synthetic tech-support examples (ZIP)</a
+          >
+        </div>
+        <p class="pm-hint">
+          Sample package: extract the ZIP, then upload both TXT files together.
+          Includes a core, an access switch, phone/AP neighbors and four
+          consolidated MAC/VLAN identities.
+        </p>
+        <details>
+          <summary>Paste command output</summary>
+          <textarea
+            id="pmRaw"
+            maxlength="3000000"
+            aria-label="MAC table command output"
+            placeholder="Paste detailed LLDP/CDP, MAC table, port or ARP/ND output"
+          ></textarea
+          ><button class="primary" id="pmAnalyze" type="button">
+            Add to map
+          </button>
+        </details>
+        <p id="pmCommandHint" class="pm-hint"></p>
+        <p class="pm-hint">
+          Use the same device name, management IP and site for its captures.
+          Files use the device name above; when left as “Imported switch”,
+          filenames become device labels. Newest capture of each command
+          replaces older evidence in the analysis. Diagnostic files: up to 50
+          MB; extracted sections: 3 MB each, 100 sources / 10 MB per workspace.
+          Neighbor and port evidence is parsed by this application’s server;
+          imported commands are never executed.
+        </p>
+        <details>
+          <summary>Manufacturer database</summary>
+          <p id="pmDatabase" class="pm-hint">
+            Loading bundled MAC organization registry…
+          </p>
+          <label
+            >Optional IEEE MA-L / MA-M / MA-S CSV import<input
+              id="pmOuiFile"
+              type="file"
+              accept=".csv"
+          /></label>
+        </details>
+        <div id="pmStatus" class="pm-status" role="status" aria-live="polite">
+          Add captures from your switches or open the demonstration topology.
+        </div>
+        <details>
+          <summary>Imported evidence sources</summary>
+          <div id="pmSources" class="pm-sources"></div>
+        </details>
+      </section>
+      <style>
+        #portMapping [hidden] {
+          display: none !important;
+        }
+        @media print {
+          .pm-map-wrap,
+          #pmInspector {
+            max-height: none;
+            overflow: visible;
+          }
+          .pm-map svg {
+            min-width: 0;
+            width: 100%;
+          }
+        }
+      </style>
+      <details class="pm-card">
+        <summary>
+          Diagnostic import coverage · extracted / missing sections
+        </summary>
+        <p class="pm-hint">
+          Upload show tech-support / display diagnostic-information text or
+          gzip. Relevant sections are extracted in your browser. Unrelated
+          configuration and log sections are omitted. Bundle limit: 50 MB;
+          retained evidence: 10 MB. Capture time is used when supplied;
+          otherwise timestamps refer to import time.
+        </p>
+        <div id="pmSupportCoverage"></div>
+      </details>
+      <div id="pmResults" hidden>
+        <section class="pm-card">
+          <div id="pmCounts" class="pm-counts"></div>
+          <div id="pmHealth" class="pm-health"></div>
+          <div class="pm-tools">
+            <label
+              >Search MAC, IP, hostname, port or organization<input
+                id="pmSearch"
+                type="search"
+                placeholder="192.0.2.101, ACCESS-01, Gi1/20, VMware…" /></label
+            ><label
+              >Observed VLAN<select id="pmVlan">
+                <option value="">All observed VLANs</option>
+              </select></label
+            ><button id="pmCsv">Export port mapping CSV</button
+            ><button id="pmClientCsv">Export consolidated clients</button
+            ><button id="pmSave">Save workspace JSON</button
+            ><button id="pmSvg">Download topology SVG</button
+            ><button id="pmPrint">Print / Save PDF</button
+            ><button id="pmClear">Clear workspace</button>
+          </div>
+        </section>
+        <div class="pm-workbench">
+          <section class="pm-card">
+            <h2>Topology</h2>
+            <div class="pm-tools pm-topology-toolbar">
+              <label
+                >View<select id="pmView">
+                  <option value="topology">
+                    Switch topology & client groups
+                  </option>
+                  <option value="ports">Port learning map</option>
+                </select></label
+              ><label
+                >Focus device<select id="pmFocus">
+                  <option value="">All devices</option>
+                </select></label
+              ><label
+                >Neighborhood<select id="pmDepth">
+                  <option value="1">1 hop</option>
+                  <option value="2">2 hops</option>
+                  <option value="3">3 hops</option>
+                </select></label
+              ><label
+                >Client groups<select id="pmClients">
+                  <option value="yes">Show</option>
+                  <option value="no">Hide</option>
+                </select></label
+              >
+            </div>
+            <p class="pm-legend">
+              Solid: both ends observed · dashed: one-sided neighbor · dotted:
+              learned MAC group. Select a switch, link or port. Highlighted
+              paths show observed topology relationships, not measured traffic.
+            </p>
+            <div class="pm-map pm-map-wrap">
+              <svg
+                id="pmMap"
+                viewBox="0 0 1000 600"
+                role="img"
+                aria-label="Network topology and learned port groups"
+              ></svg>
+            </div>
+            <div class="pm-nav">
+              <button id="pmPrev">Previous</button><span id="pmPage"></span
+              ><button id="pmNext">Next</button>
+            </div>
+          </section>
+          <aside class="pm-card">
+            <h2 id="pmInspectorTitle">Port evidence</h2>
+            <div id="pmInspector">Select a switch, link or port.</div>
+          </aside>
+        </div>
+        <section class="pm-card">
+          <h2>Consolidated clients</h2>
+          <p class="pm-hint">
+            One row per site, VLAN and MAC. Expand a client to see all
+            observations, candidate access ports, IP/VRF evidence and
+            annotations. OUI identifies the registered organization; device type
+            requires additional evidence.
+          </p>
+          <div class="pm-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Client / MAC</th>
+                  <th>IP / VRF</th>
+                  <th>VLAN</th>
+                  <th>Organization / type</th>
+                  <th>Candidate attachment</th>
+                  <th>Observations</th>
+                </tr>
+              </thead>
+              <tbody id="pmClientRows"></tbody>
+            </table>
+          </div>
+          <div class="pm-nav">
+            <button id="pmClientPrev">Previous clients</button
+            ><span id="pmClientPage"></span
+            ><button id="pmClientNext">Next clients</button>
+          </div>
+        </section>
+        <section class="pm-card">
+          <h2>Matching MAC records</h2>
+          <p id="pmTableScope" class="pm-hint"></p>
+          <div class="pm-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Device / port</th>
+                  <th>VLAN</th>
+                  <th>MAC address</th>
+                  <th>Organization</th>
+                  <th>Address class / entry type</th>
+                </tr>
+              </thead>
+              <tbody id="pmRows"></tbody>
+            </table>
+          </div>
+          <div class="pm-nav">
+            <button id="pmRowPrev">Previous records</button
+            ><span id="pmRowPage"></span
+            ><button id="pmRowNext">Next records</button>
+          </div>
+        </section>
+        <details class="pm-card">
+          <summary>Conflicts, coverage and original evidence</summary>
+          <div id="pmExcluded" class="pm-scroll"></div>
+        </details>
+      </div>
+    </main>
+    <script src="/port-mapping-core.js"></script>
+    <script src="/port-mapping.js"></script>
+    <script src="/corporate-shell.js"></script>
+  </body>
+</html>

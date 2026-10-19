@@ -23,6 +23,10 @@ on:
       - "project-workflow.js"
       - "test_project_workflow*"
       - "port-mapping*"
+      - "port_mapping.py"
+      - "samples/port-mapping/**"
+      - "network_discovery.py"
+      - "discovery_details.py"
       - "test_port_mapping*"
       - "authentication.py"
       - ".github/workflows/render-live-verification.yml"
@@ -47,7 +51,9 @@ jobs:
           npm install --no-save --ignore-scripts playwright
           npx playwright install --with-deps chromium
       - name: MAC port mapping regression
-        run: node test_port_mapping.cjs && node test_discovery_resize.cjs
+        env:
+          AUTH_ENABLED: '0'
+        run: node test_port_mapping.cjs && node test_port_mapping_topology.cjs && node test_port_mapping_support.cjs && python -m unittest test_port_mapping_api test_network_discovery test_discovery_features -q && node test_discovery_resize.cjs
       - name: Syntax check modules
         run: |
           node --check simulation/vendor-failure-engine.mjs
@@ -101,6 +107,8 @@ jobs:
             /tmp/cisco-vpc-split-brain.png
             /tmp/visual-*.png
             /tmp/bgp-browser-smoke.png
+            /tmp/port-topology-*.png
+            /tmp/port-support-topology.png
           if-no-files-found: ignore
 
   production-image-smoke:
@@ -117,7 +125,10 @@ jobs:
             if curl --fail --silent http://127.0.0.1:18080/healthz >/dev/null; then break; fi
             sleep 2
           done
-          curl --fail --silent --show-error http://127.0.0.1:18080/healthz | python -c 'import json,sys; from pathlib import Path; p=json.load(sys.stdin); assert p["ok"] is True and p["simulator_ready"] is True; assert p["version"]=="5.52.4", p'
+          curl --fail --silent --show-error http://127.0.0.1:18080/healthz | python -c 'import json,sys; p=json.load(sys.stdin); assert p["ok"] is True and p["simulator_ready"] is True; assert p["version"]=="5.53.0", p'
+          curl --fail --silent --show-error http://127.0.0.1:18080/port-mapping | python -c 'import sys; assert "pmSupportCoverage" in sys.stdin.read()'
+          curl --fail --silent --show-error http://127.0.0.1:18080/port-mapping-sample.zip | python -c 'import sys,io,zipfile; z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())); assert len(z.namelist())==3; assert b"SYNTHETIC DEMONSTRATION ONLY" in z.read("CORE-01-show-tech-support.txt")'
+          curl --fail --silent --show-error -H 'Content-Type: application/json' --data '{"sources":[{"id":"smoke","device":"CORE","platform":"Cisco IOS-XE","kind":"lldp","raw":"Local Intf: Gi1/0/1\nChassis id: 0011.2233.4455\nPort id: Gi1/0/48\nSystem Name: ACCESS","importedAt":"2026-10-19T15:00:00Z"}]}' http://127.0.0.1:18080/api/port-mapping/analyze | python -c 'import json,sys; p=json.load(sys.stdin); assert len(p["graph"]["links"])==1, p'
           curl --fail --silent --show-error http://127.0.0.1:18080/vpc-mlag-simulation | grep -q 'Technology Workspace topology'
           curl --fail --silent --show-error http://127.0.0.1:18080/simulation/vendor-failure-engine.mjs | grep -q 'analyzeAccessImpact'
           curl --fail --silent --show-error http://127.0.0.1:18080/synthetic-bgp.js | grep -q 'SyntheticBGP'

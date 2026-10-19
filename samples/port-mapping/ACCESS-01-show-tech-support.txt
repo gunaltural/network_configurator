@@ -1,0 +1,65 @@
+SYNTHETIC DEMONSTRATION ONLY - generated test data, not a production device capture.
+Use with CORE-01-show-tech-support.txt to demonstrate a consolidated topology.
+
+ACCESS-01#show tech-support
+------------- show version -------------
+Arista Networks EOS version 4.28.13.1M - synthetic example
+------------- show running-config -------------
+hostname ACCESS-01
+! Synthetic configuration section; intentionally omitted by the importer.
+------------- show lldp neighbors detail -------------
+Interface Ethernet49 detected 1 LLDP neighbors:
+  - Chassis ID: 0011.2200.0001
+  - Port ID: Ethernet1/1
+  - System Name: CORE-01
+  - System Description: Cisco Nexus Operating System NX-OS - synthetic example
+  - Enabled Capabilities: Bridge, Router
+  - Management Address: 192.0.2.10
+Interface Ethernet2 detected 1 LLDP neighbors:
+  - Chassis ID: 001b.6301.0203
+  - Port ID: eth0
+  - System Name: PHONE-01
+  - System Description: Synthetic IP telephone
+  - Enabled Capabilities: Telephone
+Interface Ethernet3 detected 1 LLDP neighbors:
+  - Chassis ID: 0011.2200.0030
+  - Port ID: eth0
+  - System Name: AP-01
+  - System Description: Synthetic wireless access point
+  - Enabled Capabilities: WLAN Access Point
+------------- show mac address-table -------------
+VLAN MAC Address Type Ports
+10 0050.5684.1234 DYNAMIC Et1
+10 0050.56ab.cdef DYNAMIC Et2
+20 001b.6301.0203 DYNAMIC Et2
+30 0011.2200.0044 DYNAMIC Et3
+------------- show interfaces status -------------
+Port Name Status Vlan Duplex Speed Type
+Et1 CLIENT-01 connected 10 a-full a-1000 10/100/1000
+Et2 PHONE-AND-CLIENT connected 10 a-full a-1000 10/100/1000
+Et3 ACCESS-POINT connected trunk full 1G 1000BASE-T
+Et49 CORE-UPLINK connected trunk full 10G 10GBASE-SR
+------------- show interfaces switchport -------------
+Name: Ethernet1
+Operational Mode: static access
+Access Mode VLAN: 10
+Name: Ethernet2
+Operational Mode: static access
+Access Mode VLAN: 10
+Voice VLAN: 20
+Name: Ethernet3
+Operational Mode: trunk
+Trunking Native Mode VLAN: 30
+Trunking VLANs Enabled: 30,40
+Name: Ethernet49
+Operational Mode: trunk
+Trunking Native Mode VLAN: 10
+Trunking VLANs Enabled: 10,20,30,40
+------------- show interfaces Ethernet1 -------------
+Ethernet1 is up, line protocol is up
+  Description: CLIENT-01
+  Full-duplex, 1Gb/s
+  0 input errors, 0 CRC
+  0 output errors
+------------- show logging -------------
+Synthetic end marker. Unrelated log sections are not retained.
