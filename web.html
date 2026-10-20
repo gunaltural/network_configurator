@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Network Configurator v5.55.0</title>
+<title>Network Configurator v5.55.1</title>
 <style>
 :root{
   --bg:#0d1117;--panel:#161b22;--panel2:#1f2630;--line:#2b3440;
@@ -415,7 +415,7 @@ body.nc-simulation-action{padding-bottom:145px}body.nc-simulation-action #topolo
     <div class="logo">NC</div>
     <div><h1>Network Configurator</h1><small>Configure · Validate · Troubleshoot</small></div>
   </div>
-  <div class="badge">Version 5.55.0 · Topology and Simulation</div>
+  <div class="badge">Version 5.55.1 · Topology and Simulation</div>
 </header>
 
 <div class="layout">
@@ -777,23 +777,18 @@ BASIC:{
 },
 BGP:{
  title:"BGP", subtitle:"Dynamic CE / ISP topology · topology-derived links · vendor-specific CLI",
- params:()=>`<div class="bgp-workspace-intro"><span class="bgp-eyebrow">BGP DESIGN WORKSPACE</span><h3>Topology, routing policy &amp; safeguards</h3><p>Define circuits, set traffic preferences, then verify the generated device configuration.</p></div><div class="bgp-design-tabs" role="tablist" aria-label="BGP design sections"><button type="button" id="bgpTab-topology" data-bgp-design-tab="topology" role="tab" aria-controls="bgpPanel-topology">Topology &amp; peering</button><button type="button" id="bgpTab-traffic" data-bgp-design-tab="traffic" role="tab" aria-controls="bgpPanel-traffic">Traffic engineering</button><button type="button" id="bgpTab-safeguards" data-bgp-design-tab="safeguards" role="tab" aria-controls="bgpPanel-safeguards">Safeguards</button></div><div class="bgp-output-scope">
- <div class="param-grid">
-   <div><label>Configuration output · device</label><select id="bgpOutputDevice"><option value="all">All CE Routers</option></select></div>
-   <div><label>Route volume safeguard</label><button type="button" id="bgpSafeguardShortcut" class="btn">Maximum-prefix · off</button></div>
- </div>
-
-</div><section id="bgpPanel-topology" data-bgp-design-panel="topology" role="tabpanel" aria-labelledby="bgpTab-topology">
- <div class="section-title">BGP session model</div>
+ params:()=>`
+ <input id="bgpLegacyLayout" type="hidden" value="1"><textarea id="bgpTrafficPoliciesData" hidden>[]</textarea>
+ <div class="section-title">1 · BGP Design</div>
  <div class="param-grid">
 <input id="bgpCeCount" type="hidden" value="2">
 <input id="bgpIspCount" type="hidden" value="2">
 
    <div><label>CE Internal Peering</label><select id="bgpInternal"><option value="none">None</option><option value="ibgp" selected>iBGP Full Mesh</option></select></div>
    <div><label>Customer ASN</label><input id="bgpCustomerAs" value="65001"></div>
-   <div><label>Address Family</label><select id="bgpAf"><option>IPv4</option><option disabled>IPv6</option><option disabled>Dual Stack</option></select><span class="note">IPv4 unicast configuration</span></div>
+   <div><label>Address Family</label><select id="bgpAf"><option>IPv4</option><option>IPv6</option><option>Dual Stack</option></select></div>
  </div>
-<div class="section-title">Customer edge routers</div><button id="bgpAddCe" type="button">Add CE router</button><div id="bgpCeCards" class="bgp-card-grid"></div>
+<div class="section-title">2 · CE Routers</div><button id="bgpAddCe" type="button">Add CE router</button><div id="bgpCeCards" class="bgp-card-grid"></div>
  <div id="bgpIbgpInterconnect" class="bgp-device-card" style="margin-top:12px">
   <h4>CE-to-CE iBGP Interconnect</h4>
   <div class="param-grid">
@@ -806,54 +801,59 @@ BGP:{
  </div>
  <div class="section-title">External Routers</div><button id="bgpAddUpstream" type="button">Add external router</button><div id="bgpIspCards" class="bgp-card-grid"></div>
  <details id="bgpConnectionEditor" class="bgp-connection-editor" open><summary>External Connections · edit circuits</summary><p id="bgpConnectivitySummary" class="hint" role="status"></p><p class="note">Add one row for each physical circuit and direct eBGP session. Multiple circuits between the same two routers are supported. Enter actual interfaces and addresses; adding a router does not automatically create a circuit.</p><textarea id="bgpConnectionsData" hidden></textarea><div class="bgp-connection-toolbar"><button id="bgpAddConnection" type="button">Add connection</button></div><div class="bgp-connection-scroll"><table class="bgp-connections"><thead><tr><th>Use</th><th>Connection</th><th>CE endpoint</th><th>External endpoint</th><th>Action</th></tr></thead><tbody id="bgpConnectionRows"></tbody></table></div><div class="bgp-diagram-controls"><label><input type="checkbox" id="bgpShowPorts" checked>Show ports</label><label><input type="checkbox" id="bgpShowIps" checked>Show IP addresses</label><label><input type="checkbox" id="bgpAllDetails">All connection details</label><label><input type="checkbox" id="bgpShowContext" checked>Client LAN &amp; Internet context</label></div><p id="bgpConnectionSelection" class="hint">Select a connection row or a line in the topology to highlight it.</p></details>
-</section><section id="bgpPanel-traffic" data-bgp-design-panel="traffic" role="tabpanel" aria-labelledby="bgpTab-traffic" hidden>
-
-
- <h3 id="bgpTrafficPolicyHeading">Traffic engineering</h3><p class="note">Rules are evaluated first, from top to bottom within each direction. Unmatched routes use the baseline. Blank rule attributes inherit the baseline; blank prefixes match all IPv4 routes.</p><textarea id="bgpTrafficPoliciesData" hidden>[]</textarea>
- <div id="bgpPolicyCoverage" aria-label="Policy coverage by connection"></div><div class="te-v39-grid" id="bgpTrafficPolicyRows"><div class="te-v39-card" id="bgpOutboundTeCard">
-  <h4>Outbound Traffic Engineering</h4><p class="direction">Choose the customer exit · received routes</p><label class="bgp-direction-enable"><input type="checkbox" id="bgpTeOutboundEnable" checked> Enable outbound policies</label><p id="bgpOutboundPaused" class="bgp-paused" hidden>Policies are paused. Saved values and rules are retained.</p><fieldset id="bgpOutboundControls"><legend class="bgp-baseline-legend">Baseline · unmatched routes</legend>
-  <div class="checks">
-   <label class="check"><input type="checkbox" id="bgpTeLocalPref" checked> Set baseline Local Preference</label>
-   <label class="check"><input type="checkbox" id="bgpTeEcmp"> ECMP / Multipath</label>
-  </div>
-  <div class="param-grid">
-   <div><label>Default preferred exit</label><select id="bgpTeOutboundPreferredIsp"><option value="1">ISP-1</option><option value="2">ISP-2</option></select></div>
-   <div><label>Preferred path · Local Preference</label><input type="number" min="0" max="4294967295" id="bgpTeLocalPrefValue" value="250"></div>
-   <div><label>Other paths · Local Preference</label><input type="number" min="0" max="4294967295" id="bgpTeBackupLocalPref" value="100"></div>
-   <div><label>Maximum Paths</label><select id="bgpTeMaxPaths"><option>2</option><option selected>4</option><option>8</option></select></div>
-  </div>
-  <p id="bgpEcmpHint" class="note" hidden></p>
-  <p class="note">Baseline: preferred and backup Local Preference. Add rules for independent values per connection or prefix.</p><button id="bgpAddTrafficPolicy" type="button" class="btn">+ Add Local Preference rule</button><div id="bgpOutboundPolicyRows"></div></fieldset>
+ <div class="section-title">Configuration Output</div>
+ <div class="param-grid">
+   <div><label>Device</label><select id="bgpOutputDevice"><option value="all">All CE Routers</option></select></div>
  </div>
 
- <div class="te-v39-card" id="bgpInboundTeCard">
-  <h4>Inbound Traffic Engineering</h4><p class="direction">Influence the external entry · advertised routes</p><label class="bgp-direction-enable"><input type="checkbox" id="bgpTeInboundEnable" checked> Enable inbound policies</label><p id="bgpInboundPaused" class="bgp-paused" hidden>Policies are paused. Saved values and rules are retained.</p><fieldset id="bgpInboundControls"><legend class="bgp-baseline-legend">Baseline · unmatched routes</legend>
-  <div class="checks">
-   <label class="check"><input type="checkbox" id="bgpTePrepend" checked> AS-path prepend on other paths</label>
-   <label class="check"><input type="checkbox" id="bgpTeMed"> Set baseline MED</label>
-   <label class="check"><input type="checkbox" id="bgpTeCommunity"> Set baseline communities</label>
-  </div>
-  <div class="param-grid">
-   <div><label>Default preferred entry</label><select id="bgpTeInboundPreferredIsp"><option value="1">ISP-1</option><option value="2">ISP-2</option></select></div>
-   <div><label>Other paths · extra AS copies</label><select id="bgpTePrependCount"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option></select></div>
-   <div><label>Preferred MED</label><input type="number" min="0" max="4294967295" id="bgpTePreferredMed" value="50"></div>
-   <div><label>Backup MED</label><input type="number" min="0" max="4294967295" id="bgpTeBackupMed" value="200"></div>
-   <div><label>Community</label><input id="bgpTeCommunityValue" value="65001:100"></div>
-  </div>
-  <p class="note">Inbound TE influences how external networks enter the customer AS. The preferred ISP is advertised without prepend; backup advertisements can receive AS-Path Prepend. MED and communities are policy signals and depend on ISP policy.</p>
- <button id="bgpAddInboundPolicy" type="button" class="btn">+ Add AS-path prepend rule</button><div id="bgpInboundPolicyRows"></div></fieldset>
- </div></div>
-
-
- <p class="note"><b>Asymmetric design is supported:</b> Outbound Preferred ISP and Inbound Preferred ISP can be different.</p>
- </section><section id="bgpPanel-safeguards" data-bgp-design-panel="safeguards" role="tabpanel" aria-labelledby="bgpTab-safeguards" hidden><h3>Session safeguards</h3><p class="note">Control route volume and session options independently of traffic preferences.</p> <div id="bgpRouteSafeguard" class="bgp-safeguard-row"><label class="bgp-direction-enable"><input type="checkbox" id="bgpMaxPrefix"> Maximum-prefix <span class="bgp-optional">optional</span></label><div id="bgpMaxPrefixField"><input id="bgpMaxPrefixValue" type="number" min="1" max="4294967295" value="12000" aria-label="Maximum received prefixes per external neighbor" title="Maximum received prefixes per external neighbor. Enable the safeguard to edit." disabled></div></div> <div class="section-title">Session options</div>
+ <div class="section-title">5 · Advanced BGP</div>
  <div class="checks">
    <label class="check"><input type="checkbox" id="bgpBfd" checked> BFD</label>
    <label class="check"><input type="checkbox" id="bgpNextHop" checked> Next-Hop-Self on iBGP</label>
-   <label class="check"><input type="checkbox" id="bgpSendCommunity" checked> Send communities on iBGP</label>
+   <label class="check"><input type="checkbox" id="bgpSendCommunity" checked> Send Community</label>
+   <label class="check"><input type="checkbox" id="bgpMaxPrefix"> Maximum Prefix</label>
+ </div>
+ <div class="param-grid"><div><label>Maximum Prefix</label><input id="bgpMaxPrefixValue" value="12000"></div></div>
+
+ <div class="section-title">4 · Traffic Engineering</div>
+
+ <div class="te-v39-grid"><div class="te-v39-card" id="bgpOutboundTeCard">
+  <h4>Outbound Traffic Engineering</h4><div class="direction">How traffic exits the customer AS</div>
+  <div class="checks">
+   <label class="check"><input type="checkbox" id="bgpTeOutboundEnable" checked> Enable Outbound TE</label>
+   <label class="check"><input type="checkbox" id="bgpTeLocalPref" checked> Local Preference</label>
+   <label class="check"><input type="checkbox" id="bgpTeEcmp"> ECMP / Multipath</label>
+  </div>
+  <div class="param-grid">
+   <div><label>Outbound Preferred Connection</label><select id="bgpTeOutboundPreferredIsp"><option value="1">ISP-1</option><option value="2">ISP-2</option></select></div>
+   <div><label>Preferred Local Preference</label><input id="bgpTeLocalPrefValue" value="250"></div>
+   <div><label>Backup Local Preference</label><input id="bgpTeBackupLocalPref" value="100"></div>
+   <div><label>Maximum Paths</label><select id="bgpTeMaxPaths"><option>2</option><option selected>4</option><option>8</option></select></div>
+  </div>
+  <p class="note">Outbound TE controls how the customer AS selects its exit path. Local Preference is applied to routes received from the selected ISP.</p>
  </div>
 
-</section>`,
+ <div class="te-v39-card" id="bgpInboundTeCard">
+  <h4>Inbound Traffic Engineering</h4><div class="direction">How external traffic enters the customer AS</div>
+  <div class="checks">
+   <label class="check"><input type="checkbox" id="bgpTeInboundEnable" checked> Enable Inbound TE</label>
+   <label class="check"><input type="checkbox" id="bgpTePrepend" checked> AS-Path Prepend on Backup ISP</label>
+   <label class="check"><input type="checkbox" id="bgpTeMed"> MED</label>
+   <label class="check"><input type="checkbox" id="bgpTeCommunity"> BGP Community</label>
+  </div>
+  <div class="param-grid">
+   <div><label>Inbound Preferred Connection</label><select id="bgpTeInboundPreferredIsp"><option value="1">ISP-1</option><option value="2">ISP-2</option></select></div>
+   <div><label>AS-Path Prepend Count</label><select id="bgpTePrependCount"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option></select></div>
+   <div><label>Preferred MED</label><input id="bgpTePreferredMed" value="50"></div>
+   <div><label>Backup MED</label><input id="bgpTeBackupMed" value="200"></div>
+   <div><label>Community</label><input id="bgpTeCommunityValue" value="65001:100"></div>
+  </div>
+  <p class="note">Inbound TE influences how external networks enter the customer AS. The preferred ISP is advertised without prepend; backup advertisements can receive AS-Path Prepend. MED and communities are policy signals and depend on ISP policy.</p>
+ </div></div>
+
+ <p id="bgpPreservedRulesNotice" class="note" hidden></p>
+ <p class="note"><b>Asymmetric design is supported:</b> Outbound Preferred ISP and Inbound Preferred ISP can be different.</p>
+ <p class="note">Device cards follow the selected counts. eBGP link cards are derived automatically from the connectivity model; interface and addressing data is entered per physical adjacency.</p>`,
  generate: bgpGenerate
 },
 OSPF:{
@@ -2931,7 +2931,7 @@ end
 
 ${basicReadableCliBlocks(one(h1,if1,ip1,managementMask(m1)))}`;
 }
-function bgpTrafficRules(){return window.BgpTrafficPolicy?.read(v('bgpTrafficPoliciesData')||'[]',bgpEdges().map(e=>e[2]))||[];}
+function bgpTrafficRules(){if(document.getElementById('bgpLegacyLayout'))return [];return window.BgpTrafficPolicy?.read(v('bgpTrafficPoliciesData')||'[]',bgpEdges().map(e=>e[2]))||[];}
 function bgpTrafficPlan(k,direction){
  if(!window.BgpTrafficPolicy)return [];
  const imp=direction==='import';if(!c(imp?'bgpTeOutboundEnable':'bgpTeInboundEnable'))return [];
@@ -4952,7 +4952,7 @@ function bgpHighlightConnection(id,scroll=false){
  document.querySelectorAll('#bgpConnectionRows tr[data-connection]').forEach(row=>row.classList.toggle('bgp-selected-row',+row.dataset.connection===id));
  document.querySelectorAll('#topologyArea [data-bgp-connection]').forEach(line=>{const active=+line.dataset.bgpConnection===id;line.classList.toggle('bgp-selected-line',active);line.setAttribute('aria-pressed',String(active));});
  const status=document.getElementById('bgpConnectionSelection'),record=bgpConnections().find(r=>r.id===id);if(status)status.textContent=record?`Selected: ${record.name} · ${record.enabled?'enabled':'disabled; no line shown'}`:'Select a connection row or a line in the topology to highlight it.';
- if(scroll){bgpSelectDesignPanel('topology');const editor=document.getElementById('bgpConnectionEditor');if(editor)editor.open=true;const row=[...document.querySelectorAll('#bgpConnectionRows tr[data-connection]')].find(r=>+r.dataset.connection===id);row?.scrollIntoView({block:'nearest',inline:'nearest'});}
+ if(scroll){const editor=document.getElementById('bgpConnectionEditor');if(editor)editor.open=true;const row=[...document.querySelectorAll('#bgpConnectionRows tr[data-connection]')].find(r=>+r.dataset.connection===id);row?.scrollIntoView({block:'nearest',inline:'nearest'});}
 }
 function bgpChangeDevice(type,index=null){
  const ce=type==='ce',countId=ce?'bgpCeCount':'bgpIspCount',count=+v(countId),prefix=ce?'bgpCe':'bgpIsp',keys=ce?['Name','Rid','Loop','Prefix']:['Name','Provider','As'];
@@ -5175,44 +5175,24 @@ function renderModule(){
 }
 
 
-function bgpSelectDesignPanel(name,focus=false){
- const root=document.getElementById('params');if(!root||!document.getElementById('bgpPanel-'+name))return;
- root.dataset.bgpDesignPanel=name;
- for(const button of root.querySelectorAll('[data-bgp-design-tab]')){const active=button.dataset.bgpDesignTab===name;button.setAttribute('aria-selected',String(active));button.tabIndex=active?0:-1;if(active&&focus)button.focus();}
- for(const panel of root.querySelectorAll('[data-bgp-design-panel]'))panel.hidden=panel.dataset.bgpDesignPanel!==name;
-}
-function bgpWorkspaceNavigationUI(){
- const root=document.getElementById('params'),buttons=[...root.querySelectorAll('[data-bgp-design-tab]')];
- buttons.forEach((button,index)=>{button.onclick=()=>bgpSelectDesignPanel(button.dataset.bgpDesignTab);button.onkeydown=event=>{let next;if(event.key==='ArrowRight')next=(index+1)%buttons.length;else if(event.key==='ArrowLeft')next=(index+buttons.length-1)%buttons.length;else if(event.key==='Home')next=0;else if(event.key==='End')next=buttons.length-1;else return;event.preventDefault();bgpSelectDesignPanel(buttons[next].dataset.bgpDesignTab,true);};});
- bgpSelectDesignPanel(root.dataset.bgpDesignPanel||'topology');
- const shortcut=document.getElementById('bgpSafeguardShortcut');if(shortcut){shortcut.textContent='Maximum-prefix · '+(c('bgpMaxPrefix')?v('bgpMaxPrefixValue'):'off');shortcut.onclick=()=>bgpSelectDesignPanel('safeguards',true);}
- for(const side of ['Outbound','Inbound']){const enabled=c('bgpTe'+side+'Enable'),controls=document.getElementById('bgp'+side+'Controls'),notice=document.getElementById('bgp'+side+'Paused');if(controls)controls.disabled=!enabled;if(notice)notice.hidden=enabled;}
- for(const [toggle,ids] of [['bgpTeLocalPref',['bgpTeLocalPrefValue','bgpTeBackupLocalPref']],['bgpTePrepend',['bgpTePrependCount']],['bgpTeMed',['bgpTePreferredMed','bgpTeBackupMed']],['bgpTeCommunity',['bgpTeCommunityValue']]])for(const id of ids){const input=document.getElementById(id);if(input)input.disabled=!c(toggle);}
- const coverage=document.getElementById('bgpPolicyCoverage');if(!coverage)return;coverage.replaceChildren();
- const heading=document.createElement('h4');heading.textContent='Connection policy overview';coverage.append(heading);
- const note=document.createElement('p');note.className='note';note.textContent='Baseline values apply to unmatched routes. Connection/prefix rules take precedence.';coverage.append(note);
- const table=document.createElement('table'),head=document.createElement('thead'),body=document.createElement('tbody'),row=document.createElement('tr');for(const label of ['Connection','Outbound baseline','Inbound baseline','Additional rules']){const th=document.createElement('th');th.textContent=label;row.append(th);}head.append(row);table.append(head,body);
- try{const rules=bgpTrafficRules();for(const [ce,up,id]of bgpEdges()){const tr=document.createElement('tr'),outRules=rules.filter(r=>r.direction==='import'&&(r.connection==='all'||r.connection===String(id))).length,inRules=rules.filter(r=>r.direction==='export'&&(r.connection==='all'||r.connection===String(id))).length;const out=c('bgpTeOutboundEnable')?(c('bgpTeLocalPref')?'LP '+v(id===+v('bgpTeOutboundPreferredIsp')?'bgpTeLocalPrefValue':'bgpTeBackupLocalPref'):'LP unchanged'):'Paused',inn=c('bgpTeInboundEnable')?(c('bgpTePrepend')?'Prepend +'+(id===+v('bgpTeInboundPreferredIsp')?0:v('bgpTePrependCount')):'No prepend'):'Paused';for(const value of [bgpConnectionName(id)+' · '+bgpCe(ce).name+' → '+bgpIsp(up).name,out,inn,outRules+' outbound / '+inRules+' inbound']){const td=document.createElement('td');td.textContent=value;tr.append(td);}body.append(tr);}const scroll=document.createElement('div');scroll.className='bgp-policy-overview-scroll';scroll.append(table);coverage.append(scroll);}catch(error){const text=document.createElement('p');text.className='bgp-rule-status';text.textContent='Correct the rule marked below to refresh the policy overview.';coverage.append(text);}
-}
 function bgpV39ContextUI(){
  if(tech!=="BGP")return;
+ const maxPrefix=document.getElementById('bgpMaxPrefixValue');if(maxPrefix)maxPrefix.disabled=!c('bgpMaxPrefix');
+ const preserved=document.getElementById('bgpPreservedRulesNotice');if(preserved){let count=0;try{const rows=JSON.parse(v('bgpTrafficPoliciesData')||'[]');count=Array.isArray(rows)?rows.filter(r=>r&&r.enabled!==false).length:0;}catch{}preserved.hidden=!count;preserved.textContent=count+' saved prefix policy rule(s) are preserved but inactive in this restored layout. The visible baseline settings are used.';}
+
  const ceN=+v("bgpCeCount")||2, ispN=+v("bgpIspCount")||2, internal=v("bgpInternal")||"ibgp";
  const ib=document.getElementById("bgpIbgpInterconnect");
  if(ib)ib.style.display=(ceN===2&&internal==="ibgp")?"block":"none";
  const out=document.getElementById("bgpOutboundTeCard"), inn=document.getElementById("bgpInboundTeCard");
- if(out)out.classList.toggle("bgp-direction-paused",!window.c("bgpTeOutboundEnable"));
- if(inn)inn.classList.toggle("bgp-direction-paused",!window.c("bgpTeInboundEnable"));
+ if(out)out.classList.toggle("is-disabled",!window.c("bgpTeOutboundEnable"));
+ if(inn)inn.classList.toggle("is-disabled",!window.c("bgpTeInboundEnable"));
  ["bgpTeOutboundPreferredIsp","bgpTeInboundPreferredIsp"].forEach(id=>{
    const e=document.getElementById(id);if(e){const prior=e.value,edges=bgpEdges();e.replaceChildren();for(const [c,i,k] of edges){const option=document.createElement("option");option.value=String(k);option.textContent=`${bgpConnectionName(k)} · ${bgpCe(c).name} → ${bgpIsp(i).name}`;e.appendChild(option);}e.value=edges.some(x=>String(x[2])===prior)?prior:String(edges[0]?.[2]??"");e.disabled=edges.length<2;}
  });
  const mp=document.getElementById("bgpTeMaxPaths");
- if(mp)mp.closest("div").style.display=window.c("bgpTeEcmp")&&platform()!=="FortiGate"?"":"none";
- const ecmpHint=document.getElementById('bgpEcmpHint');if(ecmpHint){ecmpHint.hidden=!c('bgpTeEcmp');ecmpHint.textContent=platform()==='FortiGate'?'Enable eBGP/iBGP multipath. The path limit follows the existing VDOM settings.':'Maximum paths limits equal eligible BGP paths; unequal Local Preference values still select a preferred exit.';}
- for(const id of ['bgpNextHop','bgpSendCommunity']){const input=document.getElementById(id);if(input)input.disabled=internal==='none';}
-
- const maxPrefix=document.getElementById('bgpMaxPrefixValue');if(maxPrefix){maxPrefix.disabled=!c('bgpMaxPrefix');document.getElementById('bgpMaxPrefixField').hidden=false;}
- window.BgpTrafficPolicy?.mount({connections:bgpEdges().map(([ce,up,id])=>({id,name:bgpConnectionName(id)+' · '+bgpCe(ce).name+' → '+bgpIsp(up).name})),onChange:()=>{renderOutput();captureWorkspaceModule(tech);}});
- bgpWorkspaceNavigationUI();
+ if(mp)mp.closest("div").style.display=window.c("bgpTeEcmp")?"":"none";
+ const cv=document.getElementById("bgpTeCommunityValue");
+ if(cv)cv.closest("div").style.display=window.c("bgpTeCommunity")?"":"none";
 }
 
 
