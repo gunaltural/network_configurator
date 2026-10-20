@@ -31,7 +31,8 @@ const change=(id,value)=>{const el=d.getElementById(id);assert.ok(el,id);if(el.t
   assert.match(config,/65000/,'Unmatched routes retain a permit fallback');assert.ok(!/maximum-prefix|maximum-routes|route-limit/.test(config));
   assert.ok(config.includes('198.18.255.1'));
   if(vendor==='FortiGate'){assert.match(config,/set bfd enable/);assert.match(config,/edit "10\.255\.254\.2"[\s\S]{0,160}set send-community standard/);}
-  if(vendor==='Huawei_CE_SW')assert.match(config,/peer .*route-policy .*IMPORT import/);else assert.match(config,/route-map.*IN|route-map-in/);
+  if(vendor==='Huawei_CE_SW'){assert.match(config,/peer .*route-policy .*IMPORT import/);assert.match(config,/peer .*advertise-community/);}else assert.match(config,/route-map.*IN|route-map-in/);
+  if(vendor==='FortiGate'){change('bgpTeEcmp',true);assert.match(w.__teAudit.bgpGenerate('config'),/set ebgp-multipath enable/);assert.match(w.__teAudit.bgpGenerate('config'),/set ibgp-multipath enable/);change('bgpTeEcmp',false);}
   change('bgpMaxPrefixValue','15000');change('bgpMaxPrefix',true);assert.equal(d.getElementById('bgpMaxPrefixValue').disabled,false);assert.match(w.__teAudit.bgpGenerate('config'),/(?:maximum-prefix|maximum-routes|route-limit) 15000/);
   change('bgpMaxPrefix',false);change('bgpMaxPrefixValue','');assert.ok(!/maximum-prefix|maximum-routes|route-limit/.test(w.__teAudit.bgpGenerate('config')));
   assert.match(w.__teAudit.bgpGenerate('notes'),/Local Preference 300/);assert.match(JSON.stringify(w.__teAudit.reportingDesign()),/Traffic policy rules/);
