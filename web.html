@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Network Configurator v5.55.1</title>
+<title>Network Configurator v5.55.2</title>
 <style>
 :root{
   --bg:#0d1117;--panel:#161b22;--panel2:#1f2630;--line:#2b3440;
@@ -415,7 +415,7 @@ body.nc-simulation-action{padding-bottom:145px}body.nc-simulation-action #topolo
     <div class="logo">NC</div>
     <div><h1>Network Configurator</h1><small>Configure · Validate · Troubleshoot</small></div>
   </div>
-  <div class="badge">Version 5.55.1 · Topology and Simulation</div>
+  <div class="badge">Version 5.55.2 · Topology and Simulation</div>
 </header>
 
 <div class="layout">
@@ -831,6 +831,7 @@ BGP:{
    <div><label>Maximum Paths</label><select id="bgpTeMaxPaths"><option>2</option><option selected>4</option><option>8</option></select></div>
   </div>
   <p class="note">Outbound TE controls how the customer AS selects its exit path. Local Preference is applied to routes received from the selected ISP.</p>
+ <div class="bgp-connection-policy-toolbar"><b>Connection policies</b><button type="button" class="btn" id="bgpAddTrafficPolicy">+ Add policy</button></div><p class="note">Each policy sets values for its selected connection. Matching policies override the defaults above; blank prefixes match all routes.</p><div id="bgpOutboundPolicyRows"></div>
  </div>
 
  <div class="te-v39-card" id="bgpInboundTeCard">
@@ -849,9 +850,10 @@ BGP:{
    <div><label>Community</label><input id="bgpTeCommunityValue" value="65001:100"></div>
   </div>
   <p class="note">Inbound TE influences how external networks enter the customer AS. The preferred ISP is advertised without prepend; backup advertisements can receive AS-Path Prepend. MED and communities are policy signals and depend on ISP policy.</p>
+ <div class="bgp-connection-policy-toolbar"><b>Connection policies</b><button type="button" class="btn" id="bgpAddInboundPolicy">+ Add policy</button></div><p class="note">Each policy sets values for its selected connection. Matching policies override the defaults above; blank prefixes match all routes.</p><div id="bgpInboundPolicyRows"></div>
  </div></div>
 
- <p id="bgpPreservedRulesNotice" class="note" hidden></p>
+
  <p class="note"><b>Asymmetric design is supported:</b> Outbound Preferred ISP and Inbound Preferred ISP can be different.</p>
  <p class="note">Device cards follow the selected counts. eBGP link cards are derived automatically from the connectivity model; interface and addressing data is entered per physical adjacency.</p>`,
  generate: bgpGenerate
@@ -2931,7 +2933,7 @@ end
 
 ${basicReadableCliBlocks(one(h1,if1,ip1,managementMask(m1)))}`;
 }
-function bgpTrafficRules(){if(document.getElementById('bgpLegacyLayout'))return [];return window.BgpTrafficPolicy?.read(v('bgpTrafficPoliciesData')||'[]',bgpEdges().map(e=>e[2]))||[];}
+function bgpTrafficRules(){return window.BgpTrafficPolicy?.read(v('bgpTrafficPoliciesData')||'[]',bgpEdges().map(e=>e[2]))||[];}
 function bgpTrafficPlan(k,direction){
  if(!window.BgpTrafficPolicy)return [];
  const imp=direction==='import';if(!c(imp?'bgpTeOutboundEnable':'bgpTeInboundEnable'))return [];
@@ -5178,7 +5180,7 @@ function renderModule(){
 function bgpV39ContextUI(){
  if(tech!=="BGP")return;
  const maxPrefix=document.getElementById('bgpMaxPrefixValue');if(maxPrefix)maxPrefix.disabled=!c('bgpMaxPrefix');
- const preserved=document.getElementById('bgpPreservedRulesNotice');if(preserved){let count=0;try{const rows=JSON.parse(v('bgpTrafficPoliciesData')||'[]');count=Array.isArray(rows)?rows.filter(r=>r&&r.enabled!==false).length:0;}catch{}preserved.hidden=!count;preserved.textContent=count+' saved prefix policy rule(s) are preserved but inactive in this restored layout. The visible baseline settings are used.';}
+
 
  const ceN=+v("bgpCeCount")||2, ispN=+v("bgpIspCount")||2, internal=v("bgpInternal")||"ibgp";
  const ib=document.getElementById("bgpIbgpInterconnect");
@@ -5193,6 +5195,7 @@ function bgpV39ContextUI(){
  if(mp)mp.closest("div").style.display=window.c("bgpTeEcmp")?"":"none";
  const cv=document.getElementById("bgpTeCommunityValue");
  if(cv)cv.closest("div").style.display=window.c("bgpTeCommunity")?"":"none";
+ window.BgpTrafficPolicy?.mount({connections:bgpEdges().map(([ce,up,id])=>({id,name:bgpConnectionName(id)+' · '+bgpCe(ce).name+' → '+bgpIsp(up).name})),onChange:()=>{renderOutput();captureWorkspaceModule(tech);}});
 }
 
 

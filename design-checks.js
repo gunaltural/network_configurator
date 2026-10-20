@@ -63,7 +63,7 @@ function evaluate({module,platform,fields:f={}}){
   if(on('bgpMaxPrefix'))integer('bgpMaxPrefixValue',1,4294967295);
   if(on('bgpTeInboundEnable')&&on('bgpTePrepend'))integer('bgpTePrependCount',1,10);
   if(on('bgpTeInboundEnable')&&on('bgpTeMed')){integer('bgpTePreferredMed',0,4294967295);integer('bgpTeBackupMed',0,4294967295);}
-  if(!has('bgpLegacyLayout')&&has('bgpTrafficPoliciesData')&&root.BgpTrafficPolicy){try{const connections=JSON.parse(value('bgpConnectionsData')||'[]');root.BgpTrafficPolicy.read(value('bgpTrafficPoliciesData'),connections.filter(r=>r.enabled!==false).map(r=>r.id));}catch(error){add('bgp-traffic-policy',['bgpTrafficPoliciesData'],error.message);}}
+  if(has('bgpTrafficPoliciesData')&&root.BgpTrafficPolicy){try{const connections=JSON.parse(value('bgpConnectionsData')||'[]');root.BgpTrafficPolicy.read(value('bgpTrafficPoliciesData'),connections.filter(r=>r.enabled!==false).map(r=>r.id));}catch(error){add('bgp-traffic-policy',['bgpTrafficPoliciesData'],error.message);}}
  }else if(module==='OSPF'){
   names(['d1host','d2host']);routerIds(['d1rid','d2rid']);pair('d1ip','d2ip');reserve('d1if','Device-1');reserve('d2if','Device-2');integer('ospfCost',1,65535);
   const area=ipv4(value('ospfArea'));check('ospf-area',['ospfArea'],area!==null||/^\d+$/.test(value('ospfArea'))&&num('ospfArea')<=4294967295,'OSPF Area: use a 32-bit decimal value or dotted IPv4 notation.');

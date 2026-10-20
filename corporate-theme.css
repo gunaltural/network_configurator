@@ -283,3 +283,19 @@ body>.nc-project-flow{margin:18px 28px;max-width:1604px}
 #v3RecentProjects{display:block}#ncRecentSavedProjects h3,#v3RecentLocalProjects h3{color:#17384b;font-size:14px;margin:18px 0 12px}#ncRecentSavedProjects .nc-library-row{background:#e0e9ef;color:#163347}
 
 .paper #reportContents{background:#edf4f8;border:1px solid #c4d5df;border-radius:8px;padding:14px 18px;margin:22px 0}.paper #reportContents h2{margin:0 0 10px;font-size:16px}.paper .report-contents-list{margin:0;padding-left:20px}.paper .report-contents-list li{margin:6px 0}.paper .report-contents-list a{color:#16475e;text-decoration:none}.paper .report-contents-list a:hover{text-decoration:underline}.paper .report-executive{border-left:4px solid #316e89;padding-left:16px}.paper .report-addressing td{font-family:monospace;overflow-wrap:anywhere}
+/* Connection policies extend the original BGP TE cards only. */
+#params .bgp-connection-policy-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid #b4cad8;margin-top:12px;padding-top:12px;font-size:12px}
+#params .bgp-policy-line{border-top:1px solid #adc4d3;padding:12px 0 4px;margin-top:10px}
+#params .bgp-policy-line-head{display:flex;align-items:center;gap:6px;margin-bottom:9px;flex-wrap:wrap;font-size:12px}
+#params .bgp-policy-line-head strong{margin-right:auto;color:#164a63}
+#params .bgp-policy-line-head .btn{padding:4px 7px;font-size:11px}
+#params .bgp-policy-active{display:flex;align-items:center;gap:6px;margin:0;font-size:11px}
+#params .bgp-policy-active input{width:15px;height:15px;margin:0;order:-1;accent-color:#216681}
+#params .bgp-policy-line-main{display:grid;grid-template-columns:minmax(0,1fr) 110px;gap:10px}
+#params .bgp-policy-line label{font-size:11px;line-height:1.5;color:#39596e}
+#params .bgp-policy-line-main :is(input,select),#params .bgp-policy-extra input{margin-top:4px;width:100%;min-height:34px;font-size:12px}
+#params .bgp-policy-optional{margin-top:9px}#params .bgp-policy-optional summary{font-size:11px;cursor:pointer;color:#355e77}
+#params .bgp-policy-extra{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:9px;margin-top:9px}#params .bgp-policy-extra label:first-child{grid-column:1/-1}
+#params .bgp-policy-status{font-size:10px;line-height:1.5;color:#4c6b7d;margin:7px 0}
+#params [data-policy-state=error] .bgp-policy-status{color:#a22736}#params [data-policy-state=warning] .bgp-policy-status{color:#815716}
+@container nc-parameters (max-width:360px){#params .bgp-policy-line-main{grid-template-columns:minmax(0,1fr) 85px}#params .bgp-policy-extra{grid-template-columns:minmax(0,1fr)}}
