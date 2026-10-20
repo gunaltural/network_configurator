@@ -283,3 +283,59 @@ body>.nc-project-flow{margin:18px 28px;max-width:1604px}
 #v3RecentProjects{display:block}#ncRecentSavedProjects h3,#v3RecentLocalProjects h3{color:#17384b;font-size:14px;margin:18px 0 12px}#ncRecentSavedProjects .nc-library-row{background:#e0e9ef;color:#163347}
 
 .paper #reportContents{background:#edf4f8;border:1px solid #c4d5df;border-radius:8px;padding:14px 18px;margin:22px 0}.paper #reportContents h2{margin:0 0 10px;font-size:16px}.paper .report-contents-list{margin:0;padding-left:20px}.paper .report-contents-list li{margin:6px 0}.paper .report-contents-list a{color:#16475e;text-decoration:none}.paper .report-contents-list a:hover{text-decoration:underline}.paper .report-executive{border-left:4px solid #316e89;padding-left:16px}.paper .report-addressing td{font-family:monospace;overflow-wrap:anywhere}
+
+/* BGP workspace: one task per panel, consistent directional policy editing. */
+#params.bgp-v39 .bgp-workspace-intro h3{font-size:18px;line-height:1.3;margin:5px 0 8px;color:#123d53}
+#params.bgp-v39 .bgp-workspace-intro p{font-size:12px;color:#4c6576;line-height:1.5;margin:0 0 14px}
+#params.bgp-v39 .bgp-eyebrow{font-size:10px;letter-spacing:.12em;font-weight:700;color:#446d83}
+#params.bgp-v39 .bgp-design-tabs{display:flex;gap:4px;padding:5px;background:#b9cdd9;border:1px solid #9eb8c8;border-radius:10px;margin:0 0 14px}
+#params.bgp-v39 .bgp-design-tabs button{flex:1;min-width:0;border:0;border-radius:6px;padding:10px 6px;font-size:12px;font-weight:650;line-height:1.3;color:#234b63;background:transparent;cursor:pointer}
+#params.bgp-v39 .bgp-design-tabs button[aria-selected=true]{background:#154c65;color:#fff;box-shadow:0 1px 3px #0c354d25}
+#params.bgp-v39 .bgp-design-tabs button:focus-visible{outline:2px solid #245f7d;outline-offset:2px}
+#params.bgp-v39 [data-bgp-design-panel][hidden]{display:none!important}
+#params.bgp-v39 .bgp-output-scope{padding:0 0 12px;margin-bottom:12px;border-bottom:1px solid #abc1cf}
+#params.bgp-v39 .bgp-output-scope .param-grid{margin:0}
+#params.bgp-v39 [data-bgp-design-panel]>h3{font-size:16px;color:#123d53;margin:8px 0}
+#params.bgp-v39 .te-v39-grid{grid-template-columns:minmax(0,1fr);gap:16px}
+#params.bgp-v39 .te-v39-card{padding:18px!important;border-radius:12px;border-top:3px solid #40778f!important}
+#params.bgp-v39 .te-v39-card>h4{font-size:16px;color:#123d53;margin:0 0 5px}
+#params.bgp-v39 .te-v39-card .direction{font-size:12px;line-height:1.5;color:#486b80;margin:0 0 14px}
+#params.bgp-v39 .checks{gap:4px 12px}
+#params.bgp-v39 .checks .check{display:flex;align-items:center;gap:8px;background:transparent!important;border:0!important;padding:6px 0;line-height:1.5;margin:0;opacity:1;font-size:12px}
+#params.bgp-v39 .checks input[type=checkbox],#params.bgp-v39 .bgp-direction-enable input,#params.bgp-v39 .bgp-rule-toggle input{width:16px!important;height:16px;flex:0 0 16px;accent-color:#24657e;margin:0}
+#params.bgp-v39 .bgp-direction-enable{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:650;margin:0 0 14px;opacity:1}
+#params.bgp-v39 fieldset{border:0;padding:0;margin:0;min-width:0}
+#params.bgp-v39 .bgp-baseline-legend{font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:#48687a;font-weight:700;padding:0 0 10px;border-top:1px solid #b6cad7;width:100%;padding-top:12px}
+#params.bgp-v39 .bgp-paused{font-size:12px;color:#6a4e24;background:#f6eddc;padding:9px 12px;border-radius:7px;line-height:1.5}
+#params.bgp-v39 fieldset:disabled{opacity:.65}
+#params.bgp-v39 .bgp-policy-rule{margin:12px 0 0;padding:14px!important;background:#edf3f7!important;border-color:#a8c0cf!important}
+#params.bgp-v39 .bgp-rule-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+#params.bgp-v39 .bgp-rule-header h4{font-size:13px;margin:0;letter-spacing:0}
+#params.bgp-v39 .bgp-rule-toggle{display:flex;align-items:center;gap:7px;font-size:11px;margin:0;opacity:1}
+#params.bgp-v39 .bgp-rule-toggle input{order:-1}
+#params.bgp-v39 .bgp-policy-rule label{font-size:12px;line-height:1.5;opacity:1}
+#params.bgp-v39 .bgp-policy-rule input,#params.bgp-v39 .bgp-policy-rule select{margin-top:5px}
+#params.bgp-v39 .bgp-rule-advanced{margin-top:10px;border-top:1px solid #b6cad7;padding-top:10px}
+#params.bgp-v39 .bgp-rule-advanced summary{cursor:pointer;font-size:12px;font-weight:600;color:#315c74;margin-bottom:10px}
+#params.bgp-v39 .bgp-rule-status{font-size:11px;line-height:1.5;margin:10px 0;color:#246246}
+#params.bgp-v39 [data-policy-state=warning] .bgp-rule-status{color:#81531b}
+#params.bgp-v39 [data-policy-state=error] .bgp-rule-status{color:#a12631}
+#params.bgp-v39 [data-policy-state=error]{border-left:3px solid #a12631!important}
+#params.bgp-v39 [data-policy-state=paused] .bgp-rule-status{color:#637787}
+#params.bgp-v39 .bgp-rule-actions{display:flex;flex-wrap:wrap;gap:6px;border-top:1px solid #bfced7;padding-top:10px}
+#params.bgp-v39 .bgp-rule-actions button{font-size:11px;padding:6px 9px}
+#params.bgp-v39 .bgp-policy-empty{font-size:12px;line-height:1.5;color:#5d7585;border:1px dashed #a6bfce;border-radius:7px;padding:12px;margin:12px 0 0}
+#params.bgp-v39 #bgpPolicyCoverage{border:1px solid #afc5d3;border-radius:10px;background:#dce7ef;padding:12px;margin:14px 0}
+#params.bgp-v39 #bgpPolicyCoverage h4{margin:0 0 6px;font-size:13px;color:#163f57}
+#params.bgp-v39 .bgp-policy-overview-scroll{overflow:auto;max-width:100%}
+#params.bgp-v39 .bgp-policy-overview-scroll table{width:100%;min-width:440px;border-collapse:collapse;font-size:11px;text-align:left}
+#params.bgp-v39 .bgp-policy-overview-scroll th{font-weight:650;color:#345568;background:#cbdce7}
+#params.bgp-v39 .bgp-policy-overview-scroll :is(th,td){padding:9px 7px;border-bottom:1px solid #b6cad7;line-height:1.45}
+@container nc-parameters (max-width:420px){#params.bgp-v39 .bgp-design-tabs button{font-size:11px;padding:9px 4px}#params.bgp-v39 .bgp-policy-rule .param-grid{grid-template-columns:minmax(0,1fr)}}
+#params.bgp-v39 .bgp-field-hint{display:block;font-size:10px;line-height:1.45;font-weight:400;color:#5c7384;margin-top:5px}
+#params.bgp-v39 #bgpSafeguardShortcut{display:block;width:100%;min-height:37px;margin:0;text-align:left;font-size:12px;color:#174b64;background:#edf4f8;border-color:#a7bfce}
+
+#params.bgp-v39 .bgp-safeguard-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 0 14px;border-bottom:1px solid #aec4d2;margin-bottom:14px}
+#params.bgp-v39 .bgp-safeguard-row .bgp-direction-enable{margin:0;flex:none;font-size:12px}
+#params.bgp-v39 .bgp-safeguard-row input[type=number]{width:112px;min-height:36px;margin:0}
+#params.bgp-v39 .bgp-optional{font-size:10px;font-weight:400;color:#60798b}
