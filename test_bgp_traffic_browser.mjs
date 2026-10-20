@@ -15,6 +15,7 @@ try{
   assert.equal(await page.locator('#bgpTab-safeguards').getAttribute('aria-selected'),'true');
   assert.equal(await page.locator('#bgpMaxPrefixField').isVisible(),true,'Maximum-prefix threshold stays discoverable when disabled');
   assert.equal(await page.locator('#bgpMaxPrefixValue').isDisabled(),true);
+  const maxToggle=await page.locator('#bgpRouteSafeguard label').boundingBox(),maxInput=await page.locator('#bgpMaxPrefixValue').boundingBox();assert.ok(Math.abs((maxToggle.y+maxToggle.height/2)-(maxInput.y+maxInput.height/2))<3,'Maximum-prefix toggle and limit share one compact row');
   await page.locator('#bgpMaxPrefix').check();await page.locator('#bgpMaxPrefixValue').fill('15000');
   await page.waitForFunction(()=>/(?:maximum-prefix|maximum-routes|route-limit) 15000/.test(document.getElementById('output').textContent));
   await page.locator('#bgpMaxPrefix').uncheck();

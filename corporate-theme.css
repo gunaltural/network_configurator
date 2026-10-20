@@ -334,3 +334,8 @@ body>.nc-project-flow{margin:18px 28px;max-width:1604px}
 @container nc-parameters (max-width:420px){#params.bgp-v39 .bgp-design-tabs button{font-size:11px;padding:9px 4px}#params.bgp-v39 .bgp-policy-rule .param-grid{grid-template-columns:minmax(0,1fr)}}
 #params.bgp-v39 .bgp-field-hint{display:block;font-size:10px;line-height:1.45;font-weight:400;color:#5c7384;margin-top:5px}
 #params.bgp-v39 #bgpSafeguardShortcut{display:block;width:100%;min-height:37px;margin:0;text-align:left;font-size:12px;color:#174b64;background:#edf4f8;border-color:#a7bfce}
+
+#params.bgp-v39 .bgp-safeguard-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 0 14px;border-bottom:1px solid #aec4d2;margin-bottom:14px}
+#params.bgp-v39 .bgp-safeguard-row .bgp-direction-enable{margin:0;flex:none;font-size:12px}
+#params.bgp-v39 .bgp-safeguard-row input[type=number]{width:112px;min-height:36px;margin:0}
+#params.bgp-v39 .bgp-optional{font-size:10px;font-weight:400;color:#60798b}
