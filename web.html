@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Network Configurator v5.53.3</title>
+<title>Network Configurator v5.54.0</title>
 <style>
 :root{
   --bg:#0d1117;--panel:#161b22;--panel2:#1f2630;--line:#2b3440;
@@ -415,7 +415,7 @@ body.nc-simulation-action{padding-bottom:145px}body.nc-simulation-action #topolo
     <div class="logo">NC</div>
     <div><h1>Network Configurator</h1><small>Configure · Validate · Troubleshoot</small></div>
   </div>
-  <div class="badge">Version 5.53.3 · Topology and Simulation</div>
+  <div class="badge">Version 5.54.0 · Topology and Simulation</div>
 </header>
 
 <div class="layout">
@@ -466,7 +466,7 @@ body.nc-simulation-action{padding-bottom:145px}body.nc-simulation-action #topolo
       </section>
 
       <section class="card">
-        <h3>02 · Çıktı</h3>
+        <h3>02 · Output</h3>
         <div class="tabs">
           <button class="tab active" data-tab="config">Configuration</button>
           <button class="tab" data-tab="deploy">Deploy Config</button>
@@ -625,7 +625,7 @@ body.nc-simulation-action{padding-bottom:145px}body.nc-simulation-action #topolo
         <pre id="output"></pre>
         <div class="actions" id="outputActions">
           <button class="btn" onclick="copyOut()">Copy</button>
-          <button class="btn" type="button" onclick="if(window.NetworkWorkspaceProject.prepareCompare())location.assign('/config-compare')">Compare Config</button>
+          <button class="btn" id="outputCompare" type="button" onclick="if(window.NetworkWorkspaceProject.prepareCompare())location.assign('/config-compare')">Compare</button>
           <button class="btn" onclick="downloadOut()">Download TXT</button>
         </div>
       </section>
@@ -647,6 +647,7 @@ body.nc-simulation-action{padding-bottom:145px}body.nc-simulation-action #topolo
 
 
 <script src="/design-checks.js"></script>
+<script src="/bgp-traffic-policy.js"></script>
 <script src="/engineering-locale.js"></script>
 <script src="/vpc-report.js"></script>
 <script src="/synthetic-bgp.js"></script>
@@ -809,9 +810,9 @@ BGP:{
    <label class="check"><input type="checkbox" id="bgpBfd" checked> BFD</label>
    <label class="check"><input type="checkbox" id="bgpNextHop" checked> Next-Hop-Self on iBGP</label>
    <label class="check"><input type="checkbox" id="bgpSendCommunity" checked> Send Community</label>
-   <label class="check"><input type="checkbox" id="bgpMaxPrefix" checked> Maximum Prefix</label>
+   <label class="check"><input type="checkbox" id="bgpMaxPrefix"> Maximum Prefix · optional</label>
  </div>
- <div class="param-grid"><div><label>Maximum Prefix</label><input id="bgpMaxPrefixValue" value="12000"></div></div>
+ <div class="param-grid"><div id="bgpMaxPrefixField"><label>Maximum Prefix</label><input id="bgpMaxPrefixValue" type="number" min="1" max="4294967295" value="12000" disabled></div></div>
 
  <div class="section-title">4 · Traffic Engineering</div>
 
@@ -849,6 +850,7 @@ BGP:{
   <p class="note">Inbound TE influences how external networks enter the customer AS. The preferred ISP is advertised without prepend; backup advertisements can receive AS-Path Prepend. MED and communities are policy signals and depend on ISP policy.</p>
  </div></div>
 
+ <section aria-labelledby="bgpTrafficPolicyHeading"><h4 id="bgpTrafficPolicyHeading">Traffic policy rules</h4><p class="note">Add independent Local Preference, AS-path prepend, MED and community values per connection and IPv4 prefix. Rules are evaluated top to bottom; the first matching rule applies. Blank attributes inherit the baseline above. Prefixes match exactly; unmatched routes retain the baseline. ECMP maximum paths is an address-family setting.</p><textarea id="bgpTrafficPoliciesData" hidden>[]</textarea><button id="bgpAddTrafficPolicy" type="button">Add traffic policy</button><div id="bgpTrafficPolicyRows"></div></section>
  <p class="note"><b>Asymmetric design is supported:</b> Outbound Preferred ISP and Inbound Preferred ISP can be different.</p>
  <p class="note">Device cards follow the selected counts. eBGP link cards are derived automatically from the connectivity model; interface and addressing data is entered per physical adjacency.</p>`,
  generate: bgpGenerate
@@ -2159,7 +2161,7 @@ function syncTopology(){
    const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
    const ceN=+v("bgpCeCount")||2,ispN=+v("bgpIspCount")||2,internal=v("bgpInternal")||"ibgp";
    const ces=Array.from({length:ceN},(_,i)=>bgpCe(i)),isps=Array.from({length:ispN},(_,i)=>bgpIsp(i)),edges=bgpEdges();
-   const cx=Array.from({length:ceN},(_,i)=>ceN===1?475:190+570*i/(ceN-1)),ix=Object.fromEntries(bgpActiveUpstreams().map((index,n,all)=>[index,all.length===1?475:150+650*n/(all.length-1)]));
+   const cx=Array.from({length:ceN},(_,i)=>ceN===1?475:190+570*i/(ceN-1)),ix=Object.fromEntries(Array.from({length:ispN},(_,i)=>i).map((index,n,all)=>[index,all.length===1?475:150+650*n/(all.length-1)]));
    area.innerHTML=`<div class="vpc-svg-wrap bgp-compact-wrap"><svg class="vpc-svg" viewBox="${c('bgpShowContext')?'0 -150 950 770':'0 0 950 480'}" role="img" aria-label="Dynamic BGP topology">
    <defs><linearGradient id="bgpNodeGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#123652"/><stop offset="100%" stop-color="#0b2235"/></linearGradient></defs>
    <text x="475" y="${c('bgpShowContext')?-122:30}" text-anchor="middle" class="vpc-domain-title">${esc(bgpConnectivityLabel())} · Customer AS ${esc(v("bgpCustomerAs")||"65001")}</text>
@@ -2170,7 +2172,7 @@ function syncTopology(){
 
    ${internal==="ibgp"&&ceN===2?`<line data-bgp-ibgp-session="true" x1="${cx[0]+68}" y1="348" x2="${cx[1]-68}" y2="348" style="stroke:#8065a8;stroke-width:2.6;stroke-dasharray:7 5;fill:none"/><rect x="400" y="331" width="150" height="22" rx="7" fill="#f3f0f8" stroke="#8065a8"/><text data-bgp-ibgp-label="true" x="475" y="346" text-anchor="middle" style="fill:#8065a8;font-size:11px;font-weight:800">iBGP · CE-TO-CE</text>`:internal==="ibgp"&&ceN>2?`<line x1="${cx[0]}" y1="410" x2="${cx[ceN-1]}" y2="410" style="stroke:#8065a8;stroke-width:2.2;stroke-dasharray:7 5;fill:none"/>${cx.map(x=>`<line x1="${x}" y1="378" x2="${x}" y2="410" style="stroke:#8065a8;stroke-width:1.8;stroke-dasharray:5 4;fill:none"/>`).join("")}<text x="475" y="432" text-anchor="middle" style="fill:#8065a8;font-size:11px;font-weight:800">iBGP LOGICAL FULL-MESH</text>`:""}
    ${internal==="ibgp"&&ceN===2?`<path data-bgp-interconnect="true" d="M ${cx[0]} 378 V 398 H ${cx[1]} V 378" fill="none" stroke="#93b4c8" stroke-width="2"/><text x="475" y="416" text-anchor="middle" class="vpc-small">CE interconnect · ${esc(v("bgpIbgpCe1If"))} ${esc(v("bgpIbgpCe1Ip"))} ↔ ${esc(v("bgpIbgpCe2If"))} ${esc(v("bgpIbgpCe2Ip"))}</text>`:""}
-   ${isps.map((o,i)=>bgpActiveUpstreams().includes(i)?`<g data-bgp-device="isp${i+1}"><rect x="${ix[i]-62}" y="66" width="124" height="60" rx="12" style="fill:url(#bgpNodeGrad);stroke:#4fb7f3;stroke-width:1.5"/><text x="${ix[i]}" y="92" text-anchor="middle" class="vpc-device-name">${esc(o.name)}</text><text x="${ix[i]}" y="111" text-anchor="middle" class="vpc-small">AS ${esc(o.asn)}</text></g>`:"").join("")}
+   ${isps.map((o,i)=>`<g data-bgp-device="isp${i+1}" data-bgp-connected="${bgpActiveUpstreams().includes(i)}"><rect x="${ix[i]-62}" y="66" width="124" height="60" rx="12" style="fill:url(#bgpNodeGrad);stroke:#4fb7f3;stroke-width:1.5"/><text x="${ix[i]}" y="92" text-anchor="middle" class="vpc-device-name">${esc(o.name)}</text><text x="${ix[i]}" y="111" text-anchor="middle" class="vpc-small">AS ${esc(o.asn)}</text>${bgpActiveUpstreams().includes(i)?"":`<text x="${ix[i]}" y="143" text-anchor="middle" class="vpc-small">No connection</text>`}</g>`).join("")}
    ${ces.map((o,i)=>`<g data-bgp-device="ce${i+1}"><rect x="${cx[i]-55}" y="318" width="110" height="60" rx="10" style="fill:url(#bgpNodeGrad);stroke:#4fb7f3;stroke-width:1.5"/><text x="${cx[i]}" y="345" text-anchor="middle" class="vpc-device-name">${esc(o.name)}</text><text x="${cx[i]}" y="364" text-anchor="middle" class="vpc-small">AS ${esc(v("bgpCustomerAs")||"65001")}</text></g>`).join("")}
    ${c('bgpShowContext')&&window.SyntheticBGP?.contextSvg?window.SyntheticBGP.contextSvg({ispXs:Object.values(ix),ispIds:Object.keys(ix).map(i=>'isp'+(+i+1)),ceXs:cx}):''}
    <text data-bgp-session-counts="true" x="475" y="450" text-anchor="middle" class="vpc-small">${edges.length} eBGP adjacencies · ${internal==="ibgp"?(ceN*(ceN-1)/2)+" iBGP sessions":"iBGP disabled"}</text>
@@ -2928,7 +2930,22 @@ end
 
 ${basicReadableCliBlocks(one(h1,if1,ip1,managementMask(m1)))}`;
 }
+function bgpTrafficRules(){return window.BgpTrafficPolicy?.read(v('bgpTrafficPoliciesData')||'[]',bgpEdges().map(e=>e[2]))||[];}
+function bgpTrafficPlan(k,direction){
+ if(!window.BgpTrafficPolicy)return [];
+ const imp=direction==='import';if(!c(imp?'bgpTeOutboundEnable':'bgpTeInboundEnable'))return [];
+ const number=(id,fallback)=>v(id)===''?fallback:Number(v(id)),base={};
+ if(imp&&c('bgpTeLocalPref'))base.localPreference=number(k===+v('bgpTeOutboundPreferredIsp')?'bgpTeLocalPrefValue':'bgpTeBackupLocalPref',100);
+ if(!imp){if(c('bgpTePrepend'))base.prependCount=k===+v('bgpTeInboundPreferredIsp')?0:number('bgpTePrependCount',3);if(c('bgpTeMed'))base.med=number(k===+v('bgpTeInboundPreferredIsp')?'bgpTePreferredMed':'bgpTeBackupMed',0);if(c('bgpTeCommunity'))base.communities=String(v('bgpTeCommunityValue')).split(/[,\s]+/).filter(Boolean);}
+ return window.BgpTrafficPolicy.plan(bgpTrafficRules(),k,direction,base);
+}
+function bgpTrafficEnabled(k,direction,legacy){return window.BgpTrafficPolicy?bgpTrafficPlan(k,direction).length>0:legacy;}
+function bgpTrafficCommunity(k){return window.BgpTrafficPolicy?bgpTrafficPlan(k,'export').some(r=>r.communities?.length):c('bgpTeInboundEnable')&&c('bgpTeCommunity');}
+function bgpTrafficConfig(p,k,tag){return ['import','export'].map(direction=>{const name=(p==='Huawei_CE_SW'?'RP-':'RM-')+tag+(direction==='import'?(p==='Huawei_CE_SW'?'-IMPORT':'-IN'):(p==='Huawei_CE_SW'?'-EXPORT':'-OUT'));return window.BgpTrafficPolicy.emit(p,name,bgpTrafficPlan(k,direction),v('bgpCustomerAs'));}).filter(Boolean);}
+function bgpTrafficSummary(){const rules=bgpTrafficRules();return rules.length?'\n\nAdditional traffic policy rules (first matching rule applies; unmatched routes retain the baseline):\n'+window.BgpTrafficPolicy.summary(rules,bgpConnectionName):'';}
+function bgpLinkTrafficPolicies(k){return bgpTrafficRules().filter(r=>(r.connection==='all'||r.connection===String(k))&&c(r.direction==='import'?'bgpTeOutboundEnable':'bgpTeInboundEnable'));}
 function bgpGenerate(tab){
+ if(c('bgpMaxPrefix')&&(!/^[1-9]\d*$/.test(v('bgpMaxPrefixValue'))||Number(v('bgpMaxPrefixValue'))>4294967295))throw Error('Maximum Prefix: enter an integer from 1 to 4294967295, or disable the optional safeguard.');
  const p=platform(),ceN=+v("bgpCeCount")||2,ispN=+v("bgpIspCount")||2,internal=v("bgpInternal")||"ibgp",asn=v("bgpCustomerAs")||"65001",edges=bgpEdges();
  const ces=Array.from({length:ceN},(_,i)=>bgpCe(i)),isps=Array.from({length:ispN},(_,i)=>bgpIsp(i)),maxp=v("bgpMaxPrefixValue")||"12000";
  const ip=x=>String(x||"").split("/")[0], mask=x=>{const n=+String(x).split("/")[1]||32,m=n===0?0:(0xffffffff<<(32-n))>>>0;return[24,16,8,0].map(s=>(m>>>s)&255).join(".")};
@@ -2948,7 +2965,7 @@ function bgpGenerate(tab){
    return ["show ip bgp summary","show ip bgp","show ip route bgp","show bfd neighbors details",...ebgpPeers.flatMap(peer=>[`show ip bgp neighbors ${peer}`,`show ip bgp neighbors ${peer} received-routes`,`show ip bgp neighbors ${peer} advertised-routes`]),...ibgpPeers.map(peer=>`show ip bgp neighbors ${peer}`)].join("\n");
  }
  if(tab==="trouble")return `1. Verify interface state and IP reachability on all ${edges.length} CE-to-ISP links.\n2. Verify TCP/179 and local/remote ASN.\n3. Confirm received and advertised prefixes per ISP.\n4. Outbound TE: verify inbound policy and Local Preference on learned routes.\n5. Inbound TE: verify advertised AS_PATH, MED and communities toward each ISP.\n6. Remember that inbound MED/community behavior depends on the upstream ISP policy.\n7. For iBGP, verify loopback reachability, update-source and next-hop reachability.`;
- if(tab==="notes")return `BGP Engineering Notes\n- The selected ${ceN}-CE / ${bgpActiveUpstreams().length}-connected-upstream-router model creates ${edges.length} eBGP adjacencies. Physical connections do not establish primary/backup traffic policy. Upstream routers and provider organizations are separate design facts. Resilience exists only where circuits, provider paths and CE devices do not share a physical or operational failure domain.\n- ${internal==="ibgp"?"iBGP distributes externally learned reachability between CE routers; next-hop reachability and loopback transport must remain available during an edge failure.":"No internal CE peering is selected; a route learned by one CE is not automatically available through another CE."}\n- ${outOn&&window.c("bgpTeLocalPref")?`${bgpConnectionName(outPref)} is the intended outbound exit. Local Preference ${lp} is applied to the preferred path and ${blp} to the alternative; the preferred value must be numerically higher to influence comparable BGP routes.`:"No active Local Preference policy is selected, so outbound selection follows the remaining BGP best-path attributes."}\n- ${inOn?`${bgpConnectionName(inPref)} is the intended inbound path. ${window.c("bgpTePrepend")?`AS-path prepend is applied to the non-preferred advertisement ${pc} time(s); upstream policy can override the longer path.`:"No AS-path prepend is selected."} ${window.c("bgpTeMed")?`MED ${pmed}/${bmed} is a relative signal and is effective only where the receiving network compares it.`:""} ${window.c("bgpTeCommunity")?`Community ${comm} requires a documented ISP action.`:""}`:"Inbound traffic engineering is not enabled; external networks independently select their entry path."}\n- Outbound and inbound preferred connections may intentionally differ, but this creates asymmetric forwarding. Stateful firewalls, NAT, uRPF and troubleshooting procedures must support the resulting return path.\n- ${window.c("bgpBfd")?"BFD is selected for faster failure detection; compatible timers and support are required on both ends.":"BFD is not selected; convergence follows interface and BGP hold-time detection."} ${window.c("bgpMaxPrefix")?`Maximum-prefix ${maxp} limits unexpected route volume; confirm the platform action when the threshold is exceeded.`:"No maximum-prefix safeguard is selected."}\n- Acceptance must prove session establishment, received/advertised routes, policy counters, RIB/FIB installation and forwarding during each planned circuit or CE failure.`;
+ if(tab==="notes")return `BGP Engineering Notes\n- The selected ${ceN}-CE / ${bgpActiveUpstreams().length}-connected-upstream-router model creates ${edges.length} eBGP adjacencies. Physical connections do not establish primary/backup traffic policy. Upstream routers and provider organizations are separate design facts. Resilience exists only where circuits, provider paths and CE devices do not share a physical or operational failure domain.\n- ${internal==="ibgp"?"iBGP distributes externally learned reachability between CE routers; next-hop reachability and loopback transport must remain available during an edge failure.":"No internal CE peering is selected; a route learned by one CE is not automatically available through another CE."}\n- ${outOn&&window.c("bgpTeLocalPref")?`${bgpConnectionName(outPref)} is the intended outbound exit. Local Preference ${lp} is applied to the preferred path and ${blp} to the alternative; the preferred value must be numerically higher to influence comparable BGP routes.`:"No baseline Local Preference is selected; connection/prefix rules, if present, are evaluated before the remaining BGP best-path attributes."}\n- ${inOn?`${bgpConnectionName(inPref)} is the intended inbound path. ${window.c("bgpTePrepend")?`AS-path prepend is applied to the non-preferred advertisement ${pc} time(s); upstream policy can override the longer path.`:"No AS-path prepend is selected."} ${window.c("bgpTeMed")?`MED ${pmed}/${bmed} is a relative signal and is effective only where the receiving network compares it.`:""} ${window.c("bgpTeCommunity")?`Community ${comm} requires a documented ISP action.`:""}`:"Inbound traffic engineering is not enabled; external networks independently select their entry path."}\n- Outbound and inbound preferred connections may intentionally differ, but this creates asymmetric forwarding. Stateful firewalls, NAT, uRPF and troubleshooting procedures must support the resulting return path.\n- ${window.c("bgpBfd")?"BFD is selected for faster failure detection; compatible timers and support are required on both ends.":"BFD is not selected; convergence follows interface and BGP hold-time detection."} ${window.c("bgpMaxPrefix")?`Maximum-prefix ${maxp} limits unexpected route volume; confirm the platform action when the threshold is exceeded.`:"No maximum-prefix safeguard is selected."}\n- Acceptance must prove session establishment, received/advertised routes, policy counters, RIB/FIB installation and forwarding during each planned circuit or CE failure.`+bgpTrafficSummary();
 
  function cfg(ci){
   const ce=ces[ci],es=edges.filter(e=>e[0]===ci);
@@ -2964,6 +2981,7 @@ function bgpGenerate(tab){
    const policies=[];
    es.forEach(([c,i,k])=>{
     const tag=`${safe(ce.name)}_ISP${i+1}_LINK${k}`,outPreferred=k===outPref,inPreferred=k===inPref;
+    if(window.BgpTrafficPolicy){policies.push(...bgpTrafficConfig(p,k,tag));return;}
     if(outOn&&window.c("bgpTeLocalPref"))policies.push(`route-policy RP-${tag}-IMPORT permit node 10\n apply local-preference ${outPreferred?lp:blp}`);
     const acts=[];
     if(inOn&&window.c("bgpTePrepend")&&!inPreferred)acts.push(` apply as-path ${prepend} additive`);
@@ -2973,8 +2991,8 @@ function bgpGenerate(tab){
    });
    const peers=es.map(([c,i,k])=>{const l=bgpLink(c,i,k),peer=ip(l.ispIp),tag=`${safe(ce.name)}_ISP${i+1}_LINK${k}`;
     let x=` peer ${peer} as-number ${isps[i].asn}`+(window.c("bgpBfd")?`\n peer ${peer} bfd enable`:"");
-    if(outOn&&window.c("bgpTeLocalPref"))x+=`\n peer ${peer} route-policy RP-${tag}-IMPORT import`;
-    if(inOn&&(window.c("bgpTePrepend")||window.c("bgpTeMed")||window.c("bgpTeCommunity")))x+=`\n peer ${peer} route-policy RP-${tag}-EXPORT export`;
+    if(bgpTrafficEnabled(k,'import',outOn&&window.c("bgpTeLocalPref")))x+=`\n peer ${peer} route-policy RP-${tag}-IMPORT import`;
+    if(bgpTrafficEnabled(k,'export',inOn&&(window.c("bgpTePrepend")||window.c("bgpTeMed")||window.c("bgpTeCommunity"))))x+=`\n peer ${peer} route-policy RP-${tag}-EXPORT export`;
     return x;
    }).join("\n");
    const ib=dualIbgp?` peer ${ibPeer} as-number ${asn}`+(window.c("bgpNextHop")?`\n peer ${ibPeer} next-hop-local`:""):internal==="ibgp"?ces.filter((_,j)=>j!==ci).map(x=>` peer ${ip(x.loop)} as-number ${asn}\n peer ${ip(x.loop)} connect-interface LoopBack0`+(window.c("bgpNextHop")?`\n peer ${ip(x.loop)} next-hop-local`:"")).join("\n"):"";
@@ -2986,6 +3004,7 @@ function bgpGenerate(tab){
    const maps=[];
    es.forEach(([c,i,k])=>{
     const tag=`${safe(ce.name)}_ISP${i+1}_LINK${k}`,outPreferred=k===outPref,inPreferred=k===inPref;
+    if(window.BgpTrafficPolicy){maps.push(...bgpTrafficConfig(p,k,tag));return;}
     if(outOn&&window.c("bgpTeLocalPref"))maps.push(`config router route-map\n edit "RM-${tag}-IN"\n  config rule\n   edit 10\n    set set-local-preference ${outPreferred?lp:blp}\n   next\n  end\n next\nend`);
     const sets=[];
     if(inOn&&window.c("bgpTePrepend")&&!inPreferred)sets.push(`    set set-aspath "${prepend}"`);
@@ -2996,9 +3015,9 @@ function bgpGenerate(tab){
    const peers=es.map(([c,i,k])=>{const l=bgpLink(c,i,k),peer=ip(l.ispIp),tag=`${safe(ce.name)}_ISP${i+1}_LINK${k}`;
     let x=`  edit "${peer}"\n   set remote-as ${isps[i].asn}`;
     if(window.c("bgpMaxPrefix"))x+=`\n   set maximum-prefix ${maxp}`;
-    if(outOn&&window.c("bgpTeLocalPref"))x+=`\n   set route-map-in "RM-${tag}-IN"`;
-    if(inOn&&(window.c("bgpTePrepend")||window.c("bgpTeMed")||window.c("bgpTeCommunity")))x+=`\n   set route-map-out "RM-${tag}-OUT"`;
-    if(inOn&&window.c("bgpTeCommunity"))x+=`\n   set send-community standard`;
+    if(bgpTrafficEnabled(k,'import',outOn&&window.c("bgpTeLocalPref")))x+=`\n   set route-map-in "RM-${tag}-IN"`;
+    if(bgpTrafficEnabled(k,'export',inOn&&(window.c("bgpTePrepend")||window.c("bgpTeMed")||window.c("bgpTeCommunity"))))x+=`\n   set route-map-out "RM-${tag}-OUT"`;
+    if(bgpTrafficCommunity(k))x+=`\n   set send-community standard`;
     return x+"\n  next";
    }).join("\n");
    return `config system global\n set hostname "${ce.name}"\nend\nconfig system interface\n${fortiInterfaces}\nend\n${maps.length?maps.join("\n\n")+"\n":""}config router bgp\n set as ${asn}\n set router-id ${ce.rid}\n config neighbor\n${peers}${ibForti?"\n"+ibForti:""}\n end\n config network\n  edit 1\n   set prefix ${ce.prefix}\n  next\n end\nend`;
@@ -3010,6 +3029,7 @@ function bgpGenerate(tab){
   const maps=[];
   es.forEach(([c,i,k])=>{
    const tag=`${safe(ce.name)}_ISP${i+1}_LINK${k}`,outPreferred=k===outPref,inPreferred=k===inPref;
+   if(window.BgpTrafficPolicy){maps.push(...bgpTrafficConfig(p,k,tag));return;}
    if(outOn&&window.c("bgpTeLocalPref"))maps.push(`route-map RM-${tag}-IN permit 10\n set local-preference ${outPreferred?lp:blp}`);
    const sets=[];
    if(inOn&&window.c("bgpTePrepend")&&!inPreferred)sets.push(` set as-path prepend ${prepend}`);
@@ -3019,9 +3039,9 @@ function bgpGenerate(tab){
   });
   const eb=es.map(([c,i,k])=>{const l=bgpLink(c,i,k),peer=ip(l.ispIp),tag=`${safe(ce.name)}_ISP${i+1}_LINK${k}`;
    let x=` neighbor ${peer} remote-as ${isps[i].asn}`+(window.c("bgpBfd")?`\n neighbor ${peer} bfd`:"")+(ar&&window.c("bgpMaxPrefix")?`\n neighbor ${peer} maximum-routes ${maxp}`:"");
-   if(outOn&&window.c("bgpTeLocalPref"))x+=`\n neighbor ${peer} route-map RM-${tag}-IN in`;
-   if(inOn&&(window.c("bgpTePrepend")||window.c("bgpTeMed")||window.c("bgpTeCommunity")))x+=`\n neighbor ${peer} route-map RM-${tag}-OUT out`;
-   if(inOn&&window.c("bgpTeCommunity"))x+=`\n neighbor ${peer} send-community`;
+   if(bgpTrafficEnabled(k,'import',outOn&&window.c("bgpTeLocalPref")))x+=`\n neighbor ${peer} route-map RM-${tag}-IN in`;
+   if(bgpTrafficEnabled(k,'export',inOn&&(window.c("bgpTePrepend")||window.c("bgpTeMed")||window.c("bgpTeCommunity"))))x+=`\n neighbor ${peer} route-map RM-${tag}-OUT out`;
+   if(bgpTrafficCommunity(k))x+=`\n neighbor ${peer} send-community`;
    return x;
   }).join("\n");
   const ib=dualIbgp?` neighbor ${ibPeer} remote-as ${asn}`+(window.c("bgpNextHop")?`\n neighbor ${ibPeer} next-hop-self`:"")+(window.c("bgpSendCommunity")?`\n neighbor ${ibPeer} send-community`:""):internal==="ibgp"?ces.filter((_,j)=>j!==ci).map(x=>` neighbor ${ip(x.loop)} remote-as ${asn}\n neighbor ${ip(x.loop)} update-source Loopback0`+(window.c("bgpNextHop")?`\n neighbor ${ip(x.loop)} next-hop-self`:"")+(window.c("bgpSendCommunity")?`\n neighbor ${ip(x.loop)} send-community`:"")).join("\n"):"";
@@ -5137,7 +5157,7 @@ function renderModule(){
  if(tech==="VPC")setTimeout(()=>{vpcLeafUi();vpcV42WorkspaceUI();ensureDesignLinkSpeed();syncTopologyControls();syncTopology();},0); if(tech==="EVPN")setTimeout(()=>{evpnV431Ui();syncTopologyControls();syncTopology();},0);
  if(tech==="BGP"){ renderBgpDynamicCards(); setTimeout(()=>{restoreWorkspaceModule(tech);renderBgpDynamicCards();restoreWorkspaceModule(tech);bgpV39ContextUI();syncTopologyControls();syncTopology();renderOutput();},0); }
  else { setTimeout(()=>{syncTopologyControls();syncTopology();},0); }
- document.querySelectorAll("#params input,#params select").forEach(e=>{
+ document.querySelectorAll("#params input,#params select,#params textarea").forEach(e=>{
    if(e.id!=="sdExcelFile" && e.id!=="sdSiteSelect" && e.id!=="sdRouterSelect"){
      e.addEventListener("input",()=>{renderOutput();captureWorkspaceModule(tech);});
      e.addEventListener("change",()=>{renderOutput();captureWorkspaceModule(tech);});
@@ -5166,6 +5186,8 @@ function bgpV39ContextUI(){
  if(mp)mp.closest("div").style.display=window.c("bgpTeEcmp")?"":"none";
  const cv=document.getElementById("bgpTeCommunityValue");
  if(cv)cv.closest("div").style.display=window.c("bgpTeCommunity")?"":"none";
+ const maxPrefix=document.getElementById('bgpMaxPrefixValue');if(maxPrefix){maxPrefix.disabled=!c('bgpMaxPrefix');document.getElementById('bgpMaxPrefixField').hidden=!c('bgpMaxPrefix');}
+ window.BgpTrafficPolicy?.mount({connections:bgpEdges().map(([ce,up,id])=>({id,name:bgpConnectionName(id)+' · '+bgpCe(ce).name+' → '+bgpIsp(up).name})),onChange:()=>{renderOutput();captureWorkspaceModule(tech);}});
 }
 
 
@@ -5605,6 +5627,7 @@ function deviceOutputUi(){
 }
 
 function renderOutput(){
+ const compareButton=document.getElementById('outputCompare');if(compareButton)compareButton.disabled=tab!=='config';
  ensureDesignLinkSpeed();
  const noteControl=document.getElementById("designNotesLanguageControl");if(noteControl){noteControl.hidden=tab!=="notes";noteControl.style.display=tab==="notes"?"inline-flex":"none";}
  if(tech==="BGP"){bgpV39ContextUI();bgpRefreshConnectivityUI();}
@@ -5929,7 +5952,7 @@ renderModule();
      if(on("bgpTeOutboundEnable")&&on("bgpTeLocalPref"))
        add("Outbound traffic preference",`${bgpConnectionName(+pref)}: Local Preference ${lp} · ${backup}: ${blp}`,
          activeIds.length<2?"Only one external connection is enabled; there is no alternative exit for primary/backup path selection.":`${lp>blp?`${bgpConnectionName(+pref)} is preferred for comparable reachable prefixes because ${lp} exceeds ${blp}.`:`The chosen values do not prefer ${bgpConnectionName(+pref)}: ${lp} is not greater than ${blp}.`} The preference is local to the customer AS; prefix availability and higher-priority vendor attributes may change the installed path. ${on("bgpTeEcmp")?`ECMP permits up to ${r("bgpTeMaxPaths")} otherwise eligible paths, but unequal Local Preference prevents those paths from sharing traffic.`:"No ECMP policy is selected."}`);
-     else add("Outbound traffic preference","No active Local Preference policy","The selected configuration does not impose an ISP exit preference through Local Preference. Best-path selection follows the remaining BGP attributes and available routes.");
+     else add("Outbound traffic preference","No baseline Local Preference policy","Connection/prefix rules, if present, define specific preferences. Other routes follow the remaining BGP attributes and available paths.");
      if(on("bgpTeInboundEnable")){
        const methods=[on("bgpTePrepend")?`AS-path prepend ×${r("bgpTePrependCount")} toward ${other}`:"",on("bgpTeMed")?`MED ${r("bgpTePreferredMed")}/${r("bgpTeBackupMed")}`:"",on("bgpTeCommunity")?`community ${r("bgpTeCommunityValue")}`:""].filter(Boolean);
        add("Inbound traffic influence",`Preferred ${bgpConnectionName(+inbound)} · ${methods.join(" · ")||"no additional advertisement attributes selected"}`,
@@ -5937,6 +5960,7 @@ renderModule();
      }
      if(on("bgpBfd")||on("bgpMaxPrefix"))add("Session resilience and route safeguards",[on("bgpBfd")?"BFD":"",on("bgpMaxPrefix")?`maximum ${r("bgpMaxPrefixValue")} prefixes`:""].filter(Boolean).join(" · "),
        `${on("bgpBfd")?"BFD can shorten peer-failure detection if both ends agree on compatible settings. ":""}${on("bgpMaxPrefix")?`The ${r("bgpMaxPrefixValue")}-prefix threshold protects against unexpected route volume but may interrupt route learning if legitimate advertisements exceed it; confirm the platform's action.`:""}`);
+     if(bgpTrafficRules().length)add("Traffic policy rules",bgpTrafficRules().length+" enabled rules",bgpTrafficSummary().trim());
      return decisions;
    }
    if(kind==="OSPF"){
@@ -6077,9 +6101,9 @@ renderModule();
      parameters.push({label:"Management topology scope",value:"OOB network and management services are shown as external endpoints; only the configured device is in the inventory."});
    }else if(tech==="BGP"){
      roles.upper="CE router";roles.lower="Upstream router";
-     const ceN=Math.max(1,Math.min(4,+get("bgpCeCount")||2)),ispN=Math.max(1,Math.min(2,+get("bgpIspCount")||2));
+     const ceN=Math.max(1,Math.min(4,+get("bgpCeCount")||2)),ispN=Math.max(1,Math.min(4,+get("bgpIspCount")||2));
      const ces=Array.from({length:ceN},(_,i)=>add("upper",bgpCe(i).name));
-     const isps={};for(const i of bgpActiveUpstreams()){const id=add("lower",bgpIsp(i).name);isps[i]=id;const d=devices.find(d=>d.id===id);d.external=true;d.provider=bgpIsp(i).provider;}
+     const isps={};for(let i=0;i<ispN;i++){const id=add("lower",bgpIsp(i).name);isps[i]=id;const d=devices.find(d=>d.id===id);d.external=true;d.provider=bgpIsp(i).provider;d.connected=bgpActiveUpstreams().includes(i);}
      bgpEdges().forEach(([c,i,k])=>{const p=bgpLink(c,i,k);link(ces[c],isps[i],p.ceIf,p.ispIf,`eBGP · ${p.name} · ${p.ceIp} ↔ ${p.ispIp}`);links[links.length-1].id=`bgp-connection-${k}`;});
      if(get("bgpInternal")==="ibgp"&&ceN===2)link(ces[0],ces[1],get("bgpIbgpCe1If"),get("bgpIbgpCe2If"),`CE interconnect · ${get("bgpIbgpCe1Ip")} ↔ ${get("bgpIbgpCe2Ip")}`);
      if(get("bgpInternal")==="ibgp")for(let i=0;i<ceN;i++)for(let j=i+1;j<ceN;j++)special("iBGP",ces[i],ces[j],"","","Logical CE peering; no physical cable inferred.");
@@ -6543,18 +6567,22 @@ renderModule();
  });
 function prepareCompare(){
  try{
+  const text=document.getElementById('output')?.textContent||'';
+  if(tab!=='config'||!text.trim()||text.startsWith('# CONFIGURATOR ERROR')||text.startsWith('# No configuration'))throw Error('Generate a valid configuration before comparing.');
+  if(text.length>500000)throw Error('The displayed configuration exceeds the comparison limit of 500,000 characters. Select one device.');
   const design=snapshot(),report=reportingDesign();
   sessionStorage.setItem("networkConfigurator.workflow.design",JSON.stringify(design));
   sessionStorage.setItem("networkConfigurator.compare.current",JSON.stringify({name:design.project.name,vendor:report.vendor,devices:report.devices,configurations:report.configurations}));
+  sessionStorage.setItem('networkConfigurator.compare.baseline',JSON.stringify({text,label:design.project.name+' · '+technologyLabel(tech,platform())+' · '+platform(),vendor:platform(),module:tech}));
   return true;
- }catch(error){sessionStorage.removeItem("networkConfigurator.compare.current");toast("Unable to prepare configurations: "+error.message);return false;}
+ }catch(error){sessionStorage.removeItem('networkConfigurator.compare.baseline');toast("Unable to prepare configurations: "+error.message);return false;}
 }
 function bgpLabDesign(){
  if(tech!=="BGP")throw Error("Select the BGP workspace before importing a lab design.");
  if(+v("bgpCeCount")!==2||+v("bgpIspCount")!==2||bgpEdges().length!==4)throw Error("The first lab release requires two CE routers, two upstream routers and four external links. Your design is unchanged.");
  const nodes=[0,1].map(i=>({id:'ce'+(i+1),hostname:bgpCe(i).name,asn:+v('bgpCustomerAs'),prefix:bgpCe(i).prefix})).concat([0,1].map(i=>({id:'isp'+(i+1),hostname:bgpIsp(i).name,asn:+bgpIsp(i).asn,prefix:'198.18.255.1/32'})));
  const preferred=+v('bgpTeOutboundPreferredIsp'),enabled=c('bgpTeOutboundEnable')&&c('bgpTeLocalPref');
- const links=bgpEdges().map(([ce,up,id])=>{const l=bgpLink(ce,up,id);return{id:'wan'+id,a:'ce'+(ce+1),b:'isp'+(up+1),aIp:l.ceIp,bIp:l.ispIp,aPort:l.ceIf,bPort:l.ispIf,localPreference:enabled?+(v(id===preferred?'bgpTeLocalPrefValue':'bgpTeBackupLocalPref')||100):100,prependCount:c('bgpTeInboundEnable')&&c('bgpTePrepend')&&id!==+v('bgpTeInboundPreferredIsp')?Math.max(1,+v('bgpTePrependCount')||3):0};});
+ const links=bgpEdges().map(([ce,up,id])=>{const l=bgpLink(ce,up,id);return{id:'wan'+id,a:'ce'+(ce+1),b:'isp'+(up+1),aIp:l.ceIp,bIp:l.ispIp,aPort:l.ceIf,bPort:l.ispIf,trafficPolicies:bgpLinkTrafficPolicies(id),localPreference:enabled?+(v(id===preferred?'bgpTeLocalPrefValue':'bgpTeBackupLocalPref')||100):100,prependCount:c('bgpTeInboundEnable')&&c('bgpTePrepend')&&id!==+v('bgpTeInboundPreferredIsp')?Math.max(1,+v('bgpTePrependCount')||3):0};});
  if(v('bgpInternal')==='ibgp')links.push({id:'interconnect',a:'ce1',b:'ce2',aIp:v('bgpIbgpCe1Ip'),bIp:v('bgpIbgpCe2Ip'),aPort:v('bgpIbgpCe1If'),bPort:v('bgpIbgpCe2If'),localPreference:100});
  return {name:'bgp-pilot',image:'quay.io/frrouting/frr:10.7.1',source:'BGP workspace · '+platform()+' · protocol subset',nodes,links,failureLink:links[0].id};
 }
@@ -6579,9 +6607,9 @@ function prepareWorkspaceSimulation(){
  let bgp=null;
  if(tech==='BGP'){
   const nodes=Array.from({length:+v('bgpCeCount')||2},(_,i)=>({id:'ce'+(i+1),hostname:bgpCe(i).name,asn:+v('bgpCustomerAs'),prefix:bgpCe(i).prefix}));
-  for(const i of bgpActiveUpstreams())nodes.push({id:'isp'+(i+1),hostname:bgpIsp(i).name,asn:+bgpIsp(i).asn,prefix:'198.18.255.1/32'});
+  for(let i=0;i<(+v('bgpIspCount')||2);i++)nodes.push({id:'isp'+(i+1),hostname:bgpIsp(i).name,asn:+bgpIsp(i).asn,prefix:'198.18.255.1/32'});
   const preferred=+v('bgpTeOutboundPreferredIsp'),enabled=c('bgpTeOutboundEnable')&&c('bgpTeLocalPref');
-  const links=bgpEdges().map(([ce,up,id])=>({id:'wan'+id,a:'ce'+(ce+1),b:'isp'+(up+1),aIp:bgpLink(ce,up,id).ceIp,bIp:bgpLink(ce,up,id).ispIp,aPort:bgpLink(ce,up,id).ceIf,bPort:bgpLink(ce,up,id).ispIf,localPreference:enabled?+(v(id===preferred?'bgpTeLocalPrefValue':'bgpTeBackupLocalPref')||100):100,prependCount:c('bgpTeInboundEnable')&&c('bgpTePrepend')&&id!==+v('bgpTeInboundPreferredIsp')?Math.max(1,+v('bgpTePrependCount')||3):0}));
+  const links=bgpEdges().map(([ce,up,id])=>({id:'wan'+id,a:'ce'+(ce+1),b:'isp'+(up+1),aIp:bgpLink(ce,up,id).ceIp,bIp:bgpLink(ce,up,id).ispIp,aPort:bgpLink(ce,up,id).ceIf,bPort:bgpLink(ce,up,id).ispIf,trafficPolicies:bgpLinkTrafficPolicies(id),localPreference:enabled?+(v(id===preferred?'bgpTeLocalPrefValue':'bgpTeBackupLocalPref')||100):100,prependCount:c('bgpTeInboundEnable')&&c('bgpTePrepend')&&id!==+v('bgpTeInboundPreferredIsp')?Math.max(1,+v('bgpTePrependCount')||3):0}));
   if(v('bgpInternal')==='ibgp'&&+v('bgpCeCount')===2)links.push({id:'interconnect',a:'ce1',b:'ce2',aIp:v('bgpIbgpCe1Ip'),bIp:v('bgpIbgpCe2Ip'),aPort:v('bgpIbgpCe1If'),bPort:v('bgpIbgpCe2If'),localPreference:100});
   const idMap=new Map(report.devices.map(d=>[d.id,nodes.find(n=>n.hostname===d.hostname)?.id||d.id]));
   report.configurations=report.configurations.map(c=>({...c,deviceId:idMap.get(c.deviceId)||c.deviceId}));
