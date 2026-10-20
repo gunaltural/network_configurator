@@ -117,6 +117,7 @@ jobs:
             /tmp/bgp-browser-smoke.png
             /tmp/bgp-design-traffic-*.png
             /tmp/bgp-restored-parameters.png
+            /tmp/bgp-connection-policies.png
             /tmp/port-topology-*.png
             /tmp/port-support-topology.png
           if-no-files-found: ignore
@@ -135,9 +136,9 @@ jobs:
             if curl --fail --silent http://127.0.0.1:18080/healthz >/dev/null; then break; fi
             sleep 2
           done
-          curl --fail --silent --show-error http://127.0.0.1:18080/healthz | python -c 'import json,sys; p=json.load(sys.stdin); assert p["ok"] is True and p["simulator_ready"] is True; assert p["version"]=="5.55.1", p'
-          curl --fail --silent --show-error http://127.0.0.1:18080/bgp-traffic-policy.js | python -c 'import sys; p=sys.stdin.read(); assert "BgpTrafficPolicy" in p and "bgp-rule-header" in p'
-          curl --fail --silent --show-error http://127.0.0.1:18080/ | python -c 'import sys; p=sys.stdin.read(); assert "bgpLegacyLayout" in p and "bgpOutboundTeCard" in p and "bgpTab-traffic" not in p'
+          curl --fail --silent --show-error http://127.0.0.1:18080/healthz | python -c 'import json,sys; p=json.load(sys.stdin); assert p["ok"] is True and p["simulator_ready"] is True; assert p["version"]=="5.55.2", p'
+          curl --fail --silent --show-error http://127.0.0.1:18080/bgp-traffic-policy.js | python -c 'import sys; p=sys.stdin.read(); assert "BgpTrafficPolicy" in p and "bgp-policy-line-head" in p'
+          curl --fail --silent --show-error http://127.0.0.1:18080/ | python -c 'import sys; p=sys.stdin.read(); assert "bgpLegacyLayout" in p and "bgpOutboundTeCard" in p and "bgpAddTrafficPolicy" in p and "bgpAddInboundPolicy" in p and "bgpTab-traffic" not in p'
           curl --fail --silent --show-error http://127.0.0.1:18080/api/port-mapping/samples | python -c 'import json,sys; p=json.load(sys.stdin); assert p["synthetic"] is True and len(p["files"])==2; assert all("SYNTHETIC DEMONSTRATION ONLY" in f["text"] for f in p["files"])'
           curl --fail --silent --show-error http://127.0.0.1:18080/port-mapping | python -c 'import sys; assert "pmSupportCoverage" in sys.stdin.read()'
           curl --fail --silent --show-error http://127.0.0.1:18080/port-mapping-sample.zip | python -c 'import sys,io,zipfile; z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())); assert len(z.namelist())==3; assert b"SYNTHETIC DEMONSTRATION ONLY" in z.read("CORE-01-show-tech-support.txt")'
