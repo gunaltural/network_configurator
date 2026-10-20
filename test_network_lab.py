@@ -18,6 +18,21 @@ class LabTests(unittest.TestCase):
         for mutate in [lambda d:d['links'][0].update(aIp='172.16.0.0/30'),lambda d:d['links'][1].update(aIp='172.16.0.1/30',bIp='172.16.0.2/30'),lambda d:d.update(failureLink='missing'),lambda d:d['nodes'][0].update(hostname='$(touch x)'),lambda d:d['nodes'][3].update(prefix='198.19.0.1/32')]:
             d=model();mutate(d)
             with self.assertRaises(ValueError):Lab(**d)
+
+    def test_prefix_scoped_traffic_policies(self):
+        d=model();d['links'][0]['trafficPolicies']=[
+            {'direction':'import','prefixes':['198.18.255.1/32'],'localPreference':450},
+            {'direction':'export','prefixes':['10.10.0.0/24'],'prependCount':3,'med':80,'communities':['65001:11','65001:12']},
+        ]
+        data,_=build(Lab(**d))
+        with zipfile.ZipFile(io.BytesIO(data)) as z:
+            cfg=z.read('configs/ce1/frr.conf').decode()
+        self.assertIn('set local-preference 450',cfg)
+        self.assertIn('set local-preference 250',cfg)
+        self.assertIn('set as-path prepend 65001 65001 65001',cfg)
+        self.assertIn('set community 65001:11 65001:12 additive',cfg)
+        self.assertIn('route-map LP-wan1 permit 65000',cfg)
+        self.assertIn('route-map OUT-wan1 out',cfg)
     def test_routes_auth_and_export(self):
         from app import app
         from fastapi.testclient import TestClient

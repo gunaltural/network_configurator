@@ -49,5 +49,7 @@
  $('compareDownload').onclick=()=>{if(result)download(result.diff||'# No differences under the selected options.\n','text/plain;charset=utf-8','configuration-comparison.diff');};$('compareDownloadJson').onclick=()=>{if(result)download(JSON.stringify(result,null,2),'application/json','configuration-comparison.json');};
  $('compareSwap').onclick=()=>{generation.left++;generation.right++;const text=$('leftText').value,label=$('leftLabel').value;$('leftText').value=$('rightText').value;$('leftLabel').value=$('rightLabel').value;$('rightText').value=text;$('rightLabel').value=label;for(const s of ['left','right']){$(s+'DeviceLabel').hidden=true;$(s+'Library').hidden=true;sources[s]=[];updateInfo(s);}invalidate();};
  $('compareClear').onclick=()=>{for(const s of ['left','right']){generation[s]++;$(s+'Text').value='';$(s+'Label').value=s==='left'?'Baseline':'Candidate';$(s+'DeviceLabel').hidden=true;$(s+'Library').hidden=true;sources[s]=[];updateInfo(s);}invalidate();status('Both sources cleared.');};
+ const transferred=read('networkConfigurator.compare.baseline');
+ if(transferred&&typeof transferred.text==='string'&&transferred.text.trim()&&transferred.text.length<=LIMIT){setText('left',transferred.text,transferred.label||'Generated configuration');sessionStorage.removeItem('networkConfigurator.compare.baseline');status('Displayed configuration loaded into Baseline. Add the candidate configuration to compare.');}
  window.NetworkConfigCompare={extract,payload};
 })();

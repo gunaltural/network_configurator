@@ -5,6 +5,10 @@ on:
       - "simulation/**"
       - "Dockerfile"
       - "synthetic-bgp.js"
+      - "bgp-traffic-policy.js"
+      - "test_bgp_traffic_policy.cjs"
+      - "test_bgp_traffic_browser.mjs"
+      - "config-compare.js"
       - "synthetic-lab.js"
       - "network-lab.html"
       - "network-discovery.js"
@@ -70,6 +74,7 @@ jobs:
           AUTH_ENABLED: '0'
         run: |
           node test_synthetic_bgp.cjs
+          node test_bgp_traffic_policy.cjs
           python -m unittest test_simulation_report test_authentication -q
       - name: Shared module simulation engine and actual DOM transfers
         run: node simulation/test_protocol_report.cjs && node simulation/test_workspace_engine.cjs && node simulation/test_pair_behavior.cjs && node simulation/test_workspace_dom.cjs
@@ -92,6 +97,7 @@ jobs:
             sleep 1
           done
           node test_project_workflow_browser.mjs
+          node test_bgp_traffic_browser.mjs
           node test_port_mapping_browser.mjs
           node simulation/test_browser_smoke.mjs
           node simulation/test_workspace_browser.mjs
@@ -125,7 +131,8 @@ jobs:
             if curl --fail --silent http://127.0.0.1:18080/healthz >/dev/null; then break; fi
             sleep 2
           done
-          curl --fail --silent --show-error http://127.0.0.1:18080/healthz | python -c 'import json,sys; p=json.load(sys.stdin); assert p["ok"] is True and p["simulator_ready"] is True; assert p["version"]=="5.53.3", p'
+          curl --fail --silent --show-error http://127.0.0.1:18080/healthz | python -c 'import json,sys; p=json.load(sys.stdin); assert p["ok"] is True and p["simulator_ready"] is True; assert p["version"]=="5.54.0", p'
+          curl --fail --silent --show-error http://127.0.0.1:18080/bgp-traffic-policy.js | python -c 'import sys; assert "BgpTrafficPolicy" in sys.stdin.read()'
           curl --fail --silent --show-error http://127.0.0.1:18080/api/port-mapping/samples | python -c 'import json,sys; p=json.load(sys.stdin); assert p["synthetic"] is True and len(p["files"])==2; assert all("SYNTHETIC DEMONSTRATION ONLY" in f["text"] for f in p["files"])'
           curl --fail --silent --show-error http://127.0.0.1:18080/port-mapping | python -c 'import sys; assert "pmSupportCoverage" in sys.stdin.read()'
           curl --fail --silent --show-error http://127.0.0.1:18080/port-mapping-sample.zip | python -c 'import sys,io,zipfile; z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())); assert len(z.namelist())==3; assert b"SYNTHETIC DEMONSTRATION ONLY" in z.read("CORE-01-show-tech-support.txt")'

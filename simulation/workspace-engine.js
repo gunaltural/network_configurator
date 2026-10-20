@@ -156,7 +156,10 @@ function evaluate(model,state={},options={}){
   const candidates=[];
   for(const l of b.links){const ce=[l.a,l.b].find(id=>id.startsWith('ce')),isp=[l.a,l.b].find(id=>id.startsWith('isp'));if(!ce||!isp||dn.includes(isp)||dn.includes(ce)||dl.includes(l.id))continue;
    const route=shortest(internal,options.direction==='inbound'?owner:start,ce,dn,dl);if(!route)continue;
-   const policy=options.policies?.[l.id]||l;
+   const resolver=root.BgpTrafficPolicy||(typeof require==='function'?require('../bgp-traffic-policy.js'):null);
+   if(l.trafficPolicies?.length&&!resolver)throw Error('Reload the simulator to load BGP traffic policy support.');
+   const prefix=options.direction==='inbound'?b.nodes.find(n=>n.id===owner)?.prefix:b.nodes.find(n=>n.id===isp)?.prefix;
+   const policy={...(resolver?resolver.resolve(l,options.direction==='inbound'?'export':'import',prefix):l),...(options.policies?.[l.id]||{})};
    candidates.push({nodes:options.direction==='inbound'?[isp,...route.nodes.slice().reverse()]:[...route.nodes,isp],links:options.direction==='inbound'?[l.id,...route.links.slice().reverse()]:[...route.links,l.id],localPreference:Number(policy.localPreference??l.localPreference),prependCount:Number(policy.prependCount??l.prependCount??0),externalLink:l.id});
   }
   candidates.sort((a,b)=>options.direction==='inbound'?a.prependCount-b.prependCount||a.externalLink.localeCompare(b.externalLink):b.localPreference-a.localPreference||a.links.length-b.links.length||a.externalLink.localeCompare(b.externalLink));

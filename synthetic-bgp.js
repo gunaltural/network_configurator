@@ -1,6 +1,8 @@
 /* Deterministic design model: no network OS, packets, real sessions or timers. */
 (function(root){'use strict';
 function evaluate(model,downNodes=[],downLinks=[],options={}){
+ const policy=root.BgpTrafficPolicy||(typeof require==='function'?require('./bgp-traffic-policy.js'):null);
+ const attributes=(link,direction,route)=>{if(link.trafficPolicies?.length&&!policy)throw Error('BGP traffic policy support is unavailable. Reload the simulator.');return policy?policy.resolve(link,direction,route):link;};
  const nodes=new Map(model.nodes.map(n=>[n.id,n])),failedNodes=new Set(downNodes),failedLinks=new Set(downLinks);
  if(nodes.size!==4||nodes.size!==model.nodes.length||!nodes.has('ce1')||!nodes.has('ce2')||!nodes.has('isp1')||!nodes.has('isp2'))throw Error('The pilot requires unique ce1, ce2, isp1 and isp2 devices.');
  if([...nodes.values()].some(n=>!Number.isInteger(n.asn)||n.asn<1||n.asn>4294967295))throw Error('Use valid integer AS numbers.');
@@ -17,7 +19,7 @@ function evaluate(model,downNodes=[],downLinks=[],options={}){
   const candidates=[];
   for(const l of model.links){if(!active(l))continue;const exit=[l.a,l.b].find(n=>n.startsWith('ce')),isp=[l.a,l.b].find(n=>n.startsWith('isp'));if(!exit||!isp)continue;
    let internal=null;if(exit!==source){internal=model.links.find(x=>active(x)&&[x.a,x.b].includes(source)&&[x.a,x.b].includes(exit));if(!internal)continue;}
-   candidates.push({nodes:internal?[source,exit,isp]:[source,isp],links:internal?[internal.id,l.id]:[l.id],exit,isp,localPreference:l.localPreference,asPath:[nodes.get(isp).asn],externalLink:l.id});
+   candidates.push({nodes:internal?[source,exit,isp]:[source,isp],links:internal?[internal.id,l.id]:[l.id],exit,isp,localPreference:attributes(l,'import',nodes.get(isp).prefix).localPreference,asPath:[nodes.get(isp).asn],externalLink:l.id});
   }
   candidates.sort((a,b)=>b.localPreference-a.localPreference||a.links.length-b.links.length||a.externalLink.localeCompare(b.externalLink));
   return {source,state:candidates.length?'reachable':'no-path',candidates,selected:candidates[0]||null};
@@ -29,7 +31,8 @@ function evaluate(model,downNodes=[],downLinks=[],options={}){
   const candidates=[];
   for(const l of model.links){if(!active(l)||![l.a,l.b].includes(source))continue;const entry=[l.a,l.b].find(id=>id.startsWith('ce'));if(!entry||failedNodes.has(target))continue;
    const internal=entry===target?null:model.links.find(x=>active(x)&&[x.a,x.b].includes(entry)&&[x.a,x.b].includes(target));if(entry!==target&&!internal)continue;
-   candidates.push({nodes:internal?[source,entry,target]:[source,entry],links:internal?[l.id,internal.id]:[l.id],entry,isp:source,externalLink:l.id,prependCount:l.prependCount??0,asPath:Array(1+(l.prependCount??0)).fill(owner.asn)});
+   const count=attributes(l,'export',owner.prefix).prependCount??0;
+   candidates.push({nodes:internal?[source,entry,target]:[source,entry],links:internal?[l.id,internal.id]:[l.id],entry,isp:source,externalLink:l.id,prependCount:count,asPath:Array(1+count).fill(owner.asn)});
   }
   candidates.sort((a,b)=>a.asPath.length-b.asPath.length||a.externalLink.localeCompare(b.externalLink));
   return {source,state:candidates.length?'reachable':'no-path',candidates,selected:candidates[0]||null};
@@ -52,8 +55,9 @@ function evaluate(model,downNodes=[],downLinks=[],options={}){
    if(!entry)return [];
    // Both healthy CEs directly attach to and advertise the shared client LAN.
    // CE-owned prefixes retain their separate interconnect dependency in inboundRoutes.
-   return [{entry,isp,externalLink:l.id,prependCount:l.prependCount??0,
-    asPath:Array(1+(l.prependCount??0)).fill(nodes.get(entry).asn),
+   const count=attributes(l,'export',clientPrefix).prependCount??0;
+   return [{entry,isp,externalLink:l.id,prependCount:count,
+    asPath:Array(1+count).fill(nodes.get(entry).asn),
     nodes:['internet',isp,entry,'lan','client'],
     links:['internet-'+isp,l.id,'lan-'+entry,'client-lan']}];
   });

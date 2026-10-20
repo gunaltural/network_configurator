@@ -53,12 +53,16 @@ function evaluate({module,platform,fields:f={}}){
    }
    check('bgp-no-links',['bgpConnectionsData'],active.length>0,'Add and enable at least one external connection.');
    for(let c=0;c<ce;c++)check('bgp-unattached-ce',['bgpCeCount'],active.some(r=>r.ce===c),`CE-${c+1}: no external connection is enabled. Indirect reachability requires working internal transport.`,'warning');
-   for(let i=0;i<isp;i++)check('bgp-unused-upstream',['bgpIspCount'],active.some(r=>r.up===i),`External router ${i+1} has no enabled connection and is omitted from the topology.`,'warning');
+   for(let i=0;i<isp;i++)check('bgp-unused-upstream',['bgpIspCount'],active.some(r=>r.up===i),`External router ${i+1} has no enabled connection and is shown without an external circuit.`,'warning');
   }
   for(let i=1;i<=ce;i++){const id=`bgpCe${i}Prefix`,a=address(id,false);if(a)check('network-prefix',[id],a.ip===a.network,`${id}: the advertised prefix must use the network address.`);}
   if(ce===2&&value('bgpInternal')==='ibgp'){pair('bgpIbgpCe1Ip','bgpIbgpCe2Ip');reserve('bgpIbgpCe1If','CE-1');reserve('bgpIbgpCe2If','CE-2');}
   if(ce>2&&value('bgpInternal')==='ibgp')add('bgp-ibgp-transport',['bgpInternal'],'Logical full-mesh iBGP requires independently provided loopback and next-hop reachability. This workspace does not generate the internal transport for three or four CEs.','warning');
   if(on('bgpTeOutboundEnable')&&on('bgpTeLocalPref')){integer('bgpTeLocalPrefValue',0,4294967295);integer('bgpTeBackupLocalPref',0,4294967295);check('local-preference',['bgpTeLocalPrefValue','bgpTeBackupLocalPref'],num('bgpTeLocalPrefValue')>num('bgpTeBackupLocalPref'),'Preferred ISP Local Preference must exceed Backup Local Preference to express the selected preference.','warning');}
+  if(on('bgpMaxPrefix'))integer('bgpMaxPrefixValue',1,4294967295);
+  if(on('bgpTeInboundEnable')&&on('bgpTePrepend'))integer('bgpTePrependCount',1,10);
+  if(on('bgpTeInboundEnable')&&on('bgpTeMed')){integer('bgpTePreferredMed',0,4294967295);integer('bgpTeBackupMed',0,4294967295);}
+  if(has('bgpTrafficPoliciesData')&&root.BgpTrafficPolicy){try{const connections=JSON.parse(value('bgpConnectionsData')||'[]');root.BgpTrafficPolicy.read(value('bgpTrafficPoliciesData'),connections.filter(r=>r.enabled!==false).map(r=>r.id));}catch(error){add('bgp-traffic-policy',['bgpTrafficPoliciesData'],error.message);}}
  }else if(module==='OSPF'){
   names(['d1host','d2host']);routerIds(['d1rid','d2rid']);pair('d1ip','d2ip');reserve('d1if','Device-1');reserve('d2if','Device-2');integer('ospfCost',1,65535);
   const area=ipv4(value('ospfArea'));check('ospf-area',['ospfArea'],area!==null||/^\d+$/.test(value('ospfArea'))&&num('ospfArea')<=4294967295,'OSPF Area: use a 32-bit decimal value or dotted IPv4 notation.');

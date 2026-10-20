@@ -2,6 +2,7 @@
 import io,json,ipaddress,zipfile,hashlib
 from pathlib import Path
 from pydantic import BaseModel,Field,model_validator
+from typing import Literal
 from fastapi.responses import HTMLResponse,Response,StreamingResponse
 from fastapi import HTTPException
 from simulation_report import SimulationExport,build_simulation_docx
@@ -11,6 +12,24 @@ class Router(BaseModel):
     hostname: str=Field(min_length=1,max_length=64,pattern=r'^[a-zA-Z0-9][a-zA-Z0-9_.-]*$')
     asn: int=Field(ge=1,le=4294967295)
     prefix: str
+class TrafficPolicy(BaseModel):
+    direction: Literal['import','export']
+    prefixes: list[str]=Field(default_factory=list,max_length=64)
+    localPreference: int | None=Field(default=None,ge=0,le=4294967295)
+    prependCount: int | None=Field(default=None,ge=0,le=10)
+    med: int | None=Field(default=None,ge=0,le=4294967295)
+    communities: list[str]=Field(default_factory=list,max_length=32)
+
+    @model_validator(mode='after')
+    def validate_policy(self):
+        for value in self.prefixes:ipaddress.IPv4Network(value,strict=True)
+        for value in self.communities:
+            pieces=value.split(':')
+            if len(pieces)!=2 or any(not n.isdigit() or not 0<=int(n)<=65535 for n in pieces):raise ValueError('Use standard ASN:value communities.')
+        if self.direction=='export' and self.localPreference is not None:raise ValueError('Local Preference is an import attribute.')
+        if self.direction=='import' and self.prependCount is not None:raise ValueError('Prepend is an export attribute.')
+        return self
+
 class Link(BaseModel):
     id: str=Field(pattern=r'^[a-zA-Z0-9_-]{1,40}$')
     a: str
@@ -18,6 +37,8 @@ class Link(BaseModel):
     aIp: str
     bIp: str
     localPreference: int=Field(default=100,ge=0,le=4294967295)
+    prependCount: int=Field(default=0,ge=0,le=10)
+    trafficPolicies: list[TrafficPolicy]=Field(default_factory=list,max_length=64)
 class Lab(BaseModel):
     name: str=Field(default='bgp-pilot',pattern=r'^[a-z][a-z0-9-]{0,30}$')
     nodes: list[Router]=Field(min_length=4,max_length=4)
@@ -54,8 +75,30 @@ class Lab(BaseModel):
         if len({l.id for l in self.links})!=len(self.links) or self.failureLink not in {l.id for l in self.links if l.a.startswith('ce') and l.b.startswith('isp') or l.b.startswith('ce') and l.a.startswith('isp')}:raise ValueError('Select a unique external failure link.')
         return self
 
+def frr_policy(link,direction,asn):
+    name=('LP-' if direction=='import' else 'OUT-')+link.id
+    selected=[r for r in link.trafficPolicies if r.direction==direction]
+    baseline={'localPreference':link.localPreference} if direction=='import' else {'prependCount':link.prependCount}
+    rows=[]
+    for i,r in enumerate(selected):
+        attrs={**baseline,**r.model_dump(exclude_none=True)}
+        rows.append(((i+1)*10,r.prefixes,attrs))
+    rows.append((65000 if selected else 10,[],baseline))
+    lines=[]
+    for sequence,prefixes,attrs in rows:
+        prefix_name=f'PL-{name}-{sequence}'
+        for i,value in enumerate(prefixes):lines.append(f'ip prefix-list {prefix_name} seq {(i+1)*10} permit {value}')
+        lines.append(f'route-map {name} permit {sequence}')
+        if prefixes:lines.append(f' match ip address prefix-list {prefix_name}')
+        if attrs.get('localPreference') is not None:lines.append(f" set local-preference {attrs['localPreference']}")
+        if attrs.get('prependCount'):lines.append(' set as-path prepend '+' '.join([str(asn)]*attrs['prependCount']))
+        if attrs.get('med') is not None:lines.append(f" set metric {attrs['med']}")
+        if attrs.get('communities'):lines.append(' set community '+' '.join(attrs['communities'])+' additive')
+        lines.append('!')
+    return lines
+
 def build(lab):
-    nodes={n.id:n for n in lab.nodes};ports={n:[] for n in nodes};links=[]
+    nodes={n.id:n for n in lab.nodes};ports={n:[] for n in nodes};links=[];by_link={l.id:l for l in lab.links}
     for l in lab.links:
         pa=f'eth{len(ports[l.a])+1}';pb=f'eth{len(ports[l.b])+1}'
         ports[l.a].append((pa,l.aIp,l.b,l.bIp,l.localPreference,l.id));ports[l.b].append((pb,l.bIp,l.a,l.aIp,l.localPreference,l.id))
@@ -72,10 +115,15 @@ def build(lab):
             if id.startswith('ce') and peer.startswith('ce'):config += [f' neighbor {ip} next-hop-self']
         config += [' address-family ipv4 unicast',f'  network {n.prefix}']
         for port,addr,peer,peerip,lp,lid in ports[id]:
-            if id.startswith('ce') and peer.startswith('isp'):config += [f'  neighbor {ipaddress.IPv4Interface(peerip).ip} route-map LP-{lid} in']
+            if id.startswith('ce') and peer.startswith('isp'):
+                config += [f'  neighbor {ipaddress.IPv4Interface(peerip).ip} route-map LP-{lid} in']
+                link=by_link[lid]
+                if link.prependCount or any(r.direction=='export' for r in link.trafficPolicies):config += [f'  neighbor {ipaddress.IPv4Interface(peerip).ip} route-map OUT-{lid} out']
         config += [' exit-address-family','!']
         for port,addr,peer,peerip,lp,lid in ports[id]:
-            if id.startswith('ce') and peer.startswith('isp'):config += [f'route-map LP-{lid} permit 10',f' set local-preference {lp}','!']
+            if id.startswith('ce') and peer.startswith('isp'):
+                link=by_link[lid];config += frr_policy(link,'import',n.asn)
+                if link.prependCount or any(r.direction=='export' for r in link.trafficPolicies):config += frr_policy(link,'export',n.asn)
         files[f'configs/{id}/frr.conf']='\n'.join(config)+'\n';files[f'configs/{id}/vtysh.conf']='service integrated-vtysh-config\n'
         files[f'configs/{id}/daemons']='zebra=yes\nbgpd=yes\nstaticd=no\nvtysh_enable=yes\n'
     selected=next(l for l in lab.links if l.id==lab.failureLink);ce=selected.a if selected.a.startswith('ce') else selected.b

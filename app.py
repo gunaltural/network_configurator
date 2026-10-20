@@ -46,7 +46,7 @@ from config_compare import install_config_compare
 from network_lab import install_network_lab
 from lab_gateway import install_lab_gateway
 
-VERSION = "5.53.3"
+VERSION = "5.54.0"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
 # Keep the diagnostic entry point available with the authenticated page itself.
@@ -876,6 +876,11 @@ def vpc_report_guide():
 @app.get("/huawei-istack.js")
 def huawei_istack_script():
     return Response((BASE_DIR / "huawei-istack.js").read_text(encoding="utf-8"), media_type="application/javascript", headers={"Cache-Control": "no-cache"})
+
+
+@app.get("/bgp-traffic-policy.js")
+def bgp_traffic_policy_script():
+    return Response((BASE_DIR / "bgp-traffic-policy.js").read_text(encoding="utf-8"), media_type="application/javascript", headers={"Cache-Control": "no-cache"})
 
 
 @app.get("/corporate-theme.css")
