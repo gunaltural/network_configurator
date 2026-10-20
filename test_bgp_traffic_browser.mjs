@@ -9,6 +9,30 @@ try{
  await page.goto(base+'/');
  await page.locator('#v3TechGrid button').filter({has:page.locator('h3',{hasText:'BGP'})}).click();
  assert.equal(await page.locator('#bgpMaxPrefix').isChecked(),false);
+ for(const vendor of ['Cisco IOS-XE','Cisco NX-OS','Arista EOS','Huawei_CE_SW','FortiGate']){
+  await page.locator('#platform').selectOption(vendor);
+  assert.equal(await page.locator('#bgpMaxPrefixField').isVisible(),true,'Maximum-prefix threshold stays discoverable when disabled');
+  assert.equal(await page.locator('#bgpMaxPrefixValue').isDisabled(),true);
+  await page.locator('#bgpMaxPrefix').check();await page.locator('#bgpMaxPrefixValue').fill('15000');
+  await page.waitForFunction(()=>/(?:maximum-prefix|maximum-routes|route-limit) 15000/.test(document.getElementById('output').textContent));
+  await page.locator('#bgpMaxPrefix').uncheck();
+  assert.ok(!/maximum-prefix|maximum-routes|route-limit/.test(await page.locator('#output').textContent()));
+  for(const [i,direction,value,connection]of [[0,'import','310','1'],[1,'import','410','2'],[2,'export','2','1'],[3,'export','5','2']]){
+   await page.locator(direction==='import'?'#bgpAddTrafficPolicy':'#bgpAddInboundPolicy').click();
+   const row=page.locator('[data-traffic-policy="'+i+'"]');
+   assert.equal(await row.locator('[data-policy-field="enabled"]').isChecked(),true);
+   assert.equal(await row.locator('[data-policy-field="direction"]').inputValue(),direction);
+   assert.equal(await row.locator('xpath=..').getAttribute('id'),direction==='import'?'bgpOutboundPolicyRows':'bgpInboundPolicyRows');
+   await row.locator('[data-policy-field="connection"]').selectOption(connection);
+   await row.locator('[data-policy-field="'+(direction==='import'?'localPreference':'prependCount')+'"]').fill(value);
+  }
+  const config=await page.locator('#output').textContent();
+  assert.match(config,/(?:local-preference|set-local-preference) 310/);assert.match(config,/(?:local-preference|set-local-preference) 410/);
+  assert.match(config,/(?:prepend|as-path|aspath).*65001 65001/);assert.match(config,/(?:prepend|as-path|aspath).*65001 65001 65001 65001 65001/);
+  while(await page.locator('[data-traffic-policy]').count())await page.locator('[data-traffic-policy] button').filter({hasText:'Remove policy'}).first().click();
+ }
+ await page.locator('#platform').selectOption('Cisco IOS-XE');
+
  await page.locator('#bgpAddUpstream').click();
  await page.locator('[data-bgp-device="isp3"][data-bgp-connected="false"]').waitFor();
  assert.equal(await page.locator('[data-bgp-connection]').count(),2);

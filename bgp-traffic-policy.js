@@ -79,12 +79,21 @@
     host.dataset.signature = signature;
     let rows; try { rows = JSON.parse(data.value || '[]'); if (!Array.isArray(rows)) return; } catch { return; }
     const save = (redraw = false) => { data.value = JSON.stringify(rows); if (!redraw) host.dataset.signature = data.value + JSON.stringify(connections); else delete host.dataset.signature; onChange(); };
-    host.replaceChildren();
-    add.disabled = rows.length >= 64;
-    add.onclick = () => { rows.push({ enabled: false, connection: connections[0]?.id || 'all', direction: 'import', prefixes: '', localPreference: '', prependCount: '', med: '', communities: '' }); save(true); };
+    const outbound = d.getElementById('bgpOutboundPolicyRows'), inbound = d.getElementById('bgpInboundPolicyRows'), addInbound = d.getElementById('bgpAddInboundPolicy');
+    if (outbound && inbound) { outbound.replaceChildren(); inbound.replaceChildren(); } else host.replaceChildren();
+    function addRule(direction) {
+      if (rows.length >= 64) return;
+      const nextConnection = connections.find(c => !rows.some(r => r.enabled !== false && r.direction === direction && String(r.connection) === String(c.id) && !r.prefixes?.length)) || connections[0];
+      rows.push({ enabled: true, connection: String(nextConnection?.id || 'all'), direction, prefixes: '', localPreference: direction === 'import' ? (d.getElementById('bgpTeLocalPrefValue')?.value || '250') : '', prependCount: direction === 'export' ? (d.getElementById('bgpTePrependCount')?.value || '3') : '', med: '', communities: '' });
+      save(true);
+      const input = host.querySelector('[data-traffic-policy="' + (rows.length - 1) + '"] input[data-policy-field="' + (direction === 'import' ? 'localPreference' : 'prependCount') + '"]');
+      input?.scrollIntoView?.({block:'nearest'}); input?.focus();
+    }
+    add.disabled = rows.length >= 64; add.onclick = () => addRule('import');
+    if (addInbound) { addInbound.disabled = rows.length >= 64; addInbound.onclick = () => addRule('export'); }
     rows.forEach((r, index) => {
       const card = d.createElement('div'); card.className = 'bgp-device-card'; card.dataset.trafficPolicy = String(index);
-      const title = d.createElement('h4'); title.textContent = 'Policy ' + (index + 1); card.append(title);
+      const title = d.createElement('h4'); title.textContent = (r.direction === 'export' ? 'AS-path prepend' : 'Local Preference') + ' rule ' + (index + 1); card.append(title);
       const grid = d.createElement('div'); grid.className = 'param-grid'; card.append(grid);
       function field(key, text, options) {
         const label = d.createElement('label'); label.textContent = text;
@@ -100,12 +109,12 @@
         });
         label.append(control); grid.append(label);
       }
-      field('enabled', 'Use policy');
+      field('enabled', 'Enable rule');
       field('connection', 'Connection', [['all', 'All enabled connections'], ...connections.map(c => [String(c.id), c.name]), ...(!connections.some(c => String(c.id) === String(r.connection)) && r.connection !== 'all' ? [[String(r.connection), 'Unavailable connection ' + r.connection]] : [])]);
       field('direction', 'Apply to', [['import', 'Route import · outbound traffic'], ['export', 'Route export · inbound traffic']]);
-      field('prefixes', 'IPv4 prefixes · blank matches all'); field('localPreference', 'Local Preference · optional'); field('prependCount', 'AS-path prepend count · optional'); field('med', 'MED · optional'); field('communities', 'Communities · optional, comma separated');
-      const remove = d.createElement('button'); remove.type = 'button'; remove.textContent = 'Remove policy'; remove.onclick = () => { rows.splice(index, 1); save(true); }; card.append(remove); host.append(card);
-      for (const [offset, text] of [[-1, 'Move up'], [1, 'Move down']]) { const move = d.createElement('button'); move.type = 'button'; move.textContent = text; move.disabled = index + offset < 0 || index + offset >= rows.length; move.onclick = () => { [rows[index], rows[index + offset]] = [rows[index + offset], rows[index]]; save(true); }; card.append(move); }
+      field('prefixes', 'IPv4 prefixes · blank matches all'); if (r.direction === 'export') field('prependCount', 'AS-path prepend count'); else field('localPreference', 'Local Preference'); field('med', 'MED · optional'); field('communities', 'Communities · optional, comma separated');
+      const remove = d.createElement('button'); remove.type = 'button'; remove.className = 'btn'; remove.textContent = 'Remove policy'; remove.onclick = () => { rows.splice(index, 1); save(true); }; card.append(remove); (r.direction === 'export' ? inbound || host : outbound || host).append(card);
+      for (const [offset, text] of [[-1, 'Move up'], [1, 'Move down']]) { const move = d.createElement('button'); move.type = 'button'; move.className = 'btn'; move.textContent = text; move.disabled = index + offset < 0 || index + offset >= rows.length; move.onclick = () => { [rows[index], rows[index + offset]] = [rows[index + offset], rows[index]]; save(true); }; card.append(move); }
     });
   }
   const api = { read, plan, emit, resolve, summary, mount, prefix };

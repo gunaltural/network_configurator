@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Network Configurator v5.54.0</title>
+<title>Network Configurator v5.54.1</title>
 <style>
 :root{
   --bg:#0d1117;--panel:#161b22;--panel2:#1f2630;--line:#2b3440;
@@ -415,7 +415,7 @@ body.nc-simulation-action{padding-bottom:145px}body.nc-simulation-action #topolo
     <div class="logo">NC</div>
     <div><h1>Network Configurator</h1><small>Configure · Validate · Troubleshoot</small></div>
   </div>
-  <div class="badge">Version 5.54.0 · Topology and Simulation</div>
+  <div class="badge">Version 5.54.1 · Topology and Simulation</div>
 </header>
 
 <div class="layout">
@@ -810,13 +810,13 @@ BGP:{
    <label class="check"><input type="checkbox" id="bgpBfd" checked> BFD</label>
    <label class="check"><input type="checkbox" id="bgpNextHop" checked> Next-Hop-Self on iBGP</label>
    <label class="check"><input type="checkbox" id="bgpSendCommunity" checked> Send Community</label>
-   <label class="check"><input type="checkbox" id="bgpMaxPrefix"> Maximum Prefix · optional</label>
  </div>
- <div class="param-grid"><div id="bgpMaxPrefixField"><label>Maximum Prefix</label><input id="bgpMaxPrefixValue" type="number" min="1" max="4294967295" value="12000" disabled></div></div>
 
  <div class="section-title">4 · Traffic Engineering</div>
 
- <div class="te-v39-grid"><div class="te-v39-card" id="bgpOutboundTeCard">
+ <section class="bgp-device-card" id="bgpRouteSafeguard"><h4>Maximum-prefix · optional</h4><div class="checks"><label class="check"><input type="checkbox" id="bgpMaxPrefix"> Enable maximum-prefix limit</label></div><div id="bgpMaxPrefixField"><label for="bgpMaxPrefixValue">Maximum received prefixes per neighbor</label><input id="bgpMaxPrefixValue" type="number" min="1" max="4294967295" value="12000" disabled></div><p class="note">Disabled: no maximum-prefix command is generated. Enable the limit to edit the threshold.</p></section>
+ <h4 id="bgpTrafficPolicyHeading">Local Preference &amp; AS-path policies</h4><p class="note">Keep the baseline values below, or add multiple rules directly in each direction. Select a connection and optional IPv4 prefixes for each rule. For the same connection and prefix, the first matching rule applies.</p><textarea id="bgpTrafficPoliciesData" hidden>[]</textarea>
+ <div class="te-v39-grid" id="bgpTrafficPolicyRows"><div class="te-v39-card" id="bgpOutboundTeCard">
   <h4>Outbound Traffic Engineering</h4><div class="direction">How traffic exits the customer AS</div>
   <div class="checks">
    <label class="check"><input type="checkbox" id="bgpTeOutboundEnable" checked> Enable Outbound TE</label>
@@ -829,7 +829,7 @@ BGP:{
    <div><label>Backup Local Preference</label><input id="bgpTeBackupLocalPref" value="100"></div>
    <div><label>Maximum Paths</label><select id="bgpTeMaxPaths"><option>2</option><option selected>4</option><option>8</option></select></div>
   </div>
-  <p class="note">Outbound TE controls how the customer AS selects its exit path. Local Preference is applied to routes received from the selected ISP.</p>
+  <p class="note">Baseline: preferred and backup Local Preference. Add rules for independent values per connection or prefix.</p><button id="bgpAddTrafficPolicy" type="button" class="btn">+ Add Local Preference rule</button><div id="bgpOutboundPolicyRows"></div>
  </div>
 
  <div class="te-v39-card" id="bgpInboundTeCard">
@@ -848,9 +848,10 @@ BGP:{
    <div><label>Community</label><input id="bgpTeCommunityValue" value="65001:100"></div>
   </div>
   <p class="note">Inbound TE influences how external networks enter the customer AS. The preferred ISP is advertised without prepend; backup advertisements can receive AS-Path Prepend. MED and communities are policy signals and depend on ISP policy.</p>
+ <button id="bgpAddInboundPolicy" type="button" class="btn">+ Add AS-path prepend rule</button><div id="bgpInboundPolicyRows"></div>
  </div></div>
 
- <section aria-labelledby="bgpTrafficPolicyHeading"><h4 id="bgpTrafficPolicyHeading">Traffic policy rules</h4><p class="note">Add independent Local Preference, AS-path prepend, MED and community values per connection and IPv4 prefix. Rules are evaluated top to bottom; the first matching rule applies. Blank attributes inherit the baseline above. Prefixes match exactly; unmatched routes retain the baseline. ECMP maximum paths is an address-family setting.</p><textarea id="bgpTrafficPoliciesData" hidden>[]</textarea><button id="bgpAddTrafficPolicy" type="button">Add traffic policy</button><div id="bgpTrafficPolicyRows"></div></section>
+
  <p class="note"><b>Asymmetric design is supported:</b> Outbound Preferred ISP and Inbound Preferred ISP can be different.</p>
  <p class="note">Device cards follow the selected counts. eBGP link cards are derived automatically from the connectivity model; interface and addressing data is entered per physical adjacency.</p>`,
  generate: bgpGenerate
@@ -5186,7 +5187,7 @@ function bgpV39ContextUI(){
  if(mp)mp.closest("div").style.display=window.c("bgpTeEcmp")?"":"none";
  const cv=document.getElementById("bgpTeCommunityValue");
  if(cv)cv.closest("div").style.display=window.c("bgpTeCommunity")?"":"none";
- const maxPrefix=document.getElementById('bgpMaxPrefixValue');if(maxPrefix){maxPrefix.disabled=!c('bgpMaxPrefix');document.getElementById('bgpMaxPrefixField').hidden=!c('bgpMaxPrefix');}
+ const maxPrefix=document.getElementById('bgpMaxPrefixValue');if(maxPrefix){maxPrefix.disabled=!c('bgpMaxPrefix');document.getElementById('bgpMaxPrefixField').hidden=false;}
  window.BgpTrafficPolicy?.mount({connections:bgpEdges().map(([ce,up,id])=>({id,name:bgpConnectionName(id)+' · '+bgpCe(ce).name+' → '+bgpIsp(up).name})),onChange:()=>{renderOutput();captureWorkspaceModule(tech);}});
 }
 
