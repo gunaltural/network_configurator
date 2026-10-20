@@ -11,31 +11,57 @@ try{
  assert.equal(await page.locator('#bgpMaxPrefix').isChecked(),false);
  for(const vendor of ['Cisco IOS-XE','Cisco NX-OS','Arista EOS','Huawei_CE_SW','FortiGate']){
   await page.locator('#platform').selectOption(vendor);
+  await page.locator('#bgpSafeguardShortcut').click();
+  assert.equal(await page.locator('#bgpTab-safeguards').getAttribute('aria-selected'),'true');
   assert.equal(await page.locator('#bgpMaxPrefixField').isVisible(),true,'Maximum-prefix threshold stays discoverable when disabled');
   assert.equal(await page.locator('#bgpMaxPrefixValue').isDisabled(),true);
   await page.locator('#bgpMaxPrefix').check();await page.locator('#bgpMaxPrefixValue').fill('15000');
   await page.waitForFunction(()=>/(?:maximum-prefix|maximum-routes|route-limit) 15000/.test(document.getElementById('output').textContent));
   await page.locator('#bgpMaxPrefix').uncheck();
   assert.ok(!/maximum-prefix|maximum-routes|route-limit/.test(await page.locator('#output').textContent()));
-  for(const [i,direction,value,connection]of [[0,'import','310','1'],[1,'import','410','2'],[2,'export','2','1'],[3,'export','5','2']]){
+  await page.locator('#bgpTab-traffic').click();
+  for(const [i,direction,value,connection]of [[0,'import','310','1'],[1,'import','410','1'],[2,'export','2','1'],[3,'export','5','1']]){
    await page.locator(direction==='import'?'#bgpAddTrafficPolicy':'#bgpAddInboundPolicy').click();
    const row=page.locator('[data-traffic-policy="'+i+'"]');
    assert.equal(await row.locator('[data-policy-field="enabled"]').isChecked(),true);
-   assert.equal(await row.locator('[data-policy-field="direction"]').inputValue(),direction);
+   assert.equal(await row.getAttribute('data-policy-direction'),direction);
+   assert.equal(await row.locator('[data-policy-field="direction"]').count(),0,'Panel fixes rule direction; no cross-direction selector');
    assert.equal(await row.locator('xpath=..').getAttribute('id'),direction==='import'?'bgpOutboundPolicyRows':'bgpInboundPolicyRows');
    await row.locator('[data-policy-field="connection"]').selectOption(connection);
+   const prefixes=row.locator('[data-policy-field="prefixes"]');assert.equal(await prefixes.getAttribute('required'),null);
+   await prefixes.fill(['198.18.255.1/32','203.0.113.0/24','10.10.0.0/16','10.20.0.0/16'][i]);
    await row.locator('[data-policy-field="'+(direction==='import'?'localPreference':'prependCount')+'"]').fill(value);
   }
   const config=await page.locator('#output').textContent();
   assert.match(config,/(?:local-preference|set-local-preference) 310/);assert.match(config,/(?:local-preference|set-local-preference) 410/);
   assert.match(config,/(?:prepend|as-path|aspath).*65001 65001/);assert.match(config,/(?:prepend|as-path|aspath).*65001 65001 65001 65001 65001/);
+  assert.equal(await page.locator('[data-traffic-policy][data-policy-state=active]').count(),4,'Distinct prefixes on the same connection remain independent');
+  const first=page.locator('[data-traffic-policy="0"]'),second=page.locator('[data-traffic-policy="1"]');
+  await first.locator('[data-policy-field="prefixes"]').fill('');
+  assert.match(await first.locator('.bgp-rule-status').textContent(),/all IPv4 routes/);
+  assert.equal(await second.getAttribute('data-policy-state'),'warning','Catchall shadowing is explained');
+  await second.getByRole('button',{name:'Move up',exact:true}).click();
+  assert.equal(await page.locator('[data-traffic-policy="0"] [data-policy-field="localPreference"]').inputValue(),'410');
+  assert.equal(await page.locator('#bgpInboundPolicyRows [data-traffic-policy]').count(),2,'Reordering stays inside the selected direction');
+  await page.locator('#bgpTeOutboundEnable').uncheck();
+  assert.equal(await page.locator('#bgpOutboundPolicyRows input[data-policy-field="localPreference"]').first().isDisabled(),true);
+  await page.locator('#bgpTeOutboundEnable').check();
+  assert.equal(await page.locator('#bgpOutboundPolicyRows input[data-policy-field="localPreference"]').first().inputValue(),'410');
+  if(vendor==='Cisco IOS-XE'){
+   await page.locator('#bgpTab-traffic').scrollIntoViewIfNeeded();await page.screenshot({path:'/tmp/bgp-design-traffic-desktop.png'});
+   await page.setViewportSize({width:430,height:932});
+   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'BGP design fits a mobile viewport');
+   await page.locator('#bgpOutboundTeCard').scrollIntoViewIfNeeded();await page.screenshot({path:'/tmp/bgp-design-traffic-mobile.png'});await page.setViewportSize({width:1500,height:1050});
+  }
   while(await page.locator('[data-traffic-policy]').count())await page.locator('[data-traffic-policy] button').filter({hasText:'Remove policy'}).first().click();
  }
  await page.locator('#platform').selectOption('Cisco IOS-XE');
 
+ await page.locator('#bgpTab-topology').click();
  await page.locator('#bgpAddUpstream').click();
  await page.locator('[data-bgp-device="isp3"][data-bgp-connected="false"]').waitFor();
  assert.equal(await page.locator('[data-bgp-connection]').count(),2);
+ await page.locator('#bgpTab-traffic').click();
  await page.locator('#bgpAddTrafficPolicy').click();
  const rule=page.locator('[data-traffic-policy="0"]');
  await rule.locator('[data-policy-field="localPreference"]').fill('333');
@@ -46,7 +72,7 @@ try{
  await page.locator('#outputCompare').click();await page.waitForURL('**/config-compare');
  assert.equal(await page.locator('#leftText').inputValue(),displayed);
  assert.equal(await page.locator('#rightText').inputValue(),'');
- await page.goto(base+'/?resume=1');await page.locator('#bgpTrafficPolicyRows [data-traffic-policy="0"]').waitFor();
+ await page.goto(base+'/?resume=1');await page.locator('#bgpTab-traffic').click();await page.locator('#bgpTrafficPolicyRows [data-traffic-policy="0"]').waitFor();
  assert.equal(await page.locator('[data-traffic-policy="0"] [data-policy-field="localPreference"]').inputValue(),'333');
  await page.evaluate(()=>window.NetworkWorkspaceProject.prepareWorkspaceSimulation());
  await page.goto(base+'/network-lab?workspace=1');await page.locator('#wbPolicies').click();
@@ -78,5 +104,5 @@ try{
  assert.equal(await page.evaluate(()=>window.SyntheticLab.evaluate().routes[0].selected.localPreference),888);
  await page.locator('#syntheticOutboundTab').click();await page.locator('#syntheticDefaultOutbound').click();assert.equal(await pilotOutbound.inputValue(),pilotDefault);
  assert.deepEqual(errors,[]);
- console.log('Chromium BGP: policy editing, unconnected router, exact Compare baseline, persistence, separate directions and Design-derived apply/defaults passed.');
+ console.log('Chromium BGP: five-vendor optional-prefix rules on the same circuit, fixed directions, shadow warnings, direction-local ordering, paused data preservation, mobile layout, maximum-prefix shortcut, persistence, comparison and Design-derived simulation defaults passed.');
 }finally{await browser.close();}

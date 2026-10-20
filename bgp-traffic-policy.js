@@ -74,11 +74,12 @@
   function mount({ connections, onChange }) {
     const d = root.document, data = d.getElementById('bgpTrafficPoliciesData'), host = d.getElementById('bgpTrafficPolicyRows'), add = d.getElementById('bgpAddTrafficPolicy');
     if (!data || !host || !add) return;
-    const signature = data.value + JSON.stringify(connections);
+    const environment = JSON.stringify(connections) + ['Outbound', 'Inbound'].map(side => d.getElementById('bgpTe' + side + 'Enable')?.checked !== false).join();
+    const signature = data.value + environment;
     if (host.dataset.signature === signature) return;
     host.dataset.signature = signature;
     let rows; try { rows = JSON.parse(data.value || '[]'); if (!Array.isArray(rows)) return; } catch { return; }
-    const save = (redraw = false) => { data.value = JSON.stringify(rows); if (!redraw) host.dataset.signature = data.value + JSON.stringify(connections); else delete host.dataset.signature; onChange(); };
+    const save = (redraw = false) => { data.value = JSON.stringify(rows); if (!redraw) { host.dataset.signature = data.value + environment; refreshStatus(); } else delete host.dataset.signature; onChange(); };
     const outbound = d.getElementById('bgpOutboundPolicyRows'), inbound = d.getElementById('bgpInboundPolicyRows'), addInbound = d.getElementById('bgpAddInboundPolicy');
     if (outbound && inbound) { outbound.replaceChildren(); inbound.replaceChildren(); } else host.replaceChildren();
     function addRule(direction) {
@@ -89,33 +90,66 @@
       const input = host.querySelector('[data-traffic-policy="' + (rows.length - 1) + '"] input[data-policy-field="' + (direction === 'import' ? 'localPreference' : 'prependCount') + '"]');
       input?.scrollIntoView?.({block:'nearest'}); input?.focus();
     }
-    add.disabled = rows.length >= 64; add.onclick = () => addRule('import');
-    if (addInbound) { addInbound.disabled = rows.length >= 64; addInbound.onclick = () => addRule('export'); }
+    add.disabled = rows.length >= 64 || !connections.length; add.onclick = () => addRule('import');
+    if (addInbound) { addInbound.disabled = rows.length >= 64 || !connections.length; addInbound.onclick = () => addRule('export'); }
+    const ordinals = {import: 0, export: 0};
     rows.forEach((r, index) => {
-      const card = d.createElement('div'); card.className = 'bgp-device-card'; card.dataset.trafficPolicy = String(index);
-      const title = d.createElement('h4'); title.textContent = (r.direction === 'export' ? 'AS-path prepend' : 'Local Preference') + ' rule ' + (index + 1); card.append(title);
+      const direction = r.direction === 'export' ? 'export' : 'import', ordinal = ++ordinals[direction];
+      const card = d.createElement('div'); card.className = 'bgp-device-card bgp-policy-rule'; card.dataset.trafficPolicy = String(index); card.dataset.policyDirection = direction;
+      const header = d.createElement('div'); header.className = 'bgp-rule-header'; card.append(header);
+      const title = d.createElement('h4'); title.textContent = (direction === 'export' ? 'Inbound' : 'Outbound') + ' rule ' + ordinal; header.append(title);
       const grid = d.createElement('div'); grid.className = 'param-grid'; card.append(grid);
-      function field(key, text, options) {
+      function field(key, text, options, target = grid) {
         const label = d.createElement('label'); label.textContent = text;
         const control = d.createElement(options ? 'select' : 'input'); control.dataset.policyField = key; control.setAttribute('aria-label', text + ' · Policy ' + (index + 1));
         if (options) for (const [value, text] of options) { const option = d.createElement('option'); option.value = value; option.textContent = text; control.append(option); }
-        if (key === 'enabled') { control.type = 'checkbox'; control.checked = r.enabled !== false; } else control.value = r[key] ?? '';
+        if (key === 'enabled') { control.type = 'checkbox'; control.checked = r.enabled !== false; label.className = 'bgp-rule-toggle'; } else control.value = r[key] ?? '';
+        if (key === 'prefixes') control.placeholder = 'Optional · blank matches all IPv4 routes';
+        if (key === 'communities') control.placeholder = '65001:100, 65001:200';
         if (['localPreference', 'prependCount', 'med'].includes(key)) { control.type = 'number'; control.min = '0'; control.max = key === 'prependCount' ? '10' : '4294967295'; }
         if (key === 'localPreference' && r.direction === 'export' || key === 'prependCount' && r.direction !== 'export') control.disabled = true;
         control.addEventListener(options || key === 'enabled' ? 'change' : 'input', () => {
           r[key] = key === 'enabled' ? control.checked : control.value;
-          if (key === 'direction') { if (r.direction === 'import') r.prependCount = ''; else r.localPreference = ''; }
-          save(key === 'direction');
+          save();
         });
-        label.append(control); grid.append(label);
+        label.append(control); if (key === 'prefixes') { const hint = d.createElement('small'); hint.className = 'bgp-field-hint'; hint.textContent = 'Optional. Use one or more exact IPv4 prefixes, separated by commas. Leave blank for all routes.'; label.append(hint); } target.append(label);
       }
-      field('enabled', 'Enable rule');
+      field('enabled', 'Active', undefined, header);
       field('connection', 'Connection', [['all', 'All enabled connections'], ...connections.map(c => [String(c.id), c.name]), ...(!connections.some(c => String(c.id) === String(r.connection)) && r.connection !== 'all' ? [[String(r.connection), 'Unavailable connection ' + r.connection]] : [])]);
-      field('direction', 'Apply to', [['import', 'Route import · outbound traffic'], ['export', 'Route export · inbound traffic']]);
-      field('prefixes', 'IPv4 prefixes · blank matches all'); if (r.direction === 'export') field('prependCount', 'AS-path prepend count'); else field('localPreference', 'Local Preference'); field('med', 'MED · optional'); field('communities', 'Communities · optional, comma separated');
-      const remove = d.createElement('button'); remove.type = 'button'; remove.className = 'btn'; remove.textContent = 'Remove policy'; remove.onclick = () => { rows.splice(index, 1); save(true); }; card.append(remove); (r.direction === 'export' ? inbound || host : outbound || host).append(card);
-      for (const [offset, text] of [[-1, 'Move up'], [1, 'Move down']]) { const move = d.createElement('button'); move.type = 'button'; move.className = 'btn'; move.textContent = text; move.disabled = index + offset < 0 || index + offset >= rows.length; move.onclick = () => { [rows[index], rows[index + offset]] = [rows[index + offset], rows[index]]; save(true); }; card.append(move); }
+      field('prefixes', 'IPv4 prefixes · optional'); if (direction === 'export') field('prependCount', 'AS-path prepend · extra copies'); else field('localPreference', 'Local Preference');
+      const advanced = d.createElement('details'), summary = d.createElement('summary'), advancedGrid = d.createElement('div');
+      advanced.className = 'bgp-rule-advanced'; advanced.open = r.med !== '' && r.med != null || split(r.communities).length > 0;
+      summary.textContent = 'MED & communities · optional'; advancedGrid.className = 'param-grid'; advanced.append(summary, advancedGrid); card.append(advanced);
+      field('med', 'MED', undefined, advancedGrid); field('communities', 'Standard communities', undefined, advancedGrid);
+      const status = d.createElement('p'); status.className = 'bgp-rule-status'; status.setAttribute('role', 'status'); card.append(status);
+      const actions = d.createElement('div'); actions.className = 'bgp-rule-actions'; card.append(actions);
+      const remove = d.createElement('button'); remove.type = 'button'; remove.className = 'btn'; remove.textContent = 'Remove policy'; remove.setAttribute('aria-label', 'Remove ' + title.textContent); remove.onclick = () => { rows.splice(index, 1); save(true); }; actions.append(remove); (direction === 'export' ? inbound || host : outbound || host).append(card);
+      const siblings = rows.map((r, i) => r.direction === direction ? i : -1).filter(i => i >= 0), position = siblings.indexOf(index);
+      for (const [offset, text] of [[-1, 'Move up'], [1, 'Move down']]) { const move = d.createElement('button'); move.type = 'button'; move.className = 'btn'; move.textContent = text; const other = siblings[position + offset]; move.disabled = other === undefined; move.onclick = () => { if (other === undefined) return; [rows[index], rows[other]] = [rows[other], rows[index]]; save(true); }; actions.append(move); }
     });
+    function refreshStatus() {
+      rows.forEach((r, index) => {
+        const card = host.querySelector('[data-traffic-policy="' + index + '"]'), status = card?.querySelector('.bgp-rule-status'); if (!status) return;
+        let state = 'active', text;
+        const directionEnabled = d.getElementById(r.direction === 'export' ? 'bgpTeInboundEnable' : 'bgpTeOutboundEnable')?.checked !== false;
+        if (r.enabled === false || !directionEnabled) { state = 'paused'; text = 'Paused · saved settings are retained and not applied.'; }
+        else try {
+          const rule = read(JSON.stringify([r]), connections.map(c => c.id))[0];
+          const covered = rows.slice(0, index).filter(p => p.enabled !== false && p.direction === r.direction).some(p => {
+            const prefixSet = split(p.prefixes);
+            return (p.connection === 'all' || String(p.connection) === rule.connection) && (!prefixSet.length || rule.prefixes.length && rule.prefixes.every(v => prefixSet.includes(v)));
+          });
+          if (covered) { state = 'warning'; text = 'Shadowed by an earlier rule. Change its connection/prefixes or move this rule up.'; }
+          else text = 'Active · ' + (rule.prefixes.length ? rule.prefixes.length + ' exact prefix' + (rule.prefixes.length === 1 ? '' : 'es') : 'all IPv4 routes') + ' · ' + (rule.localPreference !== undefined ? 'Local Preference ' + rule.localPreference : rule.prependCount !== undefined ? 'prepend +' + rule.prependCount : 'custom attributes');
+        } catch (error) { state = 'error'; text = error.message; }
+        card.dataset.policyState = state; status.textContent = text;
+      });
+      for (const [direction, target] of [['import', outbound], ['export', inbound]]) {
+        if (!target || target.children.length) continue;
+        const empty = d.createElement('p'); empty.className = 'bgp-policy-empty'; empty.textContent = connections.length ? 'No additional rules. All routes use the baseline above.' : 'Add an enabled external connection in Topology & peering before creating rules.'; target.append(empty);
+      }
+    }
+    refreshStatus();
   }
   const api = { read, plan, emit, resolve, summary, mount, prefix };
   root.BgpTrafficPolicy = api;
