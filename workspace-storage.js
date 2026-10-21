@@ -3,7 +3,7 @@
 (function(root){'use strict';
 const MAGIC='~NC-LZW1~',LIMIT=65535,THRESHOLD=8192;
 function pack(text){
- text=String(text);if(text.length<THRESHOLD&&!text.startsWith(MAGIC))return text;
+ text=String(text);if(text.length>33554432)return text;if(text.length<THRESHOLD&&!text.startsWith(MAGIC))return text;
  const dictionary=new Map(),codes=[];let next=256,previous=-1;
  for(let i=0;i<text.length*2;i++){
   const unit=text.charCodeAt(i>>1),byte=i&1?unit>>>8:unit&255;
