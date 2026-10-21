@@ -26,8 +26,8 @@
  const tabItem=(key,label,icon)=>item(label,icon,'data-nc-tab="'+key+'"','/?workspace=BASIC&tab='+key);
  const family=(label,keys)=>'<div class="nc-menu-label">'+label+'</div>'+keys.map(key=>{const label=modules.find(([id])=>id===key)[1];return item(label,key==='BASIC'?'settings':'network','data-nc-module="'+key+'"','/?workspace='+key);}).join('');
  sidebar.innerHTML='<a class="nc-brand" href="/"><span class="nc-brand-mark">NC</span><span>Network<br>Configurator<small>Engineering workspace</small></span></a><nav class="nc-menu" aria-label="Main navigation"><a href="/" class="nc-nav-item" data-nc-home>'+svg('home')+'<span>Dashboard</span></a>'
- +group('Projects','inventory','projects',item('Recent Projects','inventory','data-nc-projects','/?section=projects')+item('Start a Design','network','data-nc-start','/?section=design')+planned('Customers and Sites'))
- +group('Network Design','network','design',family('Routing & WAN',['BGP','OSPF','SDWAN'])+family('Switching & Fabric',['STP','VPC','EVPN'])+family('Network Services',['BASIC','QOS'])+tabItem('notes','Engineering Design Notes','report')+planned('Topology Library'))
+ +group('Projects','inventory','projects',item('Recent Projects','inventory','data-nc-projects','/?section=projects')+item('New Project','network','data-nc-start','/?project=new')+planned('Customers and Sites'))
+ +group('Quick Design','network','design',family('Routing & WAN',['BGP','OSPF','SDWAN'])+family('Switching & Fabric',['STP','VPC','EVPN'])+family('Network Services',['BASIC','QOS'])+tabItem('notes','Engineering Design Notes','report')+planned('Topology Library'))
  +group('Inventory','inventory','inventory',viewItem('inventory','Device Inventory','inventory')+item('Collect via SSH','network','data-nc-collection="automatic"','/reporting?view=inventory&context=inventory&collection=automatic')+item('Manual Entry & Excel','inventory','data-nc-collection="manual"','/reporting?view=inventory&context=inventory&collection=manual')+item('Network Discovery','network','data-nc-discovery','/network-discovery')+item('MAC Port Mapping','network','data-nc-port-mapping','/port-mapping'))
  +group('Implementation & Validation','settings','operations',tabItem('config','Device Configurations','settings')+tabItem('deploy','Configuration Deployment','upgrade')+item('Network Lab & Simulation','network','data-nc-lab','/network-lab')+item('Config Compare','settings','data-nc-compare','/config-compare')+tabItem('verify','Verification Commands','lifecycle')+tabItem('trouble','Troubleshooting','settings')+planned('Configuration Backups')+planned('Acceptance Tests')+planned('Diagnostic History'))
  +group('Reporting','report','reports',viewItem('design','Design Guide & Reporting','report')+item('Verification Evidence','lifecycle','data-nc-evidence','/reporting?view=design&section=evidence')+planned('Report Archive'))
@@ -69,7 +69,7 @@
  }
  const dashboard=document.getElementById('v3Dashboard');
  const workflowSteps=[
-  ['network','Network Design','Select technologies and vendor platforms. Define topology, links and engineering parameters.','Topology · device configurations · design decisions'],
+  ['network','Quick Design','Design and simulate one technology without creating a delivery project.','Topology · device configurations · design decisions'],
   ['inventory','Inventory','Add device records manually, from Excel or over SSH. Green-field inventory can be completed later.','Hostname · product model · serial number · software'],
   ['design','Design and Reporting','Review the project brief, technology scope and selected verification evidence.','Customer report · Word / PDF'],
   ['upgrade','Maintenance and Planning','Review lifecycle and software evidence, then prepare the upgrade and recovery plan.','Lifecycle review · maintenance window · upgrade / rollback plan']
@@ -79,7 +79,7 @@
   const panel=document.createElement('section');panel.className='nc-project-flow';panel.setAttribute('aria-label','Project workflow');
   const heading=document.createElement('div');heading.className='nc-flow-heading';heading.innerHTML='<div><span class="nc-flow-kicker">PROJECT WORKFLOW</span><h2>From network design to maintenance planning</h2></div><span class="nc-flow-note">Guided steps · move freely</span>';
   const nav=document.createElement('nav');nav.className='nc-flow-steps';nav.setAttribute('aria-label','Project steps');
-  workflowSteps.forEach(([key,label],index)=>{const link=document.createElement('a');link.className='nc-flow-step';link.dataset.ncFlowStep=key;link.href=key==='network'?(reporting?'/?resume=1':'/?section=design'):'/reporting?view='+key;
+  workflowSteps.forEach(([key,label],index)=>{const link=document.createElement('a');link.className='nc-flow-step';link.dataset.ncFlowStep=key;link.href=key==='network'?'/?design=quick':'/reporting?view='+key;
    if(main&&key!=='network')link.dataset.ncWorkflowView=key;
    link.innerHTML='<span class="nc-step">0'+(index+1)+'</span><span><strong>'+label+'</strong><small data-nc-flow-status></small></span>';
    link.addEventListener('click',e=>{if(e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;if(key==='network'&&main){e.preventDefault();startDesign();}else if(reporting&&key!=='network'){e.preventDefault();openView(key);}});nav.append(link);
@@ -95,7 +95,7 @@
  }
  function startDesign(){
   if(!main)return;
-  home.click();startGuidance=true;sidebar.querySelector('[data-nc-group="design"]').open=true;sync();
+  if(window.ProjectWorkflow){window.ProjectWorkflow.choose('quick');return;}home.click();startGuidance=true;sidebar.querySelector('[data-nc-group="design"]').open=true;sync();
   workflowPanels[0]?.scrollIntoView({behavior:'smooth',block:'start'});
  }
  function syncWorkflow(onDashboard,view){
