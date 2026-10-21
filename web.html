@@ -2012,7 +2012,7 @@ function ensureSimulationTrigger(){
  host.querySelector('button').onclick=()=>{
   const status=document.getElementById('simulationTransferStatus');status.hidden=true;status.textContent='';
   try{
-   const api=window.NetworkWorkspaceProject;if(!api)throw Error('Technology Workspace is not ready. Reload the page.');
+   const api=window.NetworkWorkspaceProject;if(!api)throw Error('Technology Workspace is not ready. Reload the page.');sessionStorage.removeItem('networkConfigurator.simulation.resume');
    // Preserve the accepted BGP workbench for its original supported 2×2 model.
    if(tech==='BGP'&&+v('bgpCeCount')===2&&+v('bgpIspCount')===2&&bgpEdges().length===4){
     const design=api.prepareSimulation();sessionStorage.setItem('networkConfigurator.lab.bgp',JSON.stringify(design));

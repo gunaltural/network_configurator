@@ -325,12 +325,12 @@ $('syntheticRecord').onclick=()=>{const warnings=[...current.findings],baseline=
  document.dispatchEvent(new Event('network-lab-scenarios-updated'));
 };
 $('labClear').onclick=()=>{records=[];sessionStorage.removeItem(recordKey);updateRecords();document.dispatchEvent(new Event('network-lab-scenarios-updated'));};
-function attach(){
+function attach(write=true){
  let report;try{report=JSON.parse(sessionStorage.getItem('networkConfigurator.report.current')||'null');}catch{}
  if(report?.source?.projectId!==context.projectId||report?.source?.module!==model.module||report?.vendor!==context.report.vendor||report?.source?.generatedAt!==context.report.source.generatedAt)report=JSON.parse(JSON.stringify(context.report));
- const combined=new Map((report.simulationScenarios||[]).map(s=>[s.id,s]));for(const s of records)combined.set(s.id,s);report.simulationScenarios=[...combined.values()].slice(-40);sessionStorage.setItem('networkConfigurator.report.current',JSON.stringify(report));$('labResultStatus').textContent=records.length+' scenario(s) attached to '+model.technology+' report.';
+ const combined=new Map((report.simulationScenarios||[]).map(s=>[s.id,s]));for(const s of records)combined.set(s.id,s);report.simulationScenarios=[...combined.values()].slice(-40);if(!write)return report;sessionStorage.setItem('networkConfigurator.report.current',JSON.stringify(report));$('labResultStatus').textContent=records.length+' scenario(s) attached to '+model.technology+' report.';
 }
-$('labSendEvidence').onclick=attach;$('labContinueReport').onclick=()=>{try{attach();sessionStorage.removeItem('networkConfigurator.report.import');sessionStorage.setItem('networkConfigurator.report.handoff',JSON.stringify({from:'simulation',projectId:context.projectId,scenarioCount:records.length}));location.assign('/reporting?view=design&from=simulation&section=simulation');}catch(e){$('labResultStatus').textContent='Report transfer failed: '+e.message;}};
+window.NetworkLab.reportSnapshot=()=>attach(false);$('labSendEvidence').onclick=()=>attach();$('labContinueReport').onclick=()=>{try{attach();sessionStorage.removeItem('networkConfigurator.report.import');sessionStorage.setItem('networkConfigurator.report.handoff',JSON.stringify({from:'simulation',projectId:context.projectId,scenarioCount:records.length}));location.assign('/reporting?view=design&from=simulation&section=simulation');}catch(e){$('labResultStatus').textContent='Report transfer failed: '+e.message;}};
 const payload=()=>({name:(context.report.name||model.technology)+' simulation',language:$('simulationReportLanguage').value,scenarios:records});
 $('simulationPdf').onclick=()=>{try{window.SimulationReport.print(payload());}catch(e){$('simulationExportStatus').textContent=e.message;}};
 $('simulationWord').onclick=async()=>{try{await window.SimulationReport.word(payload());$('simulationExportStatus').textContent='Word report downloaded.';}catch(e){$('simulationExportStatus').textContent=e.message;}};
@@ -342,5 +342,7 @@ if(isPair)setupPairUi();
 const visualStyle=document.createElement('style');visualStyle.textContent='@keyframes topology-alarm{50%{stroke-opacity:.4}}.topology-alarm{animation:topology-alarm 1.8s ease-in-out infinite}@media(prefers-reduced-motion:reduce){.topology-alarm{animation:none}}';document.head.append(visualStyle);
 for(const legend of document.querySelectorAll('.synthetic-legend')){legend.dataset.workspaceLegend='true';legend.textContent=('→ Selected path')+' · × Failed · Ⅱ Blocked · ? Unverified · ! Partial · ↻ Role changed';}
 visualStyle.textContent+=' .synthetic-legend[data-workspace-legend]{max-width:calc(100% - 52px);white-space:normal;line-height:1.5}';
+window.NetworkLab.checkpoint=()=>JSON.parse(JSON.stringify({engine:'workspace',context,state,source,target,preferredRoot,offeredRate,policies,direction,bgpSource,bgpTarget,records}));
+const resumeKey='networkConfigurator.simulation.resume',saved=JSON.parse(sessionStorage.getItem(resumeKey)||'null');if(saved?.engine==='workspace'&&saved.context?.projectId===context.projectId&&saved.context?.report?.source?.module===model.module){({state,source,target,preferredRoot,offeredRate,policies,direction,bgpSource,bgpTarget}=saved);records=saved.records||[];}
 render();
 })();

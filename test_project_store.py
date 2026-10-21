@@ -26,6 +26,14 @@ class ProjectStoreTests(unittest.TestCase):
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory();self.repo=ProjectRepository(connect_factory=lambda:Connection(str(Path(self.temp.name)/'test.db')))
     def tearDown(self):self.temp.cleanup()
+    def test_simulation_checkpoint_roundtrip(self):
+        payload=document()
+        payload['simulation']={'engine':'workspace','context':{'projectId':'p_test','report':payload['reporting']},'records':[{'id':'scenario-1'}],'state':{'devices':['upper-1'],'links':[]},'policies':{'wan1':250}}
+        saved=self.repo.save('engineer',payload)
+        self.assertEqual(self.repo.get('engineer',saved['id'])['document']['simulation'],payload['simulation'])
+        payload['simulation']['context']['projectId']='another-project'
+        with self.assertRaises(ValueError):normalize_document(payload)
+
     def test_roundtrip_revision_ownership_and_conflict(self):
         first=self.repo.save('engineer',document(),note='initial')
         self.assertEqual(first['inventory_count'],1);self.assertEqual(first['vendors'],['Huawei VRP'])
