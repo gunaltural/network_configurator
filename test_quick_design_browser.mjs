@@ -1,0 +1,34 @@
+import {createRequire} from 'node:module';
+import assert from 'node:assert/strict';
+const {chromium}=createRequire(import.meta.url)('playwright');
+const browser=await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_EXECUTABLE,args:['--no-sandbox','--disable-dev-shm-usage']});
+const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
+const base=process.env.SMOKE_URL||'http://127.0.0.1:8147';
+try{
+ await page.goto(base+'/');await page.waitForFunction(()=>window.ProjectWorkflow);await page.evaluate(()=>window.__workspaceRestoreReady);await page.evaluate(()=>window.__projectWorkflowReady);
+ assert.match(await page.locator('[data-nc-group=design] summary').innerText(),/Quick Design/);
+ await page.locator('#v3TechGrid button').filter({has:page.locator('h3',{hasText:'BGP'})}).click();
+ await page.locator('#bgpCustomerAs').fill('65222');
+ assert.equal(await page.locator('#quickDesignActions').isVisible(),true);
+ await page.locator('#quickDesignSimulate').click();await page.waitForURL('**/network-lab?*');
+ await page.goto(base+'/?resume=1');await page.waitForFunction(()=>window.ProjectWorkflow);await page.evaluate(()=>window.__workspaceRestoreReady);await page.evaluate(()=>window.__projectWorkflowReady);
+ assert.equal(await page.locator('#bgpCustomerAs').inputValue(),'65222');
+ await page.locator('#quickDesignSaveProject').click();
+ assert.equal(await page.evaluate(()=>window.ProjectWorkflow.state().mode),'project');
+ assert.equal(await page.locator('#bgpCustomerAs').inputValue(),'65222');
+ assert.equal(await page.locator('#guidedInventory').isVisible(),true);
+ await page.locator('[data-nc-home]').click();await page.locator('#guidedQuickDesign').click();
+ assert.equal(await page.locator('#guidedTitle').innerText(),'Quick Design');
+ await page.locator('#guidedName').fill('Quick OSPF');await page.locator('#guidedModules input[value=OSPF]').check();await page.locator('#guidedCreate').click();
+ await page.waitForFunction(()=>window.ProjectWorkflow.state()?.name==='Quick OSPF');
+ assert.equal(await page.evaluate(()=>window.ProjectWorkflow.state().mode),'standalone');
+ assert.equal(await page.locator('#guidedSimulate').isEnabled(),true);
+ const before=await page.evaluate(()=>window.NetworkWorkspaceProject.snapshot());
+ await page.locator('#guidedSimulate').click();await page.waitForURL('**/network-lab?workspace=1');
+ assert.equal(await page.evaluate(()=>window.NetworkLab.model().module),'OSPF');
+ await page.locator('.guided-flow button').filter({hasText:'Edit technology topology'}).click();await page.waitForURL('**/?resume=1&guided=design');await page.waitForFunction(()=>window.ProjectWorkflow);await page.evaluate(()=>window.__workspaceRestoreReady);await page.evaluate(()=>window.__projectWorkflowReady);
+ await page.locator('#guidedSaveProject').click();assert.equal(await page.evaluate(()=>window.ProjectWorkflow.state().mode),'project');
+ assert.equal(await page.evaluate(()=>window.NetworkWorkspaceProject.snapshot().project.id),before.project.id);
+ await page.reload();await page.waitForFunction(()=>window.ProjectWorkflow);await page.evaluate(()=>window.__workspaceRestoreReady);await page.evaluate(()=>window.__projectWorkflowReady);assert.equal(await page.evaluate(()=>window.ProjectWorkflow.state().mode),'project');
+ assert.deepEqual(errors,[]);console.log('Quick Design: direct simulation, parameter retention, independent chooser, OSPF simulation, project conversion and reload passed.');
+}finally{await browser.close();}
