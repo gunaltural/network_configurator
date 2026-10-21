@@ -35,3 +35,10 @@ test('inbound uses the ISP-side next hop and customer AS path, with unchanged sn
 test('historical records are not given invented neighbor evidence, and repeated measurement disclaimers are hidden',()=>{
  const {w}=scenario();try{const old={id:'old',createdAt:'2026-10-18',direction:'outbound',policies:[],assessment:{en:{summary:'Captured historical result.',sections:[{title:'Service impact and residual risk',paragraphs:['No packet-loss percentage, outage duration or convergence time is reported because this scenario contains no measured traffic evidence.']}],commands:[{command:'show bgp summary',purpose:'check',execution:'Not executed'}]}}};const saved=JSON.stringify(old),html=w.SimulationReport.html([old]);assert.ok(!html.includes('No packet-loss percentage'));assert.ok(!html.includes('Verification command plan'));assert.ok(!html.includes('Synthetic BGP outputs'));assert.equal(JSON.stringify(old),saved);}finally{w.close();}
 });
+test('named failure narratives explain the actual surviving circuit and ranking for every BGP vendor',()=>{
+ for(const vendor of ['Cisco NX-OS','Cisco IOS-XE','Arista EOS','Huawei_CE_SW','FortiGate'])for(const direction of ['outbound','inbound']){
+  const {w,report:r}=scenario([],['wan1'],direction,{},vendor);try{
+   assert.match(r.scenarioName,/wan1|CE-1/);assert.ok(r.scenarioNames.tr);assert.match(r.assessment.en.summary,/CE-1.*ISP-2/);assert.match(r.assessment.en.summary,direction==='outbound'?/Local Preference: 100/:/AS path/);assert.match(w.SimulationReport.html([r]),new RegExp('Scenario 1 · BGP'));
+  }finally{w.close();}
+ }
+});

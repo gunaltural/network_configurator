@@ -67,6 +67,8 @@ class SyntheticCli(BaseModel):
     output: str = Field(max_length=16000)
 
 class SimulationScenario(BaseModel):
+    scenarioName: str = Field(default="", max_length=300)
+    scenarioNames: dict[Literal["en", "tr"], Annotated[str, Field(max_length=300)]] = Field(default_factory=dict)
     syntheticCli: list[SyntheticCli] = Field(default_factory=list, max_length=3)
     evidenceVersion: int = Field(default=0, ge=0, le=1)
     pathAvailable: bool | None = None
@@ -206,7 +208,7 @@ def append_simulation_scenarios(doc, scenarios, language='en'):
         doc.add_paragraph('Her iki CE ortak istemci LAN’ına doğrudan bağlıdır. VRRP istemci çıkış ağ geçidini seçer; gelen trafik BGP politikasına göre yedek CE’den de geçebilir. Aktif CE arızasında sağlıklı yedek devralır; tercih edilen CE geri geldiğinde tekrar aktif olur. Internet bulutu modellenen üst ağ sınırını gösterir.' if tr else 'Both CEs directly attach to the shared client LAN. VRRP selects the client outbound gateway; inbound BGP traffic may enter through the backup CE. Device failure promotes the healthy backup and restoration preempts to the preferred CE. The Internet cloud marks the modeled upstream boundary.')
     for index, raw in enumerate(scenarios, 1):
         s = raw.model_dump() if isinstance(raw, BaseModel) else raw
-        doc.add_heading(('Senaryo ' if tr else 'Scenario ') + str(index), level=2)
+        doc.add_heading(('Senaryo ' if tr else 'Scenario ') + str(index) + (' · ' + (s.get('scenarioNames', {}).get('tr' if tr else 'en') or s.get('scenarioName')) if s.get('scenarioNames', {}).get('tr' if tr else 'en') or s.get('scenarioName') else ''), level=2)
         if s.get('module'):
             _table(doc, [
                 ('Modül / platform' if tr else 'Module / platform', s.get('technology', s['module']) + ' · ' + s.get('vendor', '')),

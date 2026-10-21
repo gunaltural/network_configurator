@@ -3,7 +3,7 @@ const browser=await chromium.launch({headless:true,executablePath:process.env.CH
 const ctx=await browser.newContext({viewport:{width:1500,height:1050}}),page=await ctx.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));const base=process.env.SMOKE_URL||'http://127.0.0.1:8125';
 async function run(id){await page.locator('#pairScenario').selectOption(id);await page.locator('#pairRunScenario').click();}
 async function nativeGeometry(){return page.locator('#labMap [data-lab-device],#labMap [data-lab-link],#labMap [data-lab-links]').evaluateAll(items=>items.map(el=>[el.tagName,...['data-lab-device','data-lab-link','data-lab-links','x','y','x1','y1','x2','y2','d','points','transform'].map(a=>el.getAttribute(a))]));}
-async function record(){await page.locator('#syntheticRecord').click();return page.evaluate(()=>window.NetworkLab.scenarioRecords().at(-1));}
+async function record(){await page.locator('#syntheticRecord').click();const scenario=await page.evaluate(()=>window.NetworkLab.scenarioRecords().at(-1));assert.ok(scenario.scenarioNames.en);assert.ok(scenario.scenarioNames.tr);assert.ok(scenario.assessment.en.summary);assert.ok(scenario.assessment.tr.summary);if(/split-brain|dual-active|conditional/.test(scenario.modelStatus))assert.match(scenario.assessment.en.summary,/coordination.*unresolved/i);return scenario;}
 try{
 for(const vendor of ['Cisco NX-OS','Arista EOS','Huawei_CE_SW','Cisco IOS-XE','Huawei iStack']){
  await page.goto(base+'/');await page.locator('#v3TechGrid button').filter({has:page.locator('h3',{hasText:'vPC / MLAG'})}).click();await page.locator('#platform').selectOption(vendor);await page.waitForTimeout(100);
