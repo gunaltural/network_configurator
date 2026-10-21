@@ -713,7 +713,7 @@
       $("excelPreview").textContent=`${data.rows.length} devices imported. The current device list above and report are updated; blank cells remain empty.`;
     }catch(error){$("excelPreview").textContent=error.message;}finally{e.target.value="";}
   };
-  let maintenanceView="inventory", maintenanceDevice="",previewExpanded=false;
+  let maintenanceView="inventory", maintenanceDevice="",previewExpanded=new URLSearchParams(location.search).get('from')==='simulation'&&new URLSearchParams(location.search).get('guided')!=='1';
   function renderPreviewMode(){
     const expanded=maintenanceView==='design'&&previewExpanded,button=$('expandReportPreview');
     document.querySelector('.editor').classList.toggle('report-preview-expanded',expanded);button.hidden=maintenanceView!=='design';button.setAttribute('aria-pressed',String(expanded));button.textContent=state.language==='tr'?(expanded?'Düzenleyiciyi göster':'Önizlemeyi genişlet'):(expanded?'Show editor':'Expand preview');
