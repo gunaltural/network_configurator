@@ -32,6 +32,7 @@ on:
       - "test_project_context*"
       - "test_stp_root*"
       - "test_catalyst_campus*"
+      - "test_report_review*"
       - "test_project_workflow*"
       - "port-mapping*"
       - "port_mapping.py"
@@ -108,6 +109,7 @@ jobs:
           node test_project_context_browser.mjs
           node test_stp_root_browser.mjs
           node test_catalyst_campus_browser.mjs
+          node test_report_review_browser.mjs
           node test_project_workflow_browser.mjs
           node test_quick_design_browser.mjs
           TRANSITION_QUOTA=1 node test_module_report_transition_browser.mjs
@@ -149,7 +151,7 @@ jobs:
             if curl --fail --silent http://127.0.0.1:18080/healthz >/dev/null; then break; fi
             sleep 2
           done
-          curl --fail --silent --show-error http://127.0.0.1:18080/healthz | python -c 'import json,sys; p=json.load(sys.stdin); assert p["ok"] is True and p["simulator_ready"] is True; assert p["version"]=="5.56.0", p'
+          curl --fail --silent --show-error http://127.0.0.1:18080/healthz | python -c 'import json,sys; p=json.load(sys.stdin); assert p["ok"] is True and p["simulator_ready"] is True; assert p["version"]=="5.57.0", p'
           curl --fail --silent --show-error http://127.0.0.1:18080/workspace-storage.js | python -c 'import sys; p=sys.stdin.read(); assert "NetworkWorkspaceStorage" in p and "NC-LZW1" in p'
           curl --fail --silent --show-error http://127.0.0.1:18080/bgp-traffic-policy.js | python -c 'import sys; p=sys.stdin.read(); assert "BgpTrafficPolicy" in p and "bgp-policy-line-head" in p'
           curl --fail --silent --show-error http://127.0.0.1:18080/ | python -c 'import sys; p=sys.stdin.read(); assert "bgpLegacyLayout" in p and "bgpOutboundTeCard" in p and "bgpAddTrafficPolicy" in p and "bgpAddInboundPolicy" in p and "bgpTab-traffic" not in p'

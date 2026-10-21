@@ -3,7 +3,7 @@
 <head><script src="/workspace-storage.js"></script>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Network Configurator v5.56.0</title>
+<title>Network Configurator v5.57.0</title>
 <style>
 :root{
   --bg:#0d1117;--panel:#161b22;--panel2:#1f2630;--line:#2b3440;
@@ -2949,6 +2949,7 @@ function bgpTrafficPlan(k,direction){
  if(!imp){if(c('bgpTePrepend'))base.prependCount=k===+v('bgpTeInboundPreferredIsp')?0:number('bgpTePrependCount',3);if(c('bgpTeMed'))base.med=number(k===+v('bgpTeInboundPreferredIsp')?'bgpTePreferredMed':'bgpTeBackupMed',0);if(c('bgpTeCommunity'))base.communities=String(v('bgpTeCommunityValue')).split(/[,\s]+/).filter(Boolean);}
  return window.BgpTrafficPolicy.plan(bgpTrafficRules(),k,direction,base);
 }
+function bgpPolicyEvaluation(){return bgpEdges().flatMap(edge=>['import','export'].flatMap(direction=>bgpTrafficPlan(edge[2],direction).map(row=>({connection:bgpConnectionName(edge[2]),direction,sequence:row.sequence,prefixes:row.prefixes||[],localPreference:row.localPreference,prependCount:row.prependCount,med:row.med,communities:row.communities||[]}))));}
 function bgpTrafficEnabled(k,direction,legacy){return window.BgpTrafficPolicy?bgpTrafficPlan(k,direction).length>0:legacy;}
 function bgpTrafficCommunity(k){return window.BgpTrafficPolicy?bgpTrafficPlan(k,'export').some(r=>r.communities?.length):c('bgpTeInboundEnable')&&c('bgpTeCommunity');}
 function bgpTrafficConfig(p,k,tag){return ['import','export'].map(direction=>{const name=(p==='Huawei_CE_SW'?'RP-':'RM-')+tag+(direction==='import'?(p==='Huawei_CE_SW'?'-IMPORT':'-IN'):(p==='Huawei_CE_SW'?'-EXPORT':'-OUT'));return window.BgpTrafficPolicy.emit(p,name,bgpTrafficPlan(k,direction),v('bgpCustomerAs'));}).filter(Boolean);}
@@ -6263,7 +6264,7 @@ renderModule();
    parameters.push(...workspaceDesignNoteParameters(tech));
    const technology={BASIC:"System and Management",BGP:"BGP",OSPF:"OSPF",EVPN:"EVPN/VXLAN",QOS:"QoS",SDWAN:"SD-WAN"}[tech];
    return {schema:"network-configurator-report-v1",name:project.project.name==="Untitled Network Project"?"":project.project.name,
-     vendor:pl,architecture:"module",technology,techPlacement:"upper",roles,
+     policyEvaluation:tech==='BGP'?bgpPolicyEvaluation():[],vendor:pl,architecture:"module",technology,techPlacement:"upper",roles,
      upperCount:devices.filter(d=>d.tier==="upper").length,lowerCount:devices.filter(d=>d.tier==="lower").length,
      scope:"",devices,links,specialLinks,parameters:parameters.map(p=>p.impact?p:{...p,impact:p.value,value:"Design boundary"}),configurations,
      source:{module:tech,projectId:project.project.id||"active",generatedAt:new Date().toISOString()}};
@@ -6747,7 +6748,7 @@ async function createGuidedProject(workflow){
 async function mergeReportDocuments(reports){
  const combined=combineReports(reports),identity=d=>d.inventoryAssetId?'asset:'+d.inventoryAssetId:d.vendor+'|'+String(d.logicalHostname||d.hostname||d.id).toLowerCase(),ids=new Map(combined.devices.map(d=>[identity(d),d.id])),inventory=new Set(),manual=new Set(),ssh=new Set(),verification=[],scenarios=new Map();
  for(const report of reports){const map=new Map(report.devices.map(d=>[d.id,ids.get(identity(d))]));for(const [key,target]of [['inventoryDeviceIds',inventory],['manualVisibleIds',manual],['sshVisibleIds',ssh]])for(const id of report[key]||[])if(map.has(id))target.add(map.get(id));for(const row of report.verificationPlan||[])if(map.get(row.deviceId))verification.push({...row,id:JSON.stringify([report.moduleKey,row.id]),deviceId:map.get(row.deviceId)});for(const scenario of report.simulationScenarios||[])scenarios.set(scenario.id,scenario);}
- combined.inventoryRevision=2;combined.inventoryDeviceIds=[...inventory];combined.manualVisibleIds=[...manual];combined.sshVisibleIds=[...ssh];combined.verificationPlan=verification;combined.simulationScenarios=[...scenarios.values()];combined.projectDetails=reports[0].projectDetails||{};combined.scope=reports.filter(r=>r.scope).map(r=>r.moduleTitle+'\n'+r.scope).join('\n\n');combined.language=reports[0].language||'en';combined.topologySvg=NetworkReportGuide.designPresentation(combined).svg;combined.topologyPng=await workspaceTopologyPng(combined.topologySvg);return combined;
+ combined.inventoryRevision=2;combined.inventoryDeviceIds=[...inventory];combined.manualVisibleIds=[...manual];combined.sshVisibleIds=[...ssh];combined.verificationPlan=verification;combined.simulationScenarios=[...scenarios.values()];combined.projectDetails={...(reports[0].projectDetails||{}),uatRecords:reports.flatMap(r=>(r.projectDetails?.uatRecords||[]).map(row=>({...row,title:r.moduleTitle+' · '+row.title}))) };combined.scope=reports.filter(r=>r.scope).map(r=>r.moduleTitle+'\n'+r.scope).join('\n\n');combined.language=reports[0].language||'en';combined.topologySvg=NetworkReportGuide.designPresentation(combined).svg;combined.topologyPng=await workspaceTopologyPng(combined.topologySvg);return combined;
 }
 window.NetworkWorkspaceProject={activateModule,createGuidedProject,moduleReport:collectModuleReport,mergeReportDocuments,simulationTopologySvg:()=>workspaceTopologySvg(true),prepareWorkspaceSimulation,prepareSimulation,labDesign:bgpLabDesign,snapshot,apply:applyProject,prepareCompare,diagnosticScope:()=>({module:tech,platform:platform()}),diagnosticDesign:reportingDesign,diagnosticResult:()=>window.__latestDiagnosticResult||null,rename:name=>{$("v3ProjectName").value=name;}};
 })();
