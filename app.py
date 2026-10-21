@@ -35,7 +35,7 @@ from discovery_details import DETAIL_COMMANDS, enrich_graph as enrich_discovery_
 from discovery_report import build_discovery_report
 from port_mapping import analyze as analyze_port_mapping
 from fastapi.responses import HTMLResponse, StreamingResponse, Response, JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import model_validator, BaseModel, Field
 import uvicorn
 from report_docx import build_report_docx
 from simulation_report import SimulationScenario
@@ -46,7 +46,7 @@ from config_compare import install_config_compare
 from network_lab import install_network_lab
 from lab_gateway import install_lab_gateway
 
-VERSION = "5.56.0"
+VERSION = "5.57.0"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
 # Keep the diagnostic entry point available with the authenticated page itself.
@@ -379,7 +379,19 @@ class ReportTechnicalDesign(BaseModel):
     addresses: List[ReportAddressAssignment] = Field(default_factory=list, max_length=2000)
 
 
+class ReportReviewTable(BaseModel):
+    title: str = Field(max_length=300)
+    columns: List[str] = Field(min_length=1, max_length=8)
+    rows: List[List[str]] = Field(default_factory=list, max_length=256)
+
+    @model_validator(mode="after")
+    def validate_dimensions(self):
+        if any(len(row) != len(self.columns) or any(len(cell) > 5000 for cell in row) for row in self.rows):
+            raise ValueError("Review table rows must match the columns and cells must not exceed 5000 characters.")
+        return self
+
 class ReportWordRequest(BaseModel):
+    reviewTables: List[ReportReviewTable] = Field(default_factory=list, max_length=64)
     language: Literal["tr", "en"] = "en"
     name: str = Field(min_length=1, max_length=120)
     vendor: Literal["Cisco NX-OS", "Cisco IOS-XE", "Arista EOS", "Huawei_CE_SW", "Huawei iStack", "FortiGate"]
