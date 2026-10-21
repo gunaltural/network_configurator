@@ -26,6 +26,13 @@ function evaluate({module,platform,fields:f={}}){
  const names=ids=>{unique(ids);for(const id of ids.filter(has))check('hostname',[id],!!value(id)&&!/[\s;\n]/.test(value(id)),`${id}: enter a non-empty device name without whitespace or command separators.`);};
  const loopbacks=ids=>{ids.forEach(id=>{const a=address(id);if(a)check('loopback-prefix',[id],a.p===32,`${id}: this workspace generates an IPv4 /32 loopback.`);});unique(ids,s=>cidr(s)?.ip??s,'duplicate-address');};
  const routerIds=ids=>{ids.forEach(id=>{const n=ip(id);if(n!==null)check('router-id',[id],n>0&&n!==4294967295,`${id}: use a non-zero router ID.`);});unique(ids,s=>ipv4(s)??s,'duplicate-router-id');};
+ if(platform==='Cisco IOS-XE'&&has('campusFamily')){
+  integer('campusNativeVlan',1,4094);integer('campusAccessVlan',1,4094);
+  const scope=vlanSet(value(module==='STP'?'stpVlans':'swvVlans'));if(scope)check('campus-access-vlan',['campusAccessVlan'],scope.has(num('campusAccessVlan')),'Endpoint access VLAN must be in the service VLAN list.');
+  if(value('campusVtp')==='server')check('vtp-domain',['campusVtpDomain'],/^[A-Za-z0-9_.-]{1,32}$/.test(value('campusVtpDomain')),'VTPv3 requires an explicit domain; coordinate authentication and primary-server activation separately.');
+  if(value(module==='STP'?'stpMode':'swvStpMode')==='mst'){integer('campusMstRevision',0,65535);integer('campusMstInstance',1,4094);check('mst-region',['campusMstName'],/^[A-Za-z0-9_.-]{1,32}$/.test(value('campusMstName')),'MST region name must be 1–32 letters, digits, dots, underscores or hyphens.');}
+  if(module==='VPC'&&scope)check('svl-reserved-vlan',['swvVlans','campusNativeVlan','campusAccessVlan'],!scope.has(4094)&&num('campusNativeVlan')!==4094&&num('campusAccessVlan')!==4094,'VLAN 4094 is reserved for this StackWise Virtual design.');
+ }
  if(module==='BASIC'){
   names(['d1host']);const p=prefix(value('d1mask'));check('mask',['d1mask'],p!==null,'OOB Mask / Prefix: use a contiguous subnet mask or prefix length.');
   ip('d1oobip');if(p!==null)gateway('d1oobip','gw',value('d1oobip')+'/'+p);address('mgmtSubnet',false);
@@ -71,7 +78,7 @@ function evaluate({module,platform,fields:f={}}){
  }else if(module==='STP'){
   names(['d1host','d2host']);vlans('stpVlans');priority('stpRootPri');priority('stpSecPri');check('root-election',['stpRootPri','stpSecPri'],num('stpRootPri')<num('stpSecPri'),'Root priority must be lower than Secondary priority to express the selected root.','warning');
   const count=Math.min(8,num('stpLeafCount')||4),start=num('stpCoreLeafStart');integer('stpCoreLeafStart',1,65535);
-  for(const device of ['Core-1','Core-2']){reserve('stpCoreLinkIf',device);reserve('stpCoreLeafPrefix',device,Array.from({length:count},(_,i)=>value('stpCoreLeafPrefix')+(start+i)));}
+  for(const [side,device] of ['Core-1','Core-2'].entries()){if(platform==='Cisco IOS-XE'&&value('campusInterconnect')==='lacp'){const id='campusInterMembers'+(side+1);integer('campusInterPo',1,128);check('campus-lacp-members',[id],ports(value(id)).length>=2,'Core LACP needs at least two physical members per switch.');reserve(id,device);}else reserve('stpCoreLinkIf',device);reserve('stpCoreLeafPrefix',device,Array.from({length:count},(_,i)=>value('stpCoreLeafPrefix')+(start+i)));}
   reserve('stpLeafUp1','Each Leaf');reserve('stpLeafUp2','Each Leaf');reserve('stpAccessIf','Each Leaf');
   const leafNames=value('stpLeafNames').split(',').slice(0,count).map(s=>s.trim().toLowerCase());check('leaf-names',['stpLeafNames'],leafNames.length===count&&leafNames.every(Boolean)&&new Set([...leafNames,value('d1host').toLowerCase(),value('d2host').toLowerCase()]).size===count+2,'Provide a distinct hostname for each selected leaf and both cores.');
  }else if(module==='EVPN'){
