@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="tr">
-<head>
+<head><script src="/workspace-storage.js"></script>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Network Configurator v5.55.2</title>
+<title>Network Configurator v5.55.5</title>
 <style>
 :root{
   --bg:#0d1117;--panel:#161b22;--panel2:#1f2630;--line:#2b3440;
@@ -33,6 +33,7 @@ select,input{width:100%;padding:9px 10px;background:#0d141b;color:var(--text);bo
 .device strong{display:block;font-size:16px}.device small{color:var(--muted)}
 .link{height:3px;background:linear-gradient(90deg,var(--accent),var(--ok));position:relative;border-radius:999px}
 .link:after{content:"";position:absolute;right:-2px;top:-4px;width:10px;height:10px;border:2px solid var(--ok);border-radius:50%;background:#11171e}
+.grid.deployment-view{grid-template-columns:1fr}.grid.deployment-view>[data-design-parameters]{display:none!important}
 .grid{display:grid;grid-template-columns:1.05fr .95fr;gap:16px;margin-top:16px}
 .card{background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:15px}
 .card h3{margin:0 0 10px}.section-title{font-size:12px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-top:14px}
@@ -459,7 +460,7 @@ body.nc-simulation-action{padding-bottom:145px}body.nc-simulation-action #topolo
     </section>
 
     <div class="grid">
-      <section class="card">
+      <section class="card" data-design-parameters>
         <h3>01 · Parameters</h3>
         <div id="designChecks" class="nc-design-checks" aria-label="Design consistency"></div>
         <div id="params"></div>
@@ -478,6 +479,8 @@ body.nc-simulation-action{padding-bottom:145px}body.nc-simulation-action #topolo
           <div class="simple-deploy-head">
             <div>
               <b>DEPLOY CONFIG</b>
+              <span>Uses the current Design configuration.</span>
+              <button type="button" class="btn" id="deploymentBackToDesign">Back to Design</button>
               <span>Connect → Pre-Check → Deploy</span>
             </div>
             <span id="sdAgentBadge" class="sd-badge neutral">SSH ENGINE · CHECKING</span>
@@ -2088,8 +2091,8 @@ function syncTopology(){
  }
  if(tech==="STP"){
    const e=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-   const c1=e(v("d1host")||"CORE-1"),c2=e(v("d2host")||"CORE-2"),n=Math.max(2,Math.min(8,+v("stpLeafCount")||4)),names=String(v("stpLeafNames")||"").split(",").map(x=>x.trim()).filter(Boolean),leaves=Array.from({length:n},(_,i)=>e(names[i]||`LEAF-${i+1}`)),xs=Array.from({length:n},(_,i)=>110+730*i/(n-1)),root=v("stpRoot")||"D1",vl=e(v("stpVlans")||"10,20,30,40"),mode=e(v("stpMode")||"rapid-pvst");
-   area.innerHTML=`<div class="vpc-svg-wrap"><svg class="vpc-svg" viewBox="0 0 950 470" role="img" aria-label="Dynamic STP topology"><text x="475" y="30" text-anchor="middle" class="vpc-domain-title">${mode.toUpperCase()} · VLAN ${vl}</text><line x1="355" y1="145" x2="595" y2="145" class="vpc-peer-line"/>${[[355,c1,root==="D1"?"ROOT":"SECONDARY"],[595,c2,root==="D2"?"ROOT":"SECONDARY"]].map(([x,nm,role])=>`<g><rect x="${x-70}" y="90" width="140" height="70" rx="12" class="vpc-device"/><text x="${x}" y="118" text-anchor="middle" class="vpc-device-name">${nm}</text><text x="${x}" y="141" text-anchor="middle" class="vpc-small">${role}</text></g>`).join("")}${xs.map(x=>`<line x1="355" y1="160" x2="${x}" y2="330" class="vpc-member-line"/><line x1="595" y1="160" x2="${x}" y2="330" class="vpc-member-line"/>`).join("")}${xs.map((x,i)=>`<g><rect x="${x-48}" y="330" width="96" height="54" rx="10" class="vpc-leaf"/><text x="${x}" y="361" text-anchor="middle" class="vpc-device-name">${leaves[i]}</text></g>`).join("")}<text x="475" y="430" text-anchor="middle" class="vpc-small">${n} dual-attached access switches · STP forwarding topology</text></svg></div>`;return;
+   const c1=e(v("d1host")||"CORE-1"),c2=e(v("d2host")||"CORE-2"),n=Math.max(2,Math.min(8,+v("stpLeafCount")||4)),names=String(v("stpLeafNames")||"").split(",").map(x=>x.trim()).filter(Boolean),leaves=Array.from({length:n},(_,i)=>e(names[i]||`LEAF-${i+1}`)),xs=Array.from({length:n},(_,i)=>110+730*i/(n-1)),root=v("stpRoot")==="2"?"2":"1",vl=e(v("stpVlans")||"10,20,30,40"),mode=e(v("stpMode")||"rapid-pvst");
+   area.innerHTML=`<div class="vpc-svg-wrap"><svg class="vpc-svg" viewBox="0 0 950 470" role="img" aria-label="Dynamic STP topology"><text x="475" y="30" text-anchor="middle" class="vpc-domain-title">${mode.toUpperCase()} · VLAN ${vl}</text><line x1="355" y1="145" x2="595" y2="145" class="vpc-peer-line"/>${[[355,c1,root==="1"?"PRIMARY (ROOT)":"SECONDARY"],[595,c2,root==="2"?"PRIMARY (ROOT)":"SECONDARY"]].map(([x,nm,role])=>`<g><rect x="${x-70}" y="90" width="140" height="70" rx="12" class="vpc-device"/><text x="${x}" y="118" text-anchor="middle" class="vpc-device-name">${nm}</text><text x="${x}" y="141" text-anchor="middle" class="vpc-small">${role}</text></g>`).join("")}${xs.map(x=>`<line x1="355" y1="160" x2="${x}" y2="330" class="vpc-member-line"/><line x1="595" y1="160" x2="${x}" y2="330" class="vpc-member-line"/>`).join("")}${xs.map((x,i)=>`<g><rect x="${x-48}" y="330" width="96" height="54" rx="10" class="vpc-leaf"/><text x="${x}" y="361" text-anchor="middle" class="vpc-device-name">${leaves[i]}</text></g>`).join("")}<text x="475" y="430" text-anchor="middle" class="vpc-small">${n} dual-attached access switches · STP forwarding topology</text></svg></div>`;return;
  }
  if(tech==="QOS"){
    const e=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -5629,18 +5632,36 @@ function deviceOutputUi(){
  if(tech!=="STP")return;
  const select=document.getElementById("stpOutputDevice");if(!select)return;
  const count=Math.max(2,Math.min(8,parseInt(v("stpLeafCount")||"4",10))),names=(v("stpLeafNames")||"").split(",").map(x=>x.trim());
- rename("stpOutputDevice",{CORE1:h1,CORE2:h2,...Object.fromEntries(Array.from({length:8},(_,i)=>[`LEAF${i+1}`,names[i]||`LEAF-${String(i+1).padStart(2,"0")}`]))});
+ rename("stpOutputDevice",{CORE1:`Core-1 · ${h1}`,CORE2:`Core-2 · ${h2}`,...Object.fromEntries(Array.from({length:8},(_,i)=>[`LEAF${i+1}`,names[i]||`LEAF-${String(i+1).padStart(2,"0")}`]))});
  [...select.options].forEach(option=>{if(option.value.startsWith("LEAF")){const index=Number(option.value.slice(4));option.hidden=index>count;option.disabled=index>count;}});
  if(select.value.startsWith("LEAF")&&Number(select.value.slice(4))>count)select.value="ALL";
 }
 
+function configurationOutputLast(){
+ const root=document.getElementById('params');if(!root)return;
+ let section=root.querySelector('[data-configuration-output]');
+ if(!section){
+  const select=root.querySelector('#bgpOutputDevice,#ospfOutputDevice,#stpOutputDevice,#evOutputDevice,#qosOutputDevice,#vpcOutputDevice,#swvOutput,#arOutput,#hwOutput,#isOutput,#sdConfigScope');if(!select)return;
+  const card=select.closest('.vpc-v42-card');
+  if(card){section=card;section.dataset.configurationOutput='true';}
+  else{
+   const field=select.closest('.param-grid')||select,heading=field.previousElementSibling;
+   if(!heading||!heading.classList.contains('section-title'))return;
+   section=document.createElement('section');section.dataset.configurationOutput='true';heading.before(section);heading.textContent='Configuration Output';section.append(heading,field);
+   if(tech==='SDWAN')for(const id of ['sdValidateBtn','sdGenerateBtn','sdExportAll','sdBulkStatus','sdValidation','sdProfileSummary']){const element=document.getElementById(id);if(element&&!section.contains(element))section.append(element.closest('.actions')||element);}
+  }
+ }
+ if(root.lastElementChild!==section)root.append(section);
+}
+
 function renderOutput(){
+ document.getElementById("params")?.closest(".grid")?.classList.toggle("deployment-view",tab==="deploy");
  const compareButton=document.getElementById('outputCompare');if(compareButton)compareButton.disabled=tab!=='config';
  ensureDesignLinkSpeed();
  const noteControl=document.getElementById("designNotesLanguageControl");if(noteControl){noteControl.hidden=tab!=="notes";noteControl.style.display=tab==="notes"?"inline-flex":"none";}
  if(tech==="BGP"){bgpV39ContextUI();bgpRefreshConnectivityUI();}
  if(tech==="VPC"){vpcLeafUi();vpcV42ContextUI();} if(tech==="EVPN")evpnV431Ui();
- deviceOutputUi();
+ deviceOutputUi();configurationOutputLast();
  window.NetworkDesignChecks?.render(tech,platform());
  const out=document.getElementById("output");
  const deploy=document.getElementById("deployPanel");
@@ -5721,6 +5742,7 @@ function downloadOut(){
  a.download=`${tech}_${platform().replaceAll(" ","_").replaceAll("/","_")}.txt`;
  a.click();
 }
+document.getElementById("deploymentBackToDesign").onclick=()=>document.querySelector('.tab[data-tab="config"]').click();
 SimpleDeployEngine.bind();
 renderModule();
 </script>
@@ -5755,7 +5777,7 @@ renderModule();
  }
  const grid=$("v3TechGrid");
  cards.forEach(([key,icon,tag,desc])=>{
-   const d=document.createElement("button"); d.type="button"; d.className="v3-card";
+   const d=document.createElement("button"); d.type="button"; d.className="v3-card"; d.dataset.technology=key;
    const label=key==="VPC"?"vPC / MLAG":key==="BASIC"?"System and Management":key;
    d.innerHTML=`<div class="icon">${icon}</div><h3>${label}</h3><p>${desc}</p><span class="tag">${tag}</span>`;
    d.onclick=()=>openTech(key); grid.appendChild(d);
@@ -6605,7 +6627,7 @@ function prepareSimulation(){
 function prepareWorkspaceSimulation(){
  const report=reportingDesign(),project=snapshot();
  if(!report?.devices?.length)throw Error('Complete the current module design before simulation.');
- const settings={preferredRoot:v('stpRoot')==='D2'?'upper-2':'upper-1',ospfCost:+v('ospfCost')||10,
+ const settings={preferredRoot:v('stpRoot')==='2'?'upper-2':'upper-1',ospfCost:+v('ospfCost')||10,
   shapeRate:c('qosShaping')?+v('qosShapeRate'):0,policeRate:c('qosPolicing')?+v('qosPoliceRate'):0};
  if(tech==='VPC'&&platform()==='Cisco NX-OS')settings.vpc={initialPrimary:+v('vpcRole1')<=+v('vpcRole2')?'upper-1':'upper-2',role1:+v('vpcRole1'),role2:+v('vpcRole2'),domain:v('vpcDomain'),peerPo:v('vpcPeerPo'),autoRecovery:c('vpcAutoRecovery'),autoDelay:+v('vpcAutoDelay')||240,delayRestore:c('vpcDelayRestoreEnable')?+v('vpcDelayRestore'):0,gracefulConsistency:c('vpcGracefulConsistency')};
  if(tech==='VPC'){
@@ -6643,12 +6665,12 @@ function prepareWorkspaceSimulation(){
  sessionStorage.setItem('networkConfigurator.lab.workspace',JSON.stringify(context));return context;
 }
 async function activateModule(key,requestedPlatform){
- captureWorkspaceModule(tech);openTech(key);await new Promise(r=>setTimeout(r,70));restoreWorkspaceModule(key);
+ captureWorkspaceModule(tech);const wasOpening=projectRestoreOpening;projectRestoreOpening=true;try{openTech(key);await new Promise(r=>setTimeout(r,70));restoreWorkspaceModule(key);
  if(requestedPlatform&&platform()!==requestedPlatform){if(![...$('platform').options].some(o=>o.value===requestedPlatform))throw Error('Unsupported module vendor.');const saved=window.__workspaceModuleStates[key];window.__workspaceModuleStates[key]={...saved,platform:requestedPlatform,fields:saved?.platform===requestedPlatform?saved.fields:{}};$('platform').value=requestedPlatform;renderModule();await new Promise(r=>setTimeout(r,70));restoreWorkspaceModule(key);}
- renderOutput();syncTopology();captureWorkspaceModule(key);
+ }finally{projectRestoreOpening=wasOpening;}renderOutput();syncTopology();captureWorkspaceModule(key);
 }
 async function createGuidedProject(workflow){
- const fresh=JSON.parse(JSON.stringify(pristineProjectTemplate)),first=workflow.modules[0];fresh.project={id:workflow.projectId,name:workflow.name,updated:new Date().toISOString()};fresh.workspace={technology:first.key,platform:first.platform};fresh.fields.platform=first.platform;fresh.moduleStates={};fresh.projectWorkflow=workflow;fresh.networkDiscovery=null;fresh.pathDiagnostics=null;window.__modulePlatformLast={};applyProject(fresh);await window.__workspaceRestoreReady;await activateModule(first.key,first.platform);
+ const fresh=JSON.parse(JSON.stringify(pristineProjectTemplate)),first=workflow.modules[0];fresh.project={id:workflow.projectId,name:workflow.name,updated:new Date().toISOString()};fresh.workspace={technology:first.key,platform:first.platform};fresh.fields={platform:first.platform};fresh.moduleStates={};fresh.projectWorkflow=workflow;fresh.networkDiscovery=null;fresh.pathDiagnostics=null;window.__modulePlatformLast={};applyProject(fresh);await window.__workspaceRestoreReady;if(tech!==first.key||platform()!==first.platform)await activateModule(first.key,first.platform);
 }
 async function mergeReportDocuments(reports){
  const combined=combineReports(reports),identity=d=>d.inventoryAssetId?'asset:'+d.inventoryAssetId:d.vendor+'|'+String(d.logicalHostname||d.hostname||d.id).toLowerCase(),ids=new Map(combined.devices.map(d=>[identity(d),d.id])),inventory=new Set(),manual=new Set(),ssh=new Set(),verification=[],scenarios=new Map();
