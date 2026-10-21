@@ -18,6 +18,13 @@ class SimulationReportTests(unittest.TestCase):
             self.assertIn('İstemci → Ortak LAN' if language=='tr' else 'Client → Shared LAN',text)
             self.assertEqual(len(doc.inline_shapes),1)
             if language=='tr':self.assertNotIn('Synthetic model results',text)
+    def test_scenario_names_survive_bilingual_word_export(self):
+        scenario={**self.scenario,'scenarioName':'WAN failover','scenarioNames':{'en':'CE-1 link failure','tr':'CE-1 bağlantı arızası'}}
+        for language,name in scenario['scenarioNames'].items():
+            response=self.client.post('/api/network-lab/simulation-word',json={'name':'Pilot','language':language,'scenarios':[scenario]})
+            self.assertEqual(response.status_code,200)
+            doc=Document(io.BytesIO(response.content))
+            self.assertTrue(any(name in p.text for p in doc.paragraphs))
     def test_empty_or_invalid_scenarios_rejected(self):
         self.assertEqual(self.client.post('/api/network-lab/simulation-word',json={'name':'Pilot','scenarios':[]}).status_code,422)
         bad={**self.scenario,'policies':[{'connection':'wan1','localPreference':100,'prependCount':11}]}

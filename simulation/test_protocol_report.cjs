@@ -15,5 +15,6 @@ try{
  s=report(model('QOS'),{links:['a','b']},['show policy-map interface Ethernet1/1'],{offeredRate:1000});assert.match(s.syntheticCli[0].output,/Admitted \(model\): 0/);assert.equal(s.metrics.find(x=>x.metric==='Unserved modeled demand').current,'1000');assert.ok(!JSON.stringify(s).includes('packet-loss percentage'));
  s=report(model('OSPF'),{devices:['lower-1']},['show ip ospf neighbor']);assert.equal(s.syntheticCli[0].deviceAvailable,false);assert.match(s.syntheticCli[0].output,/DEVICE UNAVAILABLE/);
  const before=JSON.stringify(s);w.SimulationReport.html([s],'en');assert.equal(JSON.stringify(s),before);s.syntheticCli[0].output='<script>bad()</script>';assert.ok(!w.SimulationReport.html([s],'en').includes('<script>bad()'));
+ for(const module of ['BASIC','OSPF','STP','EVPN','QOS','SDWAN']){const named=report(model(module),{links:['a']},[]);assert.match(named.scenarioName,new RegExp(module));assert.ok(named.scenarioNames.tr);assert.match(named.assessment.en.summary,/recorded failures/i);assert.ok(named.assessment.tr.summary);}
  console.log('Protocol report: peer protection/partition, all leafs, root return, OSPF costs, QoS path loss, failed observer and escaping passed');
 }finally{w.close();}
