@@ -3,7 +3,7 @@
 <head><script src="/workspace-storage.js"></script>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Network Configurator v5.55.8</title>
+<title>Network Configurator v5.56.0</title>
 <style>
 :root{
   --bg:#0d1117;--panel:#161b22;--panel2:#1f2630;--line:#2b3440;
@@ -890,8 +890,9 @@ OSPF:{
  generate: ospfGenerate
 },
 STP:{
- title:"STP", subtitle:"Two-core resilient Layer-2 topology · selectable leaf count · root protection",
+ title:"STP", subtitle:"Resilient Layer-2 topology · root protection",
  params:()=>`
+ ${catalystCampusFields()}
  <div class="section-title">Topology</div>
  <div class="param-grid">
    <div><label>Core-1 Hostname</label><input id="d1host" value="CORE-01"></div>
@@ -900,21 +901,21 @@ STP:{
      <option value="2">2</option><option value="3">3</option><option value="4" selected>4</option>
      <option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option>
    </select></div>
-   <div><label>Leaf Hostnames</label><input id="stpLeafNames" value="LEAF-01,LEAF-02,LEAF-03,LEAF-04,LEAF-05,LEAF-06,LEAF-07,LEAF-08"></div>
+   <div><label>Leaf Hostnames</label><input id="stpLeafNames" value="${platform()==='Cisco IOS-XE'?'ACCESS-01,ACCESS-02,ACCESS-03,ACCESS-04,ACCESS-05,ACCESS-06,ACCESS-07,ACCESS-08':'LEAF-01,LEAF-02,LEAF-03,LEAF-04,LEAF-05,LEAF-06,LEAF-07,LEAF-08'}"></div>
    <div><label>VLAN List</label><input id="stpVlans" value="10,20"></div>
-   <div><label>STP Mode</label><select id="stpMode"><option>rapid-pvst</option><option>mst</option><option>rstp</option></select></div>
+   <div><label>STP Mode</label><select id="stpMode"><option>rapid-pvst</option><option>mst</option><option>${platform()==='Cisco IOS-XE'?'pvst':'rstp'}</option></select></div>
    <div><label>Root Core</label><select id="stpRoot"><option value="1">Core-1</option><option value="2">Core-2</option></select></div>
    <div><label>Root Priority</label><input id="stpRootPri" value="4096"></div>
    <div><label>Secondary Priority</label><input id="stpSecPri" value="8192"></div>
  </div>
  <div class="section-title">Interfaces</div>
  <div class="param-grid">
-   <div><label>Core Interlink</label><input id="stpCoreLinkIf" value="Ethernet1/48"></div>
-   <div><label>Core-to-Leaf Interface Prefix</label><input id="stpCoreLeafPrefix" value="Ethernet1/"></div>
+   <div><label>Core Interlink</label><input id="stpCoreLinkIf" value="${platform()==='Cisco IOS-XE'?'TenGigabitEthernet1/0/48':'Ethernet1/48'}"></div>
+   <div><label>Core-to-Leaf Interface Prefix</label><input id="stpCoreLeafPrefix" value="${platform()==='Cisco IOS-XE'?'TenGigabitEthernet1/0/':'Ethernet1/'}"></div>
    <div><label>First Core-to-Leaf Port</label><input id="stpCoreLeafStart" value="1"></div>
-   <div><label>Leaf Uplink to Core-1</label><input id="stpLeafUp1" value="Ethernet1/1"></div>
-   <div><label>Leaf Uplink to Core-2</label><input id="stpLeafUp2" value="Ethernet1/2"></div>
-   <div><label>Leaf Access Port</label><input id="stpAccessIf" value="Ethernet1/10"></div>
+   <div><label>Leaf Uplink to Core-1</label><input id="stpLeafUp1" value="${platform()==='Cisco IOS-XE'?'TenGigabitEthernet1/1/1':'Ethernet1/1'}"></div>
+   <div><label>Leaf Uplink to Core-2</label><input id="stpLeafUp2" value="${platform()==='Cisco IOS-XE'?'TenGigabitEthernet1/1/2':'Ethernet1/2'}"></div>
+   <div><label>Leaf Access Port</label><input id="stpAccessIf" value="${platform()==='Cisco IOS-XE'?'GigabitEthernet1/0/10':'Ethernet1/10'}"></div>
  </div>
  <div class="section-title">Protection Features</div>
  <div class="checks">
@@ -1383,7 +1384,7 @@ function stackWiseWorkspaceUI(){
  const leafRows=Array.from({length:8},(_,i)=>{
    const n=i+1;
    return `<div class="param-grid" data-swv-leaf="${n}">
-    <div><label>Leaf-${String(n).padStart(2,"0")} Hostname</label><input id="swvLeaf${n}" value="LEAF-${String(n).padStart(2,"0")}"></div>
+    <div><label>Leaf-${String(n).padStart(2,"0")} Hostname</label><input id="swvLeaf${n}" value="ACCESS-${String(n).padStart(2,"0")}"></div>
     <div><label>Core Port-Channel</label><input id="swvLeafPo${n}" value="${10+n}"></div>
     <div><label>Core SW1 Member</label><input id="swvLeafCoreIf1_${n}" value="GigabitEthernet1/0/${n}"></div>
     <div><label>Core SW2 Member</label><input id="swvLeafCoreIf2_${n}" value="GigabitEthernet2/0/${n}"></div>
@@ -1393,6 +1394,7 @@ function stackWiseWorkspaceUI(){
    </div>`;
  }).join("");
  root.innerHTML=`
+ ${catalystCampusFields(true)}
  <section class="vpc-v42-card"><div class="vpc-v42-head"><div><div class="vpc-v42-title">1 · StackWise Virtual</div></div><span class="vpc-v42-badge">STACKWISE VIRTUAL</span></div>
  <div class="param-grid">
   <div><label>Logical Hostname</label><input id="swvHost" value="CORE-SWV"></div>
@@ -1507,7 +1509,9 @@ interface ${L.u2}
  switchport trunk allowed vlan ${allow}
  channel-group ${L.lpo} mode ${lm}
  no shutdown`;
- if(tab==="verify")return `show stackwise-virtual
+ if(tab==="verify")return `show vtp status
+show spanning-tree mst configuration
+show stackwise-virtual
 show stackwise-virtual link
 show stackwise-virtual dual-active-detection
 show etherchannel summary
@@ -1524,11 +1528,11 @@ show interfaces trunk`;
 4. Verify EtherChannel mode and trunk VLAN policy match at both ends.
 5. Verify STP root, Root Guard and BPDU Guard state.
 6. Verify selected VLANs exist on the core and every active leaf.`;
- if(tab==="notes")return `Cisco StackWise Virtual native L2 workspace. SVI and access-port generation are intentionally excluded. VLAN creation, trunk policy, EtherChannel mode, STP and dynamic dual-homed leaf MEC are controlled independently.`;
+ if(tab==="notes")return `Cisco Catalyst Campus Core / Access · StackWise Virtual. Match switch models, IOS-XE, license and SDM template. SVL ports must have a common supported speed; dedicated Fast Hello DAD is separate from SVL. VTPv3 needs a reviewed primary-server operation; it is not issued automatically. Verify region consistency for MST. Cisco StackWise Virtual native L2 workspace. SVI and access-port generation are intentionally excluded. VLAN creation, trunk policy, EtherChannel mode, STP and dynamic dual-homed leaf MEC are controlled independently.`;
  const out=g("swvOutput")||"ALL";
- if(out==="ALL")return readableCliBlocks([`######## ${host} · LOGICAL CORE ########\n${core}`,...leaves.map(L=>`######## ${L.name} ########\n${leafCfg(L)}`)].join("\n\n"));
- if(out.startsWith("LEAF")){const idx=+out.slice(4)-1;return readableCliBlocks(leaves[idx]?leafCfg(leaves[idx]):core);}
- return readableCliBlocks(core);
+ if(out==="ALL")return catalystCampusConfig(readableCliBlocks([`######## ${host} · LOGICAL CORE ########\n${core}`,...leaves.map(L=>`######## ${L.name} ########\n${leafCfg(L)}`)].join("\n\n")),true);
+ if(out.startsWith("LEAF")){const idx=+out.slice(4)-1;return catalystCampusConfig(readableCliBlocks(leaves[idx]?leafCfg(leaves[idx]):core),true);}
+ return catalystCampusConfig(readableCliBlocks(core),true);
 }
 
 function aristaSyncLeaves(){const n=Math.max(2,Math.min(8,+v("arLeafCount")||4));document.querySelectorAll("[data-ar-leaf]").forEach(e=>e.style.display=(+e.dataset.arLeaf<=n)?"":"none");const s=document.getElementById("arOutput");if(s){[...s.options].forEach(o=>{if(o.value.startsWith("LEAF")){let x=+o.value.slice(4);o.hidden=x>n;o.disabled=x>n}});}}
@@ -2092,7 +2096,7 @@ function syncTopology(){
  if(tech==="STP"){
    const e=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
    const c1=e(v("d1host")||"CORE-1"),c2=e(v("d2host")||"CORE-2"),n=Math.max(2,Math.min(8,+v("stpLeafCount")||4)),names=String(v("stpLeafNames")||"").split(",").map(x=>x.trim()).filter(Boolean),leaves=Array.from({length:n},(_,i)=>e(names[i]||`LEAF-${i+1}`)),xs=Array.from({length:n},(_,i)=>110+730*i/(n-1)),root=v("stpRoot")==="2"?"2":"1",vl=e(v("stpVlans")||"10,20,30,40"),mode=e(v("stpMode")||"rapid-pvst");
-   area.innerHTML=`<div class="vpc-svg-wrap"><svg class="vpc-svg" viewBox="0 0 950 470" role="img" aria-label="Dynamic STP topology"><text x="475" y="30" text-anchor="middle" class="vpc-domain-title">${mode.toUpperCase()} · VLAN ${vl}</text><line x1="355" y1="145" x2="595" y2="145" class="vpc-peer-line"/>${[[355,c1,root==="1"?"PRIMARY (ROOT)":"SECONDARY"],[595,c2,root==="2"?"PRIMARY (ROOT)":"SECONDARY"]].map(([x,nm,role])=>`<g><rect x="${x-70}" y="90" width="140" height="70" rx="12" class="vpc-device"/><text x="${x}" y="118" text-anchor="middle" class="vpc-device-name">${nm}</text><text x="${x}" y="141" text-anchor="middle" class="vpc-small">${role}</text></g>`).join("")}${xs.map(x=>`<line x1="355" y1="160" x2="${x}" y2="330" class="vpc-member-line"/><line x1="595" y1="160" x2="${x}" y2="330" class="vpc-member-line"/>`).join("")}${xs.map((x,i)=>`<g><rect x="${x-48}" y="330" width="96" height="54" rx="10" class="vpc-leaf"/><text x="${x}" y="361" text-anchor="middle" class="vpc-device-name">${leaves[i]}</text></g>`).join("")}<text x="475" y="430" text-anchor="middle" class="vpc-small">${n} dual-attached access switches · STP forwarding topology</text></svg></div>`;return;
+   area.innerHTML=`<div class="vpc-svg-wrap"><svg class="vpc-svg" viewBox="0 0 950 470" role="img" aria-label="Dynamic STP topology"><text x="475" y="30" text-anchor="middle" class="vpc-domain-title">${platform()==='Cisco IOS-XE'?'CATALYST CAMPUS · '+e(v('campusRole')||'Core')+' / Access · ':''}${mode.toUpperCase()} · VLAN ${vl}</text><line x1="355" y1="145" x2="595" y2="145" class="vpc-peer-line"/><text x="475" y="80" text-anchor="middle" class="vpc-small">${platform()==='Cisco IOS-XE'?e(campusInterconnectPort()):''}</text>${[[355,c1,root==="1"?"PRIMARY (ROOT)":"SECONDARY"],[595,c2,root==="2"?"PRIMARY (ROOT)":"SECONDARY"]].map(([x,nm,role])=>`<g><rect x="${x-70}" y="90" width="140" height="70" rx="12" class="vpc-device"/><text x="${x}" y="118" text-anchor="middle" class="vpc-device-name">${nm}</text><text x="${x}" y="141" text-anchor="middle" class="vpc-small">${role}</text></g>`).join("")}${xs.map(x=>`<line x1="355" y1="160" x2="${x}" y2="330" class="vpc-member-line"/><line x1="595" y1="160" x2="${x}" y2="330" class="vpc-member-line"/>`).join("")}${xs.map((x,i)=>`<g><rect x="${x-48}" y="330" width="96" height="54" rx="10" class="vpc-leaf"/><text x="${x}" y="361" text-anchor="middle" class="vpc-device-name">${leaves[i]}</text></g>`).join("")}<text x="475" y="430" text-anchor="middle" class="vpc-small">${n} dual-attached access switches · STP forwarding topology</text></svg></div>`;return;
  }
  if(tech==="QOS"){
    const e=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -2192,7 +2196,7 @@ function syncTopology(){
      const leaves=Array.from({length:n},(_,i)=>esc(v(`swvLeaf${i+1}`)||`LEAF-${i+1}`));
      const pos=Array.from({length:n},(_,i)=>105+740*i/(n-1));
      const po=Array.from({length:n},(_,i)=>esc(v(`swvLeafPo${i+1}`)||String(10+i)));
-     area.innerHTML=`<div class="vpc-svg-wrap"><svg class="vpc-svg" viewBox="0 0 950 480" role="img" aria-label="Cisco StackWise Virtual spine leaf topology">
+     area.innerHTML=`<div class="vpc-svg-wrap"><svg class="vpc-svg" viewBox="0 0 950 480" role="img" aria-label="Cisco Catalyst StackWise Virtual core access topology">
        <rect x="250" y="48" width="450" height="165" rx="18" class="vpc-domain-box"/>
        <text x="475" y="75" text-anchor="middle" class="vpc-domain-title">STACKWISE VIRTUAL DOMAIN ${dom}</text>
        <path d="M 355 140 V 100 H 595 V 140" class="vpc-ka-line" data-stackwise-dad="true" fill="none"/>
@@ -3080,6 +3084,62 @@ function ospfGenerate(tab){
  return selected==="D1"?configs.D1:selected==="D2"?configs.D2:`${configs.D1}\n\n${configs.D2}`;
 }
 
+function catalystCampusUi(){
+ if(platform()!=='Cisco IOS-XE'||!['STP','VPC'].includes(tech))return;
+ const root=document.getElementById('params'),mode=v(tech==='STP'?'stpMode':'swvStpMode');
+ for(const id of ['campusMstName','campusMstRevision','campusMstInstance']){const field=document.getElementById(id);if(field)field.parentElement.hidden=mode!=='mst';}
+ const domain=document.getElementById('campusVtpDomain');if(domain)domain.parentElement.hidden=v('campusVtp')!=='server';
+ for(const id of ['campusInterPo','campusInterMembers1','campusInterMembers2']){const field=document.getElementById(id);if(field)field.parentElement.hidden=v('campusInterconnect')!=='lacp';}
+ root.querySelectorAll('label,.vpc-v42-title,.note').forEach(el=>{for(const child of el.childNodes)if(child.nodeType===Node.TEXT_NODE){child.__campusOriginal??=child.textContent;child.textContent=child.__campusOriginal.replace(/Leaf/g,'Access').replace(/leaf/g,'access').replace(/leaves/g,'access switches').replace('Access–Spine / Core','Core–Access').replace('Access Access Port','Endpoint Access Port');}});
+ root.querySelectorAll('option').forEach(option=>{option.textContent=option.textContent.replace(/Leaf-/g,'Access-');});
+}
+function catalystCampusFields(stack=false){
+ if(platform()!=="Cisco IOS-XE")return "";
+ return `<section class="vpc-v42-card" data-catalyst-campus><div class="section-title">Catalyst Campus LAN · Core / Access</div><p class="note">${stack?'StackWise Virtual is one logical switch. Access MEC bundles span its two physical members.':'Independent core switches with STP-controlled redundant access trunks. An EtherChannel must terminate on one logical peer.'}</p><div class="param-grid">
+ <div><label>Catalyst family · design context</label><select id="campusFamily">${(stack?['Catalyst 9500','Catalyst 9400','Catalyst 9600']:['Catalyst 9500','Catalyst 9400','Catalyst 9600','Catalyst 9300','Catalyst 9200']).map(x=>`<option>${x}</option>`).join('')}</select></div>
+ <div><label>Upper tier role</label><select id="campusRole"><option value="Core">Collapsed Core / Access</option><option value="Distribution">Distribution / Access · upstream core outside this topology</option></select></div>
+ <div><label>VTP VLAN database</label><select id="campusVtp"><option value="off">Off · local VLAN management</option><option value="transparent">Transparent · forward received advertisements</option><option value="server">VTPv3 · core server / access client</option></select></div>
+ <div><label>VTP domain · required for VTPv3</label><input id="campusVtpDomain" maxlength="32" placeholder="CAMPUS"></div>
+ <div><label>Native VLAN</label><input id="campusNativeVlan" type="number" min="1" max="4094" value="999"></div>
+ <div><label>Endpoint access VLAN</label><input id="campusAccessVlan" type="number" min="1" max="4094" value="10"></div>
+ <div><label>MST region · used in MST mode</label><input id="campusMstName" maxlength="32" value="CAMPUS"></div>
+ <div><label>MST revision</label><input id="campusMstRevision" type="number" min="0" max="65535" value="1"></div>
+ <div><label>MST service instance · remaining VLANs use IST 0</label><input id="campusMstInstance" type="number" min="1" max="4094" value="1"></div>
+ ${stack?'':`<div><label>Core interconnect</label><select id="campusInterconnect"><option value="trunk">Single physical trunk</option><option value="lacp">LACP Port-channel · active / active</option></select></div><div><label>Core interconnect Port-channel ID</label><input id="campusInterPo" type="number" min="1" max="128" value="100"></div><div><label>Core-1 channel members</label><input id="campusInterMembers1" value="TenGigabitEthernet1/0/47,TenGigabitEthernet1/0/48"></div><div><label>Core-2 channel members</label><input id="campusInterMembers2" value="TenGigabitEthernet1/0/47,TenGigabitEthernet1/0/48"></div>`}
+ </div><label class="check"><input id="campusNoDtp" type="checkbox" checked> Disable DTP on statically configured trunks</label><p class="note">Family selection records design intent; exact PID, IOS-XE release, license, supervisor and supported ports must match the deployment. ${stack?'SVL and DAD are dedicated links; this workspace models StackWise Virtual, not a rear-cable StackWise access stack.':''}</p><a href="https://www.cisco.com/c/en/us/td/docs/solutions/CVD/Campus/cisco-campus-lan-wlan-design-guide.html" target="_blank" rel="noopener">Cisco Campus LAN design guide</a><details><summary>Cisco Catalyst configuration references</summary><p><a href="https://www.cisco.com/c/en/us/td/docs/switches/lan/catalyst9300/software/release/17-15/configuration_guide/lyr2/b_1715_lyr2_9300_cg/configuring_etherchannels.html" target="_blank" rel="noopener">EtherChannel / LACP</a> · <a href="https://www.cisco.com/c/en/us/td/docs/switches/lan/catalyst9300/software/release/17-15/configuration_guide/vlan/b_1715_vlan_9300_cg/configuring_vtp.html" target="_blank" rel="noopener">VTP</a> · <a href="https://www.cisco.com/c/en/us/td/docs/switches/lan/catalyst9500/software/release/17-15/configuration_guide/ha/b_1715_ha_9500_cg/configuring_cisco_stackwise_virtual.html" target="_blank" rel="noopener">StackWise Virtual / SVL / DAD</a></p></details></section>`;
+}
+function campusInterconnectPort(){return platform()==='Cisco IOS-XE'&&v('campusInterconnect')==='lacp'?'Port-channel'+v('campusInterPo'):v('stpCoreLinkIf');}
+function catalystCampusConfig(text,stack=false){
+ if(platform()!=='Cisco IOS-XE'||!document.getElementById('campusVtp'))return text;
+ const mode=v(stack?'swvStpMode':'stpMode'),vl=v(stack?'swvVlans':'stpVlans'),vtp=v('campusVtp'),native=Number(v('campusNativeVlan')),access=Number(v('campusAccessVlan'));
+ if(!['rapid-pvst','mst','pvst'].includes(mode))throw Error('Catalyst supports rapid-pvst, pvst or mst in this workspace.');
+ for(const [n,label]of [[native,'Native VLAN'],[access,'Access VLAN']])if(!Number.isInteger(n)||n<1||n>4094)throw Error(label+' must be between 1 and 4094.');
+ if(stack&&[...swvExpandVlans(vl),native,access].includes(4094))throw Error('VLAN 4094 is reserved for this StackWise Virtual design.');
+ if(vtp==='server'&&!/^[A-Za-z0-9_.-]{1,32}$/.test(v('campusVtpDomain')))throw Error('Enter a VTP domain using 1–32 letters, digits, dots, underscores or hyphens.');
+ const mst=mode==='mst',instance=Number(v('campusMstInstance')),revision=Number(v('campusMstRevision'));
+ if(mst&&(!/^[A-Za-z0-9_.-]{1,32}$/.test(v('campusMstName'))||!Number.isInteger(instance)||instance<1||instance>4094||!Number.isInteger(revision)||revision<0||revision>65535))throw Error('Review MST region, revision and service instance.');
+ const rootPri=Number(v(stack?'swvStpPri':'stpRootPri')),secondary=Number(v(stack?'swvLeafStpPri':'stpSecPri'));
+ if([rootPri,secondary].some(n=>!Number.isInteger(n)||n<0||n>61440||n%4096))throw Error('STP priorities must use increments of 4096 from 0 to 61440.');
+ if(rootPri>=secondary)throw Error('Root priority must be lower than the secondary/access priority.');
+ if(!swvExpandVlans(vl).includes(access))throw Error('Access VLAN must be included in the service VLAN list.');
+ const vlans=[...new Set([...swvExpandVlans(vl),native,access])].sort((a,b)=>a-b),coreNames=stack?[v('swvHost')]:[v('d1host'),v('d2host')];
+ return text.replace(/hostname ([^\n]+)([\s\S]*?)(?=########|$)/g,(all,host,body)=>{
+  const core=coreNames.includes(host.trim()),role=vtp==='server'?(core?'server':'client'):vtp;
+  const globals=[vtp==='server'?'vtp domain '+v('campusVtpDomain')+'\nvtp version 3':'','vtp mode '+role,...(role==='client'?[]:vlans.map(n=>'vlan '+n))].filter(Boolean).join('\n');
+  if(mst){body=body.replace(/spanning-tree vlan ([^\n]+) priority (\d+)/g,(_,scope,priority)=>'spanning-tree mst 0 priority '+priority+'\nspanning-tree mst '+instance+' priority '+priority);body=body.replace('spanning-tree mode mst','spanning-tree mode mst\nspanning-tree mst configuration\n name '+v('campusMstName')+'\n revision '+revision+'\n instance '+instance+' vlan '+vl+'\n exit');}
+  body=body.replace(/( switchport trunk allowed vlan [^\n]+)/g,' switchport trunk native vlan '+native+'\n$1'+(c('campusNoDtp')?'\n switchport nonegotiate':''));
+  body=body.replace(/ switchport mode access/g,' switchport mode access\n switchport access vlan '+access);
+  if(role==='client')body=body.replace(/^vlan [^\n]+(?:\n name [^\n]+)?\n?/gm,'');
+  if(!stack&&core&&v('campusInterconnect')==='lacp'){
+   const po=Number(v('campusInterPo')),members=v(host.trim()===coreNames[0]?'campusInterMembers1':'campusInterMembers2').split(',').map(x=>x.trim()).filter(Boolean);
+   if(!Number.isInteger(po)||po<1||po>128||members.length<2||new Set(members).size!==members.length||members.some(x=>!/^\w+[0-9/]+$/.test(x)))throw Error('Core LACP needs a valid Port-channel ID and at least two distinct physical interfaces per switch.');
+   body=body.replace('interface '+v('stpCoreLinkIf')+'\n','interface Port-channel'+po+'\n');
+   body+='\n'+members.map(port=>'interface '+port+'\n switchport mode trunk\n switchport trunk native vlan '+native+'\n switchport trunk allowed vlan '+vl+(c('campusNoDtp')?'\n switchport nonegotiate':'')+'\n channel-group '+po+' mode active\n no shutdown').join('\n');
+  }
+  return 'hostname '+host+'\n'+globals+'\n'+body+'\n\n';
+ });
+}
+
 function stpGenerate(tab){
  const p=platform(),h1=v("d1host"),h2=v("d2host"),vl=v("stpVlans"),mode=v("stpMode"),
  root=v("stpRoot"),rp=v("stpRootPri"),sp=v("stpSecPri"),access=v("stpAccessIf"),
@@ -3090,7 +3150,7 @@ function stpGenerate(tab){
  const leaves=Array.from({length:count},(_,i)=>raw[i]||`LEAF-${String(i+1).padStart(2,"0")}`);
 
  if(tab==="verify"){
-   const m={"Cisco IOS-XE":"show spanning-tree\nshow spanning-tree root\nshow spanning-tree inconsistentports\nshow udld","Cisco NX-OS":"show spanning-tree\nshow spanning-tree root\nshow spanning-tree inconsistentports\nshow udld","Arista EOS":"show spanning-tree\nshow spanning-tree root\nshow spanning-tree detail","Huawei_CE_SW":"display stp\ndisplay stp brief\ndisplay stp interface","FortiGate":"# Verify STP on the managed FortiSwitch devices."}; return m[p];
+   const m={"Cisco IOS-XE":"show vtp status\nshow etherchannel summary\nshow interfaces trunk\nshow spanning-tree mst configuration\nshow spanning-tree\nshow spanning-tree root\nshow spanning-tree inconsistentports\nshow udld","Cisco NX-OS":"show spanning-tree\nshow spanning-tree root\nshow spanning-tree inconsistentports\nshow udld","Arista EOS":"show spanning-tree\nshow spanning-tree root\nshow spanning-tree detail","Huawei_CE_SW":"display stp\ndisplay stp brief\ndisplay stp interface","FortiGate":"# Verify STP on the managed FortiSwitch devices."}; return m[p];
  }
  if(tab==="trouble") return `1. Verify that the selected core is the operational root bridge.
 2. Check root/designated/alternate port roles on every leaf.
@@ -3183,7 +3243,7 @@ interface ${access}
  };
  leaves.forEach((h,i)=>configs[`LEAF${i+1}`]=`######## ${h} · LEAF-${i+1} ########\n${leaf(h)}`);
  const selected=v("stpOutputDevice")||"ALL";
- return selected!=="ALL"&&configs[selected]?configs[selected]:[configs.CORE1,configs.CORE2,...leaves.map((_,i)=>configs[`LEAF${i+1}`])].join("\n\n");
+ return catalystCampusConfig(selected!=="ALL"&&configs[selected]?configs[selected]:[configs.CORE1,configs.CORE2,...leaves.map((_,i)=>configs[`LEAF${i+1}`])].join("\n\n"));
 }
 
 
@@ -5072,7 +5132,7 @@ function syncPlatformListForModule(){
  let wanted=all;
  if(tech==="EVPN")wanted=all.filter(([value])=>["Cisco NX-OS","Arista EOS","Huawei_CE_SW"].includes(value));
  if(tech==="SDWAN")wanted=all.filter(([value])=>value==="Cisco IOS-XE");
- if(tech==="STP")wanted=all.filter(([value])=>value!=="FortiGate");
+ if(tech==="STP")wanted=all.filter(([value])=>value!=="FortiGate").map(([value,label])=>[value,value==='Cisco IOS-XE'?'Cisco Catalyst · IOS-XE':value==='Cisco NX-OS'?'Legacy Nexus STP':label]);
  if(tech==="BASIC"){
    wanted=[
     ["Cisco NX-OS","Cisco NX-OS"],
@@ -5083,7 +5143,7 @@ function syncPlatformListForModule(){
  } else if(tech==="VPC"){
    wanted=[
     ["Cisco NX-OS","Cisco NX-OS"],
-    ["Cisco IOS-XE","Cisco_StackWise"],
+    ["Cisco IOS-XE","Cisco Catalyst · StackWise Virtual"],
     ["Huawei_CE_SW","Huawei_CE_SW"],
     ["Huawei iStack","Huawei iStack"],
     ["Arista EOS","Arista EOS"]
@@ -5105,6 +5165,7 @@ function syncPlatformListForModule(){
    return;
  }
 
+ if(tech==='STP'&&!window.__workspaceModuleStates?.STP&&!window.__modulePlatformLast.STP){ps.value='Cisco IOS-XE';return;}
  const remembered=window.__modulePlatformLast[tech];
  if(remembered && wanted.some(x=>x[0]===remembered)) ps.value=remembered;
  else if(wanted.some(x=>x[0]===current)) ps.value=current;
@@ -5126,6 +5187,7 @@ function restoreWorkspaceModule(key=tech){
   renderBgpDynamicCards();
  }
  Object.entries(saved.fields||{}).forEach(([id,value])=>{const el=document.getElementById(id);if(!el)return;if(el.type==="checkbox")el.checked=!!value;else el.value=value;});
+ if(platform()==='Cisco IOS-XE'&&['STP','VPC'].includes(key)&&saved.fields?.campusAccessVlan===undefined){const access=document.getElementById('campusAccessVlan'),scope=v(key==='STP'?'stpVlans':'swvVlans');if(access)access.value=String(swvExpandVlans(scope)[0]||10);}
  if(key==="BGP")renderBgpDynamicCards();
  if(key==="SDWAN")sdRestorePlanUI();
  return true;
@@ -5158,7 +5220,7 @@ function renderModule(){
  }
  document.getElementById("moduleTitle").textContent=technologyLabel(tech,platform());
  if(document.getElementById("v3CurrentTech"))document.getElementById("v3CurrentTech").textContent=technologyLabel(tech,platform());
- document.getElementById("moduleSubtitle").textContent=tech==="VPC"?(platform()==="Huawei iStack"?"Huawei iStack · Single Logical Core / Dual Physical Member / Dynamic 2–8 Leaf":platform()==="Cisco NX-OS"?"Cisco Nexus vPC · Dual Spine / Dynamic 2–8 Leaf":platform()==="Cisco IOS-XE"?"Cisco StackWise Virtual · Dual Chassis / Dynamic 2–8 Leaf":platform()==="Arista EOS"?"Arista EOS MLAG · Dual Core / Dynamic 2–8 Leaf":"Huawei CloudEngine M-LAG · Dual Core / Dynamic 2–8 Leaf"):m.subtitle;
+ document.getElementById("moduleSubtitle").textContent=tech==='STP'&&platform()==='Cisco IOS-XE'?'Cisco Catalyst Campus LAN · Core / Access · STP redundancy':tech==="VPC"?(platform()==="Huawei iStack"?"Huawei iStack · Single Logical Core / Dual Physical Member / Dynamic 2–8 Leaf":platform()==="Cisco NX-OS"?"Cisco Nexus vPC · Dual Spine / Dynamic 2–8 Leaf":platform()==="Cisco IOS-XE"?"Cisco Catalyst Campus · StackWise Virtual Core / Dynamic 2–8 Access":platform()==="Arista EOS"?"Arista EOS MLAG · Dual Core / Dynamic 2–8 Leaf":"Huawei CloudEngine M-LAG · Dual Core / Dynamic 2–8 Leaf"):m.subtitle;
  document.getElementById("topologyControls").replaceChildren();
  document.getElementById("params").innerHTML=m.params();
  document.getElementById("params").classList.toggle("bgp-v39",tech==="BGP");
@@ -5655,13 +5717,15 @@ function configurationOutputLast(){
 }
 
 function renderOutput(){
+
+
  document.getElementById("params")?.closest(".grid")?.classList.toggle("deployment-view",tab==="deploy");
  const compareButton=document.getElementById('outputCompare');if(compareButton)compareButton.disabled=tab!=='config';
  ensureDesignLinkSpeed();
  const noteControl=document.getElementById("designNotesLanguageControl");if(noteControl){noteControl.hidden=tab!=="notes";noteControl.style.display=tab==="notes"?"inline-flex":"none";}
  if(tech==="BGP"){bgpV39ContextUI();bgpRefreshConnectivityUI();}
  if(tech==="VPC"){vpcLeafUi();vpcV42ContextUI();} if(tech==="EVPN")evpnV431Ui();
- deviceOutputUi();configurationOutputLast();
+ deviceOutputUi();catalystCampusUi();configurationOutputLast();
  window.NetworkDesignChecks?.render(tech,platform());
  const out=document.getElementById("output");
  const deploy=document.getElementById("deployPanel");
@@ -6305,11 +6369,19 @@ renderModule();
        const blocks=generated.split(/^########\s+.*?\s+########\s*$/m).map(x=>x.trim()).filter(Boolean);
        if(blocks.length!==devices.length)throw Error("STP configuration sections do not match the planned devices.");
        devices.forEach((d,i)=>configurations.push({deviceId:d.id,text:blocks[i],source:"Technology Workspaces"}));
-       special("Core interconnect","upper-1","upper-2",get("stpCoreLinkIf"),get("stpCoreLinkIf"),"Core-to-core trunk");
+       special("Core interconnect","upper-1","upper-2",campusInterconnectPort(),campusInterconnectPort(),v('campusInterconnect')==='lacp'?"Core-to-core LACP bundle · logical link":"Core-to-core trunk");
      }
    }finally{if(selector)selector.value=selected;}
+   if(pl==='Cisco IOS-XE'&&document.getElementById('campusFamily'))params.push({label:'Catalyst campus architecture',value:(v('campusRole')||'Core')+' / Access',impact:v('campusFamily')+' upper tier with Catalyst access switches. '+(swv?'StackWise Virtual is one logical bridge; downstream MEC spans both physical members.':'The two independent switches use STP for redundant access paths; a Port-channel never spans two independent upper switches.')},{label:'VLAN database and trunk policy',value:v('campusVtp'),impact:'VTP '+v('campusVtp')+'; native VLAN '+v('campusNativeVlan')+'; access VLAN '+v('campusAccessVlan')+'. '+(v('campusVtp')==='server'?'VTPv3 servers require an explicitly approved primary-server operation and domain/password consistency; access switches are clients.':'VLANs are configured locally.')},{label:'MST region and scope',value:v(swv?'swvStpMode':'stpMode'),impact:v(swv?'swvStpMode':'stpMode')==='mst'?'Region '+v('campusMstName')+', revision '+v('campusMstRevision')+', service instance '+v('campusMstInstance')+'. All members must match; the simulator evaluates one selected tree, not all per-VLAN/per-instance trees.':'Rapid/PVST root intent applies to the configured VLAN scope. The simulator evaluates one selected tree.'});
+   const campusTranslations={
+    'Catalyst campus architecture':['Catalyst kampüs mimarisi',v('campusFamily')+' üst katman ve Catalyst access switchleri kullanılır. '+(swv?'StackWise Virtual, STP açısından tek mantıksal bridge oluşturur; downstream MEC iki fiziksel üyeye dağıtılır.':'Bağımsız iki üst switch, yedek access yollarını STP ile yönetir. Bir Port-channel iki bağımsız üst switch arasında dağıtılamaz.')],
+    'VLAN database and trunk policy':['VLAN veritabanı ve trunk politikası','VTP modu '+v('campusVtp')+'; native VLAN '+v('campusNativeVlan')+'; access VLAN '+v('campusAccessVlan')+'. '+(v('campusVtp')==='server'?'VTPv3 domain ve parola tutarlılığı doğrulanmalı, primary-server işlemi onaylı olarak ayrıca yapılmalıdır. Access switchler client rolündedir.':'VLAN veritabanı her switch üzerinde yerel olarak yönetilir.')],
+    'MST region and scope':['MST bölgesi ve kapsamı',v(swv?'swvStpMode':'stpMode')==='mst'?'Bölge '+v('campusMstName')+', revision '+v('campusMstRevision')+', hizmet instance '+v('campusMstInstance')+'. Tüm üyelerin bölge bilgileri eşleşmelidir. Simülatör tüm VLAN/instance ağaçlarını değil, seçilen tek ağacı değerlendirir.':'Rapid/PVST root tercihi yapılandırılan VLAN kapsamına uygulanır. Simülatör seçilen tek ağacı değerlendirir.']
+   };
+   for(const parameter of params){const translation=campusTranslations[parameter.label];if(translation){parameter.labelTr=translation[0];parameter.impactTr=translation[1];}}
+
    return {schema:"network-configurator-report-v1",name:project.project.name==="Untitled Network Project"?"":project.project.name,
-     vendor:pl,architecture:swv?"core-access":"spine-leaf",technology:kind,techPlacement:"upper",roles:{upper:isVpc&&pl==="Cisco NX-OS"?"Spine":"Core",lower:"Leaf"},
+     vendor:pl,architecture:swv||tech==='STP'&&pl==='Cisco IOS-XE'?"core-access":"spine-leaf",technology:kind,techPlacement:"upper",roles:{upper:pl==='Cisco IOS-XE'?(v('campusRole')||'Core'):isVpc&&pl==="Cisco NX-OS"?"Spine":"Core",lower:pl==='Cisco IOS-XE'?"Access":"Leaf"},
      upperCount:devices.filter(d=>d.tier==="upper").length,lowerCount:devices.filter(d=>d.tier==="lower").length,
      scope:"",devices,links,specialLinks,parameters:params.map(p=>p.impact?p:{...p,impact:p.value,value:"Design boundary"}),configurations,
      source:{module:tech,projectId:project.project.id||"active",generatedAt:new Date().toISOString()}};
@@ -6440,7 +6512,7 @@ renderModule();
    workflowDestination="";
    resetManagementTargets();captureWorkspaceModule(tech);const modal=$("combineModal"),list=$("combineModuleList");
    const activePlatform=platform();
-   const supportedPlatforms=key=>key==='VPC'?['Cisco NX-OS','Cisco IOS-XE','Arista EOS','Huawei_CE_SW','Huawei iStack']:key==='SDWAN'?['Cisco IOS-XE']:key==='EVPN'?['Cisco NX-OS','Arista EOS','Huawei_CE_SW']:['BASIC','VPC','STP'].includes(key)?['Cisco NX-OS','Cisco IOS-XE','Arista EOS','Huawei_CE_SW']:['Cisco NX-OS','Cisco IOS-XE','Arista EOS','Huawei_CE_SW','FortiGate'];
+   const supportedPlatforms=key=>key==='STP'?['Cisco IOS-XE','Arista EOS','Huawei_CE_SW']:key==='VPC'?['Cisco NX-OS','Cisco IOS-XE','Arista EOS','Huawei_CE_SW','Huawei iStack']:key==='SDWAN'?['Cisco IOS-XE']:key==='EVPN'?['Cisco NX-OS','Arista EOS','Huawei_CE_SW']:['BASIC','VPC','STP'].includes(key)?['Cisco NX-OS','Cisco IOS-XE','Arista EOS','Huawei_CE_SW']:['Cisco NX-OS','Cisco IOS-XE','Arista EOS','Huawei_CE_SW','FortiGate'];
    list.innerHTML=COMBINABLE_MODULES.map(key=>{const saved=window.__workspaceModuleStates[key],current=key===tech,options=supportedPlatforms(key),pl=current?activePlatform:saved?.platform||activePlatform,effective=options.includes(pl)?pl:options[0];return `<div class="combine-option"><label><input type="checkbox" value="${key}" ${current?"checked":""}><span><b data-module-title="${key}">${moduleLabel(key,effective)}</b><small>${current?"Current workspace":saved?.configured?"Saved workspace parameters":"Current platform with default parameters"}</small></span></label><select data-report-platform="${key}" aria-label="${moduleLabel(key,effective)} report platform">${options.map(v=>`<option value="${v}" ${v===effective?'selected':''}>${v==='Huawei_CE_SW'?'Huawei CloudEngine':v}</option>`).join('')}</select></div>`;}).join("");
    const update=()=>{const count=list.querySelectorAll("input:checked").length;$("combineCreate").disabled=!count;$("combineError").className="combine-error progress";$("combineError").textContent=count?`${count} modül seçildi. Modüllerin platformlarını kontrol ederek raporu oluşturun.`:"En az bir modül seçin.";};
    list.querySelectorAll("input,select").forEach(input=>input.addEventListener("change",()=>{resetManagementTargets();if(input.matches('select'))list.querySelector(`[data-module-title="${input.dataset.reportPlatform}"]`).textContent=moduleLabel(input.dataset.reportPlatform,input.value);update();}));modal.hidden=false;modal.querySelector(".combine-card").scrollTop=0;update();
