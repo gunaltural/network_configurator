@@ -48,10 +48,16 @@ def normalize_document(value):
             raise ValueError('Invalid project structure.')
         if any(not isinstance(item,str) for key in ('inventoryDeviceIds','manualVisibleIds','sshVisibleIds') for item in report.get(key,[])):
             raise ValueError('Invalid project structure.')
+    simulation = value.get('simulation')
+    if simulation is not None:
+        if (not isinstance(simulation, dict) or simulation.get('engine') not in ('bgp', 'workspace')
+            or not isinstance(simulation.get('context'), dict) or not isinstance(simulation.get('records'), list)
+            or not design or simulation['context'].get('projectId') != design['project'].get('id')):
+            raise ValueError('Invalid simulation checkpoint.')
     name = str(value.get('name','')).strip()
     if not name or len(name) > 120:
         raise ValueError('Enter a project name of at most 120 characters.')
-    document = clean_document({'schema':value['schema'],'name':name,'design':design,'reporting':report})
+    document = clean_document({'schema':value['schema'],'name':name,'design':design,'reporting':report,**({'simulation':simulation} if simulation is not None else {})})
     if isinstance((document.get('design') or {}).get('project'),dict):document['design']['project']['name']=name
     if document.get('reporting'):document['reporting']['name']=name
     encoded = json.dumps(document,ensure_ascii=False,separators=(',',':'))
