@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="tr">
-<head>
+<head><script src="/workspace-storage.js"></script>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Network Configurator v5.55.2</title>
+<title>Network Configurator v5.55.5</title>
 <style>
 :root{
   --bg:#0d1117;--panel:#161b22;--panel2:#1f2630;--line:#2b3440;
@@ -5755,7 +5755,7 @@ renderModule();
  }
  const grid=$("v3TechGrid");
  cards.forEach(([key,icon,tag,desc])=>{
-   const d=document.createElement("button"); d.type="button"; d.className="v3-card";
+   const d=document.createElement("button"); d.type="button"; d.className="v3-card"; d.dataset.technology=key;
    const label=key==="VPC"?"vPC / MLAG":key==="BASIC"?"System and Management":key;
    d.innerHTML=`<div class="icon">${icon}</div><h3>${label}</h3><p>${desc}</p><span class="tag">${tag}</span>`;
    d.onclick=()=>openTech(key); grid.appendChild(d);

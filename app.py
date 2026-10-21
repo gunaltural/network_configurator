@@ -46,7 +46,7 @@ from config_compare import install_config_compare
 from network_lab import install_network_lab
 from lab_gateway import install_lab_gateway
 
-VERSION = "5.55.4"
+VERSION = "5.55.5"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
 # Keep the diagnostic entry point available with the authenticated page itself.
@@ -678,6 +678,10 @@ app = FastAPI(
 install_authentication(app, BASE_DIR)
 install_network_lab(app, BASE_DIR)
 install_lab_gateway(app)
+
+@app.get('/workspace-storage.js')
+def workspace_storage_script():
+    return Response((BASE_DIR / 'workspace-storage.js').read_text(encoding='utf-8'), media_type='application/javascript', headers={'Cache-Control':'no-store'})
 
 @app.get('/project-workflow.js')
 def project_workflow_script():
