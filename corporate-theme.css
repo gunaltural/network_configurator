@@ -299,3 +299,20 @@ body>.nc-project-flow{margin:18px 28px;max-width:1604px}
 #params .bgp-policy-status{font-size:10px;line-height:1.5;color:#4c6b7d;margin:7px 0}
 #params [data-policy-state=error] .bgp-policy-status{color:#a22736}#params [data-policy-state=warning] .bgp-policy-status{color:#815716}
 @container nc-parameters (max-width:360px){#params .bgp-policy-line-main{grid-template-columns:minmax(0,1fr) 85px}#params .bgp-policy-extra{grid-template-columns:minmax(0,1fr)}}
+
+/* Operational workspaces fill the width previously reserved for Design. */
+.layout .grid.operations-view:has(> .card > #params){grid-template-columns:minmax(0,1fr)!important}
+.layout .grid.operations-view>.nc-pane-divider{display:none!important}
+.layout .grid.operations-view>.card:has(#workspaceOutputTitle){container-type:inline-size;container-name:operations}
+body.nc-operation-view :is(.workspace>.topology,#v3Health,.nc-project-flow:not(.guided-flow)){display:none!important}
+.layout .operations-view :is(.sd-cli,.sd-result){width:100%;box-sizing:border-box;overflow:auto}
+.layout .operations-view :is(#verifyOutput,#troubleOutput){min-height:260px;max-height:65vh}
+@container operations (min-width:850px){
+ .layout .operations-view :is(.simple-deploy,.verification-cli,.troubleshooting-cli){grid-template-columns:minmax(280px,.8fr) minmax(0,1.2fr);align-items:start}
+ .layout .operations-view :is(.simple-deploy,.verification-cli,.troubleshooting-cli)>*{grid-column:1/-1}
+ .layout .operations-view :is(.simple-deploy,.verification-cli,.troubleshooting-cli)>.sd-card:nth-child(2){grid-column:1;grid-row:2}
+ .layout .operations-view :is(.simple-deploy,.verification-cli,.troubleshooting-cli)>.sd-card:nth-child(3){grid-column:2;grid-row:2}
+ .layout .operations-view .troubleshooting-cli>.sd-card:nth-child(4){grid-column:1;grid-row:3}
+ .layout .operations-view .troubleshooting-cli>.sd-card:nth-child(5){grid-column:2;grid-row:3}
+ .layout .operations-view #sdConfigPreview{min-height:360px;max-height:60vh}
+}
