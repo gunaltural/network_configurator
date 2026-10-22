@@ -25,6 +25,7 @@ class SimulationReportTests(unittest.TestCase):
             self.assertEqual(response.status_code,200)
             doc=Document(io.BytesIO(response.content))
             self.assertTrue(any(name in p.text for p in doc.paragraphs))
+            self.assertTrue(any(p.style.name == 'Heading 3' and name in p.text for p in doc.paragraphs), 'Scenario name must accompany the topology image')
     def test_empty_or_invalid_scenarios_rejected(self):
         self.assertEqual(self.client.post('/api/network-lab/simulation-word',json={'name':'Pilot','scenarios':[]}).status_code,422)
         bad={**self.scenario,'policies':[{'connection':'wan1','localPreference':100,'prependCount':11}]}
