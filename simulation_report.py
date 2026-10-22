@@ -242,6 +242,10 @@ def append_simulation_scenarios(doc, scenarios, language='en'):
                 ('Model sonucu' if tr else 'Model result', outcome),
                 ('Yol değişimi / ağ geçidi değişimi' if tr else 'Path change / gateway change', ' / '.join(('Evet' if flag else 'Hayır') if tr else ('Yes' if flag else 'No') for flag in [s['pathChanged'],s['gatewayChanged']])),
             ])
+        scenario_title = (s.get('scenarioNames', {}).get('tr' if tr else 'en') or s.get('scenarioName') or
+                          '; '.join([x + (' Arızası' if tr else ' Fail') for x in s.get('failedDevices', [])] +
+                                    [x + (' Devre Arızası' if tr else ' Circuit Fail') for x in s.get('failedLinks', [])]) or
+                          ('Kayıtlı senaryo' if tr else 'Recorded scenario'))
         for field, caption in [('baselineTopologyPng','Başlangıç topolojisi' if tr else 'Baseline topology'),('topologyPng','Senaryo topolojisi' if tr else 'Scenario topology')]:
             if not s.get(field): continue
             encoded=s[field]
@@ -250,7 +254,11 @@ def append_simulation_scenarios(doc, scenarios, language='en'):
             if not data.startswith(b'\x89PNG\r\n\x1a\n'): raise ValueError('Invalid simulation topology image.')
             image=Image.open(BytesIO(data))
             if image.width>2400 or image.height>2400: raise ValueError('Simulation topology image is too large.')
-            doc.add_heading(caption,level=3)
+            doc.add_heading(caption + ' · ' + scenario_title,level=3)
+            summary = s.get('assessment', {}).get('tr' if tr else 'en', {}).get('summary', '')
+            if field == 'topologyPng' and summary:
+                paragraph = doc.add_paragraph(summary)
+                paragraph.paragraph_format.keep_with_next = True
             doc.add_picture(BytesIO(data),width=Inches(6.5))
         _assessment(doc,s,tr)
         if s['policies'] and not s.get('syntheticOutputs'):

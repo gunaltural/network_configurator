@@ -39,7 +39,9 @@
     const attributes = r => ({ ...baseline, ...Object.fromEntries(Object.entries(r).filter(([k, v]) => ['localPreference', 'prependCount', 'med'].includes(k) && v !== undefined)), communities: [...new Set([...(baseline.communities || []), ...(r.communities || [])])] });
     const rows = selected.map((r, i) => ({ ...r, sequence: (i + 1) * 10, ...attributes(r) }));
     if (rows.length || Object.values(baseline).some(v => Array.isArray(v) ? v.length : v !== undefined)) rows.push({ sequence: rows.length ? 65000 : 10, prefixes: [], ...baseline });
-    return rows;
+    // A zero prepend is a no-op unless it provides an exception inside an active policy.
+    const changesAttributes = row => row.localPreference !== undefined || row.med !== undefined || Number(row.prependCount) > 0 || row.communities?.length;
+    return rows.some(changesAttributes) ? rows : [];
   }
   function emit(vendor, name, rows, asn) {
     if (!rows.length) return '';

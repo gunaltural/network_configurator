@@ -3,7 +3,7 @@
 <head><script src="/workspace-storage.js"></script>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Network Configurator v5.57.0</title>
+<title>Network Configurator v5.57.1</title>
 <style>
 :root{
   --bg:#0d1117;--panel:#161b22;--panel2:#1f2630;--line:#2b3440;
@@ -34,6 +34,8 @@ select,input{width:100%;padding:9px 10px;background:#0d141b;color:var(--text);bo
 .link{height:3px;background:linear-gradient(90deg,var(--accent),var(--ok));position:relative;border-radius:999px}
 .link:after{content:"";position:absolute;right:-2px;top:-4px;width:10px;height:10px;border:2px solid var(--ok);border-radius:50%;background:#11171e}
 .grid.deployment-view{grid-template-columns:1fr}.grid.deployment-view>[data-design-parameters]{display:none!important}
+.grid.operations-view{grid-template-columns:1fr}.grid.operations-view>[data-design-parameters],.grid.operations-view #workspaceOutputTabs{display:none!important}
+#operationsContext{margin:0 0 16px;padding:12px;border:1px solid #b8d2df;border-radius:10px}#operationsContext .operation-actions{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
 .grid{display:grid;grid-template-columns:1.05fr .95fr;gap:16px;margin-top:16px}
 .card{background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:15px}
 .card h3{margin:0 0 10px}.section-title{font-size:12px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-top:14px}
@@ -467,8 +469,9 @@ body.nc-simulation-action{padding-bottom:145px}body.nc-simulation-action #topolo
       </section>
 
       <section class="card">
-        <h3>02 · Output</h3>
-        <div class="tabs">
+        <h3 id="workspaceOutputTitle">02 · Output</h3>
+        <div id="operationsContext" hidden><span id="operationsSource"></span><div class="operation-actions"><button type="button" class="btn" id="operationsConfiguration">View Device Configuration</button><button type="button" class="btn" id="deploymentBackToDesign">Back to Design</button></div></div>
+        <div class="tabs" id="workspaceOutputTabs">
           <button class="tab active" data-tab="config">Configuration</button>
           <button class="tab" data-tab="deploy">Deploy Config</button>
           <button class="tab" data-tab="verify">Verification</button>
@@ -479,8 +482,7 @@ body.nc-simulation-action{padding-bottom:145px}body.nc-simulation-action #topolo
           <div class="simple-deploy-head">
             <div>
               <b>DEPLOY CONFIG</b>
-              <span>Uses the current Design configuration.</span>
-              <button type="button" class="btn" id="deploymentBackToDesign">Back to Design</button>
+              <span>Uses the current Device Configuration.</span>
               <span>Connect → Pre-Check → Deploy</span>
             </div>
             <span id="sdAgentBadge" class="sd-badge neutral">SSH ENGINE · CHECKING</span>
@@ -5721,6 +5723,12 @@ function renderOutput(){
 
 
  document.getElementById("params")?.closest(".grid")?.classList.toggle("deployment-view",tab==="deploy");
+ const operationTitles={deploy:'Configuration Deployment',verify:'Verification Commands',trouble:'Troubleshooting'},isOperation=!!operationTitles[tab];
+ document.getElementById('params')?.closest('.grid')?.classList.toggle('operations-view',isOperation);
+ document.body.classList.toggle('nc-operation-view',isOperation);
+ document.getElementById('workspaceOutputTitle').textContent=operationTitles[tab]||'02 · Output';
+ document.getElementById('operationsContext').hidden=!isOperation;
+ if(isOperation)document.getElementById('operationsSource').textContent=`${tech} · ${platform()} · Uses the current Device Configuration. Edit parameters in Design.`;
  const compareButton=document.getElementById('outputCompare');if(compareButton)compareButton.disabled=tab!=='config';
  ensureDesignLinkSpeed();
  const noteControl=document.getElementById("designNotesLanguageControl");if(noteControl){noteControl.hidden=tab!=="notes";noteControl.style.display=tab==="notes"?"inline-flex":"none";}
@@ -5807,7 +5815,8 @@ function downloadOut(){
  a.download=`${tech}_${platform().replaceAll(" ","_").replaceAll("/","_")}.txt`;
  a.click();
 }
-document.getElementById("deploymentBackToDesign").onclick=()=>document.querySelector('.tab[data-tab="config"]').click();
+document.getElementById("deploymentBackToDesign").onclick=()=>{document.querySelector('.tab[data-tab="config"]').click();document.querySelector('[data-design-parameters]')?.scrollIntoView({block:'start'});};
+document.getElementById('operationsConfiguration').onclick=()=>{document.querySelector('.tab[data-tab="config"]').click();document.getElementById('workspaceOutputTitle').scrollIntoView({block:'start'});};
 SimpleDeployEngine.bind();
 renderModule();
 </script>

@@ -241,7 +241,15 @@ function assessmentHtml(s,language){
  table(tr?'Doğrulama komut planı':'Verification command plan',[tr?'Komut':'Command',tr?'Amaç':'Purpose',tr?'Yürütme':'Execution'],v.commands.map(x=>[x.command,x.purpose,x.execution]))+
  (a.references||[]).filter(x=>/^https:\/\//.test(x.url)).map(x=>`<p><a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a></p>`).join('')+'</section>';
 }
-function topologyHtml(s,language){const tr=language==='tr',image=(svg,title)=>svg?`<figure><figcaption>${esc(title)}</figcaption><img alt="${esc(title)}" style="width:100%;max-height:650px;object-fit:contain" src="data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgLanguage(svg,language))}"></figure>`:'';return `<div class="simulation-topologies">${image(s.baselineTopologySvg,tr?'Başlangıç topolojisi':'Baseline topology')}${image(s.topologySvg,tr?'Senaryo topolojisi':'Scenario topology')}</div>`;}
+function scenarioTitle(s,language){
+ const tr=language==='tr';
+ return s.scenarioNames?.[language]||s.scenarioName||[...(s.failedDevices||[]).map(x=>x+(tr?' Arızası':' Fail')),...(s.failedLinks||[]).map(x=>x+(tr?' Devre Arızası':' Circuit Fail'))].join('; ')||(tr?'Kayıtlı senaryo':'Recorded scenario');
+}
+function topologyHtml(s,language){
+ const tr=language==='tr',name=scenarioTitle(s,language),summary=s.assessment?.[language]?.summary||'';
+ const image=(svg,title,description='')=>svg?`<figure><figcaption>${esc(title)}</figcaption>${description?`<p class="scenario-topology-summary">${esc(description)}</p>`:''}<img alt="${esc(title)}" style="width:100%;max-height:650px;object-fit:contain" src="data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgLanguage(svg,language))}"></figure>`:'';
+ return `<div class="simulation-topologies">${image(s.baselineTopologySvg,(tr?'Başlangıç topolojisi':'Baseline topology')+' · '+name)}${image(s.topologySvg,(tr?'Senaryo topolojisi':'Scenario topology')+' · '+name,summary)}</div>`;
+}
 function html(scenarios,language='en'){
  if(!Array.isArray(scenarios))return '';scenarios=scenarios.filter(s=>s&&typeof s==='object');if(!scenarios.length)return '';
  const tr=language==='tr',yes=x=>tr?(x?'Evet':'Hayır'):(x?'Yes':'No'),generic=scenarios.some(s=>s.module);

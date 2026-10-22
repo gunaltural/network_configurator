@@ -38,7 +38,7 @@ test('historical records are not given invented neighbor evidence, and repeated 
 test('named failure narratives explain the actual surviving circuit and ranking for every BGP vendor',()=>{
  for(const vendor of ['Cisco NX-OS','Cisco IOS-XE','Arista EOS','Huawei_CE_SW','FortiGate'])for(const direction of ['outbound','inbound']){
   const {w,report:r}=scenario([],['wan1'],direction,{},vendor);try{
-   assert.match(r.scenarioName,/wan1|CE-1/);assert.ok(r.scenarioNames.tr);assert.match(r.assessment.en.summary,/CE-1.*ISP-2/);assert.match(r.assessment.en.summary,direction==='outbound'?/Local Preference: 100/:/AS path/);assert.match(w.SimulationReport.html([r]),new RegExp('Scenario 1 · BGP'));
+   assert.match(r.scenarioName,/wan1|CE-1/);assert.ok(r.scenarioNames.tr);for(const lang of ['en','tr']){const doc=new w.DOMParser().parseFromString(w.SimulationReport.html([{...r,topologySvg:'<svg xmlns="http://www.w3.org/2000/svg"><text>CE-1</text></svg>'}],lang),'text/html');const figures=[...doc.querySelectorAll('figure')];assert.ok(figures.some(f=>f.querySelector('figcaption').textContent.includes(r.scenarioNames[lang])));assert.ok(doc.querySelector('.scenario-topology-summary')?.textContent.includes('CE-1'));}assert.match(r.assessment.en.summary,/CE-1.*ISP-2/);assert.match(r.assessment.en.summary,direction==='outbound'?/Local Preference: 100/:/AS path/);assert.match(w.SimulationReport.html([r]),new RegExp('Scenario 1 · BGP'));
   }finally{w.close();}
  }
 });
