@@ -38,13 +38,14 @@
    };
    const add=(title,impact,acceptance,pattern,key)=>{
     const commands=records.filter(r=>pattern.test(r.command)).map(r=>`${r.hostname}: ${r.command}`),matched=snapshots.filter(s=>matches(s,key));
-    const evidence=matched.map(s=>{
+    const related=!matched.length&&!key&&['EVPN','BASIC'].includes(type)?snapshots:[];
+    const evidence=[...matched,...related].map(s=>{
      const name=s.scenarioNames?.[state.language]||s.scenarioName||s.id;
      const result=s.assessment?.[state.language]?.summary||s.currentPath||s.modelStatus||'';
-     return p('Simülasyon: ','Simulation: ')+name+(result?' — '+result:'');
+     return (related.length?p('İlgili modül simülasyonu (bu kabul maddesini doğrulamaz): ','Related module simulation (does not verify this acceptance item): '):p('Simülasyon: ','Simulation: '))+name+(result?' — '+result:'');
     });
     if(commands.length)evidence.push(p('Seçilen doğrulama komutları: ','Selected verification commands: ')+unique(commands).join('; '));
-    scenarios.push({title,impact,acceptance,evidence:evidence.length?evidence.join('\n'):p('Bu kabul maddesine bağlı simülasyon veya doğrulama komutu bulunmuyor.','No simulation or verification command is linked to this acceptance item.'),status:matched.length?p('Simülasyonda değerlendirildi · '+matched.length+' kayıt','Evaluated in simulation · '+matched.length+' record(s)'):p('Planlandı · eşleşen simülasyon kaydı yok','Planned · no matching simulation record')});
+    scenarios.push({title,impact,acceptance,evidence:evidence.length?evidence.join('\n'):p('Bu kabul maddesine bağlı simülasyon veya doğrulama komutu bulunmuyor.','No simulation or verification command is linked to this acceptance item.'),status:matched.length?p('Simülasyonda değerlendirildi · '+matched.length+' kayıt','Evaluated in simulation · '+matched.length+' record(s)'):related.length?p('Modül simülasyonu mevcut · kabul maddesi değerlendirilmedi','Module simulation available · acceptance item not evaluated'):p('Planlandı · eşleşen simülasyon kaydı yok','Planned · no matching simulation record')});
    };
    if(!texts.length){paragraphs.push(p('Bu teknoloji için cihaz konfigürasyonu oluşturulduğunda, seçili mekanizmaların işletim değerlendirmesi ve kabul senaryoları bu bölüme eklenecektir.','Operational assessment and acceptance scenarios for selected mechanisms will be included when device configurations are generated for this technology.'));sections.push({title:`${identity} · ${vendorName(scope.vendor)}`,paragraphs,scenarios});continue;}
    if(type==='BGP'){
