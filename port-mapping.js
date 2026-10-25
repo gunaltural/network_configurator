@@ -1475,21 +1475,12 @@
       "text/csv;charset=utf-8",
     );
   }
-  async function restore(data) {
-    if (
-      ![
-        "mac-port-mapping-v1",
-        "mac-port-mapping-v2",
-        "network-discovery-v1",
-      ].includes(data.schema) ||
-      !Array.isArray(data.sources) ||
-      data.sources.length > 100
-    )
-      throw Error("This is not a supported port mapping workspace.");
-    let next = [];
-    if (data.schema === "network-discovery-v1") {
+  function discoveryCaptures(data) {
+    if (data?.schema !== 'network-discovery-v1' || !Array.isArray(data.sources) || data.sources.length > 50)
+      throw Error('Open a valid Network Discovery workspace first.');
+    const captures = [];
       for (const s of data.sources) {
-        next.push(
+        captures.push(
           normalizeSource({
             device: s.deviceName,
             raw: s.output,
@@ -1501,7 +1492,7 @@
           }),
         );
         for (const d of s.interfaceEvidence || [])
-          next.push(
+          captures.push(
             normalizeSource({
               device: s.deviceName,
               target: s.target,
@@ -1515,6 +1506,40 @@
             }),
           );
       }
+    return captures;
+  }
+  function discoveryDocument() {
+    const handoff = sessionStorage.getItem('networkConfigurator.portMapping.discovery');
+    if (handoff) return JSON.parse(handoff);
+    const current = JSON.parse(sessionStorage.getItem('networkConfigurator.workflow.design') || 'null');
+    return {discovery:current?.networkDiscovery, projectName:current?.project?.name || ''};
+  }
+  async function importDiscovery(document) {
+    const captures = discoveryCaptures(document.discovery);
+    if (!captures.length) throw Error('No Discovery captures are available. Collect or import neighbors in Network Discovery first.');
+    const identity = x => JSON.stringify([x.site,x.device.toLowerCase(),x.target,x.platform,x.kind,x.command,x.vrf,x.importedAt,x.raw]);
+    const known = new Set(sources.map(identity)), additions = [];
+    for (const capture of captures) if (!known.has(identity(capture))) {known.add(identity(capture));additions.push(capture);}
+    if (additions.length) await analyze([...sources,...additions]);
+    const context = document.projectName ? ' · '+document.projectName : '';
+    $('pmDiscoveryContext').textContent = 'Network Discovery'+context+' · '+captures.length+' neighbor/interface captures available; '+additions.length+' added. Add MAC tables for the discovered switches and ARP/ND for IP addresses.';
+    status(additions.length+' Discovery captures added. Existing MAC evidence and client annotations retained.');
+    sessionStorage.removeItem('networkConfigurator.portMapping.discovery');
+  }
+  async function restore(data) {
+    if (
+      ![
+        "mac-port-mapping-v1",
+        "mac-port-mapping-v2",
+        "network-discovery-v1",
+      ].includes(data.schema) ||
+      !Array.isArray(data.sources) ||
+      data.sources.length > 100
+    )
+      throw Error("This is not a supported port mapping workspace.");
+    let next = [];
+    if (data.schema === "network-discovery-v1") {
+      next = discoveryCaptures(data);
     } else next = data.sources.map(normalizeSource);
     const overrides = data.organizationPrefixes || {};
     if (
@@ -1670,6 +1695,9 @@
       ),
     ];
   }
+  $('pmUseDiscovery').onclick = async () => {
+    try {if(await draftReady === false)throw Error('Restore the saved mapping workspace before adding Discovery captures.');await importDiscovery(discoveryDocument());} catch(e) {status(e.message,true);}
+  };
   $("pmFiles").onchange = (e) => loadFiles(e.target.files);
   $("pmAnalyze").onclick = () =>
     add($("pmRaw").value, $("pmDevice").value).catch((e) =>
@@ -1970,19 +1998,25 @@
     groups: () => groups,
     model: () => model,
     restore,
+    importDiscovery,
     analyze,
     demoSources,
   };
+  let draftReady = Promise.resolve(true);
   try {
     const draft = localStorage.getItem(DRAFT);
     if (draft)
-      restore(JSON.parse(draft)).catch((e) =>
-        status("Saved draft retained; unable to restore: " + e.message, true),
-      );
+      draftReady = restore(JSON.parse(draft)).then(()=>true).catch((e) => {
+        status("Saved draft retained; unable to restore: " + e.message, true);return false;
+      });
   } catch (e) {
+    draftReady = Promise.resolve(false);
     status(
       "Unable to read browser draft. Import a saved JSON workspace.",
       true,
     );
+  }
+  if (new URLSearchParams(location.search).get('from') === 'discovery') {
+    draftReady.then(ready=>{if(ready===false)throw Error('Restore the saved mapping workspace before adding Discovery captures.');return importDiscovery(discoveryDocument());}).catch(e=>status('Discovery import failed; existing workspace retained. '+e.message,true));
   }
 })();

@@ -103,6 +103,11 @@ function clearTopology(){
  $('discoveryParse').disabled=false;renderSeeds();checkpoint();render();notice('Topology cleared. Start a new discovery or import a new device output.');
 }
 for(const id of ['discoveryReset','discoveryClearTop','discoveryClearMap'])$(id).onclick=clearTopology;$('discoveryProjectName').oninput=checkpoint;
+$('discoveryPortAnalysis').onclick=()=>{
+ if(busy)return notice('Wait for Discovery collection to finish.',true);
+ if(!state.sources.length)return notice('Collect or import neighbor output before opening port analysis.',true);
+ try{checkpoint();sessionStorage.setItem('networkConfigurator.portMapping.discovery',JSON.stringify({discovery:{schema:state.schema,sources:state.sources},projectName:$('discoveryProjectName').value.trim()}));location.assign('/port-mapping?from=discovery');}catch(e){notice('Unable to transfer Discovery captures. Download Discovery JSON and import it in MAC Port Mapping. '+e.message,true);}
+};
 $('discoverySave').onclick=()=>{if(!window.NetworkProjects?.available)return window.NetworkProjects?.show();checkpoint();window.NetworkProjects.saveCurrent(snapshot()).catch(err=>notice(err.message,true));};$('discoveryDownloadProject').onclick=()=>{try{checkpoint();window.NetworkProjects.downloadCurrent(snapshot());}catch(err){notice(err.message,true);}};
 restore(design);formatCommand();
 
