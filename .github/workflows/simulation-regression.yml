@@ -144,6 +144,7 @@ jobs:
             /tmp/port-topology-*.png
             /tmp/port-support-topology.png
             /tmp/deliverables-*.png
+            /tmp/discovery-layout-*.png
           if-no-files-found: ignore
 
   production-image-smoke:
@@ -160,7 +161,7 @@ jobs:
             if curl --fail --silent http://127.0.0.1:18080/healthz >/dev/null; then break; fi
             sleep 2
           done
-          curl --fail --silent --show-error http://127.0.0.1:18080/healthz | python -c 'import json,sys; p=json.load(sys.stdin); assert p["ok"] is True and p["simulator_ready"] is True; assert p["version"]=="5.57.3", p'
+          curl --fail --silent --show-error http://127.0.0.1:18080/healthz | python -c 'import json,sys; p=json.load(sys.stdin); assert p["ok"] is True and p["simulator_ready"] is True; assert p["version"]=="5.57.4", p'
           curl --fail --silent --show-error http://127.0.0.1:18080/deliverables | python -c 'import sys; assert "deliverablesCenter" in sys.stdin.read()'
           curl --fail --silent --show-error http://127.0.0.1:18080/deliverables.js | python -c 'import sys; assert "openSaved" in sys.stdin.read()'
           curl --fail --silent --show-error http://127.0.0.1:18080/workspace-storage.js | python -c 'import sys; p=sys.stdin.read(); assert "NetworkWorkspaceStorage" in p and "NC-LZW1" in p'

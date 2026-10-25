@@ -351,6 +351,13 @@
           min-width: 800px;
         }
       }
+      #portMapping.pm-entry-collapsed .pm-input > :not(h2):not(#pmInputToggle){display:none!important}
+      #portMapping .pm-map-wrap{height:var(--pm-map-height,600px);max-height:none;resize:vertical;min-height:300px}
+      #portMapping[data-layout="stacked"] .pm-workbench{grid-template-columns:minmax(0,1fr)}
+      #pmMap [data-device]{cursor:grab;touch-action:none;user-select:none}
+      #pmTransferNotice.error{border-color:#bd6464;background:#fff0ef}
+      @media(min-width:1100px){#portMapping[data-layout="side"] .pm-workbench{grid-template-columns:minmax(0,var(--pm-map-share,1.85fr)) minmax(0,1fr)}}
+      @media print{#portMapping .pm-map-wrap{height:auto!important;resize:none}#portMapping.pm-entry-collapsed .pm-input{display:none}}
     </style>
   </head>
   <body>
@@ -364,10 +371,12 @@
         Connect switch neighbors, port configuration and learned clients in one
         evidence-based map.
       </p>
+      <section id="pmTransferNotice" class="pm-card" hidden tabindex="-1" aria-labelledby="pmTransferTitle"><h2 id="pmTransferTitle">Discovery transfer</h2><p id="pmTransferMessage" role="status" aria-live="polite"></p><div class="pm-tools"><button id="pmTransferTopology" type="button">View transferred topology</button><button id="pmTransferAdd" type="button">Add MAC / ARP evidence</button><a href="/network-discovery">Return to Network Discovery</a></div></section>
+      <details class="pm-card"><summary>Workspace layout</summary><div class="pm-tools"><label>Panels<select id="pmLayoutMode"><option value="side">Side by side</option><option value="stacked">Stacked</option></select></label><label>Map width <output id="pmLayoutShareValue">65%</output><input id="pmLayoutShare" type="range" min="50" max="75" value="65"></label><label>Map height <output id="pmLayoutHeightValue">600 px</output><input id="pmLayoutHeight" type="range" min="300" max="1000" step="50" value="600"></label><button id="pmLayoutReset" type="button">Reset layout</button></div></details>
       <section class="pm-card pm-input">
-        <h2>Add device evidence</h2>
+        <h2>Add device evidence</h2><button id="pmInputToggle" type="button" aria-expanded="true">Collapse data entry</button>
         <div class="pm-tools"><button id="pmUseDiscovery" type="button">Use Network Discovery</button><a href="/network-discovery">Open Network Discovery</a></div>
-        <p id="pmDiscoveryContext" class="pm-hint">Use the existing Discovery topology, then add MAC and ARP/ND captures to locate endpoints. Imported captures are added to this workspace.</p>
+        <p id="pmDiscoveryContext" class="pm-hint">Use the existing Discovery topology, then add MAC and ARP/ND captures to locate endpoints. New Discovery replaces previous neighbor topology and removes devices outside the new scope. MAC/port evidence for devices in the new topology is retained.</p>
         <div class="pm-tools">
           <label
             >Device name<input
@@ -539,7 +548,7 @@
         </section>
         <div class="pm-workbench">
           <section class="pm-card">
-            <h2>Topology</h2>
+            <h2>Topology</h2><p class="pm-hint">Drag a device to move it. Connections follow the device. Positions are retained in the saved workspace.</p><button id="pmAutoArrange" type="button">Auto arrange devices</button>
             <div class="pm-tools pm-topology-toolbar">
               <label
                 >View<select id="pmView">
