@@ -143,6 +143,7 @@ jobs:
             /tmp/bgp-connection-policies.png
             /tmp/port-topology-*.png
             /tmp/port-support-topology.png
+            /tmp/deliverables-*.png
           if-no-files-found: ignore
 
   production-image-smoke:
