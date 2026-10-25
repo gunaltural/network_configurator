@@ -64,6 +64,7 @@
     clientPage = 0,
     working = false,
     revision = 0;
+  let nodePositions={topology:{},ports:{}},renderedPositions=new Map(),drag=null,suppressClickUntil=0;
   const node = (tag, text, cls) => {
     const el = document.createElement(tag);
     if (text !== undefined) el.textContent = text;
@@ -182,6 +183,7 @@
       organizationPrefixes: customDb,
       annotations,
       importReports,
+      nodePositions,
       sources: sources.map(
         ({
           device,
@@ -288,6 +290,7 @@
       sources = next;
       evidence = result;
       model = C.correlate(sources, evidence, db, annotations);
+      const ids=new Set(model.devices.map(d=>d.id));for(const mode of ['topology','ports'])nodePositions[mode]=Object.fromEntries(Object.entries(nodePositions[mode]).filter(([id])=>ids.has(id)));
       selected = "";
       page = rowPage = clientPage = 0;
       render();
@@ -664,16 +667,18 @@
       height = 180 + Math.max(1, Math.ceil(subset.length / 4)) * 110;
     map.setAttribute("viewBox", "0 0 1000 " + height);
     const centers = new Map(
-      ids.map((id, i) => [id, (1000 * (i + 1)) / (ids.length + 1)]),
+      ids.map((id, i) => [id,nodePositions.ports[id]||{x:(1000*(i+1))/(ids.length+1),y:45}]),
     );
+    renderedPositions=new Map(centers);
+    map.setAttribute('viewBox',drag?drag.viewBox:'0 0 1000 '+Math.max(height,...[...centers.values()].map(p=>p.y+120)));
     if (ids.length <= 5)
       for (const id of ids) {
-        const x = centers.get(id);
+        const {x,y} = centers.get(id);
         const device = model.devices.find((d) => d.id === id),
           box = svg("g", { "data-device": id, "aria-label": device.hostname });
         svg("rect", {
           x: x - 75,
-          y: 15,
+          y: y-30,
           width: 150,
           height: 55,
           rx: 8,
@@ -684,7 +689,7 @@
           "text",
           {
             x,
-            y: 46,
+            y: y+1,
             "text-anchor": "middle",
             "font-size": 12,
             fill: "#214860",
@@ -700,8 +705,8 @@
       if (ids.length <= 5)
         svg("path", {
           d: localTopology
-            ? `M ${centers.get(g.deviceId)} 70 V 95 H ${x + 45} V ${y + 15} H ${x + 80}`
-            : `M ${centers.get(g.deviceId)} 70 V 95 H ${x + 95} V ${y}`,
+            ? `M ${centers.get(g.deviceId).x} ${centers.get(g.deviceId).y+25} V ${centers.get(g.deviceId).y+50} H ${x + 45} V ${y + 15} H ${x + 80}`
+            : `M ${centers.get(g.deviceId).x} ${centers.get(g.deviceId).y+25} V ${centers.get(g.deviceId).y+50} H ${x + 95} V ${y}`,
           stroke: "#8aa5b8",
           "stroke-dasharray": "3 5",
           fill: "none",
@@ -731,7 +736,7 @@
   }
   function draw() {
     const map = $("pmMap");
-    map.replaceChildren();
+    map.replaceChildren();renderedPositions=new Map();
     $("pmTopologyEvidence").textContent = !model.links.length && sources.length
       ? "Local learning topology: " + model.devices.length + " device(s), " + model.groups.filter((g) => g.macCount).length + " ports with learned MACs. No CDP/LLDP neighbor links were found. Dotted branches show local port learning, not verified remote devices. Import neighbor output to connect switches."
       : model.links.some((l) => l.eventDerived)
@@ -818,8 +823,10 @@
         layer = next;
       }
     }
-    const height = Math.max(360, row * 250 + 90);
-    map.setAttribute("viewBox", "0 0 1000 " + height);
+    for(const [id,p]of positions)positions.set(id,nodePositions.topology[id]||p);
+    renderedPositions=new Map(positions);
+    const height = Math.max(360, row * 250 + 90,...[...positions.values()].map(p=>p.y+120));
+    map.setAttribute("viewBox",drag?drag.viewBox:"0 0 1000 " + height);
     const selectedEndpoint =
         selectionType === "client"
           ? model.endpoints.find((e) => e.id === selected)
@@ -1514,17 +1521,36 @@
     const current = JSON.parse(sessionStorage.getItem('networkConfigurator.workflow.design') || 'null');
     return {discovery:current?.networkDiscovery, projectName:current?.project?.name || ''};
   }
+  function transferNotice(message,error=false) {
+    const panel=$('pmTransferNotice');panel.hidden=false;
+    $('pmTransferTitle').textContent=error?'Discovery transfer could not complete':'Discovery topology imported';
+    $('pmTransferMessage').textContent=message;panel.classList.toggle('error',error);
+    $('pmTransferTopology').hidden=error||!model.devices.length;
+    panel.focus({preventScroll:true});panel.scrollIntoView({block:'start'});
+  }
+  $('pmTransferTopology').onclick=()=>{$('pmView').value='topology';$('pmSearch').value='';$('pmVlan').value='';$('pmFocus').value='';render();$('pmMap').scrollIntoView({block:'center'});};
+  $('pmTransferAdd').onclick=()=>{layout.collapsed=false;applyLayout();$('pmKind').value='mac';hint();$('pmDevice').focus();$('pmDevice').scrollIntoView({block:'center'});};
   async function importDiscovery(document) {
+    if(working)throw Error('Wait for the current evidence analysis to finish.');
     const captures = discoveryCaptures(document.discovery);
     if (!captures.length) throw Error('No Discovery captures are available. Collect or import neighbors in Network Discovery first.');
     const identity = x => JSON.stringify([x.site,x.device.toLowerCase(),x.target,x.platform,x.kind,x.command,x.vrf,x.importedAt,x.raw]);
-    const known = new Set(sources.map(identity)), additions = [];
-    for (const capture of captures) if (!known.has(identity(capture))) {known.add(identity(capture));additions.push(capture);}
-    if (additions.length) await analyze([...sources,...additions]);
+    const devices=document.discovery.discoveredDevices||document.discovery.graph?.devices||captures.map(s=>({hostname:s.device,managementAddresses:s.target?[s.target]:[]}));
+    const sites=new Set(captures.map(s=>s.site)),names=new Set(devices.map(d=>String(d.hostname||'').toLowerCase())),addresses=new Set(devices.flatMap(d=>d.managementAddresses||[]));
+    const known=new Map(sources.map(s=>[identity(s),s])),next=[],seen=new Set();
+    // Replace neighbor topology; retain local endpoint/port evidence only for devices in the incoming discovery.
+    for(const s of sources.filter(s=>sites.has(s.site)&&!['lldp','cdp','cdp-log'].includes(s.kind)&&(names.has(s.device.toLowerCase())||s.target&&addresses.has(s.target))).concat(captures)){
+      const key=identity(s);if(!seen.has(key)){seen.add(key);next.push(known.get(key)||s);}
+    }
+    const additions=next.filter(s=>!known.has(identity(s))),removed=sources.filter(s=>!seen.has(identity(s)));
+    if(additions.length||removed.length)await analyze(next);
+    $('pmView').value='topology';$('pmSearch').value='';$('pmVlan').value='';$('pmFocus').value='';render();
     const context = document.projectName ? ' · '+document.projectName : '';
     $('pmDiscoveryContext').textContent = 'Network Discovery'+context+' · '+captures.length+' neighbor/interface captures available; '+additions.length+' added. Add MAC tables for the discovered switches and ARP/ND for IP addresses.';
-    status(additions.length+' Discovery captures added. Existing MAC evidence and client annotations retained.');
+    status(additions.length+' Discovery captures added; '+removed.length+' previous captures removed. Endpoint evidence for the current topology retained.');
     sessionStorage.removeItem('networkConfigurator.portMapping.discovery');
+    layout.collapsed=true;applyLayout();
+    transferNotice(model.devices.length+' devices and '+model.links.length+' neighbor links are available below. '+(model.endpoints.length?model.endpoints.length+' MAC/VLAN identities are available for endpoint analysis.':'No endpoint MAC records are available yet. The switch topology is available; add MAC address tables to locate endpoints, and ARP/ND to associate IP addresses.'));
   }
   async function restore(data) {
     if (
@@ -1567,10 +1593,14 @@
       )
     )
       throw Error("Invalid client annotations.");
+    const coordinates=data.nodePositions||{topology:{},ports:{}};
+    if(!coordinates||typeof coordinates!=='object'||Array.isArray(coordinates)||['topology','ports'].some(mode=>!coordinates[mode]||typeof coordinates[mode]!=='object'||Array.isArray(coordinates[mode])||Object.keys(coordinates[mode]).length>500||Object.values(coordinates[mode]).some(p=>!p||!Number.isFinite(p.x)||!Number.isFinite(p.y)||p.x<90||p.x>910||p.y<45||p.y>6000)))throw Error('Invalid saved device coordinates.');
+    const oldPositions=nodePositions;
     const oldAnnotations = annotations,
       oldDb = customDb,
       oldReports = importReports;
     try {
+      nodePositions={topology:{...coordinates.topology},ports:{...coordinates.ports}};
       annotations = { ...notes };
       customDb = { ...overrides };
       importReports = Array.isArray(data.importReports)
@@ -1587,6 +1617,7 @@
       db = { ...baseDb, ...customDb };
       await analyze(next);
     } catch (e) {
+      nodePositions=oldPositions;
       annotations = oldAnnotations;
       customDb = oldDb;
       importReports = oldReports;
@@ -1696,7 +1727,7 @@
     ];
   }
   $('pmUseDiscovery').onclick = async () => {
-    try {if(await draftReady === false)throw Error('Restore the saved mapping workspace before adding Discovery captures.');await importDiscovery(discoveryDocument());} catch(e) {status(e.message,true);}
+    try {if(await draftReady === false)throw Error('Restore the saved mapping workspace before adding Discovery captures.');await importDiscovery(discoveryDocument());} catch(e) {status(e.message,true);transferNotice(e.message,true);}
   };
   $("pmFiles").onchange = (e) => loadFiles(e.target.files);
   $("pmAnalyze").onclick = () =>
@@ -1821,6 +1852,7 @@
     annotations = {};
     importReports = [];
     model = C.correlate([], null);
+    nodePositions={topology:{},ports:{}};
     selected = "";
     page = rowPage = clientPage = 0;
     localStorage.removeItem(DRAFT);
@@ -1991,6 +2023,33 @@
       $("pmDatabase").textContent =
         "Bundled registry unavailable. Import IEEE CSV for organization lookup.";
     });
+  const map=$('pmMap'),positionMode=()=>model.links.length&&$('pmView').value!=='ports'?'topology':'ports';
+  map.addEventListener('pointerdown',e=>{
+    const device=e.target.closest('[data-device]');if(!device||e.button!==0)return;
+    const id=device.dataset.device,p=renderedPositions.get(id),matrix=map.getScreenCTM();if(!p||!matrix)return;
+    drag={id,mode:positionMode(),origin:{...p},point:new DOMPoint(e.clientX,e.clientY).matrixTransform(matrix.inverse()),matrix:matrix.inverse(),viewBox:map.getAttribute('viewBox'),moved:false,pointer:e.pointerId,previous:nodePositions[positionMode()][id]};
+    map.setPointerCapture?.(e.pointerId);e.preventDefault();
+  });
+  map.addEventListener('pointermove',e=>{if(!drag||drag.pointer!==e.pointerId)return;const p=new DOMPoint(e.clientX,e.clientY).matrixTransform(drag.matrix),dx=p.x-drag.point.x,dy=p.y-drag.point.y;if(Math.abs(dx)+Math.abs(dy)<3&&!drag.moved)return;drag.moved=true;nodePositions[drag.mode][drag.id]={x:Math.max(90,Math.min(910,drag.origin.x+dx)),y:Math.max(45,Math.min(6000,drag.origin.y+dy))};draw();});
+  function endDrag(e,cancel=false){if(!drag||drag.pointer!==e.pointerId)return;const old=drag;if(cancel){if(old.previous)nodePositions[old.mode][old.id]=old.previous;else delete nodePositions[old.mode][old.id];}drag=null;if(map.hasPointerCapture?.(e.pointerId))map.releasePointerCapture(e.pointerId);if(old.moved){suppressClickUntil=Date.now()+250;draw();if(!cancel&&!saveDraft())status('Device moved. Browser storage is full; use Save workspace JSON to keep the layout.',true);}}
+  map.addEventListener('pointerup',e=>endDrag(e));map.addEventListener('pointercancel',e=>endDrag(e,true));
+  map.addEventListener('click',e=>{if(Date.now()<suppressClickUntil){e.preventDefault();e.stopPropagation();}},true);
+  $('pmAutoArrange').onclick=()=>{nodePositions={topology:{},ports:{}};draw();if(!saveDraft())status('Auto layout applied; download the workspace to retain it.',true);};
+  const layoutKey='networkConfigurator.portMapping.layout';
+  let layout={mode:'stacked',share:65,height:600,collapsed:false};
+  try{const saved=JSON.parse(localStorage.getItem(layoutKey)||'null');if(saved)layout={mode:saved.mode==='side'?'side':'stacked',share:Math.max(50,Math.min(75,Number(saved.share)||65)),height:Math.max(300,Math.min(1000,Number(saved.height)||600)),collapsed:saved.collapsed===true};}catch{}
+  function applyLayout(){
+    const root=$('portMapping');root.dataset.layout=layout.mode;root.style.setProperty('--pm-map-share',String(layout.share/(100-layout.share))+'fr');root.style.setProperty('--pm-map-height',layout.height+'px');
+    root.classList.toggle('pm-entry-collapsed',layout.collapsed);$('pmInputToggle').textContent=layout.collapsed?'Expand data entry':'Collapse data entry';$('pmInputToggle').setAttribute('aria-expanded',String(!layout.collapsed));
+    $('pmLayoutMode').value=layout.mode;$('pmLayoutShare').value=layout.share;$('pmLayoutHeight').value=layout.height;$('pmLayoutShareValue').textContent=layout.share+'%';$('pmLayoutHeightValue').textContent=layout.height+' px';
+    try{localStorage.setItem(layoutKey,JSON.stringify(layout));}catch{}
+  }
+  $('pmInputToggle').onclick=()=>{layout.collapsed=!layout.collapsed;applyLayout();};
+  $('pmLayoutMode').onchange=e=>{layout.mode=e.target.value;applyLayout();};
+  $('pmLayoutShare').oninput=e=>{layout.share=Number(e.target.value);applyLayout();};
+  $('pmLayoutHeight').oninput=e=>{layout.height=Number(e.target.value);applyLayout();};
+  $('pmLayoutReset').onclick=()=>{layout={mode:'stacked',share:65,height:600,collapsed:false};applyLayout();};
+  applyLayout();
   window.PortMapping = {
     parse: C.parse,
     sources: () => sources,
@@ -2017,6 +2076,6 @@
     );
   }
   if (new URLSearchParams(location.search).get('from') === 'discovery') {
-    draftReady.then(ready=>{if(ready===false)throw Error('Restore the saved mapping workspace before adding Discovery captures.');return importDiscovery(discoveryDocument());}).catch(e=>status('Discovery import failed; existing workspace retained. '+e.message,true));
+    draftReady.then(ready=>{if(ready===false)throw Error('Restore the saved mapping workspace before adding Discovery captures.');return importDiscovery(discoveryDocument());}).catch(e=>{const message='Discovery import failed; existing workspace retained. '+e.message;status(message,true);transferNotice(message,true);});
   }
 })();
