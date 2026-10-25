@@ -3,7 +3,7 @@
 <head><script src="/workspace-storage.js"></script>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Network Configurator v5.57.2</title>
+<title>Network Configurator v5.57.3</title>
 <style>
 :root{
   --bg:#0d1117;--panel:#161b22;--panel2:#1f2630;--line:#2b3440;
@@ -390,8 +390,8 @@ body.nc-simulation-action{padding-bottom:145px}body.nc-simulation-action #topolo
   </div>
 </div>
 <section class="v3-dashboard show" id="v3Dashboard">
-  <a class="v3-card v3-report-card" href="/reporting">
-    <span class="tag">Design · Inventory · Maintenance</span><h3>Maintenance and Reporting</h3><p>Create design reports, collect inventory, review lifecycle and software, and prepare upgrade plans.</p>
+  <a class="v3-card v3-report-card" href="/deliverables?view=projects">
+    <span class="tag">Project reports · Evidence · Saved revisions</span><h3>Reports &amp; Deliverables</h3><p>Review saved project reports, simulation evidence and acceptance records. Continue editing in the existing project report.</p>
   </a>
   <div class="v3-section-head"><b>Technology Workspaces</b><span>Open an existing module</span></div>
   <div class="v3-tech-grid" id="v3TechGrid"></div>
@@ -6598,7 +6598,7 @@ renderModule();
    }
  }
  $("combineCancel").addEventListener("click",()=>{workflowDestination="";closeCombineModal();});$("combineCreate").addEventListener("click",createCombinedReport);$("combineModal").addEventListener("click",event=>{if(event.target===$("combineModal")){workflowDestination="";closeCombineModal();}});
- $("v3Dashboard").querySelector(".v3-report-card").addEventListener("click",openReporting);
+
  document.addEventListener("nc-local-projects-changed",()=>renderRecent());
  window.addEventListener("storage",event=>{if(event.key===STORE)renderRecent();});
  function renderRecent(){
