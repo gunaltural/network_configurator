@@ -46,7 +46,7 @@ from config_compare import install_config_compare
 from network_lab import install_network_lab
 from lab_gateway import install_lab_gateway
 
-VERSION = "5.57.2"
+VERSION = "5.57.3"
 BASE_DIR = Path(__file__).resolve().parent
 HTML = (BASE_DIR / "web.html").read_text(encoding="utf-8")
 # Keep the diagnostic entry point available with the authenticated page itself.
@@ -838,6 +838,14 @@ def discovery_report(report_format: str, p: DiscoveryReportRequest):
 
 install_project_store(app)
 install_config_compare(app, BASE_DIR)
+
+@app.get('/deliverables', response_class=HTMLResponse)
+def deliverables_center():
+    return HTMLResponse((BASE_DIR / 'deliverables.html').read_text(encoding='utf-8'), headers={'Cache-Control':'no-store'})
+
+@app.get('/deliverables.js')
+def deliverables_script():
+    return Response((BASE_DIR / 'deliverables.js').read_text(encoding='utf-8'), media_type='application/javascript', headers={'Cache-Control':'no-store'})
 
 @app.get('/project-library.js')
 def project_library_script():
