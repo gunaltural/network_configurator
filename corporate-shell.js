@@ -24,7 +24,7 @@
  const planned=label=>'<button type="button" class="nc-nav-item nc-nav-sub nc-planned" disabled><span>'+label+'</span><small>Planned</small></button>';
  const group=(label,icon,key,content)=>'<details class="nc-nav-group" data-nc-group="'+key+'"><summary>'+svg(icon)+'<span>'+label+'</span><span class="nc-chevron">›</span></summary><div>'+content+'</div></details>';
  const viewItem=(key,label,icon)=>item(label,icon,'data-nc-view="'+key+'"','/reporting?view='+key+(key==='inventory'?'&context=inventory':''));
- const tabItem=(key,label,icon)=>item(label,icon,'data-nc-tab="'+key+'"','/?workspace=BASIC&tab='+key);
+ const tabItem=(key,label,icon)=>item(label,icon,'data-nc-tab="'+key+'"','/?resume=1&tab='+key);
  const family=(label,keys)=>'<div class="nc-menu-label">'+label+'</div>'+keys.map(key=>{const label=modules.find(([id])=>id===key)[1];return item(label,key==='BASIC'?'settings':'network','data-nc-module="'+key+'"','/?workspace='+key);}).join('');
  sidebar.innerHTML='<a class="nc-brand" href="/"><span class="nc-brand-mark">NC</span><span>Network<br>Configurator<small>Engineering workspace</small></span></a><nav class="nc-menu" aria-label="Main navigation"><a href="/" class="nc-nav-item" data-nc-home>'+svg('home')+'<span>Dashboard</span></a>'
  +group('Projects','inventory','projects',item('Recent Projects','inventory','data-nc-projects','/?section=projects')+item('New Project','network','data-nc-start','/?project=new')+planned('Customers and Sites'))
@@ -207,7 +207,7 @@
    if(['manual','automatic'].includes(collection)){const field=document.getElementById('inventoryMode');field.value=collection;field.dispatchEvent(new Event('change',{bubbles:true}));window.NetworkReportProject?.setCollection?.(collection);}
  }
  if(reporting&&params.get('section')==='evidence'){openView('design');document.getElementById('verificationPanel')?.scrollIntoView({block:'start'});}
- if(main){const requested=new URLSearchParams(location.search).get('workspace');if(modules.some(([key])=>key===requested))openModule(requested);const tab=params.get('tab');if(['config','deploy','verify','trouble','notes'].includes(tab)){if(requested||window.__designWorkspaceOpened)document.querySelector('.tab[data-tab="'+tab+'"]')?.click();else startDesign();}}
+ if(main){const requested=new URLSearchParams(location.search).get('workspace');if(modules.some(([key])=>key===requested))openModule(requested);const tab=params.get('tab');if(['config','deploy','verify','trouble','notes'].includes(tab)){Promise.resolve(window.__workspaceRestoreReady).then(()=>{if(requested||window.__designWorkspaceOpened)document.querySelector('.tab[data-tab="'+tab+'"]')?.click();else startDesign();});}}
 
  // Keep technology panes adjustable without changing module controls or reports.
  if(main){

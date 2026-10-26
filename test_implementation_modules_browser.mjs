@@ -32,6 +32,19 @@ try{
  assert.equal(await p.evaluate(()=>NetworkWorkspaceProject.diagnosticScope().module),'BGP');
  assert.equal(await p.evaluate(()=>NetworkWorkspaceProject.diagnosticScope().platform),'Cisco NX-OS');
  assert.match(await p.locator('#operationsSource').textContent(),/Saved BGP verification/);
+ for(const origin of ['/reporting?view=design','/network-discovery','/port-mapping']){
+  for(const tab of ['config','deploy','verify','trouble']){
+   await p.goto(base+origin);
+   await p.locator('[data-nc-group="operations"] summary').evaluate(e=>e.parentElement.open=true);
+   await p.locator('[data-nc-tab="'+tab+'"]').click();
+   await p.waitForURL('**/?resume=1&tab='+tab);
+   await p.waitForFunction(t=>window.NetworkWorkspaceProject?.diagnosticScope().module==='BGP'&&document.querySelector('.tab.active')?.dataset.tab===t,tab);
+   const restored=await p.evaluate(()=>NetworkWorkspaceProject.snapshot());
+   assert.equal(restored.project.id,savedDesign.project.id);
+   assert.equal(restored.workspace.platform,'Cisco NX-OS');
+   assert.deepEqual(restored.moduleStates.BGP.fields,savedDesign.moduleStates.BGP.fields);
+  }
+ }
  await p.goto(base+'/port-mapping');await p.waitForFunction(()=>window.PortMapping);
  await p.locator('#pmExample').click();await p.waitForFunction(()=>PortMapping.model().endpoints.length>0);
  assert.equal(await p.locator('#pmMapDetails').evaluate(e=>e.open),false);
