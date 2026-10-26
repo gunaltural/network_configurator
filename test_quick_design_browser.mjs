@@ -22,6 +22,7 @@ try{
  await page.locator('#guidedName').fill('Quick OSPF');await page.locator('#guidedModules input[value=OSPF]').check();await page.locator('#guidedCreate').click();
  await page.waitForFunction(()=>window.ProjectWorkflow.state()?.name==='Quick OSPF');
  assert.equal(await page.evaluate(()=>window.ProjectWorkflow.state().mode),'standalone');
+ await page.waitForFunction(()=>window.NetworkWorkspaceProject?.diagnosticScope().module==='OSPF'&&document.getElementById('guidedSimulate')?.disabled===false);
  assert.equal(await page.locator('#guidedSimulate').isEnabled(),true);
  const before=await page.evaluate(()=>window.NetworkWorkspaceProject.snapshot());
  await page.locator('#guidedSimulate').click();await page.waitForURL('**/network-lab?workspace=1');
