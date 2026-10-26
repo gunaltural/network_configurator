@@ -9,6 +9,7 @@ try{
  for(const key of ['BGP','OSPF','STP','VPC','EVPN','SDWAN','QOS','BASIC']){
   await p.evaluate(k=>NetworkWorkspaceProject.activateModule(k),key);
   const source=await p.evaluate(()=>NetworkWorkspaceProject.snapshot());
+  await p.evaluate(async saved=>{await NetworkWorkspaceProject.activateModule(saved.workspace.technology==='BGP'?'OSPF':'BGP');NetworkWorkspaceProject.apply(saved);await window.__workspaceRestoreReady;},source);
   for(const tab of ['config','deploy','verify','trouble']){
    await p.locator('[data-nc-group="operations"] summary').evaluate(e=>e.parentElement.open=true);
    await p.locator('[data-nc-tab="'+tab+'"]').click();
@@ -19,6 +20,18 @@ try{
    assert.deepEqual(result.moduleStates[key].fields,source.moduleStates[key].fields);
   }
  }
+ // Open a saved project through the same Project Library entry point used by users.
+ await p.evaluate(()=>NetworkWorkspaceProject.activateModule('BGP','Cisco NX-OS'));
+ const savedDesign=await p.evaluate(()=>NetworkWorkspaceProject.snapshot());savedDesign.project.name='Saved BGP verification';savedDesign.project.id='saved-bgp-verification';
+ const bundle={schema:'network-configurator-project-v1',name:'Saved BGP verification',design:savedDesign,reporting:null};
+ await p.route('**/api/projects/saved-bgp',route=>route.fulfill({json:{id:'saved-bgp',name:bundle.name,version:1,document:bundle}}));
+ await p.evaluate(()=>NetworkWorkspaceProject.activateModule('OSPF'));
+ await p.evaluate(async()=>{await NetworkProjects.openSaved('saved-bgp','design');});
+ await p.locator('[data-nc-group="operations"] summary').evaluate(e=>e.parentElement.open=true);
+ await p.locator('[data-nc-tab="verify"]').click();
+ assert.equal(await p.evaluate(()=>NetworkWorkspaceProject.diagnosticScope().module),'BGP');
+ assert.equal(await p.evaluate(()=>NetworkWorkspaceProject.diagnosticScope().platform),'Cisco NX-OS');
+ assert.match(await p.locator('#operationsSource').textContent(),/Saved BGP verification/);
  await p.goto(base+'/port-mapping');await p.waitForFunction(()=>window.PortMapping);
  await p.locator('#pmExample').click();await p.waitForFunction(()=>PortMapping.model().endpoints.length>0);
  assert.equal(await p.locator('#pmMapDetails').evaluate(e=>e.open),false);

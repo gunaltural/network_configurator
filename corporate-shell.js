@@ -167,8 +167,8 @@
  sidebar.querySelectorAll('[data-nc-collection]').forEach(link=>link.onclick=e=>{
    if(!reporting)return;e.preventDefault();if(!window.NetworkReportProject?.inventoryWorkspace){location.assign(link.href);return;}window.NetworkReportProject.setCollection(link.dataset.ncCollection);openView('inventory');const field=document.getElementById('inventoryMode');field.value=link.dataset.ncCollection;field.dispatchEvent(new Event('change',{bubbles:true}));
  });
- sidebar.querySelectorAll('[data-nc-tab]').forEach(link=>link.onclick=e=>{
-   if(!main)return;e.preventDefault();if(!window.__designWorkspaceOpened){startDesign();return;}const key=document.querySelector('.tech.active')?.dataset.tech;openModule(key);document.querySelector('.tab[data-tab="'+link.dataset.ncTab+'"]')?.click();sync();
+ sidebar.querySelectorAll('[data-nc-tab]').forEach(link=>link.onclick=async e=>{
+   if(!main)return;e.preventDefault();await window.__workspaceRestoreReady;if(!window.__designWorkspaceOpened){startDesign();return;}const key=document.querySelector('.tech.active')?.dataset.tech;openModule(key);document.querySelector('.tab[data-tab="'+link.dataset.ncTab+'"]')?.click();sync();
  });
 
  sidebar.querySelector('[data-nc-start]').onclick=e=>{if(main){e.preventDefault();startDesign();}};
