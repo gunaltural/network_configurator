@@ -592,6 +592,7 @@
     selected = id;
     selectionType = type;
     rowPage = clientPage = 0;
+    $("pmMapDetails").open = true;
     draw();
     inspect();
     table();
@@ -1526,9 +1527,9 @@
     $('pmTransferTitle').textContent=error?'Discovery transfer could not complete':'Discovery topology imported';
     $('pmTransferMessage').textContent=message;panel.classList.toggle('error',error);
     $('pmTransferTopology').hidden=error||!model.devices.length;
-    panel.focus({preventScroll:true});panel.scrollIntoView({block:'start'});
+    panel.focus({preventScroll:true});panel.scrollIntoView({block:'start',behavior:'instant'});
   }
-  $('pmTransferTopology').onclick=()=>{$('pmView').value='topology';$('pmSearch').value='';$('pmVlan').value='';$('pmFocus').value='';render();$('pmMap').scrollIntoView({block:'center'});};
+  $('pmTransferTopology').onclick=()=>{$('pmMapDetails').open=true;$('pmView').value='topology';$('pmSearch').value='';$('pmVlan').value='';$('pmFocus').value='';render();$('pmMap').scrollIntoView({block:'center'});};
   $('pmTransferAdd').onclick=()=>{layout.collapsed=false;applyLayout();$('pmKind').value='mac';hint();$('pmDevice').focus();$('pmDevice').scrollIntoView({block:'center'});};
   async function importDiscovery(document) {
     if(working)throw Error('Wait for the current evidence analysis to finish.');
@@ -1856,6 +1857,12 @@
     selected = "";
     page = rowPage = clientPage = 0;
     localStorage.removeItem(DRAFT);
+    sessionStorage.removeItem('networkConfigurator.portMapping.discovery');
+    $('pmTransferNotice').hidden=true;
+    $('pmDiscoveryContext').textContent='No Discovery topology linked. Import current Discovery evidence or add device captures.';
+    $('pmSearch').value='';$('pmVlan').value='';$('pmFocus').value='';
+    $('pmMapDetails').open=false;
+    layout.collapsed=false;applyLayout();
     render();
     status("Workspace cleared.");
   };
@@ -2065,7 +2072,7 @@
   try {
     const draft = localStorage.getItem(DRAFT);
     if (draft)
-      draftReady = restore(JSON.parse(draft)).then(()=>true).catch((e) => {
+      draftReady = restore(JSON.parse(draft)).then(()=>{if(new URLSearchParams(location.search).get("from")!=="discovery"){transferNotice("Saved Port Mapping workspace restored: "+model.devices.length+" devices. This is previously imported evidence. Use Network Discovery to replace its neighbor topology, or Clear workspace to start again.");$("pmTransferTitle").textContent="Saved workspace";}return true;}).catch((e) => {
         status("Saved draft retained; unable to restore: " + e.message, true);return false;
       });
   } catch (e) {

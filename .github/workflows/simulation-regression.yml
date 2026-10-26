@@ -14,6 +14,7 @@ on:
       - "network-discovery.js"
       - "test_discovery_resize.cjs"
       - "test_discovery_port_transfer_browser.mjs"
+      - "test_implementation_modules_browser.mjs"
       - "simulation-report.js"
       - "simulation-workbench.js"
       - "simulation_report.py"
@@ -123,6 +124,7 @@ jobs:
           node test_bgp_traffic_browser.mjs
           node test_port_mapping_browser.mjs
           node test_discovery_port_transfer_browser.mjs
+          node test_implementation_modules_browser.mjs
           node simulation/test_browser_smoke.mjs
           node simulation/test_workspace_browser.mjs
           node simulation/test_pair_browser.mjs
@@ -161,7 +163,7 @@ jobs:
             if curl --fail --silent http://127.0.0.1:18080/healthz >/dev/null; then break; fi
             sleep 2
           done
-          curl --fail --silent --show-error http://127.0.0.1:18080/healthz | python -c 'import json,sys; p=json.load(sys.stdin); assert p["ok"] is True and p["simulator_ready"] is True; assert p["version"]=="5.57.4", p'
+          curl --fail --silent --show-error http://127.0.0.1:18080/healthz | python -c 'import json,sys; p=json.load(sys.stdin); assert p["ok"] is True and p["simulator_ready"] is True; assert p["version"]=="5.57.5", p'
           curl --fail --silent --show-error http://127.0.0.1:18080/deliverables | python -c 'import sys; assert "deliverablesCenter" in sys.stdin.read()'
           curl --fail --silent --show-error http://127.0.0.1:18080/deliverables.js | python -c 'import sys; assert "openSaved" in sys.stdin.read()'
           curl --fail --silent --show-error http://127.0.0.1:18080/workspace-storage.js | python -c 'import sys; p=sys.stdin.read(); assert "NetworkWorkspaceStorage" in p and "NC-LZW1" in p'

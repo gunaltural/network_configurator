@@ -3,7 +3,7 @@
 <head><script src="/workspace-storage.js"></script>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Network Configurator v5.57.4</title>
+<title>Network Configurator v5.57.5</title>
 <style>
 :root{
   --bg:#0d1117;--panel:#161b22;--panel2:#1f2630;--line:#2b3440;
@@ -5843,6 +5843,7 @@ renderModule();
    const normalized=String(key||"").trim().toUpperCase();
    const b=findTechButton(normalized);
    if(!b){console.error("Unknown technology workspace:",key);return;}
+   window.__designWorkspaceOpened=true;
    b.click();
    dashboard.classList.remove("show"); workspace.style.display="flex"; health.style.display="grid";
    $("v3CurrentTech").textContent=technologyLabel(normalized,platform());
