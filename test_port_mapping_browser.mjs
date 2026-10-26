@@ -11,6 +11,11 @@ const page = await browser.newPage({ viewport: { width: 1500, height: 1050 } }),
 page.on("pageerror", (e) => errors.push(e.message));
 const base = process.env.SMOKE_URL || "http://127.0.0.1:8144";
 try {
+  // This suite exercises the optional map; the implementation suite verifies it is collapsed by default.
+  await page.addInitScript(()=>document.addEventListener('DOMContentLoaded',()=>{
+    const results=document.getElementById('pmResults'),map=document.getElementById('pmMapDetails');
+    if(results&&map)new MutationObserver(()=>{if(!results.hidden)map.open=true;}).observe(results,{attributes:true,attributeFilter:['hidden']});
+  }));
   await page.goto(base + "/port-mapping");
   await page.waitForFunction(() =>
     document

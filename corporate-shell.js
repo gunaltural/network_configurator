@@ -167,8 +167,8 @@
  sidebar.querySelectorAll('[data-nc-collection]').forEach(link=>link.onclick=e=>{
    if(!reporting)return;e.preventDefault();if(!window.NetworkReportProject?.inventoryWorkspace){location.assign(link.href);return;}window.NetworkReportProject.setCollection(link.dataset.ncCollection);openView('inventory');const field=document.getElementById('inventoryMode');field.value=link.dataset.ncCollection;field.dispatchEvent(new Event('change',{bubbles:true}));
  });
- sidebar.querySelectorAll('[data-nc-tab]').forEach(link=>link.onclick=e=>{
-   if(!main)return;e.preventDefault();const key=document.querySelector('.tech.active')?.dataset.tech||'BASIC';openModule(key);document.querySelector('.tab[data-tab="'+link.dataset.ncTab+'"]')?.click();sync();
+ sidebar.querySelectorAll('[data-nc-tab]').forEach(link=>link.onclick=async e=>{
+   if(!main)return;e.preventDefault();await window.__workspaceRestoreReady;if(!window.__designWorkspaceOpened){startDesign();return;}const key=document.querySelector('.tech.active')?.dataset.tech;openModule(key);document.querySelector('.tab[data-tab="'+link.dataset.ncTab+'"]')?.click();sync();
  });
 
  sidebar.querySelector('[data-nc-start]').onclick=e=>{if(main){e.preventDefault();startDesign();}};
@@ -179,6 +179,8 @@
    const view=document.querySelector('.maintenance-tabs [aria-selected="true"]')?.dataset.view;
    const tab=document.querySelector('.tab.active')?.dataset.tab;
    syncWorkflow(onDashboard,view);
+
+
    sidebar.querySelectorAll('.nc-nav-item').forEach(item=>{
      const active=item.hasAttribute('data-nc-deliverables')?(deliverables&&item.dataset.ncDeliverables===(new URLSearchParams(location.search).get('view')||'projects')||reporting&&view==='design'&&item.dataset.ncDeliverables==='projects'):item.hasAttribute('data-nc-port-mapping')?mapping:item.hasAttribute('data-nc-lab')?lab:item.hasAttribute('data-nc-discovery')?discovery:item.hasAttribute('data-nc-compare')?comparison:item.hasAttribute('data-nc-home')?onDashboard:item.hasAttribute('data-nc-module')?false:item.hasAttribute('data-nc-view')?reporting&&item.dataset.ncView===view:item.hasAttribute('data-nc-tab')?main&&!onDashboard&&item.dataset.ncTab===tab:false;
      if(active&&item.getAttribute('aria-current')!=='page')item.setAttribute('aria-current','page');else if(!active&&item.hasAttribute('aria-current'))item.removeAttribute('aria-current');
@@ -205,7 +207,7 @@
    if(['manual','automatic'].includes(collection)){const field=document.getElementById('inventoryMode');field.value=collection;field.dispatchEvent(new Event('change',{bubbles:true}));window.NetworkReportProject?.setCollection?.(collection);}
  }
  if(reporting&&params.get('section')==='evidence'){openView('design');document.getElementById('verificationPanel')?.scrollIntoView({block:'start'});}
- if(main){const requested=new URLSearchParams(location.search).get('workspace');if(modules.some(([key])=>key===requested))openModule(requested);const tab=params.get('tab');if(['config','deploy','verify','trouble','notes'].includes(tab)){if(!requested)openModule('BASIC');document.querySelector('.tab[data-tab="'+tab+'"]')?.click();}}
+ if(main){const requested=new URLSearchParams(location.search).get('workspace');if(modules.some(([key])=>key===requested))openModule(requested);const tab=params.get('tab');if(['config','deploy','verify','trouble','notes'].includes(tab)){if(requested||window.__designWorkspaceOpened)document.querySelector('.tab[data-tab="'+tab+'"]')?.click();else startDesign();}}
 
  // Keep technology panes adjustable without changing module controls or reports.
  if(main){

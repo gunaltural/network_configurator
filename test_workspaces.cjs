@@ -23,6 +23,16 @@ const reports=[];
   for(const option of options){
    change('platform',option.value);await pause();click('.tab[data-tab="config"]');await pause();
    assert.equal(d.getElementById('designNotesLanguageControl').style.display,'none');const config=d.getElementById('output').textContent;assert.ok(config.length>100);assert.ok(!config.includes('CONFIGURATOR ERROR'));
+   const selector=d.querySelector('#bgpOutputDevice,#ospfOutputDevice,#stpOutputDevice,#evOutputDevice,#qosOutputDevice,#vpcOutputDevice,#swvOutput,#arOutput,#hwOutput,#isOutput,#sdConfigScope'),originalSelection=selector?.value;
+   const designFull=d.getElementById('output').textContent;
+   if(selector){const individual=[...selector.options].find(o=>!['all','site'].includes(o.value.toLowerCase())&&!o.disabled&&!o.hidden);if(individual)selector.value=individual.value;}
+   const selectedBeforeDeployment=selector?.value;
+   click('.tab[data-tab="deploy"]');await pause();
+   const deploySelect=d.getElementById('sdBlock');
+   if([...deploySelect.options].some(o=>o.value==='full')){deploySelect.value='full';await w.SimpleDeployEngine.refresh();assert.equal(d.getElementById('sdConfigPreview').textContent,designFull,`${key}/${option.value}: complete Design output in Deployment`);}
+   assert.equal(selector?.value,selectedBeforeDeployment,`${key}/${option.value}: output filter retained`);
+   if(selector)selector.value=originalSelection;
+   click('.tab[data-tab="config"]');await pause();
    click('.tab[data-tab="notes"]');await pause();assert.ok(!d.getElementById('output').textContent.includes('CONFIGURATOR ERROR'));
    const report=w.__audit.reportingDesign();assert.ok(report,`${key}/${option.value}: report`);
    if(key==='SDWAN'&&!d.getElementById('sdHostname').value){assert.equal(report.configurations.length,0);assert.ok(report.parameters.some(p=>p.label==='Configuration pending'));}

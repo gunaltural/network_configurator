@@ -3,7 +3,7 @@
 <head><script src="/workspace-storage.js"></script>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Network Configurator v5.57.4</title>
+<title>Network Configurator v5.57.5</title>
 <style>
 :root{
   --bg:#0d1117;--panel:#161b22;--panel2:#1f2630;--line:#2b3440;
@@ -5269,7 +5269,7 @@ function bgpV39ContextUI(){
 
 const SimpleDeployEngine=(()=>{
   const el=id=>document.getElementById(id);
-  let lastConfig="", lastLabel="Configuration", precheckPassed=false;
+  let lastConfig="", lastLabel="Configuration", precheckPassed=false,blockScope="";
 
   const setBadge=(text,kind="neutral")=>{const b=el("sdAgentBadge");if(!b)return;b.textContent=text;b.className=`sd-badge ${kind}`;};
   const setResult=(text,kind="neutral")=>{const r=el("sdResult");if(!r)return;r.textContent=text;r.className=`sd-result ${kind}`;};
@@ -5289,7 +5289,11 @@ const SimpleDeployEngine=(()=>{
 
   function generatedConfig(){
     const m=modules[tech];
-    return (m&&typeof m.generate==="function")?String(m.generate(tech==="VPC"&&platform()==="Huawei iStack"?"deploy":"config")||""):"";
+    const selector=document.querySelector('#params #bgpOutputDevice,#params #ospfOutputDevice,#params #stpOutputDevice,#params #evOutputDevice,#params #qosOutputDevice,#params #vpcOutputDevice,#params #swvOutput,#params #arOutput,#params #hwOutput,#params #isOutput,#params #sdConfigScope'),previous=selector?.value;
+    try{
+      if(selector){const all=[...selector.options].find(o=>o.value.toLowerCase()==='all'||selector.id==='sdConfigScope'&&o.value==='site');if(all)selector.value=all.value;}
+      return (m&&typeof m.generate==="function")?String(m.generate(tech==="VPC"&&platform()==="Huawei iStack"?"deploy":"config")||""):"";
+    }finally{if(selector)selector.value=previous;}
   }
 
   function verificationCommands(){
@@ -5303,7 +5307,7 @@ const SimpleDeployEngine=(()=>{
     let label=null,buf=[];
     const flush=()=>{
       if(label&&buf.join("\n").trim()){
-        const bad=/SECURITY IMPLEMENTATION NOTES|ACTIVE QoS PARAMETERS|IMPORTANT|NOTES|^STEP\s+\d+|POST-CHECK|EXPECTED EVPN ROUTES|CONSISTENCY/i.test(label);
+        const bad=/SECURITY IMPLEMENTATION NOTES|ACTIVE QoS PARAMETERS|IMPORTANT|NOTES|POST-CHECK|EXPECTED EVPN ROUTES|CONSISTENCY/i.test(label);
         if(!bad)blocks.push({label,config:buf.join("\n").trim()});
       }
       buf=[];
@@ -5320,8 +5324,8 @@ const SimpleDeployEngine=(()=>{
   function syncBlocks(){
     const select=el("sdBlock"), row=el("sdBlockRow");
     if(!select)return [];
-    const blocks=configBlocks(generatedConfig()), old=select.value;
-    select.innerHTML=blocks.map((b,i)=>`<option value="${i}">${b.label.replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")}</option>`).join("");
+    const blocks=configBlocks(generatedConfig()),scope=tech+'|'+platform(),old=blockScope===scope?select.value:'full';blockScope=scope;
+    select.innerHTML=(blocks.length>1?'<option value="full">Full design configuration · preview only</option>':'')+blocks.map((b,i)=>`<option value="${i}">${b.label.replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")}</option>`).join("");
     if([...select.options].some(o=>o.value===old))select.value=old;
     if(row)row.hidden=blocks.length<=1;
     return blocks;
@@ -5329,6 +5333,7 @@ const SimpleDeployEngine=(()=>{
 
   function selectedBlock(){
     const blocks=configBlocks(generatedConfig());
+    if(el("sdBlock")?.value==='full')return {label:'Full design configuration · select a device before deployment',config:generatedConfig()};
     const i=Math.max(0,Number(el("sdBlock")?.value||0));
     return blocks[i]||blocks[0]||{label:"Configuration",config:""};
   }
@@ -5401,6 +5406,7 @@ const SimpleDeployEngine=(()=>{
   }
 
   async function precheck(){
+    if(el('sdBlock')?.value==='full'){invalidatePrecheck();setResult('Select the target device configuration before running Pre-Check. The full design preview contains multiple devices.','warn');return;}
     setResult("Running pre-deployment checks…","busy");
     try{
       const d=await jsonFetch("/api/device/precheck",{method:"POST",body:JSON.stringify(payload())});
@@ -5592,6 +5598,7 @@ const VerificationEngine=(()=>{
    el("verifyCopy").addEventListener("click",async()=>{if(lastOutput)try{await navigator.clipboard.writeText(lastOutput);status(`Copied ${lastCommands.length} verification results.`,`pass`);}catch{status("Copy failed. Select the output text manually.","fail");}});
    el("verifyDownload").addEventListener("click",()=>{if(!lastOutput)return;const blob=new Blob([`Module: ${tech}\nPlatform: ${el("verifyPlatform").value}\nCommands: ${lastCommands.length}\n\n${lastOutput}\n`],{type:"text/plain;charset=utf-8"});const url=URL.createObjectURL(blob),link=document.createElement("a");link.href=url;link.download=`${tech}_${el("verifyPlatform").value.replace(/[^a-z0-9]+/gi,"_")}_verification.txt`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
  }
+ document.addEventListener('network-workspace-restored',()=>{connectionWorkspace='';lastSignature='';clearOutput();if(tab==='verify')activate();});
  return {bind,activate,snapshot:()=>lastRun?{...lastRun,commands:[...lastRun.commands],results:lastRun.results.map(x=>({...x}))}:null};
 })();
 VerificationEngine.bind();
@@ -5728,7 +5735,7 @@ function renderOutput(){
  document.body.classList.toggle('nc-operation-view',isOperation);
  document.getElementById('workspaceOutputTitle').textContent=operationTitles[tab]||'02 · Output';
  document.getElementById('operationsContext').hidden=!isOperation;
- if(isOperation)document.getElementById('operationsSource').textContent=`${tech} · ${platform()} · Uses the current Device Configuration. Edit parameters in Design.`;
+ if(isOperation)document.getElementById('operationsSource').textContent=`${document.getElementById('v3ProjectName')?.value||'Current design'} · ${tech} · ${platform()} · Uses the current Device Configuration. Edit parameters in Design.`;
  const compareButton=document.getElementById('outputCompare');if(compareButton)compareButton.disabled=tab!=='config';
  ensureDesignLinkSpeed();
  const noteControl=document.getElementById("designNotesLanguageControl");if(noteControl){noteControl.hidden=tab!=="notes";noteControl.style.display=tab==="notes"?"inline-flex":"none";}
@@ -5843,6 +5850,7 @@ renderModule();
    const normalized=String(key||"").trim().toUpperCase();
    const b=findTechButton(normalized);
    if(!b){console.error("Unknown technology workspace:",key);return;}
+   window.__designWorkspaceOpened=true;
    b.click();
    dashboard.classList.remove("show"); workspace.style.display="flex"; health.style.display="grid";
    $("v3CurrentTech").textContent=technologyLabel(normalized,platform());

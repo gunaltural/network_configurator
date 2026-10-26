@@ -366,10 +366,10 @@
       ><a href="/network-discovery">Neighbor discovery</a>
     </header>
     <main id="portMapping" class="pm-main">
-      <h1>Network topology & port mapping</h1>
+      <h1>Ports &amp; Endpoints</h1>
+      <button id="pmClear" type="button">New analysis / Clear workspace</button>
       <p>
-        Connect switch neighbors, port configuration and learned clients in one
-        evidence-based map.
+        Find an endpoint by MAC or IP, identify its candidate switch port and review the supporting evidence. Network Discovery supplies infrastructure relationships.
       </p>
       <section id="pmTransferNotice" class="pm-card" hidden tabindex="-1" aria-labelledby="pmTransferTitle"><h2 id="pmTransferTitle">Discovery transfer</h2><p id="pmTransferMessage" role="status" aria-live="polite"></p><div class="pm-tools"><button id="pmTransferTopology" type="button">View transferred topology</button><button id="pmTransferAdd" type="button">Add MAC / ARP evidence</button><a href="/network-discovery">Return to Network Discovery</a></div></section>
       <details class="pm-card"><summary>Workspace layout</summary><div class="pm-tools"><label>Panels<select id="pmLayoutMode"><option value="side">Side by side</option><option value="stacked">Stacked</option></select></label><label>Map width <output id="pmLayoutShareValue">65%</output><input id="pmLayoutShare" type="range" min="50" max="75" value="65"></label><label>Map height <output id="pmLayoutHeightValue">600 px</output><input id="pmLayoutHeight" type="range" min="300" max="1000" step="50" value="600"></label><button id="pmLayoutReset" type="button">Reset layout</button></div></details>
@@ -543,9 +543,39 @@
             ><button id="pmSave">Save workspace JSON</button
             ><button id="pmSvg">Download topology SVG</button
             ><button id="pmPrint">Print / Save PDF</button
-            ><button id="pmClear">Clear workspace</button>
+            >
           </div>
         </section>
+        <section class="pm-card">
+          <h2>Consolidated clients</h2>
+          <p class="pm-hint">
+            One row per site, VLAN and MAC. Expand a client to see all
+            observations, candidate access ports, IP/VRF evidence and
+            annotations. OUI identifies the registered organization; device type
+            requires additional evidence.
+          </p>
+          <div class="pm-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Client / MAC</th>
+                  <th>IP / VRF</th>
+                  <th>VLAN</th>
+                  <th>Organization / type</th>
+                  <th>Candidate attachment</th>
+                  <th>Observations</th>
+                </tr>
+              </thead>
+              <tbody id="pmClientRows"></tbody>
+            </table>
+          </div>
+          <div class="pm-nav">
+            <button id="pmClientPrev">Previous clients</button
+            ><span id="pmClientPage"></span
+            ><button id="pmClientNext">Next clients</button>
+          </div>
+        </section>
+        <details id="pmMapDetails"><summary>Connection map · supporting evidence</summary>
         <div class="pm-workbench">
           <section class="pm-card">
             <h2>Topology</h2><p class="pm-hint">Drag a device to move it. Connections follow the device. Positions are retained in the saved workspace.</p><button id="pmAutoArrange" type="button">Auto arrange devices</button>
@@ -598,35 +628,7 @@
             <div id="pmInspector">Select a switch, link or port.</div>
           </aside>
         </div>
-        <section class="pm-card">
-          <h2>Consolidated clients</h2>
-          <p class="pm-hint">
-            One row per site, VLAN and MAC. Expand a client to see all
-            observations, candidate access ports, IP/VRF evidence and
-            annotations. OUI identifies the registered organization; device type
-            requires additional evidence.
-          </p>
-          <div class="pm-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>Client / MAC</th>
-                  <th>IP / VRF</th>
-                  <th>VLAN</th>
-                  <th>Organization / type</th>
-                  <th>Candidate attachment</th>
-                  <th>Observations</th>
-                </tr>
-              </thead>
-              <tbody id="pmClientRows"></tbody>
-            </table>
-          </div>
-          <div class="pm-nav">
-            <button id="pmClientPrev">Previous clients</button
-            ><span id="pmClientPage"></span
-            ><button id="pmClientNext">Next clients</button>
-          </div>
-        </section>
+        </details>
         <section class="pm-card">
           <h2>Matching MAC records</h2>
           <p id="pmTableScope" class="pm-hint"></p>
