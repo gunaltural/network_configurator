@@ -28,3 +28,36 @@ for (const vendor of ['Cisco NX-OS', 'Cisco IOS-XE', 'Arista EOS', 'Huawei_CE_SW
   }
 }
 console.log(`Report evidence scope: ${checks} assertions passed across 5 vendors and TR/EN`);
+
+// Combined reports must keep module and platform evidence separate, even when
+// devices are shared across module designs.
+let combinedChecks = 0;
+for (const language of ['en', 'tr']) {
+  const vendor = 'Cisco IOS-XE';
+  const modules = ['BGP', 'OSPF', 'STP', 'VPC', 'SDWAN', 'QOS', 'EVPN', 'BASIC'];
+  const devices = [{id: 'core', hostname: 'Core1', vendor}];
+  const state = {
+    language, vendor, devices,
+    configurations: [{deviceId: 'core', text: 'router bgp 65001\nrouter ospf 1\nspanning-tree mode mst\nstackwise-virtual\nntp server 192.0.2.1'}],
+    moduleReports: modules.map(module => ({module, vendor, technology: module === 'VPC' ? 'StackWise Virtual' : module, design: {devices}})),
+    simulationScenarios: modules.flatMap(module => [
+      {id: module, module, vendor, scenarioName: `OWN_${module}_EVIDENCE`, failedDevices: ['Core1'], failedLinks: ['ISP1 WAN peer-link SVL'], metrics: [{metric: 'Offered traffic', current: 100}]},
+      {id: 'foreign-'+module, module, vendor: 'Arista EOS', scenarioName: `FOREIGN_${module}_EVIDENCE`, failedDevices: ['Core1'], failedLinks: ['WAN peer-link'], metrics: [{metric: 'Offered traffic', current: 100}]}
+    ])
+  };
+  const before = JSON.stringify(state);
+  const sections = build(state).sections;
+  assert.equal(sections.length, modules.length);
+  for (const [index, section] of sections.entries()) {
+    const evidence = section.scenarios.map(s => s.evidence).join('\n');
+    assert.ok(evidence.includes(`OWN_${modules[index]}_EVIDENCE`), modules[index]+' own evidence is retained');
+    assert.ok(!evidence.includes('FOREIGN_'), 'other platform evidence is excluded');
+    for (const other of modules.filter(m => m !== modules[index])) {
+      assert.ok(!evidence.includes(`OWN_${other}_EVIDENCE`), other+' must not enter '+modules[index]);
+    }
+    combinedChecks += 9;
+  }
+  assert.equal(JSON.stringify(state), before, 'combined report must not mutate saved designs');
+  combinedChecks += 2;
+}
+console.log(`Combined report evidence: ${combinedChecks} assertions passed across 8 modules and TR/EN`);
