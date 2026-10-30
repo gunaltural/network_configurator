@@ -41,6 +41,7 @@ from report_docx import build_report_docx
 from simulation_report import SimulationScenario
 from docx.image.exceptions import UnrecognizedImageError
 from authentication import install_authentication
+from engineering_ai import install_engineering_ai
 from project_store import install_project_store
 from config_compare import install_config_compare
 from network_lab import install_network_lab
@@ -837,6 +838,7 @@ def discovery_report(report_format: str, p: DiscoveryReportRequest):
 
 
 install_project_store(app)
+install_engineering_ai(app)
 install_config_compare(app, BASE_DIR)
 
 @app.get('/deliverables', response_class=HTMLResponse)

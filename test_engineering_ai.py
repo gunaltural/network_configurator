@@ -35,8 +35,6 @@ class Tests(unittest.TestCase):
         self.body['rawConfig'] = 'not allowed'
         self.assertEqual(self.client.post('/api/ai/analyze', json=self.body).status_code, 422)
 
-if __name__ == '__main__':
-    unittest.main()
 
 class LocalTests(unittest.TestCase):
     def test_local_request_and_no_fallback(self):
@@ -66,3 +64,26 @@ class LocalTests(unittest.TestCase):
         for url in ['', 'file:///tmp/model', 'http://user:pass@server/v1', 'https://server/v1?token=secret']:
             with patch.dict(os.environ, {'AI_ENABLED':'1','AI_PROVIDER':'local','AI_MODEL':'m','AI_BASE_URL':url}, clear=True):
                 self.assertFalse(configured())
+
+
+class AuthBoundaryTests(unittest.TestCase):
+    def test_ai_requires_session_and_same_origin(self):
+        from pathlib import Path
+        from authentication import install_authentication, password_hash
+        with patch.dict(os.environ, {'AUTH_ENABLED':'1', 'AUTH_USERNAME':'engineer', 'AUTH_PASSWORD_HASH':password_hash('Synthetic-test-password'), 'AUTH_PASSWORD':'', 'AI_ENABLED':'0'}):
+            app = FastAPI()
+            install_authentication(app, Path(__file__).parent)
+            install_engineering_ai(app)
+            client = TestClient(app, base_url='https://testserver')
+            body = dict(module='BGP', vendor='Cisco IOS-XE', task='report', evidence=[dict(id='design', text='Two routers')])
+            origin = {'Origin':'https://testserver'}
+            self.assertEqual(client.get('/api/ai/status').status_code, 401)
+            self.assertEqual(client.post('/api/ai/analyze', json=body, headers=origin).status_code, 401)
+            response = client.post('/auth/login', headers=origin, json={'username':'engineer','password':'Synthetic-test-password'})
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(client.get('/api/ai/status').status_code, 200)
+            self.assertEqual(client.post('/api/ai/analyze', json=body, headers={'Origin':'https://other.invalid'}).status_code, 403)
+            self.assertEqual(client.post('/api/ai/analyze', json=body, headers=origin).status_code, 503)
+
+if __name__ == '__main__':
+    unittest.main()

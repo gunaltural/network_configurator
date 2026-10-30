@@ -16,6 +16,8 @@ on:
       - "test_discovery_port_transfer_browser.mjs"
       - "test_implementation_modules_browser.mjs"
       - "simulation-report.js"
+      - "engineering_ai.py"
+      - "test_engineering_ai.py"
       - "simulation-workbench.js"
       - "simulation_report.py"
       - "corporate-shell.js"
@@ -68,6 +70,8 @@ jobs:
           python -m pip install httpx2
           npm install --no-save --ignore-scripts playwright
           npx playwright install --with-deps chromium
+      - name: AI service and authentication regression
+        run: python -m unittest test_engineering_ai -v
       - name: MAC port mapping regression
         env:
           AUTH_ENABLED: '0'
