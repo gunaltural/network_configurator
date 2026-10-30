@@ -27,6 +27,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 from typing import List, Literal
 
+from fastapi.responses import FileResponse
 from fastapi import FastAPI, HTTPException, Request as WebRequest
 from inventory_excel import parse_inventory_xlsx
 from sdwan_excel import parse_sdwan_excel
@@ -1709,6 +1710,14 @@ def deploy(p: DeviceRequest):
             except Exception:
                 pass
 
+
+@app.get('/ai-evidence.js')
+def ai_evidence_script():
+    return FileResponse(BASE_DIR / 'ai-evidence.js', media_type='application/javascript')
+
+@app.get('/engineering-ai.js')
+def ai_panel_script():
+    return FileResponse(BASE_DIR / 'engineering-ai.js', media_type='application/javascript')
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "10000"))

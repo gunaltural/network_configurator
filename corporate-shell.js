@@ -238,3 +238,5 @@
   }
  }
 })();
+
+{const evidenceScript=document.createElement('script');evidenceScript.src='/ai-evidence.js';evidenceScript.onload=()=>{const panel=document.createElement('script');panel.src='/engineering-ai.js';document.body.append(panel);};document.body.append(evidenceScript);}
