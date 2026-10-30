@@ -1,19 +1,23 @@
-# Engineering AI — implementation checkpoint
+# Engineering AI integration status
 
-The service is a prototype, deliberately not registered in app.py or exposed in the UI yet.
-Existing project flow and saved data are untouched. Do not deploy this draft as a complete integration.
+Self-hosted is the default provider. Set AI_ENABLED=1, AI_PROVIDER=local,
+AI_BASE_URL=http://internal-model-host:8000/v1 and AI_MODEL to the served model.
+Optional AI_LOCAL_API_KEY authenticates to that server. No OpenAI credentials
+are required. The URL is administrator-controlled, not browser input.
+External service requires explicit AI_PROVIDER=openai plus OPENAI_API_KEY.
+There is no automatic external fallback.
 
-Implemented: strict evidence request schema, optional server-only AI_ENABLED/AI_MODEL/OPENAI_API_KEY configuration, fixed OpenAI Responses endpoint, redirect refusal, input/output size limits, single concurrent request, generic provider errors, credential-line redaction, store:false and review-required drafts. No tools, device commands or persistence.
+The authenticated application now registers AI endpoints and bundles the panel.
+The panel uses current module design/report evidence, displays the payload before
+sending, and permits editing the result. Raw configurations are excluded.
+Report insertion appends reviewed text to an existing editable section through
+its normal input event. Existing text is retained; changed report context and
+section overflow prevent insertion. Copy remains available on design pages.
 
-Reference: https://developers.openai.com/api/reference/python/resources/responses/methods/create
-store:false controls response storage; it is not a promise of zero provider retention.
+Real model hosting, hardware selection, model quality and production connectivity
+remain unverified. Provider tests use mocked responses. No model is deployed by
+this PR. Project workflow and configuration generation are unchanged.
 
-Before activation:
-- Wire routes into existing authenticated app; test login, CSRF and per-user rate limits.
-- Build a curated evidence adapter from the current project/report snapshot, including device/link identities, named scenarios, modeled path and assessment. Never send raw configuration or SSH output by default.
-- Show exactly what will be sent, require an explicit Analyze action, display plain editable text and provide explicit user-controlled insertion into reports.
-- Test provider malformed/incomplete/error responses and multi-user concurrency.
-- Verify all project/module/vendor navigation and Save/Open flows with AI disabled and enabled.
-- Configure the API key only in server environment and select an account-supported model; run a real integration test. No real provider call has been tested yet.
-
-Local validation: python -m unittest test_engineering_ai -v — 3 tests passed (provider mocked). Tests cover disabled/no outbound request, draft contract/redaction/unchanged source, duplicate evidence IDs and unknown request fields.
+Validation: service/authentication tests, immutable evidence isolation checks,
+and panel DOM tests. Full browser visualization and real-model end-to-end testing
+remain necessary before production activation.
