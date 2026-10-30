@@ -1,0 +1,14 @@
+const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert/strict');
+const dom=new JSDOM('<main></main>',{runScripts:'outside-only'}),w=dom.window;
+w.eval(fs.readFileSync('simulation-report.js','utf8'));
+const svg='<svg xmlns="http://www.w3.org/2000/svg"><text>CE1</text><text>CE10</text></svg>';
+const scenarios=[{module:'BGP',sourceDevice:'CE1',targetDevice:'Missing',failedDevices:['CE1'],topologySvg:svg,baselineTopologySvg:svg},{module:'BGP',sourceDevice:'CE1',topologySvg:svg}];
+const before=JSON.stringify(scenarios);w.document.querySelector('main').innerHTML=w.SimulationReport.html(scenarios);
+const panels=w.document.querySelectorAll('.scenario-topology-view'),first=panels[0],img=first.querySelector('img'),original=img.src;
+first.querySelector('[data-scenario-focus="CE1"]').click();
+let parsed=new w.DOMParser().parseFromString(decodeURIComponent(img.src.split(',').slice(1).join(',')),'image/svg+xml');
+assert.equal(parsed.querySelectorAll('text[font-weight="900"]').length,1);assert.equal(parsed.querySelector('text[font-weight="900"]').textContent,'CE1');
+assert.equal(panels[1].querySelector('img').src,original);
+first.querySelector('[data-scenario-focus="Missing"]').click();assert.ok(first.querySelector('[role="status"]').textContent.includes('no matching label'));
+first.querySelector('[data-scenario-focus=""]').click();assert.equal(img.src,original);assert.equal(JSON.stringify(scenarios),before);
+dom.window.close();console.log('Scenario focus: exact labels, scenario isolation, missing evidence, clear and immutable source passed');

@@ -246,12 +246,41 @@ function scenarioTitle(s,language){
  return s.scenarioNames?.[language]||s.scenarioName||[...(s.failedDevices||[]).map(x=>x+(tr?' Arızası':' Fail')),...(s.failedLinks||[]).map(x=>x+(tr?' Devre Arızası':' Circuit Fail'))].join('; ')||(tr?'Kayıtlı senaryo':'Recorded scenario');
 }
 let topologyViewId=0;
+function focusTopology(container,label){
+ let matched=0;
+ for(const img of container.querySelectorAll('.simulation-topologies img')){
+  const original=img.dataset.originalTopology||img.getAttribute('src');
+  if(!original?.startsWith('data:image/svg+xml;charset=utf-8,'))continue;
+  img.dataset.originalTopology=original;
+  if(!label){img.src=original;continue;}
+  const raw=decodeURIComponent(original.split(',').slice(1).join(','));
+  const doc=new DOMParser().parseFromString(raw,'image/svg+xml');
+  if(doc.querySelector('parsererror'))continue;
+  for(const text of doc.querySelectorAll('text'))if(text.textContent.trim()===label){
+   text.setAttribute('fill','#9c3d00');text.setAttribute('font-weight','900');text.setAttribute('text-decoration','underline');matched++;
+  }
+  img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(new XMLSerializer().serializeToString(doc));
+ }
+ return matched;
+}
+if(root.document&&!root.__scenarioEvidenceFocusInstalled){
+ root.__scenarioEvidenceFocusInstalled=true;
+ root.document.addEventListener('click',event=>{
+  const button=event.target.closest?.('[data-scenario-focus]');if(!button)return;
+  const container=button.closest('.scenario-topology-view');if(!container)return;
+  const label=button.dataset.scenarioFocus,matched=focusTopology(container,label);
+  container.querySelector('[data-focus-status]').textContent=label?(matched?label+' — '+matched+' topology label(s) highlighted':label+' — no matching label in the recorded topology') : '';
+  for(const control of container.querySelectorAll('[data-scenario-focus]'))control.setAttribute('aria-pressed',String(control===button&&!!label));
+ });
+}
 function topologyHtml(s,language){
  const tr=language==='tr',name=scenarioTitle(s,language),summary=s.assessment?.[language]?.summary||'';
  const image=(svg,title,description='')=>svg?`<figure><figcaption>${esc(title)}</figcaption>${description?`<p class="scenario-topology-summary">${esc(description)}</p>`:''}<img alt="${esc(title)}" style="width:100%;max-height:650px;object-fit:contain" src="data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgLanguage(svg,language))}"></figure>`:'';
  const group='scenario-topology-view-'+(++topologyViewId),both=!!s.baselineTopologySvg&&!!s.topologySvg;
  const controls=both?`<fieldset class="scenario-view-controls"><legend>${tr?'Topoloji görünümü':'Topology view'}</legend>${[['both',tr?'Karşılaştır':'Compare'],['before',tr?'Önce':'Before'],['after',tr?'Sonra':'After']].map(([value,label])=>`<label><input type="radio" name="${group}" value="${value}" ${value==='both'?'checked':''}> ${label}</label>`).join('')}</fieldset>`:'';
- return `<div class="scenario-topology-view">${controls}<div class="simulation-topologies">${image(s.baselineTopologySvg,(tr?'Başlangıç topolojisi':'Baseline topology')+' · '+name)}${image(s.topologySvg,(tr?'Senaryo topolojisi':'Scenario topology')+' · '+name,summary)}</div></div>`;
+ const labels=[...new Set([s.sourceDevice,s.targetDevice,...(s.failedDevices||[])].filter(x=>typeof x==='string'&&x.trim()))];
+ const focus=(s.topologySvg||s.baselineTopologySvg)&&labels.length?`<div class="scenario-focus-controls">${labels.map(label=>`<button type="button" data-scenario-focus="${esc(label)}" aria-pressed="false">${esc(label)}</button>`).join('')}<button type="button" data-scenario-focus="">${tr?'Vurguyu temizle':'Clear highlight'}</button><p data-focus-status role="status"></p></div>`:'';
+ return `<div class="scenario-topology-view">${controls}${focus}<div class="simulation-topologies">${image(s.baselineTopologySvg,(tr?'Başlangıç topolojisi':'Baseline topology')+' · '+name)}${image(s.topologySvg,(tr?'Senaryo topolojisi':'Scenario topology')+' · '+name,summary)}</div></div>`;
 
 }
 function evidenceSummary(s,language){
@@ -298,7 +327,7 @@ function html(scenarios,language='en'){
   return `<div class="simulation-scenario"><h3>${tr?'Senaryo':'Scenario'} ${i+1}${s.scenarioNames?.[language]||s.scenarioName?' · '+esc(s.scenarioNames?.[language]||s.scenarioName):''}</h3>${topologyHtml(s,language)}${evidenceSummary(s,language)}<details class="scenario-evidence" open><summary>${tr?'Senaryo kaydı ve kanıtlar':'Scenario record and evidence'}</summary><table><tbody>${rows.map(([k,v])=>`<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</tbody></table></details>${assessmentHtml(s,language)}${policies.length?`<h4>${tr?'Uygulanan sentetik politikalar':'Applied synthetic policies'}</h4><table><thead><tr><th>${tr?'Bağlantı':'Connection'}</th><th>Local Preference</th><th>${tr?'Ek AS kopyası':'Extra AS copies'}</th></tr></thead><tbody>${policies.map(p=>`<tr><td>${esc(p.connection)}</td><td>${esc(p.localPreference)}</td><td>${esc(p.prependCount)}</td></tr>`).join('')}</tbody></table>`:''}</div>`;
  }).join('');
  return `<style>
-.simulation-report .scenario-view-controls{display:flex;flex-wrap:wrap;gap:16px;border:0;padding:8px 0;margin:0 0 8px}
+.simulation-report .scenario-focus-controls button{margin:4px;padding:6px 10px}.simulation-report .scenario-focus-controls button[aria-pressed="true"]{outline:2px solid #9c3d00}.simulation-report .scenario-view-controls{display:flex;flex-wrap:wrap;gap:16px;border:0;padding:8px 0;margin:0 0 8px}
 .simulation-report .scenario-view-controls legend{font-size:12px;font-weight:700}.simulation-report .scenario-view-controls label{cursor:pointer;padding:6px}
 .simulation-report .scenario-topology-view:has(input[value="before"]:checked) figure:nth-child(2),.simulation-report .scenario-topology-view:has(input[value="after"]:checked) figure:first-child{display:none}
 .simulation-report .scenario-topology-view:has(input[value="before"]:checked) .simulation-topologies,.simulation-report .scenario-topology-view:has(input[value="after"]:checked) .simulation-topologies{grid-template-columns:1fr}
@@ -309,7 +338,7 @@ function html(scenarios,language='en'){
 .simulation-report .scenario-change-summary>div{border-left:3px solid #447c9d;padding:8px 12px;background:#f3f7fa;color:#203a51;overflow-wrap:anywhere}
 .simulation-report dt{font-size:12px;font-weight:700}.simulation-report dd{margin:6px 0 0}
 .simulation-report .scenario-evidence{margin:16px 0}.simulation-report summary{cursor:pointer;font-weight:700;padding:10px 0}
-@media print{.simulation-report .scenario-view-controls{display:none}.simulation-report .scenario-topology-view figure{display:block!important}.simulation-report .simulation-topologies{display:block}.simulation-report .simulation-topologies figure{break-inside:avoid;margin-bottom:12px}.simulation-report details>*{display:block!important}.simulation-report summary{display:none}}
+@media print{.simulation-report .scenario-focus-controls{display:none}.simulation-report .scenario-view-controls{display:none}.simulation-report .scenario-topology-view figure{display:block!important}.simulation-report .simulation-topologies{display:block}.simulation-report .simulation-topologies figure{break-inside:avoid;margin-bottom:12px}.simulation-report details>*{display:block!important}.simulation-report summary{display:none}}
 </style><section class="simulation-report"><h2>${tr?(generic?'Simülasyon senaryoları':'Simülasyon ve failover senaryoları'):(generic?'Simulation scenarios':'Simulation and failover scenarios')}</h2><p>${tr?'Sentetik senaryo analizi · Tasarım ve arıza modelinden üretilmiştir.':'Synthetic model results · Generated from the design and failure model.'}</p>${assumptions}${content}</section>`.replace(/<table(?=[ >])/g,'<div class="simulation-table-scroll" role="region" tabindex="0" aria-label="'+(tr?'Senaryo verileri':'Scenario data')+'"><table').replace(/<\/table>/g,'</table></div>');
 }
 async function png(svg){if(!svg)return '';return new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Scenario topology rendering timed out. Please retry the Word export.')),15000),image=new Image();image.onload=()=>{clearTimeout(timer);try{const canvas=document.createElement('canvas');const ratio=(image.naturalHeight||770)/(image.naturalWidth||950);canvas.width=Math.min(1200,Math.round(1800/ratio));canvas.height=Math.max(1,Math.round(canvas.width*ratio));const ctx=canvas.getContext('2d');ctx.fillStyle='#f7faff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(image,0,0,canvas.width,canvas.height);resolve(canvas.toDataURL('image/png'));}catch(e){reject(e);}};image.onerror=()=>{clearTimeout(timer);reject(Error('Could not render a scenario topology.'));};image.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);});}
