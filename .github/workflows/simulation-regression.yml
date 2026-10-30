@@ -16,6 +16,8 @@ on:
       - "test_discovery_port_transfer_browser.mjs"
       - "test_implementation_modules_browser.mjs"
       - "simulation-report.js"
+      - "test_scenario_presentation*"
+      - "test_scenario_focus.cjs"
       - "simulation-workbench.js"
       - "simulation_report.py"
       - "corporate-shell.js"
@@ -90,6 +92,9 @@ jobs:
           node test_synthetic_bgp.cjs
           node test_bgp_traffic_policy.cjs
           node test_engineering_report.cjs
+          node test_scenario_presentation.cjs
+          node test_scenario_focus.cjs
+          node test_scenario_presentation_browser.cjs
           python -m unittest test_simulation_report test_authentication -q
       - name: Shared module simulation engine and actual DOM transfers
         run: node simulation/test_protocol_report.cjs && node simulation/test_workspace_engine.cjs && node simulation/test_pair_behavior.cjs && node simulation/test_workspace_dom.cjs
