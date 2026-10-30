@@ -15,6 +15,9 @@ on:
       - "test_discovery_resize.cjs"
       - "test_discovery_port_transfer_browser.mjs"
       - "test_implementation_modules_browser.mjs"
+      - "engineering-report.js"
+      - "test_engineering_report.cjs"
+      - "test_report_evidence_scope.cjs"
       - "simulation-report.js"
       - "simulation-workbench.js"
       - "simulation_report.py"
@@ -62,6 +65,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Check report evidence module isolation
+        run: node test_report_evidence_scope.cjs
       - name: Install test dependencies
         run: |
           python -m pip install -r requirements.txt
