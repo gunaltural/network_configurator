@@ -1719,6 +1719,18 @@ def ai_evidence_script():
 def ai_panel_script():
     return FileResponse(BASE_DIR / 'engineering-ai.js', media_type='application/javascript')
 
+@app.get('/analysis')
+def cli_analysis_page():
+    return FileResponse(BASE_DIR / 'analysis.html', media_type='text/html')
+
+@app.get('/show-analysis.js')
+def cli_analysis_parser():
+    return FileResponse(BASE_DIR / 'show-analysis.js', media_type='application/javascript')
+
+@app.get('/analysis-ui.js')
+def cli_analysis_ui():
+    return FileResponse(BASE_DIR / 'analysis-ui.js', media_type='application/javascript')
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "10000"))
     uvicorn.run(
