@@ -4,6 +4,7 @@ import os
 import re
 import threading
 import urllib.request
+from urllib.parse import urlparse
 from typing import Literal
 from fastapi import HTTPException
 from pydantic import BaseModel, ConfigDict, Field
@@ -29,7 +30,13 @@ behavior only when supported. Produce an editable draft for the requested task. 
 execute, no device changes. If evidence is insufficient, identify the specific missing evidence.'''
 
 def configured():
-    return os.getenv('AI_ENABLED', '').lower() in ('1', 'true') and bool(os.getenv('OPENAI_API_KEY')) and bool(os.getenv('AI_MODEL'))
+    enabled = os.getenv('AI_ENABLED', '').lower() in ('1', 'true') and bool(os.getenv('AI_MODEL'))
+    provider = os.getenv('AI_PROVIDER', 'local')
+    if provider == 'openai':
+        return enabled and bool(os.getenv('OPENAI_API_KEY'))
+    url = urlparse(os.getenv('AI_BASE_URL', ''))
+    return enabled and provider == 'local' and url.scheme in ('http', 'https') and bool(url.hostname) and not url.username and not url.password and not url.query and not url.fragment
+
 
 def redact(value):
     return re.sub(r'(?im)^.*(?:password|passwd|secret|community-string|private.key|api.key|authorization|sk-[a-zA-Z0-9_-]+).*$', '[REDACTED]', value)
@@ -39,17 +46,33 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 def generate(payload):
-    request = urllib.request.Request('https://api.openai.com/v1/responses', data=json.dumps(payload).encode(), headers={'Authorization': 'Bearer '+os.environ['OPENAI_API_KEY'], 'Content-Type': 'application/json'}, method='POST')
+    local = os.getenv('AI_PROVIDER', 'local') == 'local'
+    headers = {'Content-Type': 'application/json'}
+    if local:
+        url = os.environ['AI_BASE_URL'].rstrip('/') + '/chat/completions'
+        key = os.getenv('AI_LOCAL_API_KEY')
+        payload = {'model': payload['model'], 'messages': [{'role': 'system', 'content': payload['instructions']}, {'role': 'user', 'content': payload['input']}], 'max_tokens': payload['max_output_tokens'], 'stream': False}
+    else:
+        url = 'https://api.openai.com/v1/responses'
+        key = os.environ['OPENAI_API_KEY']
+    if key:
+        headers['Authorization'] = 'Bearer ' + key
+    request = urllib.request.Request(url, data=json.dumps(payload).encode(), headers=headers, method='POST')
     try:
         with urllib.request.build_opener(NoRedirect()).open(request, timeout=45) as response:
             data = json.loads(response.read(1000000))
+        if local:
+            choice = data['choices'][0]
+            if choice.get('finish_reason') != 'stop' or not isinstance(choice['message'].get('content'), str) or not choice['message']['content'].strip():
+                raise ValueError('Incomplete local response')
+            return choice['message']['content']
         if data.get('status') != 'completed':
             raise ValueError('Incomplete')
         text = '\n'.join(c['text'] for item in data['output'] if item.get('type') == 'message' for c in item.get('content', []) if c.get('type') == 'output_text')
         if not text.strip():
             raise ValueError('Empty')
         return text
-    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+    except (OSError, ValueError, KeyError, TypeError, AttributeError, IndexError):
         raise HTTPException(502, 'AI provider did not return a complete draft.') from None
 
 def install_engineering_ai(app):
