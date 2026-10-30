@@ -591,6 +591,7 @@
   function select(id, type = "port") {
     selected = id;
     selectionType = type;
+    if (type === "client" && model.links.length) $("pmView").value = "topology";
     rowPage = clientPage = 0;
     $("pmMapDetails").open = true;
     draw();

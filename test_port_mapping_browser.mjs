@@ -174,7 +174,11 @@ GigabitEthernet1/0/1 is up, line protocol is up\par
   );
   await page.locator("#pmSearch").fill("192.0.2.101");
   assert.equal(await page.locator("#pmClientRows tr").count(), 1);
+  await page.locator("#pmView").selectOption("ports");
   await page.locator("#pmClientRows button").click();
+  assert.equal(await page.locator("#pmView").inputValue(), "topology", "Endpoint selection reveals its topology trace from ports view");
+  assert.equal(await page.locator("#pmMapDetails").evaluate(e => e.open), true);
+  assert.ok(await page.locator('#pmMap path[stroke="#db8b18"]').count() > 0, "Selected endpoint trace is highlighted");
   assert.match(
     await page.locator("#pmInspector").innerText(),
     /Edge candidate/,
