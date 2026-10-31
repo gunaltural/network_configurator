@@ -12,7 +12,7 @@ COPY samples/port-mapping ./samples/port-mapping
 COPY simulation/ ./simulation/
 CMD ["python", "app.py"]
 
-# Explicit evaluation target: the default production image remains unchanged.
+# Production and the resource-limited acceptance test ship the same local model.
 FROM app AS embedded
 COPY --from=llama_runtime /app/ /opt/llama/
 RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 libstdc++6 && rm -rf /var/lib/apt/lists/*
@@ -21,4 +21,4 @@ RUN cp /usr/share/common-licenses/Apache-2.0 /opt/models/LICENSE
 COPY start_embedded_ai.py ./
 CMD ["python", "start_embedded_ai.py"]
 
-FROM app AS production
+FROM embedded AS production
