@@ -20,6 +20,8 @@ def main():
         response=client.post('/api/ai/analyze',json={'module':'CLI_ANALYSIS','vendor':'Cisco IOS-XE','language':lang,'task':'report','evidence':evidence})
         response.raise_for_status()
         draft=response.json()['text']
+        assert response.json().get('mode') == 'observations-and-model-selection', 'No accepted model selection'
+        assert 'AS 65002 · Idle' in draft and '192.0.2.2' in draft
         results.append({'language':lang,'seconds':round(time.monotonic()-start,2),'draft':draft,'mentions_state':'idle' in draft.lower(),'cites_evidence':'cli-1' in draft,'cites_line':'L5' in draft or 'line 5' in draft.lower() or 'satır 5' in draft.lower()})
         print(json.dumps(results[-1],ensure_ascii=False),flush=True)
     if not all(r['mentions_state'] and r['cites_evidence'] and r['cites_line'] for r in results):
