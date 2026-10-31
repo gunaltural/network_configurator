@@ -1,0 +1,14 @@
+const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert/strict');
+const dom=new JSDOM(fs.readFileSync('analysis.html','utf8'),{url:'https://test.invalid/analysis',runScripts:'outside-only'}),w=dom.window;
+w.fetch=async()=>({ok:true,json:async()=>({authenticated:false})});w.scrollTo=()=>{};
+w.eval(fs.readFileSync('corporate-shell.js','utf8'));
+const d=w.document;
+assert.equal(d.querySelectorAll('[data-nc-analysis]').length,1);
+const analysis=d.querySelector('[data-nc-analysis]');assert.equal(analysis.closest('[data-nc-group]').dataset.ncGroup,'analysis');assert.equal(analysis.getAttribute('aria-current'),'page');assert.ok(analysis.closest('details').open);
+assert.equal(d.querySelector('[data-nc-tab="trouble"]').closest('[data-nc-group]').dataset.ncGroup,'analysis');
+assert.equal(d.querySelector('[data-nc-tab="deploy"]').getAttribute('href'),'/?resume=1&tab=deploy');
+assert.equal(d.querySelector('[data-nc-module="BGP"]').getAttribute('href'),'/?workspace=BGP');
+assert.ok([...d.querySelectorAll('.nc-planned')].every(e=>e.closest('[data-nc-group]').dataset.ncGroup==='roadmap'));
+Object.defineProperty(w,'innerWidth',{value:390});d.querySelector('.nc-menu-toggle').click();assert.ok(d.body.classList.contains('nc-menu-open'));d.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape'}));assert.ok(!d.body.classList.contains('nc-menu-open'));
+assert.equal(d.querySelectorAll('[aria-current="page"]').length,1);
+dom.window.close();console.log('Analysis navigation: standalone group, active route, mobile, unchanged design/deployment destinations and roadmap isolation passed');
