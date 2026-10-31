@@ -19,3 +19,28 @@ class BgpCaptureTests(unittest.TestCase):
         self.assertEqual(rows,[])
         self.assertIn('Evidence not interpreted: unsupported',text)
         self.assertNotIn('AS 4',text)
+
+class TacCorrelationTests(unittest.TestCase):
+    def test_bundle_to_fsm_report(self):
+        import subprocess, json
+        from pathlib import Path
+        raw = """CE1# show tech-support
+------ show ip bgp summary ------
+Neighbor V AS MsgRcvd MsgSent TblVer InQ OutQ Up/Down State/PfxRcd
+192.0.2.2 4 65002 0 0 0 0 0 never Idle
+------ show logging ------
+*Nov 1: %BGP-5-ADJCHANGE: neighbor 192.0.2.2 Down Peer closed the session
+*Nov 1: %BGP-5-ADJCHANGE: neighbor 192.0.2.20 Down unrelated-peer
+CE2# show tech-support
+------ show logging ------
+*Nov 1: %BGP-5-ADJCHANGE: neighbor 192.0.2.2 Down unrelated-router"""
+        js="require('./show-analysis.js');console.log(JSON.stringify(ShowAnalysis.evidence(ShowAnalysis.parse(require('fs').readFileSync(0,'utf8')))))"
+        blocks=json.loads(subprocess.check_output(['node','-e',js],input=raw,text=True,cwd=Path(__file__).parent))
+        for lang in ('tr','en'):
+            _,report=summarize_capture(blocks,lang)
+            self.assertIn('CE1 · 192.0.2.2 · AS 65002 · Idle',report)
+            self.assertIn('Peer closed the session',report)
+            self.assertIn('L6; show logging',report)
+            self.assertIn('FSM',report)
+            self.assertNotIn('unrelated-peer',report)
+            self.assertNotIn('unrelated-router',report)

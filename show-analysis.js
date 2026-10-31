@@ -1,10 +1,16 @@
 (function(root){'use strict';
 function parse(raw){
  if(raw.length>2000000)throw Error('Maximum input size is 2 MB.');
- const lines=raw.replace(/\r\n?/g,'\n').split('\n'),blocks=[];let current=null;
+ const lines=raw.replace(/\r\n?/g,'\n').split('\n'),blocks=[];let current=null,bundleDevice=null;
  for(let i=0;i<lines.length;i++){
   const line=lines[i],match=line.replace(/^<([^>]+)>\s*/, '$1> ').match(/^(?:(\S+)[#>]\s*)?((?:show|display|get|diagnose)\s+.+?)\s*$/i)||line.match(/^[-=]{3,}\s*((?:show|display|get|diagnose)\s+.+?)\s*[-=]{3,}$/i);
-  if(match){const command=match.length===3?match[2]:match[1];current={id:'cli-'+(blocks.length+1),device:match.length===3?(match[1]||'Unidentified'):'Unidentified',command:command.replace(/\s*[-=]+$/,''),line:i+1,lines:[]};blocks.push(current);}
+  if(match){
+   const prompted=match.length===3?match[1]:null;
+   const command=(match.length===3?match[2]:match[1]).replace(/\s*[-=]+$/,'');
+   const delimiter=match.length===2;
+   if(!delimiter || /^show tech-support(?:\s|$)/i.test(command))bundleDevice=prompted&&/^show tech-support(?:\s|$)/i.test(command)?prompted:null;
+   current={id:'cli-'+(blocks.length+1),device:prompted||(delimiter&&bundleDevice)||'Unidentified',command,line:i+1,lines:[]};blocks.push(current);
+  }
   else if(current)current.lines.push({line:i+1,text:line});
  }
  return blocks.map(b=>({...b,lines:b.lines.filter(x=>x.text.trim()).map(x=>({...x,text:/password|passwd|secret|community|private.?key|api.?key|authorization|sk-[a-zA-Z0-9_-]+/i.test(x.text)?'[REDACTED]':x.text}))}));
