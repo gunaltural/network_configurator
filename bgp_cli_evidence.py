@@ -49,3 +49,24 @@ def render(rows, lang):
             state = status
         result.append(f'{device} · {peer} · AS {asn} · {state} [{eid}, L{line}; {command}]')
     return '\n'.join(result)
+
+def is_summary(block):
+    lines = block['text'].splitlines()
+    if len(lines) < 2 or not lines[1].startswith('Command: '):
+        return False
+    return lines[1][9:].lower().removesuffix(' (continued)') in COMMANDS
+
+def summarize_capture(blocks, language):
+    if not any(is_summary(b) for b in blocks):
+        return None
+    rows, skipped = [], []
+    for block in blocks:
+        parsed = summary_rows(block)
+        if parsed:
+            rows.extend(parsed)
+        else:
+            skipped.append(block['id'])
+    text = render(rows, language) if rows else ('BGP tablosu doğrulanamadı.' if language == 'tr' else 'BGP table could not be verified.')
+    if skipped:
+        text += ('\nYorumlanmayan kanıt: ' if language == 'tr' else '\nEvidence not interpreted: ') + ', '.join(skipped)
+    return rows, text

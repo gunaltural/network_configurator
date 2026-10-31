@@ -1,5 +1,5 @@
 """Optional read-only engineering drafts. Disabled until explicitly configured."""
-from bgp_cli_evidence import summary_rows, render
+from bgp_cli_evidence import summarize_capture
 import json
 import os
 import re
@@ -99,10 +99,11 @@ def install_engineering_ai(app):
         try:
             # Table values are observations, not text for a model to reinterpret.
             if body.module == 'CLI_ANALYSIS' and body.vendor in ('Cisco IOS-XE', 'Cisco NX-OS'):
-                groups = [summary_rows(item) for item in content['evidence']]
-                if all(groups):
-                    rows = [row for group in groups for row in group]
-                    observed = render(rows, body.language)
+                capture = summarize_capture(content['evidence'], body.language)
+                if capture is not None:
+                    rows, observed = capture
+                    if not rows:
+                        return {'text': observed, 'mode': 'observations-only', 'reviewRequired': True, 'evidenceIds': [e.id for e in body.evidence]}
                     # Let the model choose the next evidence to inspect, never the facts.
                     choices = {
                         'peer': ('Inspect peer details and session transition logs.', 'Komşu ayrıntılarını ve oturum geçiş kayıtlarını inceleyin.'),
