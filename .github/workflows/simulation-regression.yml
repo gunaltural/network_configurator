@@ -21,6 +21,7 @@ on:
       - "show-analysis.js"
       - "test_show_analysis.cjs"
       - "test_analysis_navigation.cjs"
+      - "test_analysis_browser.mjs"
       - "test_corporate_shell.cjs"
       - "engineering-ai.js"
       - "ai-evidence.js"
@@ -124,6 +125,7 @@ jobs:
             if curl -fsS http://127.0.0.1:8125/healthz >/dev/null; then break; fi
             sleep 1
           done
+          node test_analysis_browser.mjs
           node test_workspace_storage.cjs
           node test_workspace_storage_browser.mjs
           node test_project_context_browser.mjs
