@@ -1,0 +1,8 @@
+CORE-A# show stackwise-virtual link
+Switch   SVL   Ports                         Link-Status   Protocol-Status
+1        1     FortyGigabitEthernet1/0/1     U             R
+2        1     FortyGigabitEthernet2/0/1     U             R
+CORE-A# show stackwise-virtual dual-active-detection
+Switch   Dad port                      Status
+1        TenGigabitEthernet1/0/8        down
+2        TenGigabitEthernet2/0/8        down

@@ -1,0 +1,7 @@
+EDGE-01# show ip bgp summary
+BGP router identifier 203.0.113.10, local AS number 64510
+Neighbor V AS MsgRcvd MsgSent TblVer InQ OutQ Up/Down State/PfxRcd
+192.0.2.1 4 64511 0 0 17 0 0 00:01:02 Idle
+198.51.100.1 4 64512 544 523 17 0 0 08:44:03 143
+EDGE-01# show logging
+Nov 1 08:40:03.100: %BGP-5-ADJCHANGE: neighbor 192.0.2.1 Down Peer closed the session

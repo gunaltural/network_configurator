@@ -1,0 +1,7 @@
+BR-FGT# diagnose sys sdwan health-check
+Health Check(DC-PROBE):
+Seq(1 wan1): state(dead), packet-loss(100.000%)
+Seq(2 wan2): state(alive), packet-loss(0.000%) latency(14.200) jitter(1.100)
+BR-FGT# get router info routing-table all
+Routing table for VRF=0
+S*      0.0.0.0/0 [10/0] via 198.51.100.1, wan2, [1/0]

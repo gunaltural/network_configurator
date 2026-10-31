@@ -1,0 +1,10 @@
+ACCESS-12# show spanning-tree vlan 120
+VLAN0120
+  Spanning tree enabled protocol rstp
+Interface        Role Sts Cost      Prio.Nbr Type
+Gi1/0/47         Root FWD 4         128.47   P2p
+Gi1/0/48         Altn BLK 4         128.48   P2p
+ACCESS-12# show interfaces status
+Port      Name             Status       Vlan       Duplex Speed Type
+Gi1/0/47  DIST-A           connected    trunk      a-full a-1000 1000BaseSX
+Gi1/0/48  DIST-B           connected    trunk      a-full a-1000 1000BaseSX

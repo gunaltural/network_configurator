@@ -1,0 +1,101 @@
+[
+  {
+    "id": "B1",
+    "status": 200,
+    "seconds": 0.77,
+    "response": {
+      "text": "Doğrulanan BGP komşuları\nEDGE7 · 203.0.113.71 · AS 64520 · Idle (Admin) [cli-1-0, L3; show ip bgp summary]\n\nSonraki kontrol: Komşu ayrıntılarını ve oturum geçiş kayıtlarını inceleyin.",
+      "mode": "observations-and-model-selection",
+      "reviewRequired": true,
+      "evidenceIds": [
+        "cli-1-0"
+      ]
+    }
+  },
+  {
+    "id": "B2",
+    "status": 200,
+    "seconds": 0.38,
+    "response": {
+      "text": "Doğrulanan BGP komşuları\nEDGE8 · 203.0.113.72 · AS 64521 · Established; alınan önek: 0 [cli-1-0, L3; show ip bgp summary]\n\nSonraki kontrol: Komşu ayrıntılarını ve oturum geçiş kayıtlarını inceleyin.",
+      "mode": "observations-and-model-selection",
+      "reviewRequired": true,
+      "evidenceIds": [
+        "cli-1-0"
+      ]
+    }
+  },
+  {
+    "id": "M1",
+    "status": 200,
+    "seconds": 12.31,
+    "response": {
+      "text": "**Modeled Behavior:**\n- The device PAIR7 is configured to use a L3 peer-link (Port-Channel90) to establish MLAG (Multi-Access Global-Link) connectivity.\n- The MLAG configuration indicates that the L3 peer-link is active and connected, with L4, L5, and L6 interfaces in the active state, while L7 is in the Up state.\n\n**Observation Evidence:**\n- The command `show mlag` confirms the MLAG configuration status.\n- The `show mlag interfaces` command verifies the connectivity and status of the L3 peer-link (Port-Channel90).\n\n**Recommendations:**\n- Ensure that the MLAG configuration is correctly established and that the L4, L5, and L6 interfaces are operational.\n- Verify that the L7 interface is in the Up state.\n\n**Missing Evidence:**\n- The observation evidence does not provide the specific L3 peer-link status or the actual MLAG configuration to confirm the status and state of the L4 interface.\n\n**Modeling Failure:**\n- The observed evidence does not support the causal failure of the L3 peer-link status or the MLAG configuration status.\n\n**Service Impact:**\n- The missing evidence in the observed evidence (the command `show mlag interfaces`) provides the specific information that the MLAG configuration status is correct, L4, L5, and L6 interfaces are operational, and the L7 interface is in the Up state, indicating that the service impact is stable.",
+      "reviewRequired": true,
+      "evidenceIds": [
+        "cli-1-0",
+        "cli-2-1"
+      ]
+    }
+  },
+  {
+    "id": "M2",
+    "status": 200,
+    "seconds": 33.47,
+    "response": {
+      "text": "**Model Behavior**\n\nA **show vpc peer-keepalive** command on the **N7** device indicates that the **vPC keep-alive** status is **peer is not reachable through peer-keepalive**.\n\n**Observation Evidence**\n\nA **vPC keep-alive** status check on the **N7** device shows that **vPC keep-alive** is **peer is not reachable through peer-keepalive**.\n\n**Recommendations**\n\nTo mitigate this issue, you should check the **vPC keep-alive** status on the **N7** device. If it is **peer is not reachable through peer-keepalive**, you should investigate the cause and ensure that **vPC keep-alive** is **peer is reachable through another mechanism**.\n\n**Model Behavior**\n\nA **show vpc peer-keepalive** command on the **N7** device shows that **vPC keep-alive** is **peer is not reachable through peer-keepalive**.\n\n**Observation Evidence**\n\nA **vPC keep-alive** status check on the **N7** device shows that **vPC keep-alive** is **peer is not reachable through peer-keepalive**.\n\n**Recommendations**\n\nTo mitigate this issue, you should check the **vPC keep-alive** status on the **N7** device. If it is **peer is not reachable through peer-keepalive**, you should investigate the cause and ensure that **vPC keep-alive** is **peer is reachable through another mechanism**.\n\n**Model Behavior**\n\nA **show vpc peer-keepalive** command on the **N7** device shows that **vPC keep-alive** is **peer is not reachable through peer-keepalive**.\n\n**Observation Evidence**\n\nA **vPC keep-alive** status check on the **N7** device shows that **vPC keep-alive** is **peer is not reachable through peer-keepalive**.\n\n**Recommendations**\n\nTo mitigate this issue, you should check the **vPC keep-alive** status on the **N7** device. If it is **peer is not reachable through peer-keepalive**, you should investigate the cause and ensure that **vPC keep-alive** is **peer is reachable through another mechanism**.\n\n**Model Behavior**\n\nA **show vpc peer-keepalive** command on the **N7** device shows that **vPC keep-alive** is **peer is not reachable through peer-keepalive**.\n\n**Observation Evidence**\n\nA **vPC keep-alive** status check on the **N7** device shows that **vPC keep-alive** is **peer is not reachable through peer-keepalive**.\n\n**Recommendations**\n\nTo mitigate this issue, you should check the **vPC keep-alive** status on the **N7** device. If it is **peer is not reachable through peer-keepalive**, you should investigate the cause and ensure that **vPC keep-alive** is **peer is reachable through another mechanism**.\n\n**Model Behavior**\n\nA **show vpc peer-keepalive** command on the **N7** device shows that **vPC keep-alive** is **peer is not reachable through peer-keepalive**.\n\n**Observation Evidence**\n\nA **vPC keep-alive** status check on the **N7** device shows that **vPC keep-alive** is **peer is not reachable through peer-keepalive**.\n\n**Recommendations**\n\nTo mitigate this issue, you should check the **vPC keep-alive** status on the **N7** device. If it is **peer is not reachable through peer-keepalive**, you should investigate the cause and ensure that **vPC keep-alive** is **peer is reachable through another mechanism**.\n\n**Model Behavior**\n\nA **show vpc peer-keepalive** command on the **N7** device shows that **vPC keep-alive** is **peer is not reachable through peer-keepalive**.\n\n**Observation Evidence**\n\nA **vPC keep-alive** status check on the **N7** device shows that **vPC keep-alive** is **peer is not reachable through peer-keepalive**.\n\n**Recommendations**\n\nTo mitigate this issue, you should check the **vPC keep-alive** status on the **N7** device. If it is **peer is not reachable through peer-keepalive**, you should investigate the cause and ensure that **vPC keep-alive** is **peer is reachable through another mechanism**.",
+      "reviewRequired": true,
+      "evidenceIds": [
+        "cli-1-0"
+      ]
+    }
+  },
+  {
+    "id": "S1",
+    "status": 200,
+    "seconds": 12.49,
+    "response": {
+      "text": "### Model Behavior\n\nThe model behavior for the Cisco IOS-XE device ACC7 is as follows:\n\n- **Command:** `show spanning-tree vlan 37`\n  - **L2:** VLAN0037\n  - **L3:** Spanning tree enabled protocol RSTP\n  - **L4:** Interface Role Sts Cost Prio. Nbr Type\n  - **L5:** Gi1/0/47 Root FWD 4, 128.47 P2p\n  - **L6:** Gi1/0/48 Altn BLK 4, 128.48 P2p\n\n### Observed Evidence\n\nThe observed evidence for the device ACC7 is as follows:\n\n- **Command:** `show spanning-tree vlan 37`\n  - **L2:** VLAN0037\n  - **L3:** Spanning tree enabled protocol RSTP\n  - **L4:** Interface Role Sts Cost Prio. Nbr Type\n  - **L5:** Gi1/0/47 Root FWD 4, 128.47 P2p\n  - **L6:** Gi1/0/48 Altn BLK 4, 128.48 P2p\n\n### Recommendations\n\nNo specific recommendations are provided for the observed evidence in this case.\n\n### Missing Evidence\n\n- **Command:** `show spanning-tree vlan 37`\n  - **L2:** VLAN0037\n  - **L3:** Spanning tree enabled protocol RSTP\n  - **L4:** Interface Role Sts Cost Prio. Nbr Type\n  - **L5:** Gi1/0/47 Root FWD 4, 128.47 P2p\n  - **L6:** Gi1/0/48 Altn BLK 4, 128.48 P2p\n\nThe missing evidence is the command to show spanning tree vlan 37, which was not provided in the observed evidence.",
+      "reviewRequired": true,
+      "evidenceIds": [
+        "cli-1-0"
+      ]
+    }
+  },
+  {
+    "id": "S2",
+    "status": 200,
+    "seconds": 2.79,
+    "response": {
+      "text": "The observed evidence is a `show spanning-tree inconsistentports` command output, which indicates that in the `DIST7` device, there is an inconsistency in spanning-tree on the `GigabitEthernet1/0/23` interface. The inconsistency is marked as `Root Inconsistent`, indicating that the spanning-tree root port is inconsistent. The device has 1 inconsistent port, with a number of inconsistent ports (segments) in the system of 1. There is no missing evidence in this scenario.",
+      "reviewRequired": true,
+      "evidenceIds": [
+        "cli-1-0"
+      ]
+    }
+  },
+  {
+    "id": "W1",
+    "status": 200,
+    "seconds": 8.35,
+    "response": {
+      "text": "**Model Behavior:** \n- **Command:** diagnose sys sdwan health-check\n- **Result:** L2: Health Check(DC_PROBE):\n  - L3: Seq(1 wan1): state(dead), packet-loss(100.000%)\n  - L4: Seq(2 wan2): state(alive), packet-loss(0.000%) latency(12.300)\n\n**Observed Findings:** \n- L3: Seq(1 wan1): state(dead)\n- L4: Seq(2 wan2): state(alive)\n\n**Recovery Behavior:** \n- L3: Seq(1 wan1) state(dead)\n- L4: Seq(2 wan2) state(alive)\n\n**Service Impact:** \n- **Hypothetical:** The L3 sequence (1 wan1) state being dead suggests a potential problem with the communication between this WAN and the SD-WAN cluster.\n- **Recovery:** The L4 sequence (2 wan2) state being alive and the L3 sequence (1 wan1) state being dead indicates that the communication with the SD-WAN cluster is still operational but with issues.\n\n**Missing Evidence:** \n- **L3 sequence (1 wan1) state(dead):** This is a potential problem related to the communication between the LAN and the SD-WAN cluster.",
+      "reviewRequired": true,
+      "evidenceIds": [
+        "cli-1-0"
+      ]
+    }
+  },
+  {
+    "id": "W2",
+    "status": 200,
+    "seconds": 6.57,
+    "response": {
+      "text": "### Report\n\n#### Evidence ID: cli-1-0\n\n**Text:**  \n`Device: FG8  \nCommand: diagnose sys sdwan health-check  \nL2: Health Check(VOICE_PROBE):  \nL3: Seq(1 wan1): state(alive), packet-loss(0.000%) latency(28.100)  \nL4: Seq(2 wan2): state(alive), packet-loss(0.000%) latency(9.000)`\n\n**Observations:**  \n- The device is in a healthy state.\n- Voice probe checks are in an \"alive\" state, indicating that the device is currently operating.\n- The packet loss is within acceptable limits (0.000%).\n- The latency for the voice probe check is 28.100 seconds.\n- The latency for the sequence probe check is 9.000 seconds.\n- The device is configured to send a packet loss of 0.000% to the sequence probe check.\n\n**Recommendations:**  \n- Ensure that the device is running the latest firmware updates.\n- Verify that the configuration of the voice probe and sequence checks are correct.\n- Monitor the device's performance metrics regularly to ensure they remain within acceptable limits.",
+      "reviewRequired": true,
+      "evidenceIds": [
+        "cli-1-0"
+      ]
+    }
+  }
+]
