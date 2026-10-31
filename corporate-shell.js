@@ -6,7 +6,8 @@
  const mapping=!!document.getElementById('portMapping');
  const lab=!!document.getElementById('networkLab');
  const deliverables=!!document.getElementById('deliverablesCenter');
- const main=!reporting&&!comparison&&!discovery&&!mapping&&!lab&&!deliverables;
+ const analysis=location.pathname==='/analysis';
+ const main=!analysis&&!reporting&&!comparison&&!discovery&&!mapping&&!lab&&!deliverables;
  const icons={
  home:'<path d="M3 10 12 3l9 7v10H4V10"/><path d="M9 20v-7h6v7"/>',
  network:'<rect x="8" y="2" width="8" height="6" rx="1"/><rect x="2" y="16" width="7" height="6" rx="1"/><rect x="15" y="16" width="7" height="6" rx="1"/><path d="M12 8v5M5 16v-3h14v3"/>',
@@ -27,16 +28,17 @@
  const tabItem=(key,label,icon)=>item(label,icon,'data-nc-tab="'+key+'"','/?resume=1&tab='+key);
  const family=(label,keys)=>'<div class="nc-menu-label">'+label+'</div>'+keys.map(key=>{const label=modules.find(([id])=>id===key)[1];return item(label,key==='BASIC'?'settings':'network','data-nc-module="'+key+'"','/?workspace='+key);}).join('');
  sidebar.innerHTML='<a class="nc-brand" href="/"><span class="nc-brand-mark">NC</span><span>Network<br>Configurator<small>Engineering workspace</small></span></a><nav class="nc-menu" aria-label="Main navigation"><a href="/" class="nc-nav-item" data-nc-home>'+svg('home')+'<span>Dashboard</span></a>'
- +group('Projects','inventory','projects',item('Recent Projects','inventory','data-nc-projects','/?section=projects')+item('New Project','network','data-nc-start','/?project=new')+planned('Customers and Sites'))
- +group('Quick Design','network','design',family('Routing & WAN',['BGP','OSPF','SDWAN'])+family('Switching & Fabric',['STP','VPC','EVPN'])+family('Network Services',['BASIC','QOS'])+tabItem('notes','Engineering Design Notes','report')+planned('Topology Library'))
+ +group('Projects','inventory','projects',item('Recent Projects','inventory','data-nc-projects','/?section=projects')+item('New Project','network','data-nc-start','/?project=new'))
+ +group('Quick Design','network','design',family('Routing & WAN',['BGP','OSPF','SDWAN'])+family('Switching & Fabric',['STP','VPC','EVPN'])+family('Network Services',['BASIC','QOS'])+tabItem('notes','Engineering Design Notes','report'))
  +group('Inventory','inventory','inventory',viewItem('inventory','Device Inventory','inventory')+item('Collect via SSH','network','data-nc-collection="automatic"','/reporting?view=inventory&context=inventory&collection=automatic')+item('Manual Entry & Excel','inventory','data-nc-collection="manual"','/reporting?view=inventory&context=inventory&collection=manual')+item('Network Discovery','network','data-nc-discovery','/network-discovery')+item('MAC Port Mapping','network','data-nc-port-mapping','/port-mapping'))
- +group('Implementation & Validation','settings','operations',tabItem('config','Device Configurations','settings')+tabItem('deploy','Configuration Deployment','upgrade')+item('Network Lab & Simulation','network','data-nc-lab','/network-lab')+item('Config Compare','settings','data-nc-compare','/config-compare')+tabItem('verify','Verification Commands','lifecycle')+tabItem('trouble','Troubleshooting','settings')+planned('Configuration Backups')+planned('Acceptance Tests')+planned('Diagnostic History'))
+ +group('Implementation & Validation','settings','operations',tabItem('config','Device Configurations','settings')+tabItem('deploy','Configuration Deployment','upgrade')+item('Network Lab & Simulation','network','data-nc-lab','/network-lab')+item('Config Compare','settings','data-nc-compare','/config-compare')+tabItem('verify','Verification Commands','lifecycle'))
+ +group('Analysis','settings','analysis',item('AI · Show Output Analysis','settings','data-nc-analysis','/analysis')+tabItem('trouble','Live Troubleshooting','settings'))
  +group('Reports & Deliverables','report','reports',item('Project Deliverables','report','data-nc-deliverables="projects"','/deliverables?view=projects')+item('Evidence & Acceptance','lifecycle','data-nc-deliverables="evidence"','/deliverables?view=evidence')+item('Saved Revisions','lifecycle','data-nc-deliverables="revisions"','/deliverables?view=revisions'))
  +group('Lifecycle Management','upgrade','maintenance',viewItem('lifecycle','Lifecycle & Software Review','lifecycle')+viewItem('upgrade','Upgrade Planning','upgrade'))
- +group('Roadmap','lifecycle','roadmap','<div class="nc-menu-label">Automation</div>'+planned('Scheduled Jobs')+planned('Network Workflows')+'<div class="nc-menu-label">Administration</div>'+planned('Application Settings')+planned('Users and Roles'))
+ +group('Roadmap','lifecycle','roadmap',planned('Customers and Sites')+planned('Topology Library')+planned('Configuration Backups')+planned('Acceptance Tests')+planned('Diagnostic History')+'<div class="nc-menu-label">Automation</div>'+planned('Scheduled Jobs')+planned('Network Workflows')+'<div class="nc-menu-label">Administration</div>'+planned('Application Settings')+planned('Users and Roles'))
  +'</nav><div class="nc-sidebar-foot">Network Configurator<br>Design · Deliver · Operate</div>';
  document.body.prepend(sidebar);
- const header=document.querySelector(deliverables?'.deliverables-topbar':mapping?'.mapping-topbar':lab?'.lab-topbar':discovery?'.discovery-topbar':comparison?'.compare-topbar':reporting?'.shell>.nav':'.v3-topbar');
+ const header=document.querySelector(analysis?'.analysis-topbar':deliverables?'.deliverables-topbar':mapping?'.mapping-topbar':lab?'.lab-topbar':discovery?'.discovery-topbar':comparison?'.compare-topbar':reporting?'.shell>.nav':'.v3-topbar');
  const originalFetch=window.fetch.bind(window);
  let expiredNotice;
  window.fetch=async(...args)=>{
@@ -182,7 +184,7 @@
 
 
    sidebar.querySelectorAll('.nc-nav-item').forEach(item=>{
-     const active=item.hasAttribute('data-nc-deliverables')?(deliverables&&item.dataset.ncDeliverables===(new URLSearchParams(location.search).get('view')||'projects')||reporting&&view==='design'&&item.dataset.ncDeliverables==='projects'):item.hasAttribute('data-nc-port-mapping')?mapping:item.hasAttribute('data-nc-lab')?lab:item.hasAttribute('data-nc-discovery')?discovery:item.hasAttribute('data-nc-compare')?comparison:item.hasAttribute('data-nc-home')?onDashboard:item.hasAttribute('data-nc-module')?false:item.hasAttribute('data-nc-view')?reporting&&item.dataset.ncView===view:item.hasAttribute('data-nc-tab')?main&&!onDashboard&&item.dataset.ncTab===tab:false;
+     const active=item.hasAttribute('data-nc-analysis')?location.pathname==='/analysis':item.hasAttribute('data-nc-deliverables')?(deliverables&&item.dataset.ncDeliverables===(new URLSearchParams(location.search).get('view')||'projects')||reporting&&view==='design'&&item.dataset.ncDeliverables==='projects'):item.hasAttribute('data-nc-port-mapping')?mapping:item.hasAttribute('data-nc-lab')?lab:item.hasAttribute('data-nc-discovery')?discovery:item.hasAttribute('data-nc-compare')?comparison:item.hasAttribute('data-nc-home')?onDashboard:item.hasAttribute('data-nc-module')?false:item.hasAttribute('data-nc-view')?reporting&&item.dataset.ncView===view:item.hasAttribute('data-nc-tab')?main&&!onDashboard&&item.dataset.ncTab===tab:false;
      if(active&&item.getAttribute('aria-current')!=='page')item.setAttribute('aria-current','page');else if(!active&&item.hasAttribute('aria-current'))item.removeAttribute('aria-current');
    });
    sidebar.querySelectorAll('.nc-nav-group').forEach(group=>{
@@ -238,3 +240,5 @@
   }
  }
 })();
+
+{const evidenceScript=document.createElement('script');evidenceScript.src='/ai-evidence.js';evidenceScript.onload=()=>{const panel=document.createElement('script');panel.src='/engineering-ai.js';document.body.append(panel);};document.body.append(evidenceScript);}

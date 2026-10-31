@@ -27,6 +27,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 from typing import List, Literal
 
+from fastapi.responses import FileResponse
 from fastapi import FastAPI, HTTPException, Request as WebRequest
 from inventory_excel import parse_inventory_xlsx
 from sdwan_excel import parse_sdwan_excel
@@ -41,6 +42,7 @@ from report_docx import build_report_docx
 from simulation_report import SimulationScenario
 from docx.image.exceptions import UnrecognizedImageError
 from authentication import install_authentication
+from engineering_ai import install_engineering_ai
 from project_store import install_project_store
 from config_compare import install_config_compare
 from network_lab import install_network_lab
@@ -837,6 +839,7 @@ def discovery_report(report_format: str, p: DiscoveryReportRequest):
 
 
 install_project_store(app)
+install_engineering_ai(app)
 install_config_compare(app, BASE_DIR)
 
 @app.get('/deliverables', response_class=HTMLResponse)
@@ -1707,6 +1710,26 @@ def deploy(p: DeviceRequest):
             except Exception:
                 pass
 
+
+@app.get('/ai-evidence.js')
+def ai_evidence_script():
+    return FileResponse(BASE_DIR / 'ai-evidence.js', media_type='application/javascript')
+
+@app.get('/engineering-ai.js')
+def ai_panel_script():
+    return FileResponse(BASE_DIR / 'engineering-ai.js', media_type='application/javascript')
+
+@app.get('/analysis')
+def cli_analysis_page():
+    return FileResponse(BASE_DIR / 'analysis.html', media_type='text/html')
+
+@app.get('/show-analysis.js')
+def cli_analysis_parser():
+    return FileResponse(BASE_DIR / 'show-analysis.js', media_type='application/javascript')
+
+@app.get('/analysis-ui.js')
+def cli_analysis_ui():
+    return FileResponse(BASE_DIR / 'analysis-ui.js', media_type='application/javascript')
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "10000"))

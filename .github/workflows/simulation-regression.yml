@@ -4,6 +4,7 @@ on:
     paths:
       - "simulation/**"
       - "Dockerfile"
+      - "compose.ai.yml"
       - "synthetic-bgp.js"
       - "bgp-traffic-policy.js"
       - "test_bgp_traffic_policy.cjs"
@@ -16,6 +17,18 @@ on:
       - "test_discovery_port_transfer_browser.mjs"
       - "test_implementation_modules_browser.mjs"
       - "simulation-report.js"
+      - "engineering_ai.py"
+      - "analysis*"
+      - "show-analysis.js"
+      - "test_show_analysis.cjs"
+      - "test_analysis_navigation.cjs"
+      - "test_analysis_browser.mjs"
+      - "test_corporate_shell.cjs"
+      - "engineering-ai.js"
+      - "ai-evidence.js"
+      - "test_ai_evidence.cjs"
+      - "test_ai_panel.cjs"
+      - "test_engineering_ai.py"
       - "simulation-workbench.js"
       - "simulation_report.py"
       - "corporate-shell.js"
@@ -66,8 +79,10 @@ jobs:
         run: |
           python -m pip install -r requirements.txt
           python -m pip install httpx2
-          npm install --no-save --ignore-scripts playwright
+          npm install --no-save --ignore-scripts playwright jsdom
           npx playwright install --with-deps chromium
+      - name: AI service and authentication regression
+        run: python -m unittest test_engineering_ai -v && node test_ai_evidence.cjs && node --check engineering-ai.js && node test_ai_panel.cjs && node test_show_analysis.cjs && node test_analysis_navigation.cjs && node test_corporate_shell.cjs && node --check analysis-ui.js
       - name: MAC port mapping regression
         env:
           AUTH_ENABLED: '0'
@@ -111,6 +126,7 @@ jobs:
             if curl -fsS http://127.0.0.1:8125/healthz >/dev/null; then break; fi
             sleep 1
           done
+          node test_analysis_browser.mjs
           node test_workspace_storage.cjs
           node test_workspace_storage_browser.mjs
           node test_project_context_browser.mjs
@@ -153,6 +169,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Validate optional self-hosted AI Compose configuration
+        env:
+          AUTH_USERNAME: evaluation
+          AUTH_PASSWORD: ci-placeholder-not-a-production-credential
+          AI_RUNTIME_IMAGE: ghcr.io/ggml-org/llama.cpp:server
+          AI_MODEL_FILE: /tmp/ci-placeholder.gguf
+        run: docker compose -f compose.ai.yml config --quiet
       - name: Build exact production Docker image
         run: docker build -t nc-production-smoke .
       - name: Test runtime routes from production image

@@ -1,0 +1,44 @@
+# Optional self-hosted evaluation stack. Does not alter the Render deployment.
+name: network-configurator-ai-evaluation
+services:
+  app:
+    build: .
+    ports:
+      - "127.0.0.1:18080:10000"
+    environment:
+      AUTH_ENABLED: "1"
+      AUTH_USERNAME: "${AUTH_USERNAME:?Set an evaluation username}"
+      AUTH_PASSWORD: "${AUTH_PASSWORD:?Set an evaluation password}"
+      AI_ENABLED: "1"
+      AI_PROVIDER: local
+      AI_BASE_URL: http://model:8080/v1
+      AI_MODEL: network-engineer
+    networks: [default, inference]
+    # Deliberately no depends_on: project/design tools can run without the model.
+  model:
+    image: "${AI_RUNTIME_IMAGE:?Set a pinned llama.cpp server image tag or digest}"
+    command:
+      - --model
+      - /models/network-engineer.gguf
+      - --alias
+      - network-engineer
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+      - --ctx-size
+      - "16384"
+      - --parallel
+      - "1"
+    volumes:
+      - type: bind
+        source: "${AI_MODEL_FILE:?Set the absolute path of a validated GGUF model}"
+        target: /models/network-engineer.gguf
+        read_only: true
+        bind:
+          create_host_path: false
+    networks: [inference]
+    # No host port and no external network; only the app can reach inference.
+networks:
+  inference:
+    internal: true
