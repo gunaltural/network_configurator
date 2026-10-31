@@ -1,5 +1,11 @@
 (()=>{'use strict';const $=id=>document.getElementById(id);let blocks=[],busy=false;
 function invalidate(){blocks=[];$('blocks').replaceChildren();$('analyze').disabled=true;$('result').value='';$('download').disabled=true;}
+function renderGuide(){
+ const host=$('collectionGuide');host.replaceChildren();const packs=ShowAnalysis.collectionGuide($('vendor').value);
+ if(!packs.length){host.textContent='No validated collection pack for this platform yet. Include device identity, capture time, relevant configuration and operational state.';return;}
+ for(const pack of packs){const title=document.createElement('h3'),scope=document.createElement('p'),list=document.createElement('ul'),note=document.createElement('p'),source=document.createElement('a');title.textContent=pack.title;scope.textContent=pack.scope;note.textContent=pack.note;source.textContent='Manufacturer collection reference';source.href=pack.source;source.target='_blank';source.rel='noopener noreferrer';for(const [command,purpose] of pack.commands){const item=document.createElement('li'),code=document.createElement('code');code.textContent=command;item.append(code,document.createTextNode(' — '+purpose));list.append(item);}host.append(title,scope,list,note,source);}
+}
+$('vendor').addEventListener('change',renderGuide);renderGuide();
 $('raw').oninput=invalidate;
 $('file').onchange=async()=>{const f=$('file').files[0];if(!f)return;invalidate();if(f.size>2000000){$('status').textContent='Maximum file size is 2 MB.';return;}$('raw').value=await f.text();};
 $('example').onclick=()=>{invalidate();$('raw').value='CE1# show ip interface brief\nInterface IP-Address OK? Method Status Protocol\nGi0/0 192.0.2.1 YES manual up up\nGi0/1 198.51.100.1 YES manual administratively down down\nCE1# show ip bgp summary\nNeighbor V AS MsgRcvd MsgSent TblVer InQ OutQ Up/Down State/PfxRcd\n192.0.2.2 4 65002 0 0 0 0 0 never Idle';$('status').textContent='Synthetic example loaded; not a live network capture.';};
