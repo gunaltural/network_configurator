@@ -4,6 +4,7 @@ on:
     paths:
       - "simulation/**"
       - "Dockerfile"
+      - "compose.ai.yml"
       - "synthetic-bgp.js"
       - "bgp-traffic-policy.js"
       - "test_bgp_traffic_policy.cjs"
@@ -168,6 +169,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Validate optional self-hosted AI Compose configuration
+        env:
+          AUTH_USERNAME: evaluation
+          AUTH_PASSWORD: ci-placeholder-not-a-production-credential
+          AI_RUNTIME_IMAGE: ghcr.io/ggml-org/llama.cpp:server
+          AI_MODEL_FILE: /tmp/ci-placeholder.gguf
+        run: docker compose -f compose.ai.yml config --quiet
       - name: Build exact production Docker image
         run: docker build -t nc-production-smoke .
       - name: Test runtime routes from production image
