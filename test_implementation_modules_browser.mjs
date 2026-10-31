@@ -3,6 +3,13 @@ import assert from 'node:assert/strict';
 const {chromium}=createRequire(import.meta.url)('playwright');
 const b=await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_EXECUTABLE,args:['--no-sandbox']});
 const base=process.env.SMOKE_URL||'http://127.0.0.1:8161';
+async function openTab(page,tab){
+ const group=page.locator('[data-nc-group="'+(tab==='trouble'?'analysis':'operations')+'"]');
+ assert.equal(await group.locator('[data-nc-tab="'+tab+'"]').count(),1,'Tab must belong to its intended navigation group');
+ if(!await group.evaluate(e=>e.open))await group.locator('summary').click();
+ await group.locator('[data-nc-tab="'+tab+'"]').click();
+}
+
 try{
  const p=await b.newPage(),errors=[];p.on('pageerror',e=>errors.push(e.message));
  await p.goto(base+'/');await p.waitForFunction(()=>window.NetworkWorkspaceProject);
@@ -11,8 +18,7 @@ try{
   const source=await p.evaluate(()=>NetworkWorkspaceProject.snapshot());
   await p.evaluate(async saved=>{await NetworkWorkspaceProject.activateModule(saved.workspace.technology==='BGP'?'OSPF':'BGP');NetworkWorkspaceProject.apply(saved);await window.__workspaceRestoreReady;},source);
   for(const tab of ['config','deploy','verify','trouble']){
-   await p.locator('[data-nc-group="operations"] summary').evaluate(e=>e.parentElement.open=true);
-   await p.locator('[data-nc-tab="'+tab+'"]').click();
+   await openTab(p,tab);
    assert.equal(await p.locator('.tab.active').getAttribute('data-tab'),tab);
    const result=await p.evaluate(()=>NetworkWorkspaceProject.snapshot());
    assert.equal(result.workspace.technology,key);
@@ -27,16 +33,14 @@ try{
  await p.route('**/api/projects/saved-bgp',route=>route.fulfill({json:{id:'saved-bgp',name:bundle.name,version:1,document:bundle}}));
  await p.evaluate(()=>NetworkWorkspaceProject.activateModule('OSPF'));
  await p.evaluate(async()=>{await NetworkProjects.openSaved('saved-bgp','design');});
- await p.locator('[data-nc-group="operations"] summary').evaluate(e=>e.parentElement.open=true);
- await p.locator('[data-nc-tab="verify"]').click();
+ await openTab(p,'verify');
  assert.equal(await p.evaluate(()=>NetworkWorkspaceProject.diagnosticScope().module),'BGP');
  assert.equal(await p.evaluate(()=>NetworkWorkspaceProject.diagnosticScope().platform),'Cisco NX-OS');
  assert.match(await p.locator('#operationsSource').textContent(),/Saved BGP verification/);
  for(const origin of ['/reporting?view=design','/network-discovery','/port-mapping']){
   for(const tab of ['config','deploy','verify','trouble']){
    await p.goto(base+origin);
-   await p.locator('[data-nc-group="operations"] summary').evaluate(e=>e.parentElement.open=true);
-   await p.locator('[data-nc-tab="'+tab+'"]').click();
+   await openTab(p,tab);
    await p.waitForURL('**/?resume=1&tab='+tab);
    await p.waitForFunction(t=>window.NetworkWorkspaceProject?.diagnosticScope().module==='BGP'&&document.querySelector('.tab.active')?.dataset.tab===t,tab);
    const restored=await p.evaluate(()=>NetworkWorkspaceProject.snapshot());
@@ -60,8 +64,7 @@ try{
    const origin=['/reporting?view=design','/network-discovery','/port-mapping'][pairs%3];
    for(const tab of ['config','deploy','verify','trouble']){
     await p.goto(base+origin);
-    await p.locator('[data-nc-group="operations"] summary').evaluate(e=>e.parentElement.open=true);
-    await p.locator('[data-nc-tab="'+tab+'"]').click();
+    await openTab(p,tab);
     await p.waitForURL('**/?resume=1&tab='+tab);
     await p.waitForFunction(({key,tab})=>window.NetworkWorkspaceProject?.diagnosticScope().module===key&&document.querySelector('.tab.active')?.dataset.tab===tab,{key,tab});
     const restored=await p.evaluate(()=>NetworkWorkspaceProject.snapshot());
