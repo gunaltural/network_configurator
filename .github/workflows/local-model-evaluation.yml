@@ -5,6 +5,10 @@ on:
       - ".github/workflows/local-model-evaluation.yml"
       - "scripts/evaluate_local_model.py"
       - "engineering_ai.py"
+      - "bgp_cli_evidence.py"
+      - "start_embedded_ai.py"
+      - "Dockerfile"
+      - "scripts/check_budget_analysis.py"
   workflow_dispatch:
 permissions:
   contents: read
@@ -60,4 +64,16 @@ jobs:
             sleep 2
           done
           curl -fsS --max-time 5 http://127.0.0.1:18081/health
+          python scripts/check_budget_analysis.py
+
+      - name: Single application image with bundled model, no external provider
+        run: |
+          docker build --target embedded -t nc-embedded .
+          docker run -d --name combined --memory 480m --memory-swap 480m --cpus 0.1 -p 127.0.0.1:18100:10000 -e AUTH_ENABLED=0 nc-embedded
+          trap 'docker stats --no-stream combined; docker inspect --format "OOM={{.State.OOMKilled}} exit={{.State.ExitCode}}" combined; docker rm -f combined' EXIT
+          for i in $(seq 1 100); do
+            test "$(docker inspect -f '{{.State.Running}}' combined)" = true
+            if docker exec combined python -c "import urllib.request as u; u.urlopen('http://127.0.0.1:18081/health',timeout=3)" 2>/dev/null && curl -fsS http://127.0.0.1:18100/healthz >/dev/null; then break; fi
+            sleep 2
+          done
           python scripts/check_budget_analysis.py

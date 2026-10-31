@@ -1,4 +1,5 @@
-FROM python:3.12-slim
+FROM ghcr.io/ggml-org/llama.cpp@sha256:d9e9e74ba3f7ef119b1939162b1631f99b75ec703c310d140cfa2fdac8907389 AS llama_runtime
+FROM python:3.12-slim AS app
 WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 COPY requirements.txt .
@@ -10,3 +11,14 @@ COPY port_mapping.py port-mapping.html port-mapping.js port-mapping-core.js port
 COPY samples/port-mapping ./samples/port-mapping
 COPY simulation/ ./simulation/
 CMD ["python", "app.py"]
+
+# Explicit evaluation target: the default production image remains unchanged.
+FROM app AS embedded
+COPY --from=llama_runtime /app/ /opt/llama/
+RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 libstdc++6 && rm -rf /var/lib/apt/lists/*
+ADD --checksum=sha256:74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf /opt/models/network.gguf
+RUN cp /usr/share/common-licenses/Apache-2.0 /opt/models/LICENSE
+COPY start_embedded_ai.py ./
+CMD ["python", "start_embedded_ai.py"]
+
+FROM app AS production
