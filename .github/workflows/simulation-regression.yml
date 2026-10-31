@@ -21,6 +21,7 @@ on:
       - "show-analysis.js"
       - "test_show_analysis.cjs"
       - "test_analysis_navigation.cjs"
+      - "test_corporate_shell.cjs"
       - "engineering-ai.js"
       - "ai-evidence.js"
       - "test_ai_evidence.cjs"
@@ -79,7 +80,7 @@ jobs:
           npm install --no-save --ignore-scripts playwright jsdom
           npx playwright install --with-deps chromium
       - name: AI service and authentication regression
-        run: python -m unittest test_engineering_ai -v && node test_ai_evidence.cjs && node --check engineering-ai.js && node test_ai_panel.cjs && node test_show_analysis.cjs && node test_analysis_navigation.cjs && node --check analysis-ui.js
+        run: python -m unittest test_engineering_ai -v && node test_ai_evidence.cjs && node --check engineering-ai.js && node test_ai_panel.cjs && node test_show_analysis.cjs && node test_analysis_navigation.cjs && node test_corporate_shell.cjs && node --check analysis-ui.js
       - name: MAC port mapping regression
         env:
           AUTH_ENABLED: '0'
