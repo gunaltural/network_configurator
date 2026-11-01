@@ -106,7 +106,15 @@ const examples=[
   "question": "Did the voice class drop these packets?",
   "expected": "Output policy counters show 0 drops in VOICE and 317 in class-default. These cumulative counters do not give a current loss rate; compare two timed samples.",
   "raw": "WAN-CE# show policy-map interface GigabitEthernet0/0/0\n GigabitEthernet0/0/0\n  Service-policy output: WAN-OUT\n    Class-map: VOICE (match-any)\n      24000 packets, 4800000 bytes\n      Match: dscp ef (46)\n      (queue depth/total drops/no-buffer drops) 0/0/0\n    Class-map: class-default (match-any)\n      740000 packets, 592000000 bytes\n      (queue depth/total drops/no-buffer drops) 12/317/0\nWAN-CE# show interfaces GigabitEthernet0/0/0\nGigabitEthernet0/0/0 is up, line protocol is up\n  Total output drops: 317"
- }
+ },
+{
+ "key": "TAC-REVIEW",
+ "platform": "Cisco IOS-XE",
+ "title": "Show tech · Routing and management security",
+ "question": "Which observations can be verified across routing, management access and neighbor state?",
+ "expected": "CORP static route is configured and installed; GUEST installation is not evidenced. VTY 0–4 permits Telnet in configuration but has an inbound ACL; do not claim external Telnet reachability. BGP Idle has a matching closure log. The OSPF neighbor is Full; NTP is unsynchronized.",
+ "raw": "WAN-EDGE-02# show tech-support\n------------------ show running-config ------------------\nhostname WAN-EDGE-02\nip route vrf CORP 10.42.0.0 255.255.0.0 192.0.2.1\nip route vrf GUEST 10.42.0.0 255.255.0.0 198.51.100.1\nline vty 0 4\n access-class MGMT-IN in\n transport input ssh telnet\n!\n------------------ show ip route vrf CORP static ------------------\nRouting Table: CORP\nS    10.42.0.0/16 [1/0] via 192.0.2.1\n------------------ show ip access-lists ------------------\nExtended IP access list MGMT-IN\n    10 permit tcp host 203.0.113.40 any eq 22\n    20 deny ip any any log\n------------------ show ip bgp summary ------------------\nNeighbor V AS MsgRcvd MsgSent TblVer InQ OutQ Up/Down State/PfxRcd\n192.0.2.9 4 64520 0 0 1 0 0 never Idle\n------------------ show logging ------------------\n*Nov 1 08:00:01.003: %BGP-5-ADJCHANGE: neighbor 192.0.2.9 Down Peer closed the session\n------------------ show ip ospf neighbor ------------------\nNeighbor ID     Pri State           Dead Time Address         Interface\n10.1.0.2          1 FULL/DR         00:00:34  198.51.100.6    GigabitEthernet0/1\n------------------ show ntp status ------------------\nClock is unsynchronized, stratum 16, no reference clock"
+}
 ];
 root.ShowAnalysis={parse,evidence,collectionGuide,examples};
 })(typeof window==='undefined'?globalThis:window);

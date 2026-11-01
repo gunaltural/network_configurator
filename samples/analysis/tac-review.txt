@@ -1,0 +1,26 @@
+WAN-EDGE-02# show tech-support
+------------------ show running-config ------------------
+hostname WAN-EDGE-02
+ip route vrf CORP 10.42.0.0 255.255.0.0 192.0.2.1
+ip route vrf GUEST 10.42.0.0 255.255.0.0 198.51.100.1
+line vty 0 4
+ access-class MGMT-IN in
+ transport input ssh telnet
+!
+------------------ show ip route vrf CORP static ------------------
+Routing Table: CORP
+S    10.42.0.0/16 [1/0] via 192.0.2.1
+------------------ show ip access-lists ------------------
+Extended IP access list MGMT-IN
+    10 permit tcp host 203.0.113.40 any eq 22
+    20 deny ip any any log
+------------------ show ip bgp summary ------------------
+Neighbor V AS MsgRcvd MsgSent TblVer InQ OutQ Up/Down State/PfxRcd
+192.0.2.9 4 64520 0 0 1 0 0 never Idle
+------------------ show logging ------------------
+*Nov 1 08:00:01.003: %BGP-5-ADJCHANGE: neighbor 192.0.2.9 Down Peer closed the session
+------------------ show ip ospf neighbor ------------------
+Neighbor ID     Pri State           Dead Time Address         Interface
+10.1.0.2          1 FULL/DR         00:00:34  198.51.100.6    GigabitEthernet0/1
+------------------ show ntp status ------------------
+Clock is unsynchronized, stratum 16, no reference clock

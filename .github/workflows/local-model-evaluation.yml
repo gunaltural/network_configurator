@@ -7,6 +7,8 @@ on:
       - "engineering_ai.py"
       - "bgp_cli_evidence.py"
       - "test_bgp_cli_evidence.py"
+      - "tac_overview.py"
+      - "test_tac_overview.py"
       - "show-analysis.js"
       - "start_embedded_ai.py"
       - "Dockerfile"
@@ -26,7 +28,7 @@ jobs:
       - name: Install application test dependencies
         run: python -m pip install fastapi httpx httpx2
       - name: Verify raw TAC evidence correlation
-        run: python -m unittest test_bgp_cli_evidence -v
+        run: python -m unittest test_bgp_cli_evidence test_tac_overview -v
       - name: Verify official evaluation weights
         run: |
           curl --fail --location --retry 2 --output /tmp/model.gguf https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf

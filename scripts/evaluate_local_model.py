@@ -27,5 +27,18 @@ def main():
     if not all(r['mentions_state'] and r['cites_evidence'] and r['cites_line'] for r in results):
         raise SystemExit('Draft lacks the observed state or its citation; engineering review required.')
 
+    # Exercise the same parser and endpoint used for a selected mixed support capture.
+    import subprocess
+    from pathlib import Path
+    sample = Path('samples/analysis/tac-review.txt').read_text()
+    evidence = json.loads(subprocess.check_output(['node','-e',"require('./show-analysis.js');console.log(JSON.stringify(ShowAnalysis.evidence(ShowAnalysis.parse(require('fs').readFileSync(0,'utf8')))))"],input=sample,text=True))
+    response=client.post('/api/ai/analyze',json=dict(module='CLI_ANALYSIS', vendor='Cisco IOS-XE',language='tr',task='report',evidence=evidence))
+    response.raise_for_status()
+    draft=response.json()['text']
+    for expected in ('Konfigürasyon ve RIB eşleşiyor: CORP', 'ACL MGMT-IN (in)', 'AS 64520 · Idle','FULL/DR','unsynchronized'):
+        assert expected in draft,expected
+    assert 'Konfigürasyon ve RIB eşleşiyor: GUEST' not in draft
+    print('Mixed TAC endpoint validated:', response.json()['mode'], flush=True)
+
 if __name__=='__main__':
     main()

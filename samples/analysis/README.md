@@ -61,3 +61,9 @@ Expected: DC-PROBE is dead on wan1 and alive on wan2. The routing table includes
 [Cisco IOS-XE capture](qos.txt) · Did the voice class drop these packets?
 
 Expected: Output policy counters show 0 drops in VOICE and 317 in class-default. These cumulative counters do not give a current loss rate; compare two timed samples.
+
+### Show tech · Routing and management security
+
+[Cisco IOS-XE capture](tac-review.txt) · Which observations can be verified across routing, management access and neighbor state?
+
+Expected: CORP static route is configured and installed; GUEST installation is not evidenced. VTY 0–4 permits Telnet in configuration but has an inbound ACL; do not claim external Telnet reachability. BGP Idle has a matching closure log. The OSPF neighbor is Full; NTP is unsynchronized.
