@@ -1,0 +1,19 @@
+N9K-A# show vpc brief
+vPC domain id                     : 12
+vPC role                          : primary
+vPC Peer-link status
+id   Port   Status Active vlans
+1    Po100  down   -
+N9K-A# show vpc peer-keepalive
+vPC keep-alive status : peer is alive
+N9K-B# show vpc brief
+vPC domain id                     : 12
+vPC role                          : secondary
+vPC Peer-link status
+id   Port   Status Active vlans
+1    Po100  down   -
+vPC status
+id   Port   Status Consistency Reason
+20   Po20   down   success     Peer-link is down
+N9K-B# show vpc peer-keepalive
+vPC keep-alive status : peer is alive

@@ -1,0 +1,5 @@
+MGMT-01# show ntp status
+Clock is unsynchronized, stratum 16, no reference clock
+MGMT-01# show ntp associations
+  address         ref clock       st when poll reach  delay  offset   disp
+ ~192.0.2.123     .INIT.          16    -   64     0  0.000   0.000 15937.

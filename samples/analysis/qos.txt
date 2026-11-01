@@ -1,0 +1,13 @@
+WAN-CE# show policy-map interface GigabitEthernet0/0/0
+ GigabitEthernet0/0/0
+  Service-policy output: WAN-OUT
+    Class-map: VOICE (match-any)
+      24000 packets, 4800000 bytes
+      Match: dscp ef (46)
+      (queue depth/total drops/no-buffer drops) 0/0/0
+    Class-map: class-default (match-any)
+      740000 packets, 592000000 bytes
+      (queue depth/total drops/no-buffer drops) 12/317/0
+WAN-CE# show interfaces GigabitEthernet0/0/0
+GigabitEthernet0/0/0 is up, line protocol is up
+  Total output drops: 317

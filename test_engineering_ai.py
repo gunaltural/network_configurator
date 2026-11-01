@@ -31,6 +31,19 @@ class Tests(unittest.TestCase):
             self.body['evidence'] *= 2
             self.assertEqual(self.client.post('/api/ai/analyze', json=self.body).status_code, 422)
 
+    def test_bgp_local_choices_exclude_unobserved_reset_and_cli_text(self):
+        import json
+        capture = dict(module='CLI_ANALYSIS',vendor='Cisco IOS-XE',task='report',evidence=[
+            dict(id='summary',text='Device: CE1\nCommand: show ip bgp summary\nL2: Neighbor V AS MsgRcvd MsgSent TblVer InQ OutQ Up/Down State/PfxRcd\nL3: 192.0.2.2 4 65002 0 0 1 0 0 never Idle')])
+        with patch.dict(os.environ, {'AI_PROVIDER':'local','AI_ENABLED':'1','AI_MODEL':'network-engineer','AI_BASE_URL':'http://localhost:8080/v1'}, clear=True), patch('engineering_ai.urllib.request.build_opener') as opener:
+            for reply, mode in [('peer','observations-and-model-selection'), ('reset','observations-only')]:
+                opener.return_value.open.return_value.__enter__.return_value.read.return_value = json.dumps({'choices':[{'finish_reason':'stop','message':{'content':reply}}]}).encode()
+                draft=self.client.post('/api/ai/analyze',json=capture).json()
+                wire=json.loads(opener.return_value.open.call_args.args[0].data)
+                self.assertEqual(wire.get('grammar'), 'root ::= "peer" | "reachability"')
+                self.assertEqual(draft['mode'],mode)
+                self.assertIn('AS 65002 · Idle',draft['text'])
+
     def test_schema(self):
         self.body['rawConfig'] = 'not allowed'
         self.assertEqual(self.client.post('/api/ai/analyze', json=self.body).status_code, 422)

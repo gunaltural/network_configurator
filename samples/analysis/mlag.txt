@@ -1,0 +1,15 @@
+EOS-A# show mlag
+state              : Active
+negotiation status : Connected
+peer-link status   : Up
+local-int status   : Up
+EOS-A# show mlag interfaces
+mlag     desc      local-intf        peer-intf         status
+20       HOST20    Port-Channel20    Port-Channel20    active-partial
+EOS-B# show interfaces status
+Port  Name          Status       Vlan   Duplex Speed   Type
+Et5   HOST20-NIC2   notconnect   120    full   10G     10GBASE-SR
+EOS-B# show running-config interfaces Ethernet5
+interface Ethernet5
+   description HOST20-NIC2
+   channel-group 20 mode active

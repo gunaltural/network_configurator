@@ -1,0 +1,7 @@
+VTEP-A# show nve peers
+Interface Peer-IP       State LearnType Uptime   Router-Mac
+nve1      192.0.2.22    Up    CP        02:11:08 n/a
+VTEP-A# show nve vni
+Interface VNI    Multicast-group State Mode Type [BD/VRF] Flags
+nve1      10120  UnicastBGP      Up    CP   L2   [120]
+nve1      10130  UnicastBGP      Down  CP   L2   [130]

@@ -20,3 +20,21 @@ const fs=require('fs'),{JSDOM}=require('jsdom');const dom=new JSDOM(fs.readFileS
  console.log('Progressive analysis UI: initial view, evidence selection, failure/retry, mocked result and stale evidence reset passed');
  }finally{w.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});
+
+// Every shipped module fixture must work through the same load/review path without
+// sending the answer key or silently replacing a user's own capture.
+{
+ const dom=new JSDOM(fs.readFileSync('analysis.html','utf8'),{runScripts:'outside-only',url:'https://test.invalid/analysis'});
+ const w=dom.window,d=w.document;
+ w.eval(fs.readFileSync('show-analysis.js','utf8'));w.eval(fs.readFileSync('analysis-ui.js','utf8'));
+ for(const c of w.ShowAnalysis.examples){
+   d.getElementById('sampleCase').value=c.key;d.getElementById('example').click();
+   assert.equal(d.getElementById('vendor').value,c.platform);
+   assert.equal(d.getElementById('raw').value,fs.readFileSync('samples/analysis/'+c.key.toLowerCase()+'.txt','utf8').trimEnd());
+   d.getElementById('parse').click();assert.ok(d.querySelectorAll('[data-block]:checked').length>=2,c.title);
+   const evidence=w.ShowAnalysis.evidence(w.ShowAnalysis.parse(c.raw));
+   assert.ok(!JSON.stringify(evidence).includes(c.expected));assert.equal(d.getElementById('sampleExpected').textContent,c.expected);
+ }
+ d.getElementById('raw').value='my capture';w.confirm=()=>false;d.getElementById('example').click();assert.equal(d.getElementById('raw').value,'my capture');
+ dom.window.close();console.log('Module sample library: load, platform, downloadable fixture parity, selection, hidden key and preservation passed');
+}
