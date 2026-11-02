@@ -88,7 +88,7 @@ def correlate_domains(blocks, vendor, language):
         # A route-backed interface can be selected among multiple failures.
         # Without route evidence, only a single failed interface is reportable.
         for peer_vrf, peer, state, peer_ref in peers:
-            route = routes.get((device, peer_vrf, peer), [])
+            route = []
             chain = []
             visited = set()
             current = peer
