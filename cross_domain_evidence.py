@@ -7,7 +7,7 @@ def correlate_domains(blocks, vendor, language):
     if vendor not in ("Cisco IOS-XE", "Cisco NX-OS"):
         return []
     tr = language == "tr"
-    states, interfaces = {}, {}
+    states, interfaces, routes = {}, {}, {}
     for block in blocks:
         lines = block.get("text", "").splitlines()
         if len(lines) < 2 or not lines[0].startswith("Device: ") or not lines[1].startswith("Command: "):
@@ -30,6 +30,16 @@ def correlate_domains(blocks, vendor, language):
                     except ValueError:
                         continue
                     states.setdefault(device, []).append((row[1], row[3], ref))
+            elif command == "show ip route":
+                # Only an explicit host route with an egress interface can establish
+                # the peer's path; do not infer from a default or summary route.
+                host = re.match(r"^\\S+\\s+((?:\\d{1,3}\\.){3}\\d{1,3})/32\\s+.*?\\b(?:via|directly connected,?)\\s+.*?,\\s*(\\S+)\\s*$", value.strip(), re.I)
+                if host:
+                    try:
+                        ipaddress.IPv4Address(host[1])
+                    except ValueError:
+                        continue
+                    routes.setdefault((device, host[1]), []).append((host[2], ref))
             elif command == "show ip interface brief":
                 row = re.match(r"^(\S+)\s+(?:[\d.]+|unassigned)\s+YES\s+\S+\s+(administratively down|down|up)\s+(down|up)\s*$", value.strip(), re.I)
                 if row and (row[2].lower() != "up" or row[3].lower() != "up"):
@@ -46,6 +56,8 @@ def correlate_domains(blocks, vendor, language):
             continue
         peer, state, peer_ref = peers[0]
         interface, interface_ref = down[0]
+        route = routes.get((device, peer), [])
+        path_confirmed = len(route) == 1 and route[0][0] == interface
         if tr:
             message = (f"{device}: BGP komşusu {peer} {state} durumunda; {interface} arayüzü de down. "
                        "Aynı cihazdaki bu iki gözlem arasında nedensellik kanıtlanmadı. "
@@ -54,5 +66,12 @@ def correlate_domains(blocks, vendor, language):
             message = (f"{device}: BGP peer {peer} is {state}, while interface {interface} is down. "
                        "These observations on the same device do not establish causality. "
                        "Verify the peer path, next-hop reachability and interface with read-only commands.")
-        findings.append(f"{message} [{peer_ref}; {interface_ref}]")
+        if path_confirmed:
+            if tr:
+                message += " RIB'de komşu için /32 yolun çıkış arayüzü aynı arayüz olarak gözlendi; bu, erişim sorununu destekler ancak kök nedeni kanıtlamaz."
+            else:
+                message += " The peer's /32 RIB route explicitly uses this interface; this supports a reachability concern, not a proven root cause."
+            findings.append(f"{message} [{peer_ref}; {interface_ref}; {route[0][1]}]")
+        else:
+            findings.append(f"{message} [{peer_ref}; {interface_ref}]")
     return findings
