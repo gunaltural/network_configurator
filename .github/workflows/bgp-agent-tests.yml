@@ -12,6 +12,8 @@ on:
       - 'bgp_route_diagnostic_rules.py'
       - 'bgp_route_cli_evidence.py'
       - 'bgp_eos_cli_evidence.py'
+      - 'bgp_eos_neighbor_detail.py'
+      - 'test_bgp_eos_neighbor_detail.py'
       - 'test_bgp_eos_cli_evidence.py'
       - 'test_bgp_route_cli_evidence.py'
       - 'test_bgp_holistic_scenarios.py'
@@ -26,4 +28,4 @@ jobs:
         with:
           python-version: '3.12'
       - name: Run BGP evidence and FSM tests
-        run: python -m unittest -v test_bgp_diagnostic_rules test_bgp_route_diagnostic_rules test_bgp_route_cli_evidence test_bgp_holistic_scenarios test_bgp_eos_cli_evidence
+        run: python -m unittest -v test_bgp_diagnostic_rules test_bgp_route_diagnostic_rules test_bgp_route_cli_evidence test_bgp_holistic_scenarios test_bgp_eos_cli_evidence test_bgp_eos_neighbor_detail
