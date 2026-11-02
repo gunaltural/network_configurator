@@ -57,6 +57,12 @@ class RouteEvidenceTests(unittest.TestCase):
         b = capture("show ip bgp", "*> 10.11.0.0/16 0.0.0.0 0 32768 i")
         self.assertIn("does not prove route absence", str(route_diagnostic_text([b], "en")))
 
+    def test_unrelated_evidence_id_not_marked_interpreted(self):
+        a = capture("show ip bgp", "*> 10.11.0.0/16 0.0.0.0 0 32768 i", "ev1")
+        b = capture("show version", "Example OS", "ev")
+        report = overview([a, b], "Cisco IOS-XE", "en")[0]
+        self.assertIn("ev (R1 · show version)", report)
+
     def test_malformed_route_ignored(self):
         b = capture("show ip bgp", "*> 999.0.0.0/16 192.0.2.2")
         self.assertEqual(extract_route_evidence([b]), [])
