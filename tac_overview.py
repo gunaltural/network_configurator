@@ -5,7 +5,7 @@ from collections import defaultdict
 from bgp_cli_evidence import summary_rows, render, correlate
 from bgp_diagnostic_rules import diagnose_neighbor
 from bgp_route_cli_evidence import route_diagnostic_text, extract_route_evidence
-from bgp_eos_cli_evidence import eos_summary_rows, eos_summary_text
+from bgp_eos_cli_evidence import eos_summary_rows, eos_summary_text, eos_neighbor_events
 
 # category, command family, line signature, interpretation (EN/TR).
 RULES = [
@@ -111,9 +111,16 @@ def overview(blocks, vendor, language):
         eos_reports = eos_summary_text(blocks, language)
         if eos_reports:
             groups['BGP'].extend(eos_reports)
+            peers = {(device, peer) for block in blocks for device, _, peer, *_ in eos_summary_rows(block)}
             for block in blocks:
                 if eos_summary_rows(block):
                     used.add(block['id'])
+            for event in eos_neighbor_events(blocks):
+                if (event['device'], event['peer']) not in peers:
+                    continue
+                label = 'Kaydedilmiş BGP komşuluk olayı' if tr else 'Recorded BGP adjacency event'
+                add('BGP', f"{label}: {event['device']} · {event['peer']} · {event['state']} (not current state)", f"{event['id']}, L{event['line']}; show logging")
+                used.add(event['id'])
     route_evidence = extract_route_evidence(blocks) if cisco else []
     if route_evidence:
         groups['BGP routes'].extend(route_diagnostic_text(blocks, language))
