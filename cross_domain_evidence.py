@@ -3,7 +3,7 @@ import re
 import ipaddress
 
 def _longest_match(entries, device, vrf, address):
-    """Choose only a unique longest-prefix route in the same device and VRF."""
+    """Choose a unique forwarding decision at the longest prefix in one VRF."""
     target = ipaddress.IPv4Address(address)
     matches = [(network.prefixlen, kind, value, ref)
                for dev, table, network, kind, value, ref in entries
