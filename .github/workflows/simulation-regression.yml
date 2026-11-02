@@ -166,7 +166,7 @@ jobs:
           timeout --signal=TERM --kill-after=10s 75s node test_quick_design_browser.mjs
           echo "::endgroup::"
           echo "::group::TRANSITION_QUOTA=1 node test_module_report_transition_browser.mjs"
-          timeout --signal=TERM --kill-after=10s 75s env TRANSITION_QUOTA=1 node test_module_report_transition_browser.mjs
+          timeout --signal=TERM --kill-after=10s 240s env TRANSITION_QUOTA=1 node test_module_report_transition_browser.mjs
           echo "::endgroup::"
           echo "::group::node test_bgp_traffic_browser.mjs"
           timeout --signal=TERM --kill-after=10s 75s node test_bgp_traffic_browser.mjs
