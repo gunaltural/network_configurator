@@ -72,6 +72,18 @@ class CrossDomainEvidenceTests(unittest.TestCase):
         self.assertIn("rib, L8", result[0])
         self.assertNotIn("GigabitEthernet0/1", result[0])
 
+    def test_vrf_route_is_not_used_as_default_bgp_path(self):
+        bgp = block("bgp", "CE1", "show ip bgp summary", [
+            "L5: 192.0.2.2 4 65002 0 0 0 0 0 never Active"])
+        interface = block("int", "CE1", "show ip interface brief", [
+            "L6: GigabitEthernet0/1 192.0.2.1 YES manual down down"])
+        vrf_route = block("vrf", "CE1", "show ip route vrf CUSTOMER", [
+            "L8: S 192.0.2.2/32 [1/0] via 10.0.0.1, GigabitEthernet0/1"])
+        result = correlate_domains([bgp, interface, vrf_route], "Cisco IOS-XE", "en")
+        self.assertEqual(len(result), 1)
+        self.assertNotIn("explicitly uses this interface", result[0])
+        self.assertNotIn("vrf, L8", result[0])
+
     def test_invalid_peer_address_is_ignored(self):
         bgp = block("bgp", "CE1", "show ip bgp summary", [
             "L5: 999.0.2.2 4 65002 0 0 0 0 0 never Active"])
