@@ -107,7 +107,8 @@ def correlate_domains(blocks, vendor, language):
                     message += " RIB'de komşu için /32 yolun çıkış arayüzü aynı arayüz olarak gözlendi; bu, erişim sorununu destekler ancak kök nedeni kanıtlamaz."
                 else:
                     message += " The peer's /32 RIB route explicitly uses this interface; this supports a reachability concern, not a proven root cause."
-                findings.append(f"{message} [{peer_ref}; {interface_ref}; {route[0][1]}]")
+                references = "; ".join([peer_ref, interface_ref] + chain + [route[0][1]])
+                findings.append(f"{message} [{references}]")
             else:
                 findings.append(f"{message} [{peer_ref}; {interface_ref}]")
     return findings
