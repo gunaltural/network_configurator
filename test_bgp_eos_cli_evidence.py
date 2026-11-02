@@ -23,6 +23,24 @@ class EOSBGPEvidenceTests(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0][4], "12")
 
+    def test_administratively_disabled_neighbor(self):
+        block = {"id": "admin", "text": (
+            "Device: EOS-1\nCommand: show ip bgp summary\n"
+            "L1: Neighbor V AS MsgRcvd MsgSent InQ OutQ Up/Down State/PfxRcd\n"
+            "L2: 192.0.2.4 4 65004 0 0 0 0 never Idle (Admin)")}
+        rows = eos_summary_rows(block)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][4], "Idle (Admin)")
+        report = overview([block], "Arista EOS", "en")[0]
+        self.assertIn("administratively disabled", report)
+
+    def test_invalid_asn_rejected(self):
+        block = {"id": "bad-asn", "text": (
+            "Device: EOS-1\nCommand: show ip bgp summary\n"
+            "L1: Neighbor V AS MsgRcvd MsgSent InQ OutQ Up/Down State/PfxRcd\n"
+            "L2: 192.0.2.4 4 4294967296 0 0 0 0 never Active")}
+        self.assertEqual(eos_summary_rows(block), [])
+
     def test_invalid_table_does_not_infer_state(self):
         block = {"id": "bad", "text": (
             "Device: EOS-1\nCommand: show ip bgp summary\n"
