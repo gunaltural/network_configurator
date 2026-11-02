@@ -29,6 +29,11 @@ def extract_route_evidence(blocks):
         if not match:
             continue
         peer, kind, requested_prefix = match.groups()
+        if requested_prefix:
+            try:
+                requested_prefix = str(ipaddress.IPv4Network(requested_prefix, strict=True))
+            except ValueError:
+                continue
         if peer:
             try:
                 peer = str(ipaddress.IPv4Address(peer))
