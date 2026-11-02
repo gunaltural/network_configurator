@@ -54,6 +54,8 @@ def extract_route_evidence(blocks):
                 continue
             if requested_prefix and prefix != requested_prefix:
                 continue
+            # An unmarked local-table row is not necessarily a usable/best route.
+            # This parser records presence only, never best-path or installation.
             key = (device, peer, prefix)
             entry = found.setdefault(key, {"device": device, "peer": peer, "prefix": prefix, "observations": {}, "references": []})
             property_name = "prefix_advertised" if kind == "advertised-routes" else "prefix_received" if kind == "routes" else "prefix_in_local_bgp"
