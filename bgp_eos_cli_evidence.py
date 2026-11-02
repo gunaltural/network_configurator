@@ -61,5 +61,7 @@ def eos_summary_text(blocks, language="en"):
             report = f"{device} · {peer} · AS {asn} · {status} [{evidence_id}, L{line_no}; {command}]"
             if d["hypotheses"]:
                 report += ("\nOlası nedenler (doğrulanmadı): " if tr else "\nPossible causes (unverified): ") + "; ".join(d["hypotheses"])
+            if d["next_read_only_checks"] and not state.isdecimal():
+                report += ("\nSonraki salt-okunur kontroller: " if tr else "\nNext read-only checks: ") + "; ".join(d["next_read_only_checks"])
             reports.append(report)
     return reports
