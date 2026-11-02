@@ -21,6 +21,22 @@ class CrossDomainEvidenceTests(unittest.TestCase):
         self.assertIn("bgp, L5", findings[0])
         self.assertIn("interfaces, L7", findings[0])
 
+    def test_explicit_host_route_supports_peer_path_without_proving_cause(self):
+        bgp = block("bgp", "CE1", "show ip bgp summary", [
+            "L5: 192.0.2.2 4 65002 0 0 0 0 0 never Active"])
+        interface = block("int", "CE1", "show ip interface brief", [
+            "L6: GigabitEthernet0/1 192.0.2.1 YES manual down down"])
+        route = block("rib", "CE1", "show ip route", [
+            "L8: S 192.0.2.2/32 [1/0] via 10.0.0.1, GigabitEthernet0/1"])
+        findings = correlate_domains([bgp, interface, route], "Cisco IOS-XE", "en")
+        self.assertEqual(len(findings), 1)
+        self.assertIn("explicitly uses this interface", findings[0])
+        self.assertIn("rib, L8", findings[0])
+        other = block("rib", "CE1", "show ip route", [
+            "L8: S 192.0.2.2/32 [1/0] via 10.0.0.1, GigabitEthernet0/9"])
+        self.assertNotIn("explicitly uses this interface",
+                         correlate_domains([bgp, interface, other], "Cisco IOS-XE", "en")[0])
+
     def test_ambiguous_interfaces_do_not_produce_a_spurious_link(self):
         bgp = block("bgp", "CE1", "show ip bgp summary", [
             "L5: 192.0.2.2 4 65002 0 0 0 0 0 never Active"])
