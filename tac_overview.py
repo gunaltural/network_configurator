@@ -6,6 +6,7 @@ from bgp_cli_evidence import summary_rows, render, correlate
 from bgp_diagnostic_rules import diagnose_neighbor
 from bgp_route_cli_evidence import route_diagnostic_text, extract_route_evidence
 from bgp_eos_cli_evidence import eos_summary_rows, eos_summary_text, eos_neighbor_events
+from bgp_eos_neighbor_detail import eos_neighbor_details
 
 # category, command family, line signature, interpretation (EN/TR).
 RULES = [
@@ -115,6 +116,16 @@ def overview(blocks, vendor, language):
             for block in blocks:
                 if eos_summary_rows(block):
                     used.add(block['id'])
+            for detail in eos_neighbor_details(blocks):
+                if (detail['device'], detail['peer']) not in peers:
+                    continue
+                observed = []
+                if detail['state']:
+                    observed.append('neighbor detail state: ' + detail['state'])
+                if detail['remote_as']:
+                    observed.append('remote AS: ' + detail['remote_as'])
+                add('BGP', f"{detail['device']} · {detail['peer']} · " + '; '.join(observed), f"{detail['id']}, L{detail['line']}; neighbor detail")
+                used.add(detail['id'])
             for event in eos_neighbor_events(blocks):
                 if (event['device'], event['peer']) not in peers:
                     continue
