@@ -122,6 +122,8 @@ class CrossDomainEvidenceTests(unittest.TestCase):
         result = correlate_domains(blocks, "Cisco IOS-XE", "en")
         self.assertEqual(len(result), 1)
         self.assertIn("explicitly uses this interface", result[0])
+        self.assertIn("rib, L8", result[0])
+        self.assertIn("rib, L9", result[0])
 
     def test_unresolved_recursive_route_is_not_assumed_direct(self):
         blocks = [
