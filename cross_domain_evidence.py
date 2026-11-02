@@ -34,6 +34,7 @@ def correlate_domains(blocks, vendor, language):
         bgp_vrf_match = re.fullmatch(r"show (?:ip bgp vrf|bgp vrf) ([\w.-]+) (?:ipv4 unicast )?summary", command)
         peer_vrf = bgp_vrf_match.group(1) if bgp_vrf_match else "default"
         route_vrf = vrf_match.group(1) if vrf_match else "default"
+        last_network = None
         for line in lines[2:]:
             match = re.fullmatch(r"L(\d+): (.*)", line)
             if not match:
@@ -67,9 +68,21 @@ def correlate_domains(blocks, vendor, language):
                         except ValueError:
                             continue
                         recursive.setdefault((device, route_vrf, hop[1]), []).append((hop[2], ref))
+                # Cisco IOS route output can list additional ECMP paths on
+                # indented continuation lines, without repeating the prefix.
+                continuation = re.match(r"^\\[\\d+/\\d+\\] via ((?:\\d{1,3}\\.){3}\\d{1,3})(?:,\\s*(\\S+))?\\s*$", value.strip(), re.I)
+                if continuation and last_network is not None:
+                    try:
+                        ipaddress.IPv4Address(continuation[1])
+                    except ValueError:
+                        continue
+                    prefix_entries.append((device, route_vrf, last_network,
+                                           "egress" if continuation[2] else "hop",
+                                           continuation[2] or continuation[1], ref))
                 prefix = re.match(r"^\S+\s+((?:\d{1,3}\.){3}\d{1,3})/(\d{1,2})\s+.*?\bvia\s+((?:\d{1,3}\.){3}\d{1,3})(?:,\s*(\S+))?\s*$", value.strip(), re.I)
                 connected = re.match(r"^C\s+((?:\d{1,3}\.){3}\d{1,3})/(\d{1,2})\s+is directly connected,\s*(\S+)\s*$", value.strip(), re.I)
                 if connected:
+                    last_network = None
                     try:
                         network = ipaddress.IPv4Network(f"{connected[1]}/{connected[2]}", strict=False)
                     except ValueError:
@@ -82,6 +95,7 @@ def correlate_domains(blocks, vendor, language):
                     except ValueError:
                         continue
                     prefix_entries.append((device, route_vrf, network, "egress" if prefix[4] else "hop", prefix[4] or prefix[3], ref))
+                    last_network = network
             elif command == "show ip interface brief":
                 row = re.match(r"^(\S+)\s+(?:[\d.]+|unassigned)\s+YES\s+\S+\s+(administratively down|down|up)\s+(down|up)\s*$", value.strip(), re.I)
                 if row and (row[2].lower() != "up" or row[3].lower() != "up"):
