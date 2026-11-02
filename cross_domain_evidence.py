@@ -12,7 +12,9 @@ def _longest_match(entries, device, vrf, address):
         return None
     best = max(item[0] for item in matches)
     winners = [item for item in matches if item[0] == best]
-    return winners[0] if len(winners) == 1 else ("ambiguous",)
+    # Duplicate observations of the same forwarding decision are not ECMP.
+    unique = {(kind, value) for _, kind, value, _ in winners}
+    return winners[0] if len(unique) == 1 else ("ambiguous",)
 
 
 def correlate_domains(blocks, vendor, language):
