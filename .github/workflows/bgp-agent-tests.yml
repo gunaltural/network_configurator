@@ -1,0 +1,20 @@
+name: BGP Agent v1 checks
+on:
+  push:
+    branches: [feature/bgp-troubleshooting-agent-v1]
+  pull_request:
+    paths:
+      - 'bgp_diagnostic_rules.py'
+      - 'bgp_cli_evidence.py'
+      - 'test_bgp_diagnostic_rules.py'
+      - '.github/workflows/bgp-agent-tests.yml'
+jobs:
+  bgp-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run BGP evidence and FSM tests
+        run: python -m unittest -v test_bgp_diagnostic_rules
