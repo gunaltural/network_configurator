@@ -131,6 +131,7 @@ jobs:
             if curl -fsS http://127.0.0.1:8125/healthz >/dev/null; then break; fi
             sleep 1
           done
+          curl --fail --silent --show-error http://127.0.0.1:8125/healthz
           node test_analysis_browser.mjs
           node test_workspace_storage.cjs
           node test_workspace_storage_browser.mjs
