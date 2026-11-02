@@ -25,6 +25,7 @@ def correlate_domains(blocks, vendor, language):
     states, interfaces, routes, recursive = {}, {}, {}, {}
     prefix_entries = []
     ospf_observations = {}
+    rib_snapshots = set()
     for block in blocks:
         lines = block.get("text", "").splitlines()
         if len(lines) < 2 or not lines[0].startswith("Device: ") or not lines[1].startswith("Command: "):
@@ -38,6 +39,8 @@ def correlate_domains(blocks, vendor, language):
         peer_vrf = bgp_vrf_match.group(1) if bgp_vrf_match else "default"
         route_vrf = vrf_match.group(1) if vrf_match else "default"
         last_network = None
+        if command == "show ip route" or vrf_match:
+            rib_snapshots.add((device, route_vrf))
         for line in lines[2:]:
             match = re.fullmatch(r"L(\d+): (.*)", line)
             if not match:
@@ -144,8 +147,7 @@ def correlate_domains(blocks, vendor, language):
                 continue
             # If routing data exists for this table, an absent matching route
             # is not evidence that the sole down interface carries this peer.
-            if not route and any(dev == device and table == peer_vrf
-                                 for dev, table, *_ in prefix_entries):
+            if not route and (device, peer_vrf) in rib_snapshots:
                 continue
             # Multiple explicit next hops are ambiguous until a forwarding
             # decision is observed; do not claim a unique failed path.
