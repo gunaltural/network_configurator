@@ -173,7 +173,7 @@ def correlate_domains(blocks, vendor, language):
                 message = (f"{device} (VRF {peer_vrf}): BGP peer {peer} is {state}, while interface {interface} is down. "
                            "These observations on the same device do not establish causality. "
                            "Verify the peer path, next-hop reachability and interface with read-only commands.")
-            if path_confirmed and (device, interface) in ospf_observations:
+            if path_confirmed and peer_vrf == "default" and (device, interface) in ospf_observations:
                 for router_id, adjacency, ospf_ref in ospf_observations[(device, interface)]:
                     if tr:
                         message += f" OSPF komşusu {router_id} aynı arayüzde {adjacency} durumunda gözlendi; BGP arızasının nedeni olduğu kanıtlanmadı."
