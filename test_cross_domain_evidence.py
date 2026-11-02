@@ -149,6 +149,16 @@ class CrossDomainEvidenceTests(unittest.TestCase):
         self.assertIn("rib, L9", findings[0])
         self.assertNotIn("rib, L8", findings[0])
 
+    def test_unrelated_rib_does_not_imply_failed_interface_is_peer_path(self):
+        blocks = [
+            block("bgp", "CE1", "show ip bgp summary", [
+                "L5: 192.0.2.2 4 65002 0 0 0 0 0 never Active"]),
+            block("int", "CE1", "show ip interface brief", [
+                "L6: GigabitEthernet0/1 192.0.2.1 YES manual down down"]),
+            block("rib", "CE1", "show ip route", [
+                "L8: S 198.51.100.0/24 [1/0] via 10.0.0.1, GigabitEthernet0/1"])]
+        self.assertEqual(correlate_domains(blocks, "Cisco IOS-XE", "en"), [])
+
     def test_invalid_peer_address_is_ignored(self):
         bgp = block("bgp", "CE1", "show ip bgp summary", [
             "L5: 999.0.2.2 4 65002 0 0 0 0 0 never Active"])
