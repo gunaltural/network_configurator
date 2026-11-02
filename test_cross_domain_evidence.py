@@ -235,6 +235,25 @@ class CrossDomainEvidenceTests(unittest.TestCase):
         self.assertEqual(len(findings), 1)
         self.assertIn("resolved RIB path", findings[0])
 
+    def test_unparsed_rib_snapshot_does_not_imply_peer_path(self):
+        bgp = block("bgp", "CE1", "show ip bgp summary", [
+            "L5: 192.0.2.2 4 65002 0 0 0 0 0 never Active"])
+        interface = block("int", "CE1", "show ip interface brief", [
+            "L6: GigabitEthernet0/1 10.0.1.1 YES manual down down"])
+        rib = block("rib", "CE1", "show ip route", [
+            "L8: Gateway of last resort is not set",
+            "L9: Codes: C - connected, S - static, O - OSPF"])
+        self.assertEqual(correlate_domains([bgp, interface, rib], "Cisco IOS-XE", "en"), [])
+
+    def test_missing_rib_still_reports_observations_without_causality(self):
+        bgp = block("bgp", "CE1", "show ip bgp summary", [
+            "L5: 192.0.2.2 4 65002 0 0 0 0 0 never Active"])
+        interface = block("int", "CE1", "show ip interface brief", [
+            "L6: GigabitEthernet0/1 10.0.1.1 YES manual down down"])
+        findings = correlate_domains([bgp, interface], "Cisco IOS-XE", "en")
+        self.assertEqual(len(findings), 1)
+        self.assertIn("do not establish causality", findings[0])
+
     def test_invalid_peer_address_is_ignored(self):
         bgp = block("bgp", "CE1", "show ip bgp summary", [
             "L5: 999.0.2.2 4 65002 0 0 0 0 0 never Active"])
