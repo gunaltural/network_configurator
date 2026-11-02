@@ -1,6 +1,7 @@
 """Extract Cisco IPv4 BGP summary rows only when column names match."""
 import ipaddress
 import re
+from bgp_diagnostic_rules import diagnose_neighbor
 
 HEADER = 'neighbor v as msgrcvd msgsent tblver inq outq up/down state/pfxrcd'.split()
 COMMANDS = {'show ip bgp summary', 'show bgp ipv4 unicast summary'}
@@ -85,6 +86,12 @@ def summarize_capture(blocks, language):
     text = render(rows, language) if rows else ('BGP tablosu doğrulanamadı.' if language == 'tr' else 'BGP table could not be verified.')
     events = correlate(rows, blocks)
     tr = language == 'tr'
+    for device, command, peer, asn, state, evidence_id, line in rows:
+        diagnosis = diagnose_neighbor(state)
+        if diagnosis['hypotheses']:
+            text += ('\nOlası nedenler (doğrulanmadı): ' if tr else '\nPossible causes (unverified): ') + '; '.join(diagnosis['hypotheses'])
+            text += ('\nSonraki salt-okunur kontroller: ' if tr else '\nNext read-only checks: ') + '; '.join(diagnosis['next_read_only_checks'])
+            text += f' [{evidence_id}, L{line}; {command}; {device}/{peer}]'
     for e in events:
         text += f"\n{e['device']} · {e['peer']} · {e['event']} {e['reason']} [{e['evidence']}, L{e['line']}; show logging]"
     if events:
