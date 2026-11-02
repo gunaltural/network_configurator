@@ -109,7 +109,7 @@ def correlate_domains(blocks, vendor, language):
             elif command == "show ip ospf neighbor":
                 # OSPF neighbor tables expose the local interface in the last
                 # column; adjacency state is context, not proof of BGP cause.
-                ospf = re.match(r"^((?:\d{1,3}\.){3}\d{1,3})\s+\d+\s+(FULL|EXSTART|EXCHANGE|INIT|DOWN|LOADING|2WAY)/(?:DR|BDR|DROTHER|-)\s+\S+\s+\S+\s+(\S+)\s*$", value.strip(), re.I)
+                ospf = re.match(r"^((?:\d{1,3}\.){3}\d{1,3})\s+\d+\s+(FULL|EXSTART|EXCHANGE|INIT|DOWN|LOADING|2-?WAY)/(?:DR|BDR|DROTHER|-)\s+\S+\s+\S+\s+(\S+)\s*$", value.strip(), re.I)
                 if ospf:
                     ospf_observations.setdefault((device, ospf[3]), []).append((ospf[1], ospf[2], ref))
             elif command == "show ip interface brief":
