@@ -7,6 +7,7 @@ from bgp_diagnostic_rules import diagnose_neighbor
 from bgp_route_cli_evidence import route_diagnostic_text, extract_route_evidence
 from bgp_eos_cli_evidence import eos_summary_rows, eos_summary_text, eos_neighbor_events
 from bgp_eos_neighbor_detail import eos_neighbor_details
+from cross_domain_evidence import correlate_domains
 
 # category, command family, line signature, interpretation (EN/TR).
 RULES = [
@@ -139,6 +140,9 @@ def overview(blocks, vendor, language):
             for ref in item['references']:
                 evidence_id = ref.split(', L', 1)[0]
                 used.add(evidence_id)
+    correlations = correlate_domains(blocks, vendor, language)
+    if correlations:
+        groups['Cross-domain review'].extend(correlations)
     if not groups: return None
     missing=[f'{b["id"]} ({visible.get(b["id"],"?")})' for b in blocks if b['id'] not in used]
     parts=[('Seçili CLI kanıtı' if tr else 'Selected CLI evidence')]
