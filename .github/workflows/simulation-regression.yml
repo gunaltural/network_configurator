@@ -101,7 +101,8 @@ jobs:
           node --check simulation/test_bgp_end_to_end.mjs
           node --check simulation/test_mlag_ui.mjs
           node --check synthetic-bgp.js
-          python -m py_compile app.py network_lab.py start_embedded_ai.py
+          python -m py_compile app.py network_lab.py start_embedded_ai.py cross_domain_evidence.py tac_overview.py
+          python -m unittest test_cross_domain_evidence -v
       - name: Simulation engine and UI regression
         run: node --test simulation/test_audit_regressions.mjs simulation/test_bgp_report.mjs simulation/vendor-failure-engine.test.mjs simulation/test_bgp_end_to_end.mjs simulation/test_mlag_ui.mjs
       - name: Preserved BGP client simulation and report API
