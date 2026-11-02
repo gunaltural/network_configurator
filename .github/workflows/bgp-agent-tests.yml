@@ -1,12 +1,14 @@
 name: BGP Agent v1 checks
 on:
   push:
-    branches: [feature/bgp-troubleshooting-agent-v1]
+    branches: [feature/bgp-troubleshooting-agent-v1, feature/cross-domain-evidence-correlation]
   pull_request:
     paths:
       - 'bgp_diagnostic_rules.py'
       - 'bgp_cli_evidence.py'
       - 'tac_overview.py'
+      - 'cross_domain_evidence.py'
+      - 'test_cross_domain_evidence.py'
       - 'Dockerfile'
       - 'test_bgp_diagnostic_rules.py'
       - 'bgp_route_diagnostic_rules.py'
@@ -28,4 +30,4 @@ jobs:
         with:
           python-version: '3.12'
       - name: Run BGP evidence and FSM tests
-        run: python -m unittest -v test_bgp_diagnostic_rules test_bgp_route_diagnostic_rules test_bgp_route_cli_evidence test_bgp_holistic_scenarios test_bgp_eos_cli_evidence test_bgp_eos_neighbor_detail
+        run: python -m unittest -v test_bgp_diagnostic_rules test_bgp_route_diagnostic_rules test_bgp_route_cli_evidence test_bgp_holistic_scenarios test_bgp_eos_cli_evidence test_bgp_eos_neighbor_detail test_cross_domain_evidence
