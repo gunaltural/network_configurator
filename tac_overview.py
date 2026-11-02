@@ -82,7 +82,6 @@ def overview(blocks, vendor, language):
                 if val.startswith('Class-map:'):qos_class=val.split(':',1)[1].split('(')[0].strip()
                 if qos_class and re.fullmatch(r'\(queue depth/total drops/no-buffer drops\)\s+\d+/\d+/\d+',val):
                     record('QoS',f'{qos_class}: {val}'+(' — Birikimli sayaç.' if tr else ' — Cumulative counters.'))
-    if not groups: return None
     for (dev,vrf,prefix,hop),refs in routes.items():
         if dev!='Unidentified' and 'cfg' in refs and 'rib' in refs:
             add('Static routes',('Konfigürasyon ve RIB eşleşiyor' if tr else 'Configuration and RIB match')+f': {vrf} · {prefix} → {hop}',refs['cfg']+'; '+refs['rib'])
@@ -106,6 +105,7 @@ def overview(blocks, vendor, language):
             add('BGP',f"{e['device']} · {e['peer']} · {e['event']} {e['reason']}",f"{e['evidence']}, L{e['line']}; show logging")
             used.add(e['evidence'])
         if events: groups['BGP'].append('Log olayı ve anlık durum ara FSM geçişlerini kanıtlamaz.' if tr else 'A recorded event and a snapshot do not prove the intervening FSM transitions.')
+    if not groups: return None
     missing=[f'{b["id"]} ({visible.get(b["id"],"?")})' for b in blocks if b['id'] not in used]
     parts=[('Seçili CLI kanıtı' if tr else 'Selected CLI evidence')]
     for group,items in groups.items():
