@@ -223,6 +223,18 @@ class CrossDomainEvidenceTests(unittest.TestCase):
         self.assertNotIn("ospf, L10", findings[0])
         self.assertIn("does not prove a BGP root cause", findings[0])
 
+    def test_duplicate_identical_route_is_not_ecmp(self):
+        bgp = block("bgp", "CE1", "show ip bgp summary", [
+            "L5: 192.0.2.2 4 65002 0 0 0 0 0 never Active"])
+        interface = block("int", "CE1", "show ip interface brief", [
+            "L6: GigabitEthernet0/1 10.0.1.1 YES manual down down"])
+        rib = block("rib", "CE1", "show ip route", [
+            "L8: S 192.0.2.2/32 [1/0] via 10.0.1.2, GigabitEthernet0/1",
+            "L9: S 192.0.2.2/32 [1/0] via 10.0.1.2, GigabitEthernet0/1"])
+        findings = correlate_domains([bgp, interface, rib], "Cisco IOS-XE", "en")
+        self.assertEqual(len(findings), 1)
+        self.assertIn("resolved RIB path", findings[0])
+
     def test_invalid_peer_address_is_ignored(self):
         bgp = block("bgp", "CE1", "show ip bgp summary", [
             "L5: 999.0.2.2 4 65002 0 0 0 0 0 never Active"])
