@@ -22,7 +22,7 @@ def correlate_domains(blocks, vendor, language):
     if vendor not in ("Cisco IOS-XE", "Cisco NX-OS"):
         return []
     tr = language == "tr"
-    states, interfaces, routes, recursive = {}, {}, {}, {}
+    states, interfaces = {}, {}
     prefix_entries = []
     ospf_observations = {}
     rib_snapshots = set()
@@ -62,24 +62,6 @@ def correlate_domains(blocks, vendor, language):
             elif command == "show ip route" or vrf_match:
                 # Only an explicit host route with an egress interface can establish
                 # the peer's path; do not infer from a default or summary route.
-                host = re.match(r"^\S+\s+((?:\d{1,3}\.){3}\d{1,3})/32\s+.*?\b(?:via|directly connected,?)\s+.*?,\s*(\S+)\s*$", value.strip(), re.I)
-                if host:
-                    try:
-                        ipaddress.IPv4Address(host[1])
-                    except ValueError:
-                        continue
-                    routes.setdefault((device, route_vrf, host[1]), []).append((host[2], ref))
-                else:
-                    hop = re.match(r"^\S+\s+((?:\d{1,3}\.){3}\d{1,3})/32\s+.*?\bvia\s+((?:\d{1,3}\.){3}\d{1,3})(?:\s|$)", value.strip(), re.I)
-                    if hop:
-                        try:
-                            ipaddress.IPv4Address(hop[1])
-                            ipaddress.IPv4Address(hop[2])
-                        except ValueError:
-                            continue
-                        recursive.setdefault((device, route_vrf, hop[1]), []).append((hop[2], ref))
-                # Cisco IOS route output can list additional ECMP paths on
-                # indented continuation lines, without repeating the prefix.
                 continuation = re.match(r"^\[\d+/\d+\] via ((?:\d{1,3}\.){3}\d{1,3})(?:,\s*(\S+))?\s*$", value.strip(), re.I)
                 if continuation and last_network is not None:
                     try:
