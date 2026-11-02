@@ -7,6 +7,7 @@ from bgp_diagnostic_rules import diagnose_neighbor
 _COMMANDS = {"show ip bgp summary", "show bgp ipv4 unicast summary"}
 _STATES = {"Idle", "Active", "Connect", "OpenSent", "OpenConfirm"}
 _HEADER = "neighbor v as msgrcvd msgsent tblver inq outq up/down state/pfxrcd".split()
+_HEADER_ALT = "neighbor v as msgrcvd msgsent inq outq up/down state/pfxrcd".split()
 
 
 def eos_summary_rows(block):
@@ -25,20 +26,20 @@ def eos_summary_rows(block):
             return []
         line_no, raw = match.groups()
         cols = raw.split()
-        if [part.lower() for part in cols] == _HEADER:
+        if [part.lower() for part in cols] in (_HEADER, _HEADER_ALT):
             in_table = True
             continue
         if not in_table:
             continue
         if raw.lower().startswith(("total number of neighbors", "total number of peers")):
             break
-        if len(cols) != 10 or cols[1] != "4" or not all(x.isascii() and x.isdecimal() for x in cols[2:8]):
+        if len(cols) not in (9, 10) or cols[1] != "4" or not all(x.isascii() and x.isdecimal() for x in cols[2:-2]):
             return []
         try:
             peer = str(ipaddress.IPv4Address(cols[0]))
         except ValueError:
             return []
-        state = cols[9]
+        state = cols[-1]
         if state not in _STATES and not (state.isascii() and state.isdecimal()):
             return []
         rows.append((device, command, peer, cols[2], state, block["id"], line_no))
