@@ -119,6 +119,8 @@ def correlate_domains(blocks, vendor, language):
                         ipaddress.IPv4Address(ospf[1])
                     except ValueError:
                         continue
+                    # Preserve the exact observed state, but never infer a
+                    # protocol fault merely because an adjacency is not FULL.
                     ospf_observations.setdefault((device, ospf_vrf, ospf[3]), []).append((ospf[1], ospf[2], ref))
             elif command == "show ip interface brief":
                 row = re.match(r"^(\S+)\s+(?:[\d.]+|unassigned)\s+YES\s+\S+\s+(administratively down|down|up)\s+(down|up)\s*$", value.strip(), re.I)
