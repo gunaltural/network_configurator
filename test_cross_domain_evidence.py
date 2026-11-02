@@ -45,6 +45,18 @@ class CrossDomainEvidenceTests(unittest.TestCase):
             "L7: GigabitEthernet0/2 198.51.100.1 YES manual down down"])
         self.assertEqual(correlate_domains([bgp, interfaces], "Cisco IOS-XE", "en"), [])
 
+    def test_multiple_peers_are_evaluated_separately(self):
+        blocks = [
+            block("bgp", "CE1", "show ip bgp summary", [
+                "L5: 192.0.2.2 4 65002 0 0 0 0 0 never Active",
+                "L6: 192.0.2.3 4 65003 0 0 0 0 0 never Idle"]),
+            block("int", "CE1", "show ip interface brief", [
+                "L7: GigabitEthernet0/1 192.0.2.1 YES manual down down"])]
+        result = correlate_domains(blocks, "Cisco IOS-XE", "en")
+        self.assertEqual(len(result), 2)
+        self.assertTrue(any("192.0.2.2" in finding for finding in result))
+        self.assertTrue(any("192.0.2.3" in finding for finding in result))
+
     def test_invalid_peer_address_is_ignored(self):
         bgp = block("bgp", "CE1", "show ip bgp summary", [
             "L5: 999.0.2.2 4 65002 0 0 0 0 0 never Active"])
