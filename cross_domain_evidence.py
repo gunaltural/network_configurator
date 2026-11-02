@@ -103,9 +103,12 @@ def correlate_domains(blocks, vendor, language):
                     break
                 chain.append(evidence)
                 current = value
-            if not route and chain:
+            if not route and (chain or _longest_match(prefix_entries, device, peer_vrf, peer)):
                 continue
-            if not route and _longest_match(prefix_entries, device, peer_vrf, peer):
+            # If routing data exists for this table, an absent matching route
+            # is not evidence that the sole down interface carries this peer.
+            if not route and any(dev == device and table == peer_vrf
+                                 for dev, table, *_ in prefix_entries):
                 continue
             # Multiple explicit next hops are ambiguous until a forwarding
             # decision is observed; do not claim a unique failed path.
