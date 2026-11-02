@@ -88,6 +88,10 @@ def correlate_domains(blocks, vendor, language):
                     except ValueError:
                         continue
                     prefix_entries.append((device, route_vrf, network, "egress", connected[3], ref))
+                if not (prefix or connected or continuation):
+                    # Do not attach a later route continuation to an unrelated
+                    # prefix after a header or an unrecognized RIB row.
+                    last_network = None
                 if prefix:
                     try:
                         network = ipaddress.IPv4Network(f"{prefix[1]}/{prefix[2]}", strict=False)
