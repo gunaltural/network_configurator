@@ -169,7 +169,7 @@ def correlate_domains(blocks, vendor, language):
                         message += f" OSPF komşusu {router_id} aynı arayüzde {adjacency} durumunda gözlendi; BGP arızasının nedeni olduğu kanıtlanmadı."
                     else:
                         message += f" OSPF neighbor {router_id} is {adjacency} on the same interface; this does not prove a BGP root cause."
-                chain.extend(ref for _, _, ref in ospf_observations[(device, interface)])
+                chain.extend(ref for _, _, ref in ospf_observations[(device, peer_vrf, interface)])
             if path_confirmed:
                 if tr:
                     message += " RIB'de komşuya giden çözümlemenin çıkış arayüzü aynı arayüz olarak gözlendi; bu, erişim sorununu destekler ancak kök nedeni kanıtlamaz."
