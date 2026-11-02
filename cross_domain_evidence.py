@@ -35,6 +35,8 @@ def correlate_domains(blocks, vendor, language):
         if not device or device == "Unidentified":
             continue
         vrf_match = re.fullmatch(r"show ip route vrf ([\w.-]+)", command)
+        ospf_vrf_match = re.fullmatch(r"show ip ospf vrf ([\w.-]+) neighbor", command)
+        ospf_vrf = ospf_vrf_match.group(1).lower() if ospf_vrf_match else "default"
         bgp_vrf_match = re.fullmatch(r"show (?:ip bgp vrf|bgp vrf) ([\w.-]+) (?:ipv4 unicast )?summary", command)
         peer_vrf = bgp_vrf_match.group(1).lower() if bgp_vrf_match else "default"
         route_vrf = vrf_match.group(1).lower() if vrf_match else "default"
@@ -108,12 +110,12 @@ def correlate_domains(blocks, vendor, language):
                         continue
                     prefix_entries.append((device, route_vrf, network, "egress" if prefix[4] else "hop", prefix[4] or prefix[3], ref))
                     last_network = network
-            elif command == "show ip ospf neighbor":
+            elif command == "show ip ospf neighbor" or ospf_vrf_match:
                 # OSPF neighbor tables expose the local interface in the last
                 # column; adjacency state is context, not proof of BGP cause.
                 ospf = re.match(r"^((?:\d{1,3}\.){3}\d{1,3})\s+\d+\s+(FULL|EXSTART|EXCHANGE|INIT|DOWN|LOADING|2-?WAY)/(?:DR|BDR|DROTHER|-)\s+\S+\s+\S+\s+(\S+)\s*$", value.strip(), re.I)
                 if ospf:
-                    ospf_observations.setdefault((device, ospf[3]), []).append((ospf[1], ospf[2], ref))
+                    ospf_observations.setdefault((device, ospf_vrf, ospf[3]), []).append((ospf[1], ospf[2], ref))
             elif command == "show ip interface brief":
                 row = re.match(r"^(\S+)\s+(?:[\d.]+|unassigned)\s+YES\s+\S+\s+(administratively down|down|up)\s+(down|up)\s*$", value.strip(), re.I)
                 if row and (row[2].lower() != "up" or row[3].lower() != "up"):
@@ -173,8 +175,8 @@ def correlate_domains(blocks, vendor, language):
                 message = (f"{device} (VRF {peer_vrf}): BGP peer {peer} is {state}, while interface {interface} is down. "
                            "These observations on the same device do not establish causality. "
                            "Verify the peer path, next-hop reachability and interface with read-only commands.")
-            if path_confirmed and peer_vrf == "default" and (device, interface) in ospf_observations:
-                for router_id, adjacency, ospf_ref in ospf_observations[(device, interface)]:
+            if path_confirmed and (device, peer_vrf, interface) in ospf_observations:
+                for router_id, adjacency, ospf_ref in ospf_observations[(device, peer_vrf, interface)]:
                     if tr:
                         message += f" OSPF komşusu {router_id} aynı arayüzde {adjacency} durumunda gözlendi; BGP arızasının nedeni olduğu kanıtlanmadı."
                     else:
