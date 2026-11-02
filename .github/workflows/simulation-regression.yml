@@ -4,6 +4,7 @@ on:
     paths:
       - "simulation/**"
       - "Dockerfile"
+      - "start_embedded_ai.py"
       - "compose.ai.yml"
       - "synthetic-bgp.js"
       - "bgp-traffic-policy.js"
@@ -100,7 +101,7 @@ jobs:
           node --check simulation/test_bgp_end_to_end.mjs
           node --check simulation/test_mlag_ui.mjs
           node --check synthetic-bgp.js
-          python -m py_compile app.py network_lab.py
+          python -m py_compile app.py network_lab.py start_embedded_ai.py
       - name: Simulation engine and UI regression
         run: node --test simulation/test_audit_regressions.mjs simulation/test_bgp_report.mjs simulation/vendor-failure-engine.test.mjs simulation/test_bgp_end_to_end.mjs simulation/test_mlag_ui.mjs
       - name: Preserved BGP client simulation and report API
@@ -185,6 +186,7 @@ jobs:
       - name: Build exact production Docker image
         run: docker build -t nc-production-smoke .
       - name: Test runtime routes from production image
+        timeout-minutes: 5
         run: |
           docker run -d --name nc-smoke -e AUTH_ENABLED=0 -p 127.0.0.1:18080:10000 nc-production-smoke
           trap 'docker logs nc-smoke; docker rm -f nc-smoke >/dev/null 2>&1 || true' EXIT
