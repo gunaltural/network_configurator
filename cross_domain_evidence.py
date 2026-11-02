@@ -1,5 +1,6 @@
 """Conservative cross-domain correlations from explicitly observed CLI evidence."""
 import re
+import ipaddress
 
 def correlate_domains(blocks, vendor, language):
     """Return evidence-linked review suggestions, never a confirmed root cause."""
@@ -24,6 +25,10 @@ def correlate_domains(blocks, vendor, language):
             if command in ("show ip bgp summary", "show bgp ipv4 unicast summary"):
                 row = re.match(r"^((?:\d{1,3}\.){3}\d{1,3})\s+4\s+(\d+)\s+.*?\s+(Idle|Active|Connect|OpenSent|OpenConfirm)(?:\s*\(Admin\))?\s*$", value.strip(), re.I)
                 if row:
+                    try:
+                        ipaddress.IPv4Address(row[1])
+                    except ValueError:
+                        continue
                     states.setdefault(device, []).append((row[1], row[3], ref))
             elif command == "show ip interface brief":
                 row = re.match(r"^(\S+)\s+(?:[\d.]+|unassigned)\s+YES\s+\S+\s+(administratively down|down|up)\s+(down|up)\s*$", value.strip(), re.I)
@@ -34,6 +39,10 @@ def correlate_domains(blocks, vendor, language):
         peers = states[device]
         down = interfaces[device]
         if not peers or not down:
+            continue
+        # Do not imply a specific failed interface is on the peer path.
+        # Multiple failed interfaces make a single-interface suggestion misleading.
+        if len(down) != 1:
             continue
         peer, state, peer_ref = peers[0]
         interface, interface_ref = down[0]
