@@ -67,7 +67,7 @@ def correlate_domains(blocks, vendor, language):
                         except ValueError:
                             continue
                         recursive.setdefault((device, route_vrf, hop[1]), []).append((hop[2], ref))
-                prefix = re.match(r"^\\S+\\s+((?:\\d{1,3}\\.){3}\\d{1,3})/(\\d{1,2})\\s+.*?\\bvia\\s+((?:\\d{1,3}\\.){3}\\d{1,3})(?:,\\s*(\\S+))?\\s*$", value.strip(), re.I)
+                prefix = re.match(r"^\S+\s+((?:\d{1,3}\.){3}\d{1,3})/(\d{1,2})\s+.*?\bvia\s+((?:\d{1,3}\.){3}\d{1,3})(?:,\s*(\S+))?\s*$", value.strip(), re.I)
                 if prefix:
                     try:
                         network = ipaddress.IPv4Network(f"{prefix[1]}/{prefix[2]}", strict=False)
