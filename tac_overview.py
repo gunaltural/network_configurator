@@ -3,6 +3,10 @@ import ipaddress
 import re
 from collections import defaultdict
 from bgp_cli_evidence import summary_rows, render, correlate
+from bgp_diagnostic_rules import diagnose_neighbor
+from bgp_route_cli_evidence import route_diagnostic_text, extract_route_evidence
+from bgp_eos_cli_evidence import eos_summary_rows, eos_summary_text, eos_neighbor_events
+from bgp_eos_neighbor_detail import eos_neighbor_details
 
 # category, command family, line signature, interpretation (EN/TR).
 RULES = [
@@ -81,7 +85,6 @@ def overview(blocks, vendor, language):
                 if val.startswith('Class-map:'):qos_class=val.split(':',1)[1].split('(')[0].strip()
                 if qos_class and re.fullmatch(r'\(queue depth/total drops/no-buffer drops\)\s+\d+/\d+/\d+',val):
                     record('QoS',f'{qos_class}: {val}'+(' — Birikimli sayaç.' if tr else ' — Cumulative counters.'))
-    if not groups: return None
     for (dev,vrf,prefix,hop),refs in routes.items():
         if dev!='Unidentified' and 'cfg' in refs and 'rib' in refs:
             add('Static routes',('Konfigürasyon ve RIB eşleşiyor' if tr else 'Configuration and RIB match')+f': {vrf} · {prefix} → {hop}',refs['cfg']+'; '+refs['rib'])
@@ -92,11 +95,51 @@ def overview(blocks, vendor, language):
     rows=[r for b in blocks if cisco for r in summary_rows(b)]
     if rows:
         groups['BGP'].append(render(rows,language));used.update(r[5] for r in rows)
+        for device, command, peer, asn, state, eid, line in rows:
+            diagnosis = diagnose_neighbor(state)
+            if diagnosis['hypotheses']:
+                ref = f'{device}; {eid}, L{line}; {command}; {peer}'
+                label = 'Olası nedenler (doğrulanmadı)' if tr else 'Possible causes (unverified)'
+                next_label = 'Sonraki salt-okunur kontroller' if tr else 'Next read-only checks'
+                add('BGP', label + ': ' + '; '.join(diagnosis['hypotheses']), ref)
+                add('BGP', next_label + ': ' + '; '.join(diagnosis['next_read_only_checks']), ref)
         events=correlate(rows,blocks)
         for e in events:
             add('BGP',f"{e['device']} · {e['peer']} · {e['event']} {e['reason']}",f"{e['evidence']}, L{e['line']}; show logging")
             used.add(e['evidence'])
         if events: groups['BGP'].append('Log olayı ve anlık durum ara FSM geçişlerini kanıtlamaz.' if tr else 'A recorded event and a snapshot do not prove the intervening FSM transitions.')
+    if vendor == 'Arista EOS':
+        eos_reports = eos_summary_text(blocks, language)
+        if eos_reports:
+            groups['BGP'].extend(eos_reports)
+            peers = {(device, peer) for block in blocks for device, _, peer, *_ in eos_summary_rows(block)}
+            for block in blocks:
+                if eos_summary_rows(block):
+                    used.add(block['id'])
+            for detail in eos_neighbor_details(blocks):
+                if (detail['device'], detail['peer']) not in peers:
+                    continue
+                observed = []
+                if detail['state']:
+                    observed.append('neighbor detail state: ' + detail['state'])
+                if detail['remote_as']:
+                    observed.append('remote AS: ' + detail['remote_as'])
+                add('BGP', f"{detail['device']} · {detail['peer']} · " + '; '.join(observed), f"{detail['id']}, L{detail['line']}; neighbor detail")
+                used.add(detail['id'])
+            for event in eos_neighbor_events(blocks):
+                if (event['device'], event['peer']) not in peers:
+                    continue
+                label = 'Kaydedilmiş BGP komşuluk olayı' if tr else 'Recorded BGP adjacency event'
+                add('BGP', f"{label}: {event['device']} · {event['peer']} · {event['state']} (not current state)", f"{event['id']}, L{event['line']}; show logging")
+                used.add(event['id'])
+    route_evidence = extract_route_evidence(blocks) if cisco else []
+    if route_evidence:
+        groups['BGP routes'].extend(route_diagnostic_text(blocks, language))
+        for item in route_evidence:
+            for ref in item['references']:
+                evidence_id = ref.split(', L', 1)[0]
+                used.add(evidence_id)
+    if not groups: return None
     missing=[f'{b["id"]} ({visible.get(b["id"],"?")})' for b in blocks if b['id'] not in used]
     parts=[('Seçili CLI kanıtı' if tr else 'Selected CLI evidence')]
     for group,items in groups.items():
