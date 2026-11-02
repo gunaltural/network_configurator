@@ -31,6 +31,23 @@ class RouteEvidenceTests(unittest.TestCase):
         self.assertIn("BGP routes", result[0])
         self.assertIn("10.11.0.0/16", result[0])
 
+    def test_same_prefix_from_distinct_peers_kept_separate(self):
+        a = capture("show ip bgp neighbors 192.0.2.2 advertised-routes", "*> 10.11.0.0/16 0.0.0.0 0 32768 i", "a")
+        b = capture("show ip bgp neighbors 192.0.2.3 advertised-routes", "*> 10.11.0.0/16 0.0.0.0 0 32768 i", "b")
+        rows = extract_route_evidence([a, b])
+        self.assertEqual(len(rows), 2)
+        self.assertEqual({row["peer"] for row in rows}, {"192.0.2.2", "192.0.2.3"})
+
+    def test_nxos_command_family(self):
+        b = capture("show bgp ipv4 unicast neighbors 192.0.2.2 advertised-routes", "*> 10.11.0.0/16 0.0.0.0 0 32768 i")
+        self.assertEqual(len(extract_route_evidence([b])), 1)
+
+    def test_missing_evidence_is_not_assumed_negative(self):
+        b = capture("show ip bgp", "*> 10.11.0.0/16 0.0.0.0 0 32768 i")
+        row = extract_route_evidence([b])[0]
+        self.assertEqual(row["observations"], {"prefix_in_local_bgp": True})
+        self.assertNotIn("prefix_advertised", row["observations"])
+
     def test_malformed_route_ignored(self):
         b = capture("show ip bgp", "*> 999.0.0.0/16 192.0.2.2")
         self.assertEqual(extract_route_evidence([b]), [])
