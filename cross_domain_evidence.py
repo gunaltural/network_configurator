@@ -68,7 +68,7 @@ def correlate_domains(blocks, vendor, language):
                             continue
                         recursive.setdefault((device, route_vrf, hop[1]), []).append((hop[2], ref))
                 prefix = re.match(r"^\S+\s+((?:\d{1,3}\.){3}\d{1,3})/(\d{1,2})\s+.*?\bvia\s+((?:\d{1,3}\.){3}\d{1,3})(?:,\s*(\S+))?\s*$", value.strip(), re.I)
-                connected = re.match(r"^C\\s+((?:\\d{1,3}\\.){3}\\d{1,3})/(\\d{1,2})\\s+is directly connected,\\s*(\\S+)\\s*$", value.strip(), re.I)
+                connected = re.match(r"^C\s+((?:\d{1,3}\.){3}\d{1,3})/(\d{1,2})\s+is directly connected,\s*(\S+)\s*$", value.strip(), re.I)
                 if connected:
                     try:
                         network = ipaddress.IPv4Network(f"{connected[1]}/{connected[2]}", strict=False)
