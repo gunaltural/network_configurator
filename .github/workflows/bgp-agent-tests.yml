@@ -6,6 +6,8 @@ on:
     paths:
       - 'bgp_diagnostic_rules.py'
       - 'bgp_cli_evidence.py'
+      - 'tac_overview.py'
+      - 'Dockerfile'
       - 'test_bgp_diagnostic_rules.py'
       - 'bgp_route_diagnostic_rules.py'
       - 'test_bgp_route_diagnostic_rules.py'
