@@ -36,6 +36,22 @@ class EOSBGPEvidenceTests(unittest.TestCase):
         report = overview([block], "Arista EOS", "en")[0]
         self.assertIn("administratively disabled", report)
 
+    def test_correlates_only_same_device_peer_log(self):
+        summary = {"id": "sum", "text": (
+            "Device: EOS-1\nCommand: show ip bgp summary\n"
+            "L1: Neighbor V AS MsgRcvd MsgSent InQ OutQ Up/Down State/PfxRcd\n"
+            "L2: 192.0.2.2 4 65002 0 0 0 0 never Active")}
+        log = {"id": "log", "text": (
+            "Device: EOS-1\nCommand: show logging\n"
+            "L1: %BGP-5-ADJCHANGE: neighbor 192.0.2.2 went Down")}
+        other = {"id": "other", "text": (
+            "Device: EOS-2\nCommand: show logging\n"
+            "L1: %BGP-5-ADJCHANGE: neighbor 192.0.2.2 went Up")}
+        report = overview([summary, log, other], "Arista EOS", "en")[0]
+        self.assertIn("Recorded BGP adjacency event", report)
+        self.assertIn("log, L1", report)
+        self.assertNotIn("other, L1; show logging", report)
+
     def test_invalid_asn_rejected(self):
         block = {"id": "bad-asn", "text": (
             "Device: EOS-1\nCommand: show ip bgp summary\n"
