@@ -122,6 +122,7 @@ jobs:
           AUTH_ENABLED: '0'
         run: python -m unittest discover -s simulation -p 'test_*.py'
       - name: Chromium end-to-end Workspace and Simulator smoke
+        timeout-minutes: 20
         env:
           AUTH_ENABLED: '0'
           SMOKE_URL: http://127.0.0.1:8125
@@ -134,25 +135,63 @@ jobs:
             sleep 1
           done
           curl --fail --silent --show-error http://127.0.0.1:8125/healthz
-          node test_analysis_browser.mjs
-          node test_workspace_storage.cjs
-          node test_workspace_storage_browser.mjs
-          node test_project_context_browser.mjs
-          node test_stp_root_browser.mjs
-          node test_catalyst_campus_browser.mjs
-          node test_deliverables_browser.mjs
-          node test_report_review_browser.mjs
-          node test_project_workflow_browser.mjs
-          node test_quick_design_browser.mjs
-          TRANSITION_QUOTA=1 node test_module_report_transition_browser.mjs
-          node test_bgp_traffic_browser.mjs
-          node test_port_mapping_browser.mjs
-          node test_discovery_port_transfer_browser.mjs
-          node test_implementation_modules_browser.mjs
-          node simulation/test_browser_smoke.mjs
-          node simulation/test_workspace_browser.mjs
-          node simulation/test_pair_browser.mjs
-          node simulation/test_report_browser.mjs
+          echo "::group::node test_analysis_browser.mjs"
+          timeout --signal=TERM --kill-after=10s 75s node test_analysis_browser.mjs
+          echo "::endgroup::"
+          echo "::group::node test_workspace_storage.cjs"
+          timeout --signal=TERM --kill-after=10s 75s node test_workspace_storage.cjs
+          echo "::endgroup::"
+          echo "::group::node test_workspace_storage_browser.mjs"
+          timeout --signal=TERM --kill-after=10s 75s node test_workspace_storage_browser.mjs
+          echo "::endgroup::"
+          echo "::group::node test_project_context_browser.mjs"
+          timeout --signal=TERM --kill-after=10s 75s node test_project_context_browser.mjs
+          echo "::endgroup::"
+          echo "::group::node test_stp_root_browser.mjs"
+          timeout --signal=TERM --kill-after=10s 75s node test_stp_root_browser.mjs
+          echo "::endgroup::"
+          echo "::group::node test_catalyst_campus_browser.mjs"
+          timeout --signal=TERM --kill-after=10s 75s node test_catalyst_campus_browser.mjs
+          echo "::endgroup::"
+          echo "::group::node test_deliverables_browser.mjs"
+          timeout --signal=TERM --kill-after=10s 75s node test_deliverables_browser.mjs
+          echo "::endgroup::"
+          echo "::group::node test_report_review_browser.mjs"
+          timeout --signal=TERM --kill-after=10s 75s node test_report_review_browser.mjs
+          echo "::endgroup::"
+          echo "::group::node test_project_workflow_browser.mjs"
+          timeout --signal=TERM --kill-after=10s 75s node test_project_workflow_browser.mjs
+          echo "::endgroup::"
+          echo "::group::node test_quick_design_browser.mjs"
+          timeout --signal=TERM --kill-after=10s 75s node test_quick_design_browser.mjs
+          echo "::endgroup::"
+          echo "::group::TRANSITION_QUOTA=1 node test_module_report_transition_browser.mjs"
+          timeout --signal=TERM --kill-after=10s 75s env TRANSITION_QUOTA=1 node test_module_report_transition_browser.mjs
+          echo "::endgroup::"
+          echo "::group::node test_bgp_traffic_browser.mjs"
+          timeout --signal=TERM --kill-after=10s 75s node test_bgp_traffic_browser.mjs
+          echo "::endgroup::"
+          echo "::group::node test_port_mapping_browser.mjs"
+          timeout --signal=TERM --kill-after=10s 75s node test_port_mapping_browser.mjs
+          echo "::endgroup::"
+          echo "::group::node test_discovery_port_transfer_browser.mjs"
+          timeout --signal=TERM --kill-after=10s 75s node test_discovery_port_transfer_browser.mjs
+          echo "::endgroup::"
+          echo "::group::node test_implementation_modules_browser.mjs"
+          timeout --signal=TERM --kill-after=10s 75s node test_implementation_modules_browser.mjs
+          echo "::endgroup::"
+          echo "::group::node simulation/test_browser_smoke.mjs"
+          timeout --signal=TERM --kill-after=10s 75s node simulation/test_browser_smoke.mjs
+          echo "::endgroup::"
+          echo "::group::node simulation/test_workspace_browser.mjs"
+          timeout --signal=TERM --kill-after=10s 75s node simulation/test_workspace_browser.mjs
+          echo "::endgroup::"
+          echo "::group::node simulation/test_pair_browser.mjs"
+          timeout --signal=TERM --kill-after=10s 75s node simulation/test_pair_browser.mjs
+          echo "::endgroup::"
+          echo "::group::node simulation/test_report_browser.mjs"
+          timeout --signal=TERM --kill-after=10s 75s node simulation/test_report_browser.mjs
+          echo "::endgroup::"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
