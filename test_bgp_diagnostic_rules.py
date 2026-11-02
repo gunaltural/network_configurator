@@ -3,6 +3,7 @@ import unittest
 
 from bgp_diagnostic_rules import diagnose_neighbor
 from bgp_cli_evidence import summarize_capture
+from tac_overview import overview
 
 
 class NeighborRulesTests(unittest.TestCase):
@@ -29,6 +30,16 @@ class NeighborRulesTests(unittest.TestCase):
 
 
 class SummaryIntegrationTests(unittest.TestCase):
+    def test_holistic_overview_shows_bgp_diagnostics(self):
+        block = {'id': 'ev2', 'text': (
+            'Device: R2\nCommand: show ip bgp summary\n'
+            'L1: Neighbor V AS MsgRcvd MsgSent TblVer InQ OutQ Up/Down State/PfxRcd\n'
+            'L2: 192.0.2.3 4 65003 0 0 0 0 0 never Active')}
+        result = overview([block], 'Cisco IOS-XE', 'en')
+        self.assertIsNotNone(result)
+        self.assertIn('Possible causes (unverified)', result[0])
+        self.assertIn('Next read-only checks', result[0])
+
     def test_cli_summary_includes_unverified_hypotheses(self):
         block = {
             "id": "ev1",
