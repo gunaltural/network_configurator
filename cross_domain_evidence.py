@@ -88,11 +88,11 @@ def correlate_domains(blocks, vendor, language):
         # A route-backed interface can be selected among multiple failures.
         # Without route evidence, only a single failed interface is reportable.
         for peer_vrf, peer, state, peer_ref in peers:
-            route = []
+            route = routes.get((device, peer_vrf, peer), [])
             chain = []
             visited = set()
             current = peer
-            while current not in visited and len(visited) < 8:
+            while not route and current not in visited and len(visited) < 8:
                 visited.add(current)
                 chosen = _longest_match(prefix_entries, device, peer_vrf, current)
                 if chosen is None or chosen == ("ambiguous",):
