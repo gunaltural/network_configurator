@@ -22,6 +22,7 @@ def correlate_domains(blocks, vendor, language):
     tr = language == "tr"
     states, interfaces, routes, recursive = {}, {}, {}, {}
     prefix_entries = []
+    ospf_observations = {}
     for block in blocks:
         lines = block.get("text", "").splitlines()
         if len(lines) < 2 or not lines[0].startswith("Device: ") or not lines[1].startswith("Command: "):
@@ -100,6 +101,12 @@ def correlate_domains(blocks, vendor, language):
                         continue
                     prefix_entries.append((device, route_vrf, network, "egress" if prefix[4] else "hop", prefix[4] or prefix[3], ref))
                     last_network = network
+            elif command == "show ip ospf neighbor":
+                # OSPF neighbor tables expose the local interface in the last
+                # column; adjacency state is context, not proof of BGP cause.
+                ospf = re.match(r"^((?:\\d{1,3}\\.){3}\\d{1,3})\\s+\\d+\\s+(FULL|EXSTART|EXCHANGE|INIT|DOWN|LOADING|2WAY)/(?:DR|BDR|DROTHER|-)\\s+\\S+\\s+\\S+\\s+(\\S+)\\s*$", value.strip(), re.I)
+                if ospf:
+                    ospf_observations.setdefault((device, ospf[3]), []).append((ospf[1], ospf[2], ref))
             elif command == "show ip interface brief":
                 row = re.match(r"^(\S+)\s+(?:[\d.]+|unassigned)\s+YES\s+\S+\s+(administratively down|down|up)\s+(down|up)\s*$", value.strip(), re.I)
                 if row and (row[2].lower() != "up" or row[3].lower() != "up"):
@@ -160,6 +167,13 @@ def correlate_domains(blocks, vendor, language):
                 message = (f"{device} (VRF {peer_vrf}): BGP peer {peer} is {state}, while interface {interface} is down. "
                            "These observations on the same device do not establish causality. "
                            "Verify the peer path, next-hop reachability and interface with read-only commands.")
+            if path_confirmed and (device, interface) in ospf_observations:
+                for router_id, adjacency, ospf_ref in ospf_observations[(device, interface)]:
+                    if tr:
+                        message += f" OSPF komşusu {router_id} aynı arayüzde {adjacency} durumunda gözlendi; BGP arızasının nedeni olduğu kanıtlanmadı."
+                    else:
+                        message += f" OSPF neighbor {router_id} is {adjacency} on the same interface; this does not prove a BGP root cause."
+                chain.extend(ref for _, _, ref in ospf_observations[(device, interface)])
             if path_confirmed:
                 if tr:
                     message += " RIB'de komşuya giden çözümlemenin çıkış arayüzü aynı arayüz olarak gözlendi; bu, erişim sorununu destekler ancak kök nedeni kanıtlamaz."
