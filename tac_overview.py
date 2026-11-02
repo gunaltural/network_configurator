@@ -4,6 +4,7 @@ import re
 from collections import defaultdict
 from bgp_cli_evidence import summary_rows, render, correlate
 from bgp_diagnostic_rules import diagnose_neighbor
+from bgp_route_cli_evidence import route_diagnostic_text
 
 # category, command family, line signature, interpretation (EN/TR).
 RULES = [
@@ -105,6 +106,12 @@ def overview(blocks, vendor, language):
             add('BGP',f"{e['device']} · {e['peer']} · {e['event']} {e['reason']}",f"{e['evidence']}, L{e['line']}; show logging")
             used.add(e['evidence'])
         if events: groups['BGP'].append('Log olayı ve anlık durum ara FSM geçişlerini kanıtlamaz.' if tr else 'A recorded event and a snapshot do not prove the intervening FSM transitions.')
+    route_reports = route_diagnostic_text(blocks, language) if cisco else []
+    if route_reports:
+        groups['BGP routes'].extend(route_reports)
+        for block in blocks:
+            if any(f'{block["id"]}, L' in report for report in route_reports):
+                used.add(block['id'])
     if not groups: return None
     missing=[f'{b["id"]} ({visible.get(b["id"],"?")})' for b in blocks if b['id'] not in used]
     parts=[('Seçili CLI kanıtı' if tr else 'Selected CLI evidence')]
