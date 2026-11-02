@@ -94,6 +94,9 @@ def correlate_domains(blocks, vendor, language):
                     except ValueError:
                         continue
                     prefix_entries.append((device, route_vrf, network, "egress", connected[3], ref))
+                # An unrecognized explicit route entry ends the previous
+                # ECMP group, even when its format is not yet supported.
+                explicit_route = re.match(r"^(?:[A-Z*]+(?:\\s+[A-Z0-9*]+)?)\\s+(?:\\d{1,3}\\.){3}\\d{1,3}/\\d{1,2}\\b", value.strip(), re.I)
                 if not (prefix or connected or continuation):
                     # Do not attach a later route continuation to an unrelated
                     # prefix after a header or an unrecognized RIB row.
