@@ -65,3 +65,36 @@ def eos_summary_text(blocks, language="en"):
                 report += ("\nSonraki salt-okunur kontroller: " if tr else "\nNext read-only checks: ") + "; ".join(d["next_read_only_checks"])
             reports.append(report)
     return reports
+
+
+def eos_neighbor_events(blocks):
+    """Collect explicit BGP adjacency events without inferring unseen transitions."""
+    events = []
+    pattern = re.compile(
+        r"%BGP-(?:\d+-)?(?:ADJCHANGE|ADJCHG):?\s*(?:neighbor|peer)\s+"
+        r"(?P<peer>\d{1,3}(?:\.\d{1,3}){3})\s+(?:went|is|changed to)\s+"
+        r"(?P<state>Up|Down)\b", re.I
+    )
+    for block in blocks:
+        lines = block.get("text", "").splitlines()
+        if len(lines) < 3 or not lines[0].startswith("Device: ") or not lines[1].startswith("Command: "):
+            continue
+        device = lines[0][8:].strip()
+        command = lines[1][9:].strip().lower()
+        if not device or device == "Unidentified" or command not in ("show logging", "show logging last 100"):
+            continue
+        for row in lines[2:]:
+            m = re.fullmatch(r"L([1-9]\d*):\s*(.*)", row)
+            if not m:
+                continue
+            line_no, raw = m.groups()
+            hit = pattern.search(raw)
+            if not hit:
+                continue
+            try:
+                peer = str(ipaddress.IPv4Address(hit.group("peer")))
+            except ValueError:
+                continue
+            events.append({"device": device, "peer": peer, "state": hit.group("state").lower(),
+                           "id": block["id"], "line": line_no})
+    return events
