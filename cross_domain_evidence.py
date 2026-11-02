@@ -2,12 +2,26 @@
 import re
 import ipaddress
 
+def _longest_match(entries, device, vrf, address):
+    """Choose only a unique longest-prefix route in the same device and VRF."""
+    target = ipaddress.IPv4Address(address)
+    matches = [(network.prefixlen, kind, value, ref)
+               for dev, table, network, kind, value, ref in entries
+               if dev == device and table == vrf and target in network]
+    if not matches:
+        return None
+    best = max(item[0] for item in matches)
+    winners = [item for item in matches if item[0] == best]
+    return winners[0] if len(winners) == 1 else ("ambiguous",)
+
+
 def correlate_domains(blocks, vendor, language):
     """Return evidence-linked review suggestions, never a confirmed root cause."""
     if vendor not in ("Cisco IOS-XE", "Cisco NX-OS"):
         return []
     tr = language == "tr"
     states, interfaces, routes, recursive = {}, {}, {}, {}
+    prefix_entries = []
     for block in blocks:
         lines = block.get("text", "").splitlines()
         if len(lines) < 2 or not lines[0].startswith("Device: ") or not lines[1].startswith("Command: "):
@@ -53,6 +67,14 @@ def correlate_domains(blocks, vendor, language):
                         except ValueError:
                             continue
                         recursive.setdefault((device, route_vrf, hop[1]), []).append((hop[2], ref))
+                prefix = re.match(r"^\\S+\\s+((?:\\d{1,3}\\.){3}\\d{1,3})/(\\d{1,2})\\s+.*?\\bvia\\s+((?:\\d{1,3}\\.){3}\\d{1,3})(?:,\\s*(\\S+))?\\s*$", value.strip(), re.I)
+                if prefix:
+                    try:
+                        network = ipaddress.IPv4Network(f"{prefix[1]}/{prefix[2]}", strict=False)
+                        ipaddress.IPv4Address(prefix[3])
+                    except ValueError:
+                        continue
+                    prefix_entries.append((device, route_vrf, network, "egress" if prefix[4] else "hop", prefix[4] or prefix[3], ref))
             elif command == "show ip interface brief":
                 row = re.match(r"^(\S+)\s+(?:[\d.]+|unassigned)\s+YES\s+\S+\s+(administratively down|down|up)\s+(down|up)\s*$", value.strip(), re.I)
                 if row and (row[2].lower() != "up" or row[3].lower() != "up"):
@@ -66,19 +88,24 @@ def correlate_domains(blocks, vendor, language):
         # A route-backed interface can be selected among multiple failures.
         # Without route evidence, only a single failed interface is reportable.
         for peer_vrf, peer, state, peer_ref in peers:
-            route = routes.get((device, peer_vrf, peer), [])
+            route = []
             chain = []
             visited = set()
             current = peer
-            while not route and current not in visited and len(visited) < 8:
+            while current not in visited and len(visited) < 8:
                 visited.add(current)
-                hops = recursive.get((device, peer_vrf, current), [])
-                if len(hops) != 1:
+                chosen = _longest_match(prefix_entries, device, peer_vrf, current)
+                if chosen is None or chosen == ("ambiguous",):
                     break
-                current, evidence = hops[0]
+                _, kind, value, evidence = chosen
+                if kind == "egress":
+                    route = [(value, evidence)]
+                    break
                 chain.append(evidence)
-                route = routes.get((device, peer_vrf, current), [])
-            if chain and not route:
+                current = value
+            if not route and chain:
+                continue
+            if not route and _longest_match(prefix_entries, device, peer_vrf, peer):
                 continue
             # Multiple explicit next hops are ambiguous until a forwarding
             # decision is observed; do not claim a unique failed path.
