@@ -5,7 +5,7 @@ import re
 from bgp_diagnostic_rules import diagnose_neighbor
 
 _COMMANDS = {"show ip bgp summary", "show bgp ipv4 unicast summary"}
-_STATES = {"Idle", "Active", "Connect", "OpenSent", "OpenConfirm"}
+_STATES = {"Idle", "Idle (Admin)", "Active", "Connect", "OpenSent", "OpenConfirm"}
 _HEADER = "neighbor v as msgrcvd msgsent tblver inq outq up/down state/pfxrcd".split()
 _HEADER_ALT = "neighbor v as msgrcvd msgsent inq outq up/down state/pfxrcd".split()
 
@@ -33,13 +33,17 @@ def eos_summary_rows(block):
             continue
         if raw.lower().startswith(("total number of neighbors", "total number of peers")):
             break
-        if len(cols) != header_width or cols[1] != "4" or not all(x.isascii() and x.isdecimal() for x in cols[2:-2]):
+        # Administrative shutdown may appear as a two-token State/PfxRcd value.
+        admin_idle = len(cols) == header_width + 1 and cols[-2:] == ["Idle", "(Admin)"]
+        if (len(cols) != header_width and not admin_idle) or cols[1] != "4" or not all(x.isascii() and x.isdecimal() for x in cols[2:header_width-2]):
             return []
         try:
             peer = str(ipaddress.IPv4Address(cols[0]))
         except ValueError:
             return []
-        state = cols[-1]
+        state = "Idle (Admin)" if admin_idle else cols[-1]
+        if not 1 <= int(cols[2]) <= 4294967295:
+            return []
         if state not in _STATES and not (state.isascii() and state.isdecimal()):
             return []
         rows.append((device, command, peer, cols[2], state, block["id"], line_no))
