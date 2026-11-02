@@ -38,6 +38,8 @@ def correlate_domains(blocks, vendor, language):
         bgp_vrf_match = re.fullmatch(r"show (?:ip bgp vrf|bgp vrf) ([\w.-]+) (?:ipv4 unicast )?summary", command)
         peer_vrf = bgp_vrf_match.group(1).lower() if bgp_vrf_match else "default"
         route_vrf = vrf_match.group(1).lower() if vrf_match else "default"
+        # OSPF neighbor evidence is per-device only; VRF-specific OSPF
+        # outputs require separate context before cross-VRF attribution.
         last_network = None
         if command == "show ip route" or vrf_match:
             rib_snapshots.add((device, route_vrf))
