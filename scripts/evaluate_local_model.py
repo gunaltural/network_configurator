@@ -21,7 +21,7 @@ def main():
         response.raise_for_status()
         draft=response.json()['text']
         # A single evidence area needs no model selection; multiple areas may use one.
-        assert response.json().get('mode') in ('observations-only', 'observations-and-model-selection'), 'No evidence-bound analysis returned'
+        assert response.json().get('mode') == 'observations-only', 'Single-area evidence unexpectedly required model selection'
         assert 'AS 65002 · Idle' in draft and '192.0.2.2' in draft
         results.append({'language':lang,'seconds':round(time.monotonic()-start,2),'draft':draft,'mentions_state':'idle' in draft.lower(),'cites_evidence':'cli-1' in draft,'cites_line':'L5' in draft or 'line 5' in draft.lower() or 'satır 5' in draft.lower()})
         print(json.dumps(results[-1],ensure_ascii=False),flush=True)
@@ -40,6 +40,8 @@ def main():
         assert expected in draft,expected
     assert 'Konfigürasyon ve RIB eşleşiyor: GUEST' not in draft
     assert response.json()['mode'] in ('observations-only', 'observations-and-model-selection')
+    if response.json()['mode'] == 'observations-and-model-selection':
+        assert 'Modelin inceleme önceliği:' in draft, 'Model selection label missing'
     print('Mixed TAC endpoint validated:', response.json()['mode'], flush=True)
 
 if __name__=='__main__':
