@@ -48,6 +48,15 @@ class RouteEvidenceTests(unittest.TestCase):
         self.assertEqual(row["observations"], {"prefix_in_local_bgp": True})
         self.assertNotIn("prefix_advertised", row["observations"])
 
+    def test_unidentified_device_not_attributed(self):
+        b = capture("show ip bgp", "*> 10.11.0.0/16 0.0.0.0 0 32768 i")
+        b["text"] = b["text"].replace("Device: R1", "Device: Unidentified")
+        self.assertEqual(extract_route_evidence([b]), [])
+
+    def test_report_discloses_incomplete_capture(self):
+        b = capture("show ip bgp", "*> 10.11.0.0/16 0.0.0.0 0 32768 i")
+        self.assertIn("does not prove route absence", str(route_diagnostic_text([b], "en")))
+
     def test_malformed_route_ignored(self):
         b = capture("show ip bgp", "*> 999.0.0.0/16 192.0.2.2")
         self.assertEqual(extract_route_evidence([b]), [])
