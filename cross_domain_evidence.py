@@ -16,17 +16,17 @@ def correlate_domains(blocks, vendor, language):
         if not device or device == "Unidentified":
             continue
         for line in lines[2:]:
-            match = re.fullmatch(r"L(\\d+): (.*)", line)
+            match = re.fullmatch(r"L(\d+): (.*)", line)
             if not match:
                 continue
             number, value = match.groups()
             ref = f"{block['id']}, L{number}"
             if command in ("show ip bgp summary", "show bgp ipv4 unicast summary"):
-                row = re.match(r"^((?:\\d{1,3}\\.){3}\\d{1,3})\\s+4\\s+(\\d+)\\s+.*?\\s+(Idle|Active|Connect|OpenSent|OpenConfirm)(?:\\s*\\(Admin\\))?\\s*$", value.strip(), re.I)
+                row = re.match(r"^((?:\d{1,3}\.){3}\d{1,3})\s+4\s+(\d+)\s+.*?\s+(Idle|Active|Connect|OpenSent|OpenConfirm)(?:\s*\(Admin\))?\s*$", value.strip(), re.I)
                 if row:
                     states.setdefault(device, []).append((row[1], row[3], ref))
             elif command == "show ip interface brief":
-                row = re.match(r"^(\\S+)\\s+(?:[\\d.]+|unassigned)\\s+YES\\s+\\S+\\s+(administratively down|down|up)\\s+(down|up)\\s*$", value.strip(), re.I)
+                row = re.match(r"^(\S+)\s+(?:[\d.]+|unassigned)\s+YES\s+\S+\s+(administratively down|down|up)\s+(down|up)\s*$", value.strip(), re.I)
                 if row and (row[2].lower() != "up" or row[3].lower() != "up"):
                     interfaces.setdefault(device, []).append((row[1], ref))
     findings = []
