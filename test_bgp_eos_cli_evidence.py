@@ -13,6 +13,8 @@ class EOSBGPEvidenceTests(unittest.TestCase):
         self.assertIsNotNone(report)
         self.assertIn("Possible causes (unverified)", report[0])
         self.assertIn("eos1, L2", report[0])
+        self.assertIn("Next read-only checks:", report[0])
+        self.assertIn("TCP/179", report[0])
 
     def test_eos_summary_without_tblver(self):
         block = {"id": "eos2", "text": (
