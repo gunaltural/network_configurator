@@ -39,7 +39,7 @@ def main():
     for expected in ('Konfigürasyon ve RIB eşleşiyor: CORP', 'ACL MGMT-IN (in)', 'AS 64520 · Idle','FULL/DR','unsynchronized'):
         assert expected in draft,expected
     assert 'Konfigürasyon ve RIB eşleşiyor: GUEST' not in draft
-    assert response.json()['mode'] in ('observations-only', 'observations-and-model-selection')
+    assert response.json()['mode'] == 'observations-and-model-selection', response.json()['mode']
     if response.json()['mode'] == 'observations-and-model-selection':
         assert 'Modelin inceleme önceliği:' in draft, 'Model selection label missing'
     print('Mixed TAC endpoint validated:', response.json()['mode'], flush=True)
