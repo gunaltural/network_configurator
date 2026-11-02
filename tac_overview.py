@@ -5,6 +5,7 @@ from collections import defaultdict
 from bgp_cli_evidence import summary_rows, render, correlate
 from bgp_diagnostic_rules import diagnose_neighbor
 from bgp_route_cli_evidence import route_diagnostic_text, extract_route_evidence
+from bgp_eos_cli_evidence import eos_summary_rows, eos_summary_text
 
 # category, command family, line signature, interpretation (EN/TR).
 RULES = [
@@ -106,6 +107,13 @@ def overview(blocks, vendor, language):
             add('BGP',f"{e['device']} · {e['peer']} · {e['event']} {e['reason']}",f"{e['evidence']}, L{e['line']}; show logging")
             used.add(e['evidence'])
         if events: groups['BGP'].append('Log olayı ve anlık durum ara FSM geçişlerini kanıtlamaz.' if tr else 'A recorded event and a snapshot do not prove the intervening FSM transitions.')
+    if vendor == 'Arista EOS':
+        eos_reports = eos_summary_text(blocks, language)
+        if eos_reports:
+            groups['BGP'].extend(eos_reports)
+            for block in blocks:
+                if eos_summary_rows(block):
+                    used.add(block['id'])
     route_evidence = extract_route_evidence(blocks) if cisco else []
     if route_evidence:
         groups['BGP routes'].extend(route_diagnostic_text(blocks, language))
