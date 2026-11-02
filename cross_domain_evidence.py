@@ -70,7 +70,7 @@ def correlate_domains(blocks, vendor, language):
                         recursive.setdefault((device, route_vrf, hop[1]), []).append((hop[2], ref))
                 # Cisco IOS route output can list additional ECMP paths on
                 # indented continuation lines, without repeating the prefix.
-                continuation = re.match(r"^\\[\\d+/\\d+\\] via ((?:\\d{1,3}\\.){3}\\d{1,3})(?:,\\s*(\\S+))?\\s*$", value.strip(), re.I)
+                continuation = re.match(r"^\[\d+/\d+\] via ((?:\d{1,3}\.){3}\d{1,3})(?:,\s*(\S+))?\s*$", value.strip(), re.I)
                 if continuation and last_network is not None:
                     try:
                         ipaddress.IPv4Address(continuation[1])
