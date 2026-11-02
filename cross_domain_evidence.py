@@ -16,7 +16,7 @@ def correlate_domains(blocks, vendor, language):
         command = lines[1][9:].strip().lower()
         if not device or device == "Unidentified":
             continue
-        vrf_match = re.fullmatch(r"show ip route vrf ([\\w.-]+)", command)
+        vrf_match = re.fullmatch(r"show ip route vrf ([\w.-]+)", command)
         route_vrf = vrf_match.group(1) if vrf_match else "default"
         for line in lines[2:]:
             match = re.fullmatch(r"L(\d+): (.*)", line)
