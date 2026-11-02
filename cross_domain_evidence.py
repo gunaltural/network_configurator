@@ -110,6 +110,9 @@ def correlate_domains(blocks, vendor, language):
                     break
                 chain.append(evidence)
                 current = value
+            # A completed RIB snapshot with no route for this peer cannot
+            # establish an interface association. Ambiguous ECMP is likewise
+            # never reduced to one presumed path.
             if not route and (chain or _longest_match(prefix_entries, device, peer_vrf, peer)):
                 continue
             # If routing data exists for this table, an absent matching route
