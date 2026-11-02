@@ -18,7 +18,7 @@ def eos_summary_rows(block):
     command = lines[1][9:].strip().lower().removesuffix(" (continued)")
     if not device or device == "Unidentified" or command not in _COMMANDS:
         return []
-    in_table = False
+    header_width = None
     rows = []
     for line in lines[2:]:
         match = re.fullmatch(r"L([1-9]\d*):\s*(.*)", line)
@@ -27,13 +27,13 @@ def eos_summary_rows(block):
         line_no, raw = match.groups()
         cols = raw.split()
         if [part.lower() for part in cols] in (_HEADER, _HEADER_ALT):
-            in_table = True
+            header_width = len(cols)
             continue
-        if not in_table:
+        if header_width is None:
             continue
         if raw.lower().startswith(("total number of neighbors", "total number of peers")):
             break
-        if len(cols) not in (9, 10) or cols[1] != "4" or not all(x.isascii() and x.isdecimal() for x in cols[2:-2]):
+        if len(cols) != header_width or cols[1] != "4" or not all(x.isascii() and x.isdecimal() for x in cols[2:-2]):
             return []
         try:
             peer = str(ipaddress.IPv4Address(cols[0]))
