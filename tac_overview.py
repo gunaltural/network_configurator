@@ -3,6 +3,7 @@ import ipaddress
 import re
 from collections import defaultdict
 from bgp_cli_evidence import summary_rows, render, correlate
+from bgp_diagnostic_rules import diagnose_neighbor
 
 # category, command family, line signature, interpretation (EN/TR).
 RULES = [
@@ -92,6 +93,14 @@ def overview(blocks, vendor, language):
     rows=[r for b in blocks if cisco for r in summary_rows(b)]
     if rows:
         groups['BGP'].append(render(rows,language));used.update(r[5] for r in rows)
+        for device, command, peer, asn, state, eid, line in rows:
+            diagnosis = diagnose_neighbor(state)
+            if diagnosis['hypotheses']:
+                ref = f'{device}; {eid}, L{line}; {command}; {peer}'
+                label = 'Olası nedenler (doğrulanmadı)' if tr else 'Possible causes (unverified)'
+                next_label = 'Sonraki salt-okunur kontroller' if tr else 'Next read-only checks'
+                add('BGP', label + ': ' + '; '.join(diagnosis['hypotheses']), ref)
+                add('BGP', next_label + ': ' + '; '.join(diagnosis['next_read_only_checks']), ref)
         events=correlate(rows,blocks)
         for e in events:
             add('BGP',f"{e['device']} · {e['peer']} · {e['event']} {e['reason']}",f"{e['evidence']}, L{e['line']}; show logging")
