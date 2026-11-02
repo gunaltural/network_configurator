@@ -25,6 +25,10 @@ def summary_rows(block):
             continue
         if not in_table:
             continue
+        # Device output may include a footer after the neighbor table.
+        # Never interpret such footer text as a malformed neighbor row.
+        if value.lower().startswith(("total number of neighbors", "total number of peers")):
+            break
         cols = value.split(None, 9)
         if len(cols) != len(HEADER) or cols[1] != '4' or not all(v.isascii() and v.isdecimal() for v in cols[2:8]):
             return []
