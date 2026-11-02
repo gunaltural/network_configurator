@@ -7,7 +7,7 @@ def correlate_domains(blocks, vendor, language):
     if vendor not in ("Cisco IOS-XE", "Cisco NX-OS"):
         return []
     tr = language == "tr"
-    states, interfaces, routes = {}, {}, {}
+    states, interfaces, routes, recursive = {}, {}, {}, {}
     for block in blocks:
         lines = block.get("text", "").splitlines()
         if len(lines) < 2 or not lines[0].startswith("Device: ") or not lines[1].startswith("Command: "):
@@ -44,6 +44,15 @@ def correlate_domains(blocks, vendor, language):
                     except ValueError:
                         continue
                     routes.setdefault((device, route_vrf, host[1]), []).append((host[2], ref))
+                else:
+                    hop = re.match(r"^\S+\s+((?:\d{1,3}\.){3}\d{1,3})/32\s+.*?\bvia\s+((?:\d{1,3}\.){3}\d{1,3})(?:\s|$)", value.strip(), re.I)
+                    if hop:
+                        try:
+                            ipaddress.IPv4Address(hop[1])
+                            ipaddress.IPv4Address(hop[2])
+                        except ValueError:
+                            continue
+                        recursive.setdefault((device, route_vrf, hop[1]), []).append((hop[2], ref))
             elif command == "show ip interface brief":
                 row = re.match(r"^(\S+)\s+(?:[\d.]+|unassigned)\s+YES\s+\S+\s+(administratively down|down|up)\s+(down|up)\s*$", value.strip(), re.I)
                 if row and (row[2].lower() != "up" or row[3].lower() != "up"):
@@ -58,6 +67,19 @@ def correlate_domains(blocks, vendor, language):
         # Without route evidence, only a single failed interface is reportable.
         for peer_vrf, peer, state, peer_ref in peers:
             route = routes.get((device, peer_vrf, peer), [])
+            chain = []
+            visited = set()
+            current = peer
+            while not route and current not in visited and len(visited) < 8:
+                visited.add(current)
+                hops = recursive.get((device, peer_vrf, current), [])
+                if len(hops) != 1:
+                    break
+                current, evidence = hops[0]
+                chain.append(evidence)
+                route = routes.get((device, peer_vrf, current), [])
+            if chain and not route:
+                continue
             # Multiple explicit next hops are ambiguous until a forwarding
             # decision is observed; do not claim a unique failed path.
             matched = [(name, ref) for name, ref in down
