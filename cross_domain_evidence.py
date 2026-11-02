@@ -63,6 +63,8 @@ def correlate_domains(blocks, vendor, language):
             if matched:
                 interface, interface_ref = matched[0]
                 path_confirmed = True
+            elif route:
+                continue
             elif len(down) == 1:
                 interface, interface_ref = down[0]
                 path_confirmed = False
