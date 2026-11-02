@@ -68,6 +68,13 @@ def correlate_domains(blocks, vendor, language):
                             continue
                         recursive.setdefault((device, route_vrf, hop[1]), []).append((hop[2], ref))
                 prefix = re.match(r"^\S+\s+((?:\d{1,3}\.){3}\d{1,3})/(\d{1,2})\s+.*?\bvia\s+((?:\d{1,3}\.){3}\d{1,3})(?:,\s*(\S+))?\s*$", value.strip(), re.I)
+                connected = re.match(r"^C\\s+((?:\\d{1,3}\\.){3}\\d{1,3})/(\\d{1,2})\\s+is directly connected,\\s*(\\S+)\\s*$", value.strip(), re.I)
+                if connected:
+                    try:
+                        network = ipaddress.IPv4Network(f"{connected[1]}/{connected[2]}", strict=False)
+                    except ValueError:
+                        continue
+                    prefix_entries.append((device, route_vrf, network, "egress", connected[3], ref))
                 if prefix:
                     try:
                         network = ipaddress.IPv4Network(f"{prefix[1]}/{prefix[2]}", strict=False)
@@ -134,9 +141,9 @@ def correlate_domains(blocks, vendor, language):
                            "Verify the peer path, next-hop reachability and interface with read-only commands.")
             if path_confirmed:
                 if tr:
-                    message += " RIB'de komşu için /32 yolun çıkış arayüzü aynı arayüz olarak gözlendi; bu, erişim sorununu destekler ancak kök nedeni kanıtlamaz."
+                    message += " RIB'de komşuya giden çözümlemenin çıkış arayüzü aynı arayüz olarak gözlendi; bu, erişim sorununu destekler ancak kök nedeni kanıtlamaz."
                 else:
-                    message += " The peer's /32 RIB route explicitly uses this interface; this supports a reachability concern, not a proven root cause."
+                    message += " The resolved RIB path to the peer explicitly uses this interface; this supports a reachability concern, not a proven root cause."
                 references = "; ".join([peer_ref, interface_ref] + chain + [route[0][1]])
                 findings.append(f"{message} [{references}]")
             else:
