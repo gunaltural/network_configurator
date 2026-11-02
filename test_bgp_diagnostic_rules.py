@@ -2,7 +2,7 @@
 import unittest
 
 from bgp_diagnostic_rules import diagnose_neighbor
-from bgp_cli_evidence import summarize_capture
+from bgp_cli_evidence import summarize_capture, summary_rows
 from tac_overview import overview
 
 
@@ -30,6 +30,16 @@ class NeighborRulesTests(unittest.TestCase):
 
 
 class SummaryIntegrationTests(unittest.TestCase):
+    def test_summary_footer_does_not_discard_valid_peer(self):
+        block = {"id": "footer", "text": (
+            "Device: R1\nCommand: show ip bgp summary\n"
+            "L1: Neighbor V AS MsgRcvd MsgSent TblVer InQ OutQ Up/Down State/PfxRcd\n"
+            "L2: 192.0.2.2 4 65002 1 1 1 0 0 00:01:00 5\n"
+            "L3: Total number of neighbors 1")}
+        rows = summary_rows(block)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][4], "5")
+
     def test_holistic_overview_shows_bgp_diagnostics(self):
         block = {'id': 'ev2', 'text': (
             'Device: R2\nCommand: show ip bgp summary\n'
