@@ -17,6 +17,8 @@ def correlate_domains(blocks, vendor, language):
         if not device or device == "Unidentified":
             continue
         vrf_match = re.fullmatch(r"show ip route vrf ([\w.-]+)", command)
+        bgp_vrf_match = re.fullmatch(r"show (?:ip bgp vrf|bgp vrf) ([\w.-]+) (?:ipv4 unicast )?summary", command)
+        peer_vrf = bgp_vrf_match.group(1) if bgp_vrf_match else "default"
         route_vrf = vrf_match.group(1) if vrf_match else "default"
         for line in lines[2:]:
             match = re.fullmatch(r"L(\d+): (.*)", line)
@@ -24,14 +26,14 @@ def correlate_domains(blocks, vendor, language):
                 continue
             number, value = match.groups()
             ref = f"{block['id']}, L{number}"
-            if command in ("show ip bgp summary", "show bgp ipv4 unicast summary"):
+            if command in ("show ip bgp summary", "show bgp ipv4 unicast summary") or bgp_vrf_match:
                 row = re.match(r"^((?:\d{1,3}\.){3}\d{1,3})\s+4\s+(\d+)\s+.*?\s+(Idle|Active|Connect|OpenSent|OpenConfirm)(?:\s*\(Admin\))?\s*$", value.strip(), re.I)
                 if row:
                     try:
                         ipaddress.IPv4Address(row[1])
                     except ValueError:
                         continue
-                    states.setdefault(device, []).append((row[1], row[3], ref))
+                    states.setdefault(device, []).append((peer_vrf, row[1], row[3], ref))
             elif command == "show ip route" or vrf_match:
                 # Only an explicit host route with an egress interface can establish
                 # the peer's path; do not infer from a default or summary route.
@@ -54,8 +56,8 @@ def correlate_domains(blocks, vendor, language):
             continue
         # A route-backed interface can be selected among multiple failures.
         # Without route evidence, only a single failed interface is reportable.
-        for peer, state, peer_ref in peers:
-            route = routes.get((device, "default", peer), [])
+        for peer_vrf, peer, state, peer_ref in peers:
+            route = routes.get((device, peer_vrf, peer), [])
             matched = [(name, ref) for name, ref in down
                        if len(route) == 1 and route[0][0] == name]
             if matched:
@@ -67,11 +69,11 @@ def correlate_domains(blocks, vendor, language):
             else:
                 continue
             if tr:
-                message = (f"{device}: BGP komşusu {peer} {state} durumunda; {interface} arayüzü de down. "
+                message = (f"{device} (VRF {peer_vrf}): BGP komşusu {peer} {state} durumunda; {interface} arayüzü de down. "
                            "Aynı cihazdaki bu iki gözlem arasında nedensellik kanıtlanmadı. "
                            "Komşuya giden yolu, next-hop erişimini ve ilgili arayüzü salt okunur komutlarla doğrulayın.")
             else:
-                message = (f"{device}: BGP peer {peer} is {state}, while interface {interface} is down. "
+                message = (f"{device} (VRF {peer_vrf}): BGP peer {peer} is {state}, while interface {interface} is down. "
                            "These observations on the same device do not establish causality. "
                            "Verify the peer path, next-hop reachability and interface with read-only commands.")
             if path_confirmed:
