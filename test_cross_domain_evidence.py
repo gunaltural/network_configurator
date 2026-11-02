@@ -254,6 +254,18 @@ class CrossDomainEvidenceTests(unittest.TestCase):
         self.assertEqual(len(findings), 1)
         self.assertIn("do not establish causality", findings[0])
 
+    def test_vrf_case_differences_match_same_routing_table(self):
+        bgp = block("bgp", "CE1", "show ip bgp vrf CUSTOMER summary", [
+            "L5: 192.0.2.2 4 65002 0 0 0 0 0 never Active"])
+        interface = block("int", "CE1", "show ip interface brief", [
+            "L6: GigabitEthernet0/1 10.0.1.1 YES manual down down"])
+        rib = block("rib", "CE1", "show ip route vrf customer", [
+            "L8: S 192.0.2.2/32 [1/0] via 10.0.1.2, GigabitEthernet0/1"])
+        findings = correlate_domains([bgp, interface, rib], "Cisco IOS-XE", "en")
+        self.assertEqual(len(findings), 1)
+        self.assertIn("resolved RIB path", findings[0])
+        self.assertIn("VRF customer", findings[0])
+
     def test_invalid_peer_address_is_ignored(self):
         bgp = block("bgp", "CE1", "show ip bgp summary", [
             "L5: 999.0.2.2 4 65002 0 0 0 0 0 never Active"])
