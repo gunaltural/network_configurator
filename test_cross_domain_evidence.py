@@ -206,6 +206,23 @@ class CrossDomainEvidenceTests(unittest.TestCase):
         self.assertIn("rib, L8", findings[0])
         self.assertNotIn("rib, L10", findings[0])
 
+    def test_ospf_observation_is_correlated_only_on_resolved_interface(self):
+        bgp = block("bgp", "CE1", "show ip bgp summary", [
+            "L5: 192.0.2.2 4 65002 0 0 0 0 0 never Active"])
+        interface = block("int", "CE1", "show ip interface brief", [
+            "L6: GigabitEthernet0/1 10.0.1.1 YES manual down down"])
+        rib = block("rib", "CE1", "show ip route", [
+            "L8: S 192.0.2.2/32 [1/0] via 10.0.1.2, GigabitEthernet0/1"])
+        ospf = block("ospf", "CE1", "show ip ospf neighbor", [
+            "L9: 10.10.10.2 1 EXSTART/DR 00:00:33 10.0.1.2 GigabitEthernet0/1",
+            "L10: 10.10.10.3 1 FULL/DR 00:00:33 10.0.2.2 GigabitEthernet0/2"])
+        findings = correlate_domains([bgp, interface, rib, ospf], "Cisco IOS-XE", "en")
+        self.assertEqual(len(findings), 1)
+        self.assertIn("EXSTART", findings[0])
+        self.assertIn("ospf, L9", findings[0])
+        self.assertNotIn("ospf, L10", findings[0])
+        self.assertIn("does not prove a BGP root cause", findings[0])
+
     def test_invalid_peer_address_is_ignored(self):
         bgp = block("bgp", "CE1", "show ip bgp summary", [
             "L5: 999.0.2.2 4 65002 0 0 0 0 0 never Active"])
