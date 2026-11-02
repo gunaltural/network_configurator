@@ -58,6 +58,8 @@ def correlate_domains(blocks, vendor, language):
         # Without route evidence, only a single failed interface is reportable.
         for peer_vrf, peer, state, peer_ref in peers:
             route = routes.get((device, peer_vrf, peer), [])
+            # Multiple explicit next hops are ambiguous until a forwarding
+            # decision is observed; do not claim a unique failed path.
             matched = [(name, ref) for name, ref in down
                        if len(route) == 1 and route[0][0] == name]
             if matched:
