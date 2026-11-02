@@ -21,6 +21,21 @@ class CrossDomainEvidenceTests(unittest.TestCase):
         self.assertIn("bgp, L5", findings[0])
         self.assertIn("interfaces, L7", findings[0])
 
+    def test_ambiguous_interfaces_do_not_produce_a_spurious_link(self):
+        bgp = block("bgp", "CE1", "show ip bgp summary", [
+            "L5: 192.0.2.2 4 65002 0 0 0 0 0 never Active"])
+        interfaces = block("int", "CE1", "show ip interface brief", [
+            "L6: GigabitEthernet0/1 192.0.2.1 YES manual down down",
+            "L7: GigabitEthernet0/2 198.51.100.1 YES manual down down"])
+        self.assertEqual(correlate_domains([bgp, interfaces], "Cisco IOS-XE", "en"), [])
+
+    def test_invalid_peer_address_is_ignored(self):
+        bgp = block("bgp", "CE1", "show ip bgp summary", [
+            "L5: 999.0.2.2 4 65002 0 0 0 0 0 never Active"])
+        interface = block("int", "CE1", "show ip interface brief", [
+            "L6: GigabitEthernet0/1 192.0.2.1 YES manual down down"])
+        self.assertEqual(correlate_domains([bgp, interface], "Cisco IOS-XE", "en"), [])
+
     def test_no_cross_device_or_healthy_interface_correlation(self):
         bgp = block("bgp", "CE1", "show ip bgp summary", [
             "L5: 192.0.2.2 4 65002 0 0 0 0 0 never Idle"])
