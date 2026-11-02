@@ -54,24 +54,24 @@ def correlate_domains(blocks, vendor, language):
         # Multiple failed interfaces make a single-interface suggestion misleading.
         if len(down) != 1:
             continue
-        peer, state, peer_ref = peers[0]
         interface, interface_ref = down[0]
-        route = routes.get((device, peer), [])
-        path_confirmed = len(route) == 1 and route[0][0] == interface
-        if tr:
-            message = (f"{device}: BGP komşusu {peer} {state} durumunda; {interface} arayüzü de down. "
-                       "Aynı cihazdaki bu iki gözlem arasında nedensellik kanıtlanmadı. "
-                       "Komşuya giden yolu, next-hop erişimini ve ilgili arayüzü salt okunur komutlarla doğrulayın.")
-        else:
-            message = (f"{device}: BGP peer {peer} is {state}, while interface {interface} is down. "
-                       "These observations on the same device do not establish causality. "
-                       "Verify the peer path, next-hop reachability and interface with read-only commands.")
-        if path_confirmed:
+        for peer, state, peer_ref in peers:
+            route = routes.get((device, peer), [])
+            path_confirmed = len(route) == 1 and route[0][0] == interface
             if tr:
-                message += " RIB'de komşu için /32 yolun çıkış arayüzü aynı arayüz olarak gözlendi; bu, erişim sorununu destekler ancak kök nedeni kanıtlamaz."
+                message = (f"{device}: BGP komşusu {peer} {state} durumunda; {interface} arayüzü de down. "
+                           "Aynı cihazdaki bu iki gözlem arasında nedensellik kanıtlanmadı. "
+                           "Komşuya giden yolu, next-hop erişimini ve ilgili arayüzü salt okunur komutlarla doğrulayın.")
             else:
-                message += " The peer's /32 RIB route explicitly uses this interface; this supports a reachability concern, not a proven root cause."
-            findings.append(f"{message} [{peer_ref}; {interface_ref}; {route[0][1]}]")
-        else:
-            findings.append(f"{message} [{peer_ref}; {interface_ref}]")
+                message = (f"{device}: BGP peer {peer} is {state}, while interface {interface} is down. "
+                           "These observations on the same device do not establish causality. "
+                           "Verify the peer path, next-hop reachability and interface with read-only commands.")
+            if path_confirmed:
+                if tr:
+                    message += " RIB'de komşu için /32 yolun çıkış arayüzü aynı arayüz olarak gözlendi; bu, erişim sorununu destekler ancak kök nedeni kanıtlamaz."
+                else:
+                    message += " The peer's /32 RIB route explicitly uses this interface; this supports a reachability concern, not a proven root cause."
+                findings.append(f"{message} [{peer_ref}; {interface_ref}; {route[0][1]}]")
+            else:
+                findings.append(f"{message} [{peer_ref}; {interface_ref}]")
     return findings
