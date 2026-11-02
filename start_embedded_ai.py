@@ -16,8 +16,9 @@ if __name__ == '__main__':
             print(f'Invalid embedded model context: {error}', file=sys.stderr, flush=True)
             env['AI_ENABLED'] = '0'
         else:
-            subprocess.Popen(['/opt/llama/llama-server','-m','/opt/models/network.gguf','--alias','network-engineer','--host','127.0.0.1','--port','18081','--ctx-size',str(context_size),'--parallel','1','--threads','1'],cwd='/opt/llama',env={'PATH':os.defpath,'LD_LIBRARY_PATH':'/opt/llama'},stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-        except OSError as error:
-            print(f"Embedded runtime failed to start: {error.strerror}", file=sys.stderr, flush=True)
-            env["AI_ENABLED"]="0"
+            try:
+                subprocess.Popen(['/opt/llama/llama-server','-m','/opt/models/network.gguf','--alias','network-engineer','--host','127.0.0.1','--port','18081','--ctx-size',str(context_size),'--parallel','1','--threads','1'],cwd='/opt/llama',env={'PATH':os.defpath,'LD_LIBRARY_PATH':'/opt/llama'},stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+            except OSError as error:
+                print(f"Embedded runtime failed to start: {error.strerror}", file=sys.stderr, flush=True)
+                env["AI_ENABLED"]="0"
     os.execve(sys.executable,[sys.executable,'app.py'],env)
