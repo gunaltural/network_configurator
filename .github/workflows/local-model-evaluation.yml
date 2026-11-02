@@ -44,7 +44,7 @@ jobs:
           docker pull ghcr.io/ggml-org/llama.cpp:server
           image=$(docker image inspect ghcr.io/ggml-org/llama.cpp:server --format '{{index .RepoDigests 0}}')
           echo "Runtime: $image"
-          docker run -d --name local-inference -p 127.0.0.1:18081:8080 -v /tmp/model.gguf:/models/model.gguf:ro "$image" -m /models/model.gguf --alias network-engineer --host 0.0.0.0 --port 8080 --ctx-size 16384 --parallel 1
+          docker run -d --name local-inference -p 127.0.0.1:18081:8080 -v /tmp/model.gguf:/models/model.gguf:ro "$image" -m /models/model.gguf --alias network-engineer --host 0.0.0.0 --port 8080 --ctx-size 2048 --parallel 1
           trap 'docker stats --no-stream local-inference; docker rm -f local-inference' EXIT
           for i in $(seq 1 60); do
             if curl -fsS http://127.0.0.1:18081/health >/dev/null; then break; fi
@@ -61,7 +61,7 @@ jobs:
           docker network create evaluation
           trap 'docker stats --no-stream nc-app nc-model || true; docker inspect --format "{{.Name}} OOM={{.State.OOMKilled}} exit={{.State.ExitCode}}" nc-app nc-model || true; docker rm -f nc-app nc-model || true; docker network rm evaluation || true' EXIT
           docker run -d --name nc-app --network evaluation --memory 180m --memory-swap 180m --cpus 0.04 -p 127.0.0.1:18100:10000 -e AUTH_ENABLED=0 -e AI_ENABLED=1 -e AI_MODEL=network-engineer -e AI_PROVIDER=local -e AI_BASE_URL=http://nc-model:8080/v1 nc-budget-app
-          docker run -d --name nc-model --network evaluation --memory 300m --memory-swap 300m --cpus 0.06 -p 127.0.0.1:18081:8080 -v /tmp/model.gguf:/models/network.gguf:ro "$RUNTIME" -m /models/network.gguf --alias network-engineer --host 0.0.0.0 --port 8080 --ctx-size 16384 --parallel 1
+          docker run -d --name nc-model --network evaluation --memory 300m --memory-swap 300m --cpus 0.06 -p 127.0.0.1:18081:8080 -v /tmp/model.gguf:/models/network.gguf:ro "$RUNTIME" -m /models/network.gguf --alias network-engineer --host 0.0.0.0 --port 8080 --ctx-size 2048 --parallel 1
           for i in $(seq 1 100); do
             for container in nc-app nc-model; do
               test "$(docker inspect -f '{{.State.Running}}' "$container")" = true || exit 1
