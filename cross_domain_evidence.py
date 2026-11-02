@@ -50,14 +50,20 @@ def correlate_domains(blocks, vendor, language):
         down = interfaces[device]
         if not peers or not down:
             continue
-        # Do not imply a specific failed interface is on the peer path.
-        # Multiple failed interfaces make a single-interface suggestion misleading.
-        if len(down) != 1:
-            continue
-        interface, interface_ref = down[0]
+        # A route-backed interface can be selected among multiple failures.
+        # Without route evidence, only a single failed interface is reportable.
         for peer, state, peer_ref in peers:
             route = routes.get((device, peer), [])
-            path_confirmed = len(route) == 1 and route[0][0] == interface
+            matched = [(name, ref) for name, ref in down
+                       if len(route) == 1 and route[0][0] == name]
+            if matched:
+                interface, interface_ref = matched[0]
+                path_confirmed = True
+            elif len(down) == 1:
+                interface, interface_ref = down[0]
+                path_confirmed = False
+            else:
+                continue
             if tr:
                 message = (f"{device}: BGP komşusu {peer} {state} durumunda; {interface} arayüzü de down. "
                            "Aynı cihazdaki bu iki gözlem arasında nedensellik kanıtlanmadı. "
