@@ -115,6 +115,10 @@ def correlate_domains(blocks, vendor, language):
                 # column; adjacency state is context, not proof of BGP cause.
                 ospf = re.match(r"^((?:\d{1,3}\.){3}\d{1,3})\s+\d+\s+(FULL|EXSTART|EXCHANGE|INIT|DOWN|LOADING|2-?WAY)/(?:DR|BDR|DROTHER|-)\s+\S+\s+\S+\s+(\S+)\s*$", value.strip(), re.I)
                 if ospf:
+                    try:
+                        ipaddress.IPv4Address(ospf[1])
+                    except ValueError:
+                        continue
                     ospf_observations.setdefault((device, ospf_vrf, ospf[3]), []).append((ospf[1], ospf[2], ref))
             elif command == "show ip interface brief":
                 row = re.match(r"^(\S+)\s+(?:[\d.]+|unassigned)\s+YES\s+\S+\s+(administratively down|down|up)\s+(down|up)\s*$", value.strip(), re.I)
