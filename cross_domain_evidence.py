@@ -16,6 +16,8 @@ def correlate_domains(blocks, vendor, language):
         command = lines[1][9:].strip().lower()
         if not device or device == "Unidentified":
             continue
+        vrf_match = re.fullmatch(r"show ip route vrf ([\\w.-]+)", command)
+        route_vrf = vrf_match.group(1) if vrf_match else "default"
         for line in lines[2:]:
             match = re.fullmatch(r"L(\d+): (.*)", line)
             if not match:
@@ -30,7 +32,7 @@ def correlate_domains(blocks, vendor, language):
                     except ValueError:
                         continue
                     states.setdefault(device, []).append((row[1], row[3], ref))
-            elif command == "show ip route":
+            elif command == "show ip route" or vrf_match:
                 # Only an explicit host route with an egress interface can establish
                 # the peer's path; do not infer from a default or summary route.
                 host = re.match(r"^\S+\s+((?:\d{1,3}\.){3}\d{1,3})/32\s+.*?\b(?:via|directly connected,?)\s+.*?,\s*(\S+)\s*$", value.strip(), re.I)
@@ -39,7 +41,7 @@ def correlate_domains(blocks, vendor, language):
                         ipaddress.IPv4Address(host[1])
                     except ValueError:
                         continue
-                    routes.setdefault((device, host[1]), []).append((host[2], ref))
+                    routes.setdefault((device, route_vrf, host[1]), []).append((host[2], ref))
             elif command == "show ip interface brief":
                 row = re.match(r"^(\S+)\s+(?:[\d.]+|unassigned)\s+YES\s+\S+\s+(administratively down|down|up)\s+(down|up)\s*$", value.strip(), re.I)
                 if row and (row[2].lower() != "up" or row[3].lower() != "up"):
@@ -53,7 +55,7 @@ def correlate_domains(blocks, vendor, language):
         # A route-backed interface can be selected among multiple failures.
         # Without route evidence, only a single failed interface is reportable.
         for peer, state, peer_ref in peers:
-            route = routes.get((device, peer), [])
+            route = routes.get((device, "default", peer), [])
             matched = [(name, ref) for name, ref in down
                        if len(route) == 1 and route[0][0] == name]
             if matched:
