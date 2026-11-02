@@ -33,7 +33,7 @@ def correlate_domains(blocks, vendor, language):
             elif command == "show ip route":
                 # Only an explicit host route with an egress interface can establish
                 # the peer's path; do not infer from a default or summary route.
-                host = re.match(r"^\\S+\\s+((?:\\d{1,3}\\.){3}\\d{1,3})/32\\s+.*?\\b(?:via|directly connected,?)\\s+.*?,\\s*(\\S+)\\s*$", value.strip(), re.I)
+                host = re.match(r"^\S+\s+((?:\d{1,3}\.){3}\d{1,3})/32\s+.*?\b(?:via|directly connected,?)\s+.*?,\s*(\S+)\s*$", value.strip(), re.I)
                 if host:
                     try:
                         ipaddress.IPv4Address(host[1])
