@@ -7,6 +7,8 @@ on:
       - 'bgp_diagnostic_rules.py'
       - 'bgp_cli_evidence.py'
       - 'test_bgp_diagnostic_rules.py'
+      - 'bgp_route_diagnostic_rules.py'
+      - 'test_bgp_route_diagnostic_rules.py'
       - '.github/workflows/bgp-agent-tests.yml'
 jobs:
   bgp-unit:
@@ -17,4 +19,4 @@ jobs:
         with:
           python-version: '3.12'
       - name: Run BGP evidence and FSM tests
-        run: python -m unittest -v test_bgp_diagnostic_rules
+        run: python -m unittest -v test_bgp_diagnostic_rules test_bgp_route_diagnostic_rules
