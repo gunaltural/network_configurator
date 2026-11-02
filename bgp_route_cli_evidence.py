@@ -24,6 +24,8 @@ def extract_route_evidence(blocks):
         if len(lines) < 3 or not lines[0].startswith("Device: ") or not lines[1].startswith("Command: "):
             continue
         device = lines[0][8:].strip()
+        if not device or device == "Unidentified":
+            continue
         command = lines[1][9:].strip().removesuffix(" (continued)")
         match = _COMMAND.fullmatch(command)
         if not match:
@@ -78,4 +80,7 @@ def route_diagnostic_text(blocks, language="en"):
         if diagnosis["hypotheses"]:
             report += ("\nOlası nedenler (doğrulanmadı): " if tr else "\nPossible causes (unverified): ") + "; ".join(diagnosis["hypotheses"])
         reports.append(report)
+    if reports:
+        reports.append("Eksik/filtrelenmiş CLI çıktısı, rota yokluğunu veya politika engelini kanıtlamaz." if tr else
+                       "Missing or filtered CLI output does not prove route absence or policy denial.")
     return reports
