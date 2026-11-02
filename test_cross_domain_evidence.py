@@ -135,6 +135,20 @@ class CrossDomainEvidenceTests(unittest.TestCase):
                 "L8: S 192.0.2.2/32 [1/0] via 10.0.0.2"])]
         self.assertEqual(correlate_domains(blocks, "Cisco IOS-XE", "en"), [])
 
+    def test_longest_prefix_route_selects_specific_egress(self):
+        blocks = [
+            block("bgp", "CE1", "show ip bgp summary", [
+                "L5: 192.0.2.2 4 65002 0 0 0 0 0 never Active"]),
+            block("int", "CE1", "show ip interface brief", [
+                "L6: GigabitEthernet0/1 192.0.2.1 YES manual down down"]),
+            block("rib", "CE1", "show ip route", [
+                "L8: S 192.0.0.0/16 [1/0] via 10.0.0.1, GigabitEthernet0/9",
+                "L9: S 192.0.2.0/24 [1/0] via 10.0.0.2, GigabitEthernet0/1"])]
+        findings = correlate_domains(blocks, "Cisco IOS-XE", "en")
+        self.assertEqual(len(findings), 1)
+        self.assertIn("rib, L9", findings[0])
+        self.assertNotIn("rib, L8", findings[0])
+
     def test_invalid_peer_address_is_ignored(self):
         bgp = block("bgp", "CE1", "show ip bgp summary", [
             "L5: 999.0.2.2 4 65002 0 0 0 0 0 never Active"])
