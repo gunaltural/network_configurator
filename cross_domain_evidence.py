@@ -36,8 +36,8 @@ def correlate_domains(blocks, vendor, language):
             continue
         vrf_match = re.fullmatch(r"show ip route vrf ([\w.-]+)", command)
         bgp_vrf_match = re.fullmatch(r"show (?:ip bgp vrf|bgp vrf) ([\w.-]+) (?:ipv4 unicast )?summary", command)
-        peer_vrf = bgp_vrf_match.group(1) if bgp_vrf_match else "default"
-        route_vrf = vrf_match.group(1) if vrf_match else "default"
+        peer_vrf = bgp_vrf_match.group(1).lower() if bgp_vrf_match else "default"
+        route_vrf = vrf_match.group(1).lower() if vrf_match else "default"
         last_network = None
         if command == "show ip route" or vrf_match:
             rib_snapshots.add((device, route_vrf))
