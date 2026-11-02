@@ -20,7 +20,7 @@
    const text=texts.join('\n'),links=(design.links||[]).filter(l=>l.enabled),paragraphs=[],scenarios=[];
    const identity=scope.technology||scope.title||type;
    const records=(state.verificationPlan||[]).filter(r=>r.included&&r.vendor===scope.vendor&&(r.technology===identity||r.technology===scope.title));
-   const snapshots=(state.simulationScenarios||[]).filter(s=>(kind(s)||'BGP')===type&&(s.vendor?s.vendor===scope.vendor:!state.moduleReports?.length));
+   const snapshots=(state.simulationScenarios||[]).filter(s=>kind(s)===type&&(s.vendor?s.vendor===scope.vendor:!state.moduleReports?.length));
    const matches=(s,key)=>{
     const devices=(s.failedDevices||[]).length>0,failed=(s.failedLinks||[]).join(' '),changed=(s.parameterChanges||[]).filter(x=>String(x.baseline)!==String(x.current));
     const linkLoss=!!failed;
