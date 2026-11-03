@@ -9,6 +9,11 @@ on:
       - 'analysis.html'
       - 'test_engineering_ai.py'
       - 'test_engineering_knowledge.py'
+      - 'ai-topology*'
+      - 'test_ai_topology*'
+      - 'engineering-ai.js'
+      - 'app.py'
+      - 'Dockerfile'
       - '.github/workflows/ai-analysis-mvp.yml'
   workflow_dispatch:
 
@@ -47,9 +52,11 @@ jobs:
       - name: TAC overview test_no_cross_router_or_unscoped_security_finding
         run: python -m unittest -v test_tac_overview.OverviewTests.test_no_cross_router_or_unscoped_security_finding
       - name: Validate browser JavaScript syntax
-        run: node --check analysis-ui.js && node --check show-analysis.js
+        run: node --check analysis-ui.js && node --check show-analysis.js && node --check ai-topology-workspace.js && node --check ai-topology-ui.js && node --check engineering-ai.js
       - name: Install browser DOM test dependency
         run: npm install --no-save --ignore-scripts jsdom@30.1.1 playwright
+      - name: Test editable AI topology and Design import contracts
+        run: node test_ai_topology_workspace.cjs && node test_ai_topology_ui.cjs && node test_ai_panel.cjs
       - name: Run isolated Chromium AI Analysis UI smoke
         env:
           AUTH_ENABLED: '0'
@@ -66,6 +73,9 @@ jobs:
             sleep 1
           done
           curl -fsS http://127.0.0.1:8125/healthz
+          curl -fsS http://127.0.0.1:8125/ai-topology | grep -q 'AI Topology Workspace'
+          curl -fsS http://127.0.0.1:8125/ai-topology-workspace.js | grep -q 'analysisEvidenceBatches'
+          curl -fsS http://127.0.0.1:8125/ai-topology-ui.js | grep -q 'configDevice'
           node test_analysis_browser.mjs
       - name: Validate CLI parsing and large-capture batching
         run: node test_show_analysis.cjs && node test_show_analysis_large_capture.cjs
