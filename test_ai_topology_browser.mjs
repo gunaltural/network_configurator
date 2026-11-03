@@ -45,7 +45,11 @@ try{
   await designPage.waitForFunction(()=>!!window.NetworkWorkspaceProject?.diagnosticDesign, {timeout:10000});
   await openReview.click();
   await designPage.waitForURL('**/ai-topology',{timeout:15000});
+  await designPage.waitForLoadState('domcontentloaded');
+  await designPage.waitForFunction(()=>document.getElementById('overview')?.textContent.includes('devices'),null,{timeout:15000});
+  const importStatus=await designPage.locator('#status').innerText();
   const summary=await designPage.locator('#designReviewSummary').innerText();
+  console.log('AI_REAL_DESIGN_IMPORT '+JSON.stringify({status:importStatus,summary,overview:await designPage.locator('#overview').innerText()}));
   assert.match(summary,/configuration proposals/,'Import actual generated configurations');
   assert.match(summary,/engineering parameters/,'Import selected Design parameters');
   assert.match(summary,/original input checks/,'Import existing Design Checks');
