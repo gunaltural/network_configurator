@@ -5,6 +5,7 @@ import json
 import os
 import re
 import threading
+import logging
 import urllib.request
 from urllib.parse import urlparse
 from typing import Literal
@@ -43,6 +44,20 @@ def configured():
 def redact(value):
     return re.sub(r'(?im)^.*(?:password|passwd|secret|community-string|private.key|api.key|authorization|sk-[a-zA-Z0-9_-]+).*$', '[REDACTED]', value)
 
+logger = logging.getLogger(__name__)
+
+
+def provider_timeout():
+    raw = os.getenv('AI_LOCAL_TIMEOUT_SECONDS', '180')
+    try:
+        value = int(raw)
+    except ValueError:
+        raise ValueError('AI_LOCAL_TIMEOUT_SECONDS must be an integer') from None
+    if not 5 <= value <= 600:
+        raise ValueError('AI_LOCAL_TIMEOUT_SECONDS must be between 5 and 600')
+    return value
+
+
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, *args, **kwargs):
         return None
@@ -65,7 +80,7 @@ def generate(payload, *, local_choices=()):
         headers['Authorization'] = 'Bearer ' + key
     request = urllib.request.Request(url, data=json.dumps(payload).encode(), headers=headers, method='POST')
     try:
-        with urllib.request.build_opener(NoRedirect()).open(request, timeout=45) as response:
+        with urllib.request.build_opener(NoRedirect()).open(request, timeout=provider_timeout() if local else 45) as response:
             data = json.loads(response.read(1000000))
         if local:
             choice = data['choices'][0]
@@ -78,7 +93,8 @@ def generate(payload, *, local_choices=()):
         if not text.strip():
             raise ValueError('Empty')
         return text
-    except (OSError, ValueError, KeyError, TypeError, AttributeError, IndexError):
+    except (OSError, ValueError, KeyError, TypeError, AttributeError, IndexError) as exc:
+        logger.warning('AI provider failed: %s: %s', type(exc).__name__, str(exc)[:300])
         raise HTTPException(502, 'AI provider did not return a complete draft.') from None
 
 def install_engineering_ai(app):
