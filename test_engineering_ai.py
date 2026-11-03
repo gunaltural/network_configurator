@@ -187,6 +187,30 @@ class LocalTests(unittest.TestCase):
             self.assertEqual(opener.return_value.open.call_count, 1)
             self.assertNotIn('internal details', error.exception.detail)
 
+    def test_full_local_profile_allows_longer_reasoning_output(self):
+        import json
+        from engineering_ai import generate
+        payload = dict(model='strong-local', instructions='Review', input='evidence',
+                       max_output_tokens=2200)
+        env = {'AI_ENABLED': '1', 'AI_PROVIDER': 'local', 'AI_MODEL': 'strong-local',
+               'AI_BASE_URL': 'http://model.internal:8000/v1',
+               'AI_LOCAL_REASONING_PROFILE': 'full'}
+        with patch.dict(os.environ, env, clear=True), patch('engineering_ai.urllib.request.build_opener') as opener:
+            response = opener.return_value.open.return_value.__enter__.return_value
+            response.read.return_value = json.dumps({'choices': [
+                {'finish_reason': 'stop', 'message': {'content': 'Reasoned draft'}}]}).encode()
+            self.assertEqual(generate(payload), 'Reasoned draft')
+            request = opener.return_value.open.call_args.args[0]
+            self.assertEqual(json.loads(request.data)['max_tokens'], 2200)
+        env.pop('AI_LOCAL_REASONING_PROFILE')
+        with patch.dict(os.environ, env, clear=True), patch('engineering_ai.urllib.request.build_opener') as opener:
+            response = opener.return_value.open.return_value.__enter__.return_value
+            response.read.return_value = json.dumps({'choices': [
+                {'finish_reason': 'stop', 'message': {'content': 'Compact draft'}}]}).encode()
+            self.assertEqual(generate(payload), 'Compact draft')
+            request = opener.return_value.open.call_args.args[0]
+            self.assertEqual(json.loads(request.data)['max_tokens'], 640)
+
     def test_invalid_server_not_enabled(self):
         from engineering_ai import configured
         for url in ['', 'file:///tmp/model', 'http://user:pass@server/v1', 'https://server/v1?token=secret']:
