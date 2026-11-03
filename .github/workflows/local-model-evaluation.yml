@@ -7,6 +7,8 @@ on:
       - ".github/workflows/local-model-evaluation.yml"
       - "scripts/evaluate_local_model.py"
       - "evaluation/heldout/**"
+      - "ai-topology-workspace.js"
+      - "test_ai_topology_workspace.cjs"
       - "engineering_ai.py"
       - "test_ai_local_timeout.py"
       - "scripts/check_budget_analysis.py"
@@ -19,6 +21,8 @@ on:
       - ".github/workflows/local-model-evaluation.yml"
       - "scripts/evaluate_local_model.py"
       - "evaluation/heldout/**"
+      - "ai-topology-workspace.js"
+      - "test_ai_topology_workspace.cjs"
       - "engineering_ai.py"
       - "bgp_cli_evidence.py"
       - "test_bgp_cli_evidence.py"
@@ -42,6 +46,8 @@ jobs:
           python-version: "3.12"
       - name: Install application test dependencies
         run: python -m pip install fastapi httpx httpx2
+      - name: Verify isolated AI topology workspace contract
+        run: node test_ai_topology_workspace.cjs
       - name: Verify raw TAC evidence correlation
         run: python -m unittest test_bgp_cli_evidence test_tac_overview -v
       - name: Verify official evaluation weights
