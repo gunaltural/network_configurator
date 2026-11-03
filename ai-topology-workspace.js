@@ -8,7 +8,7 @@ function fromDesign(report){
  const links=[...(report.links||[]),...(report.specialLinks||[])].filter(l=>l.enabled!==false).map((l,i)=>({id:identifier(l.id||'link-'+i),a:identifier(l.a),b:identifier(l.b),aPort:identifier(l.aPort||l.upperPort),bPort:identifier(l.bPort||l.lowerPort),kind:identifier(l.kind||'Connection'),logical:l.logical===true}));
  const ids=new Set(nodes.map(n=>n.id));
  const configs=(report.configurations||[]).filter(c=>ids.has(identifier(c.deviceId))&&typeof c.text==='string').map(c=>({
-  deviceId:identifier(c.deviceId),text:String(c.text).replace(/\\r\\n?/g,'\\n').split('\\n').map(safeLine).join('\\n')
+  deviceId:identifier(c.deviceId),text:String(c.text).replace(/\r\n?/g,'\n').split('\n').map(safeLine).join('\\n')
  }));
  const designReview={
   origin:'original-design-snapshot',edited:false,
@@ -112,20 +112,20 @@ function analysisEvidenceBatches(workspace){
   }
   flush();
  };
- addChunks('topology','Device: WORKSPACE\\nCommand: user topology manifest (design intent, not operational proof)',topology);
+ addChunks('topology','Device: WORKSPACE\nCommand: user topology manifest (design intent, not operational proof)',topology);
  if(model.designReview){
   const source=model.designReview.edited?'Original Design parameters (workspace has since been edited)':'Original Design parameters (intent; not operational proof)';
   const params=['Source: '+source,...model.designReview.parameters.map(p=>
    'Parameter '+p.label+' | selected='+p.value+' | engineering rationale='+p.impact
   )];
-  addChunks('design-intent','Device: ORIGINAL-DESIGN\\nCommand: parameter choices and engineering rationale',params);
+  addChunks('design-intent','Device: ORIGINAL-DESIGN\nCommand: parameter choices and engineering rationale',params);
   const checks=model.designReview.checks;
   if(checks){
    const observations=['Source: existing Design consistency checker; this is not AI reasoning or deployed configuration verification',
     'Evaluated '+checks.evaluated+' inputs; '+checks.errors+' errors; '+checks.warnings+' warnings',
     'Original Design status: '+(model.designReview.edited?'STALE AFTER WORKSPACE EDITS':'snapshot at import')];
    for(const issue of checks.issues||[])observations.push('Design check '+issue.code+' '+issue.severity+': '+issue.message);
-   addChunks('design-check','Device: ORIGINAL-DESIGN\\nCommand: deterministic input checks',observations);
+   addChunks('design-check','Device: ORIGINAL-DESIGN\nCommand: deterministic input checks',observations);
   }
  }
  for(const [index,c]of model.configs.entries()){
