@@ -102,8 +102,17 @@ def retrieve_knowledge(evidence: list[dict], vendor: str, *, max_items: int = 4)
     """Return relevant engineering dimensions with traceable repository origins."""
     corpus = "\n".join(item.get("text", "") for item in evidence).lower()
     selected = []
+    # A topology workspace may contain multiple vendors; retrieve platform
+    # guidance only when an explicit vendor field in the supplied evidence
+    # identifies it. The string is a retrieval hint, not verified device fact.
+    platforms = {vendor}
+    named = {platform for entry in _CATALOG for platform in entry["platforms"]}
+    for observed in evidence:
+        for line in observed.get("text", "").splitlines():
+            if re.search(r"(?i)(?:^Vendor:\\s*|\\bvendor=)", line):
+                platforms.update(p for p in named if p.lower() in line.lower())
     for item in _CATALOG:
-        if item["platforms"] and vendor not in item["platforms"]:
+        if item["platforms"] and not platforms.intersection(item["platforms"]):
             continue
         hits = sum(bool(re.search(r"(?<![a-z])" + re.escape(term) + r"(?![a-z])", corpus)) for term in item["terms"])
         if hits:
