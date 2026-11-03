@@ -1,6 +1,6 @@
 (function(root){'use strict';
 function parse(raw){
- if(raw.length>2000000)throw Error('Maximum input size is 2 MB.');
+ if(raw.length>5000000)throw Error('Maximum input size is 5 MB.');
  const lines=raw.replace(/\r\n?/g,'\n').split('\n'),blocks=[];let current=null,bundleDevice=null;
  for(let i=0;i<lines.length;i++){
   const line=lines[i],match=line.replace(/^<([^>]+)>\s*/, '$1> ').match(/^(?:(\S+)[#>]\s*)?((?:show|display|get|diagnose)\s+.+?)\s*$/i)||line.match(/^[-=]{3,}\s*((?:show|display|get|diagnose)\s+.+?)\s*[-=]{3,}$/i);
