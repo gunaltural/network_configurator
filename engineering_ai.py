@@ -212,6 +212,31 @@ def install_engineering_ai(app):
                         'reviewRequired': True, 'evidenceIds': [e.id for e in body.evidence],
                         'knowledgeIds': [k['id'] for k in knowledge]}
                 valid, ids = validate_evidence_citations(draft, content['evidence'])
+                if not valid and os.getenv('AI_LOCAL_REASONING_PROFILE') == 'full':
+                    # One model-driven revision, never invented citations or rules.
+                    # Supply original evidence again so the model can reconcile
+                    # its claims with the exact line references. Fail closed if
+                    # the revised text still lacks verifiable citations.
+                    try:
+                        revised = generate({
+                            'model': os.environ['AI_MODEL'], 'store': False,
+                            'max_output_tokens': 1200,
+                            'instructions': INSTRUCTIONS + _CLI_REVIEW +
+                                '\\nRevise the draft using the original observations. '
+                                'Every factual statement must cite an exact [evidence-id, Lnumber] '
+                                'from the supplied evidence. If a claim is not supported, remove it. '
+                                'Never add facts merely to satisfy a test.',
+                            'input': json.dumps({
+                                'language': body.language,
+                                'original_evidence': content['evidence'],
+                                'draft_to_verify': draft[:3500],
+                            }, ensure_ascii=False),
+                        })
+                        revised_valid, revised_ids = validate_evidence_citations(revised, content['evidence'])
+                        if revised_valid:
+                            draft, valid, ids = revised, True, revised_ids
+                    except HTTPException:
+                        pass
                 if valid:
                     return {'text': draft, 'mode': 'model-evidence-cited-draft',
                         'reviewRequired': True, 'engineeringVerified': False, 'evidenceIds': ids,
