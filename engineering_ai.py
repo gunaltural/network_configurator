@@ -196,8 +196,22 @@ def install_engineering_ai(app):
                     'evidence': content['evidence'], 'observed_context': context,
                     'retrieved_knowledge': compact_knowledge}
                 try:
+                    # Bound full-profile reasoning to concise, verifiable findings.
+                    # Long free-form generations frequently exhaust the local model
+                    # output budget before a usable, cited conclusion is reached.
+                    full_profile = os.getenv('AI_LOCAL_REASONING_PROFILE') == 'full'
+                    review_instructions = (_CLI_REVIEW_COMPACT if
+                        os.getenv('AI_PROVIDER', 'local') == 'local' and not full_profile
+                        else INSTRUCTIONS + _CLI_REVIEW +
+                        '\\nWrite at most three concise findings (maximum 180 words total). '
+                        'For each finding state: observation with exact [evidence-id, Lnumber], '
+                        'hypothesis, counterevidence or uncertainty, and one read-only next check. '
+                        'Cite the observation immediately, not in a bibliography. '
+                        'If evidence is insufficient, explicitly say so. '
+                        'Do not reproduce the input or write a lengthy introduction.')
                     draft = generate({'model': os.environ['AI_MODEL'], 'store': False,
-                        'max_output_tokens': 2200, 'instructions': (_CLI_REVIEW_COMPACT if os.getenv('AI_PROVIDER', 'local') == 'local' and os.getenv('AI_LOCAL_REASONING_PROFILE') != 'full' else INSTRUCTIONS + _CLI_REVIEW),
+                        'max_output_tokens': 850 if full_profile else 2200,
+                        'instructions': review_instructions,
                         'input': json.dumps(inputs, ensure_ascii=False)})
                 except HTTPException:
                     # Explicit fallback: an evidence-only report is not an AI diagnosis.
@@ -220,7 +234,7 @@ def install_engineering_ai(app):
                     try:
                         revised = generate({
                             'model': os.environ['AI_MODEL'], 'store': False,
-                            'max_output_tokens': 1200,
+                            'max_output_tokens': 650,
                             'instructions': INSTRUCTIONS + _CLI_REVIEW +
                                 '\\nRevise the draft using the original observations. '
                                 'Every factual statement must cite an exact [evidence-id, Lnumber] '
@@ -229,7 +243,7 @@ def install_engineering_ai(app):
                             'input': json.dumps({
                                 'language': body.language,
                                 'original_evidence': content['evidence'],
-                                'draft_to_verify': draft[:3500],
+                                'draft_to_verify': draft[:1200],
                             }, ensure_ascii=False),
                         })
                         revised_valid, revised_ids = validate_evidence_citations(revised, content['evidence'])
