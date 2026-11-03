@@ -7,7 +7,7 @@ function renderGuide(){
 }
 $('vendor').addEventListener('change',renderGuide);renderGuide();
 $('raw').oninput=invalidate;
-$('file').onchange=async()=>{const f=$('file').files[0];if(!f)return;invalidate();if(f.size>2000000){$('status').textContent='Maximum file size is 2 MB.';return;}$('raw').value=await f.text();};
+$('file').onchange=async()=>{const f=$('file').files[0];if(!f)return;invalidate();if(f.size>5000000){$('status').textContent='Maximum file size is 5 MB.';return;}$('raw').value=await f.text();$('status').textContent='Loaded '+f.name+' ('+Math.ceil(f.size/1024)+' KB). Review evidence to continue.';};
 for(const sample of ShowAnalysis.examples){const o=document.createElement('option');o.value=sample.key;o.textContent=sample.title;$('sampleCase').append(o);}
 function clearSample(){ $('sampleAnswer').hidden=true;$('sampleAnswer').open=false; }
 $('raw').addEventListener('input',clearSample);
