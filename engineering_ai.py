@@ -211,9 +211,9 @@ def install_engineering_ai(app):
                 excerpts = []
                 for item in content['evidence'][:8]:
                     lines = [line for line in item['text'].splitlines()
-                             if re.match(r'^L\\d+:', line)]
-                    excerpts.append('### ' + item['id'] + '\\n' + '\\n'.join(lines[:4]))
-                return {'text': warning + '\\n\\n' + '\\n\\n'.join(excerpts),
+                             if re.match(r'^L\d+:', line)]
+                    excerpts.append('### ' + item['id'] + '\n' + '\n'.join(lines[:4]))
+                return {'text': warning + '\n\n' + '\n\n'.join(excerpts),
                     'mode': 'model-unverified-draft', 'reviewRequired': True,
                     'evidenceIds': [], 'knowledgeIds': [k['id'] for k in knowledge]}
             if body.module == 'CLI_SYNTHESIS':
