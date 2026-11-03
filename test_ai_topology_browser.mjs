@@ -38,10 +38,10 @@ try{
  // not an artificial topology or prewritten simulator answer.
  const designPage=await browser.newPage({viewport:{width:1280,height:900}});
  try{
-  await designPage.goto(base+'/',{waitUntil:'domcontentloaded'});
+  await designPage.goto(base+'/?workspace=VPC',{waitUntil:'domcontentloaded'});
   const openReview=designPage.locator('#ncSidebar button').filter({hasText:'Analyze Design with AI (optional)'});
   await openReview.waitFor({timeout:18000});
-  await designPage.locator('.tech[data-tech="VPC"]').click();
+  await designPage.waitForFunction(()=>window.__designWorkspaceOpened===true,{timeout:15000});
   await designPage.waitForFunction(()=>!!window.NetworkWorkspaceProject?.diagnosticDesign, {timeout:10000});
   await openReview.click();
   await designPage.waitForURL('**/ai-topology',{timeout:15000});
