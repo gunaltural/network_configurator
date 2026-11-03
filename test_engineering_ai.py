@@ -48,8 +48,8 @@ class Tests(unittest.TestCase):
 
     def test_vpc_model_receives_source_backed_questions_without_per_command_rules(self):
         capture = dict(module='CLI_ANALYSIS', vendor='Cisco NX-OS', task='report', evidence=[
-            dict(id='cli-1-0', text='Device: N9K-A\\nCommand: show running-config vpc\\nL3: vpc domain 100'),
-            dict(id='cli-2-0', text='Device: N9K-A\\nCommand: show vpc\\nL8: Peer Gateway : Enabled')])
+            dict(id='cli-1-0', text='Device: N9K-A\nCommand: show running-config vpc\nL3: vpc domain 100'),
+            dict(id='cli-2-0', text='Device: N9K-A\nCommand: show vpc\nL8: Peer Gateway : Enabled')])
         env = {'AI_PROVIDER':'local','AI_ENABLED':'1','AI_MODEL':'network-engineer','AI_BASE_URL':'http://localhost:8080/v1'}
         with patch.dict(os.environ, env, clear=True), patch('engineering_ai.generate',
                 return_value='Operational state reports gateway forwarding enabled [cli-2-0, L8]; confirm configuration scope.') as generate:
