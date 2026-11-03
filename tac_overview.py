@@ -30,6 +30,7 @@ def overview(blocks, vendor, language):
     cisco = vendor in ('Cisco IOS-XE','Cisco NX-OS')
     visible = {}
     vty_filters, acl_entries = [], defaultdict(list)
+    duplex_seen = set()
     def add(group,msg,ref):
         groups[group].append(f'{msg} [{ref}]')
     for b in blocks:
@@ -52,6 +53,28 @@ def overview(blocks, vendor, language):
                 allowed = {'SD-WAN':vendor=='FortiGate','MLAG':vendor=='Arista EOS','vPC':vendor=='Cisco NX-OS','StackWise':vendor=='Cisco IOS-XE'}.get(group,cisco or vendor=='Arista EOS')
                 if allowed and re.fullmatch(cf,cmd) and re.match(lf,val,re.I):
                     record(group,(turkish if tr else en)+': '+val)
+            # Cisco syslog events may appear inside show stacks / show tech sections.
+            # A recorded event is historical evidence, not proof of a current fault.
+            if cisco and '%CDP-4-DUPLEX_MISMATCH:' in val:
+                mismatch = re.search(r'duplex mismatch discovered on (\\S+) .*? with (\\S+) .*?\\((half|full) duplex\\)',val,re.I)
+                if mismatch:
+                    local,peer,peer_mode=mismatch.groups()
+                    key=(dev,local,peer,peer_mode.lower())
+                    if key not in duplex_seen:
+                        duplex_seen.add(key)
+                        msg=(f'Kaydedilmiş CDP duplex uyumsuzluğu: yerel {local}, komşu {peer} ({peer_mode}). '
+                             'Olası etki: performans düşüşü, FCS/CRC veya geç çarpışmalar. '
+                             'Önerilen salt-okunur doğrulama: show interfaces '+local+
+                             '; show interfaces '+local+' status; komşu portun hız/duplex ayarlarını kontrol edin. '
+                             'İki uçtaki speed/duplex ayarlarını ve auto-negotiation davranışını karşılaştırın; '
+                             'değişiklik yapmadan önce güncel sayaç ve durumu doğrulayın.'
+                             if tr else
+                             f'Recorded CDP duplex mismatch: local {local}, neighbor {peer} ({peer_mode}). '
+                             'Potential impact: degraded throughput, FCS/CRC errors or late collisions. '
+                             'Read-only verification: show interfaces '+local+
+                             '; show interfaces '+local+' status; inspect peer speed/duplex. '
+                             'Compare both ends and auto-negotiation; confirm current state and counters before remediation.')
+                        record('Interface diagnostics',msg)
             if cisco and cmd=='show running-config':
                 if not raw.startswith((' ','\t')): scope=val if val.startswith('line vty ') else None
                 match=re.fullmatch(r'ip route (?:vrf (\S+) )?([\d.]+) ([\d.]+) ([\d.]+)(?: .*)?',val)
