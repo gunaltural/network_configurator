@@ -4,7 +4,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from engineering_ai import install_engineering_ai
-assert os.environ['AI_BASE_URL']=='http://127.0.0.1:18081/v1' and os.environ['AI_PROVIDER']=='local'
+assert (os.environ.get('AI_PROVIDER') == 'local' and os.environ.get('AI_BASE_URL') == 'http://127.0.0.1:18081/v1') or (os.environ.get('AI_PROVIDER') == 'groq' and os.environ.get('GROQ_API_KEY') and os.environ.get('AI_MODEL') == 'openai/gpt-oss-120b'), 'Use an approved local endpoint or an explicit Groq test credential.'
 app=FastAPI()
 install_engineering_ai(app)
 cases=json.loads(Path(__file__).with_name('cases.json').read_text())
