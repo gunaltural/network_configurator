@@ -8,6 +8,9 @@ on:
       - "scripts/evaluate_local_model.py"
       - "engineering_ai.py"
       - "test_ai_local_timeout.py"
+      - "scripts/check_budget_analysis.py"
+      - "Dockerfile"
+      - "start_embedded_ai.py"
       - "tac_overview.py"
       - "show-analysis.js"
   pull_request:
