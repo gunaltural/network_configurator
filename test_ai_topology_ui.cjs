@@ -36,6 +36,19 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  $('configDevice').value='fw-1';$('configuration').value='hostname CHANGED';$('saveConfig').click();
  assert.equal($('analyze').disabled,true,'Changed evidence invalidates prior review');
  assert.equal($('analysisResult').value,'','Stale analysis is cleared after changing the workspace');
+
+ $('preview').click();
+ const initialRequests=sent.length;
+ w.confirm=()=>false;
+ w.fetch=async(url,options)=>{
+  if(url==='/api/ai/status')return {ok:true,json:async()=>({available:true,provider:'groq'})};
+  sent.push(JSON.parse(options.body));
+  return {ok:true,json:async()=>({mode:'model-evidence-cited-draft',text:'Should not run'})};
+ };
+ await $('analyze').onclick();
+ assert.equal(sent.length,initialRequests,'External provider requires explicit consent');
+ assert.match($('status').textContent,/cancelled/);
+
  dom.window.close();
  const designDom=new JSDOM(html,{runScripts:'outside-only',url:'https://test.invalid/ai-topology'});
  const t=designDom.window;
