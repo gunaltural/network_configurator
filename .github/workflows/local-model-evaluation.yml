@@ -178,4 +178,10 @@ jobs:
             echo "GROQ_API_KEY GitHub Actions secret is not configured; no external model test ran."
             exit 1
           fi
+          # Engineering correctness gates run sequentially on real model responses.
+          # Never substitute mocked adapter checks for model acceptance.
           python evaluation/heldout/run.py VPC
+          python evaluation/heldout/run.py BGP
+          python evaluation/heldout/run.py MLAG
+          python evaluation/heldout/run.py STP
+          python evaluation/heldout/run.py SDWAN
