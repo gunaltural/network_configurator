@@ -19,6 +19,16 @@ class KnowledgeRetrievalTests(unittest.TestCase):
         self.assertIn('peer-switch', str(vendor_guidance))
         self.assertIn('rather than treating its absence as proof', str(vendor_guidance))
 
+    def test_mixed_topology_retrieves_explicit_vendor_knowledge(self):
+        evidence = [
+            {'id': 'topology-0', 'text': 'Device: WORKSPACE\nL1: Device n9k-a hostname=N9K-A vendor=Cisco NX-OS role=peer\nL2: Link peer-link n9k-a to n9k-b kind=vpc'},
+            {'id': 'config-0', 'text': 'Device: N9K-A\nVendor: Cisco NX-OS\nL7: vpc domain 100'},
+            {'id': 'config-1', 'text': 'Device: ISP-A\nVendor: Arista EOS\nL8: router bgp 65000'},
+        ]
+        found = [x['id'] for x in retrieve_knowledge(evidence, 'Mixed')]
+        self.assertIn('cisco-nxos-vpc-design', found)
+        self.assertIn('bgp-control-plane', found)
+
     def test_nonmatching_domain_does_not_hallucinate_knowledge(self):
         evidence = [{'id':'x', 'text':'Device: LEAF-1\nCommand: show clock\nL3: 10:11:12 UTC'}]
         self.assertEqual(retrieve_knowledge(evidence, 'Cisco NX-OS'), [])
