@@ -6,6 +6,7 @@ const source = fs.readFileSync('show-analysis.js','utf8');
 const context = { globalThis: {} };
 vm.runInNewContext(source, context);
 const parse = context.globalThis.ShowAnalysis.parse;
+const evidenceBatches = context.globalThis.ShowAnalysis.evidenceBatches;
 const fixture = [
   '------------------ show version ------------------',
   'Cisco IOS Software',
@@ -18,6 +19,10 @@ const raw = fixture + '\n' + 'status line\n'.repeat(220000);
 assert.ok(raw.length > 2000000 && raw.length < 5000000);
 const blocks = parse(raw);
 assert.equal(blocks.length, 3);
+const batches = evidenceBatches(blocks);
+assert.ok(batches.length > 30, 'large capture must split into bounded requests');
+for (const batch of batches) { assert.ok(batch.length <= 30); assert.ok(JSON.stringify(batch).length <= 35000); }
+assert.match(batches[0][0].text, /Command: show version/);
 assert.equal(blocks[0].command, 'show version');
 assert.equal(blocks[1].command, 'show running-config');
 assert.equal(blocks[2].command, 'show ip route');
