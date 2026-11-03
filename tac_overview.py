@@ -100,7 +100,7 @@ def overview(blocks, vendor, language):
             continue
         device = lines[0][8:]
         for row in lines[2:]:
-            match = re.fullmatch(r'L(\\d+): (.*)', row)
+            match = re.fullmatch(r'L(\d+): (.*)', row)
             if not match: continue
             number, raw = match.groups()
             val = raw.strip()
@@ -109,10 +109,10 @@ def overview(blocks, vendor, language):
                 current_vrf = 'default'
                 current_device = device if val.startswith('interface ') else None
             if current_device is None: continue
-            vrf_match = re.fullmatch(r'(?:vrf forwarding|vrf member) (\\S+)',val)
+            vrf_match = re.fullmatch(r'(?:vrf forwarding|vrf member) (\S+)',val)
             if vrf_match: current_vrf = vrf_match[1]
-            ip_match = re.fullmatch(r'ip address (\\d+\\.\\d+\\.\\d+\\.\\d+) (\\d+\\.\\d+\\.\\d+\\.\\d+)(?: secondary)?',val)
-            cidr_match = re.fullmatch(r'ip address (\\d+\\.\\d+\\.\\d+\\.\\d+/\\d+)(?: secondary)?',val)
+            ip_match = re.fullmatch(r'ip address (\d+\.\d+\.\d+\.\d+) (\d+\.\d+\.\d+\.\d+)(?: secondary)?',val)
+            cidr_match = re.fullmatch(r'ip address (\d+\.\d+\.\d+\.\d+/\d+)(?: secondary)?',val)
             try:
                 network = ipaddress.IPv4Interface((ip_match[1],ip_match[2])).network if ip_match else ipaddress.IPv4Interface(cidr_match[1]).network if cidr_match else None
             except ValueError:
