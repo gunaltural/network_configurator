@@ -1,3 +1,4 @@
+ARG AI_IMAGE_PROFILE=embedded
 FROM ghcr.io/ggml-org/llama.cpp@sha256:d9e9e74ba3f7ef119b1939162b1631f99b75ec703c310d140cfa2fdac8907389 AS llama_runtime
 FROM python:3.12-slim AS app
 WORKDIR /app
@@ -29,5 +30,4 @@ CMD ["python", "start_embedded_ai.py"]
 # Render converts non-secret environment variables into Docker build args.
 # Default preserves the current embedded runtime until an approved release
 # selects AI_IMAGE_PROFILE=hosted for the small, external-provider image.
-ARG AI_IMAGE_PROFILE=embedded
 FROM ${AI_IMAGE_PROFILE} AS production
