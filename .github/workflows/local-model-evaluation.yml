@@ -6,6 +6,7 @@ on:
     paths:
       - ".github/workflows/local-model-evaluation.yml"
       - "scripts/evaluate_local_model.py"
+      - "evaluation/heldout/**"
       - "engineering_ai.py"
       - "test_ai_local_timeout.py"
       - "scripts/check_budget_analysis.py"
@@ -17,6 +18,7 @@ on:
     paths:
       - ".github/workflows/local-model-evaluation.yml"
       - "scripts/evaluate_local_model.py"
+      - "evaluation/heldout/**"
       - "engineering_ai.py"
       - "bgp_cli_evidence.py"
       - "test_bgp_cli_evidence.py"
@@ -141,3 +143,5 @@ jobs:
           done
           curl -fsS http://127.0.0.1:18081/health
           python scripts/evaluate_local_model.py
+          # Mandatory independent engineering-accuracy gate, not merely model availability.
+          python evaluation/heldout/run.py VPC
