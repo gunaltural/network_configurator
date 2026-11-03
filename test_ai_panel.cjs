@@ -14,5 +14,6 @@ $('aiDraft').value='Edited by engineer';$('aiInsert').onclick();assert.equal(sta
 await open();await $('aiRun').onclick();state.devices[0].hostname='CE2';$('aiInsert').onclick();assert.ok($('aiStatus').textContent.includes('report changed'));assert.ok(!state.projectDetails.executiveSummary.includes('Reviewed path'));
 await open();await $('aiRun').onclick();$('aiDraft').value='X'.repeat(1300);$('aiInsert').onclick();assert.ok($('aiStatus').textContent.includes('section limit'));
 w.fetch=async()=>({ok:true,json:async()=>({available:false})});await open();assert.ok($('aiRun').disabled);
+let externalCalls=0;w.confirm=()=>false;w.fetch=async url=>{externalCalls++;return {ok:true,json:async()=>url.endsWith('status')?{available:true,provider:'groq'}:{text:'must-not-run'}};};await open();await $('aiRun').onclick();assert.equal(externalCalls,1,'No external request without explicit confirmation');assert.match($('aiStatus').textContent,/cancelled/);
 dom.window.close();console.log('AI panel: explicit send, reviewed append, existing text, stale context, limits and disabled state passed');
 })().catch(e=>{console.error(e);process.exitCode=1});
