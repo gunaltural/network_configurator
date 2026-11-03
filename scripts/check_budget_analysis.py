@@ -13,7 +13,11 @@ def analyze(lang):
     req = urllib.request.Request(BASE+'/api/ai/analyze', data=json.dumps(data).encode(), headers={'Content-Type':'application/json'})
     with urllib.request.urlopen(req, timeout=100) as response:
         draft = json.load(response)
-    assert draft['mode'] in ('model-evidence-cited-draft', 'model-unverified-draft'), draft
+    assert draft['mode'] in ('model-evidence-cited-draft', 'model-unverified-draft', 'evidence-only-provider-fallback'), draft
+    if draft['mode'] == 'evidence-only-provider-fallback':
+        assert 'not a root-cause assessment' in draft['text'].lower(), draft
+        assert draft['reviewRequired'] is True, draft
+        print(f'{lang}: constrained inference unavailable; safe evidence-only fallback (NOT reasoning acceptance)')
     # Resource survivability is separate from engineering acceptance: only a cited
     # model finding can pass the actual reasoning gate.
     print(f"{lang}: model_mode={draft['mode']} evidence_ids={len(draft.get('evidenceIds', []))}")
@@ -29,4 +33,4 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
                 assert json.load(response)['ok'] is True
             time.sleep(0.25)
         work.result()
-        print(f'{language}: real model draft returned (engineer verification still needed); application health remained available; {time.monotonic()-start:.2f}s')
+        print(f'{language}: resource-survival check completed (NOT model accuracy acceptance); application health remained available; {time.monotonic()-start:.2f}s')
