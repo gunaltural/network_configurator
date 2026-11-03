@@ -57,11 +57,12 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 def generate(payload, *, local_choices=()):
     local = os.getenv('AI_PROVIDER', 'local') == 'local'
+    strong_local = local and os.getenv('AI_LOCAL_REASONING_PROFILE') == 'full'
     headers = {'Content-Type': 'application/json'}
     if local:
         url = os.environ['AI_BASE_URL'].rstrip('/') + '/chat/completions'
         key = os.getenv('AI_LOCAL_API_KEY')
-        payload = {'model': payload['model'], 'messages': [{'role': 'system', 'content': payload['instructions']}, {'role': 'user', 'content': payload['input']}], 'max_tokens': min(payload['max_output_tokens'], 640), 'stream': False}
+        payload = {'model': payload['model'], 'messages': [{'role': 'system', 'content': payload['instructions']}, {'role': 'user', 'content': payload['input']}], 'max_tokens': min(payload['max_output_tokens'], 2200 if strong_local else 640), 'stream': False}
         if local_choices:
             # Application-owned labels, never CLI text. Constrain decoding itself;
             # post-validation still rejects invalid replies from other runtimes.
@@ -187,13 +188,13 @@ def install_engineering_ai(app):
                 # Prompt stays within the bundled small-model context window.
                 # The full local evidence is retained for independent citation validation.
                 compact_knowledge = ([{**item, 'questions': item['questions'][:2]} for item in knowledge[:2]]
-                    if os.getenv('AI_PROVIDER', 'local') == 'local' else knowledge)
+                    if os.getenv('AI_PROVIDER', 'local') == 'local' and os.getenv('AI_LOCAL_REASONING_PROFILE') != 'full' else knowledge)
                 inputs = {'vendor': body.vendor, 'language': body.language,
                     'evidence': content['evidence'], 'observed_context': context,
                     'retrieved_knowledge': compact_knowledge}
                 try:
                     draft = generate({'model': os.environ['AI_MODEL'], 'store': False,
-                        'max_output_tokens': 2200, 'instructions': (_CLI_REVIEW_COMPACT if os.getenv('AI_PROVIDER', 'local') == 'local' else INSTRUCTIONS + _CLI_REVIEW),
+                        'max_output_tokens': 2200, 'instructions': (_CLI_REVIEW_COMPACT if os.getenv('AI_PROVIDER', 'local') == 'local' and os.getenv('AI_LOCAL_REASONING_PROFILE') != 'full' else INSTRUCTIONS + _CLI_REVIEW),
                         'input': json.dumps(inputs, ensure_ascii=False)})
                 except HTTPException:
                     # Explicit fallback: an evidence-only report is not an AI diagnosis.
