@@ -12,6 +12,11 @@ COPY samples/port-mapping ./samples/port-mapping
 COPY simulation/ ./simulation/
 CMD ["python", "app.py"]
 
+# Lightweight first-MVP target when an explicitly configured external AI
+# provider handles inference. No GGUF download, local server or GPU runtime.
+FROM app AS hosted
+CMD ["python", "app.py"]
+
 # Production and the resource-limited acceptance test ship the same local model.
 FROM app AS embedded
 COPY --from=llama_runtime /app/ /opt/llama/
