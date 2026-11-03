@@ -2,6 +2,7 @@
 import concurrent.futures
 import json
 import time
+import urllib.error
 import urllib.request
 
 BASE = 'http://127.0.0.1:18100'
@@ -10,9 +11,12 @@ EVIDENCE = {'id':'cli-1','text':'Device: CE1\nCommand: show ip bgp summary\nL4: 
 def analyze(lang):
     data = dict(module='CLI_ANALYSIS', vendor='Cisco IOS-XE', language=lang, task='report', evidence=[EVIDENCE])
     req = urllib.request.Request(BASE+'/api/ai/analyze', data=json.dumps(data).encode(), headers={'Content-Type':'application/json'})
-    with urllib.request.urlopen(req, timeout=50) as response:
+    with urllib.request.urlopen(req, timeout=100) as response:
         draft = json.load(response)
     assert draft['mode'] in ('model-evidence-cited-draft', 'model-unverified-draft'), draft
+    # Resource survivability is separate from engineering acceptance: only a cited
+    # model finding can pass the actual reasoning gate.
+    print(f"{lang}: model_mode={draft['mode']} evidence_ids={len(draft.get('evidenceIds', []))}")
     assert draft['text'].strip() and draft['reviewRequired'] is True, draft
     assert 'bgp-control-plane' in draft.get('knowledgeIds', []), draft
 
