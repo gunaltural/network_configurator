@@ -126,6 +126,8 @@ class Tests(unittest.TestCase):
             self.assertIn('Peer Gateway : Enabled', payload['messages'][1]['content'])
             self.assertIn('retrieved_knowledge', payload['messages'][1]['content'])
             self.assertFalse(payload['stream'])
+            self.assertEqual(payload['reasoning_effort'], 'low')
+            self.assertFalse(payload['include_reasoning'])
         with patch.dict(os.environ, {**env, 'GROQ_API_KEY': ''}, clear=True):
             self.assertFalse(configured())
 
