@@ -85,5 +85,6 @@ jobs:
           curl -fsS http://127.0.0.1:8125/ai-topology-workspace.js | grep -q 'analysisEvidenceBatches'
           curl -fsS http://127.0.0.1:8125/ai-topology-ui.js | grep -q 'configDevice'
           node test_analysis_browser.mjs
+          node test_ai_topology_browser.mjs
       - name: Validate CLI parsing and large-capture batching
         run: node test_show_analysis.cjs && node test_show_analysis_large_capture.cjs
