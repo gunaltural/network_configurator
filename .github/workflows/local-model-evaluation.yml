@@ -1,5 +1,15 @@
 name: Real local model evaluation
 on:
+  push:
+    branches:
+      - feature/ai-reasoning-mvp
+    paths:
+      - ".github/workflows/local-model-evaluation.yml"
+      - "scripts/evaluate_local_model.py"
+      - "engineering_ai.py"
+      - "test_ai_local_timeout.py"
+      - "tac_overview.py"
+      - "show-analysis.js"
   pull_request:
     paths:
       - ".github/workflows/local-model-evaluation.yml"
