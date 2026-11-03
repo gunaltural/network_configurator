@@ -83,7 +83,7 @@ def generate(payload, *, local_choices=()):
         raise HTTPException(502, 'AI provider did not return a complete draft.') from None
 
 
-_CITATION = re.compile(r"\\[([A-Za-z0-9][A-Za-z0-9_.:-]{0,79})\\s*,\\s*L(\\d+)\\]")
+_CITATION = re.compile(r"\[([A-Za-z0-9][A-Za-z0-9_.:-]{0,79})\s*,\s*L(\d+)\]")
 
 
 def validate_evidence_citations(draft: str, evidence: list[dict]) -> tuple[bool, list[str]]:
@@ -92,7 +92,7 @@ def validate_evidence_citations(draft: str, evidence: list[dict]) -> tuple[bool,
     A valid citation is [cli-1-0, L42]. This checks references, not the
     correctness of the model's engineering claims.
     """
-    lines = {item["id"]: set(re.findall(r"(?m)^L(\\d+):", item["text"])) for item in evidence}
+    lines = {item["id"]: set(re.findall(r"(?m)^L(\d+):", item["text"])) for item in evidence}
     mentions = _CITATION.findall(draft)
     if not mentions:
         return False, []
@@ -170,10 +170,10 @@ def install_engineering_ai(app):
                     tr = body.language == 'tr'
                     heading = ('AI modeli yanıt vermedi; yalnızca kanıt özeti gösteriliyor. Bu bir kök neden analizi değildir.'
                         if tr else 'AI model did not respond; evidence summary only. This is not a root-cause assessment.')
-                    detail = context or '\\n'.join(
-                        item['id'] + ': ' + '\\n'.join(item['text'].splitlines()[:6])
+                    detail = context or '\n'.join(
+                        item['id'] + ': ' + '\n'.join(item['text'].splitlines()[:6])
                         for item in content['evidence'])
-                    return {'text': heading + '\\n\\n' + detail,
+                    return {'text': heading + '\n\n' + detail,
                         'mode': 'evidence-only-provider-fallback',
                         'reviewRequired': True, 'evidenceIds': [e.id for e in body.evidence],
                         'knowledgeIds': [k['id'] for k in knowledge]}
@@ -185,7 +185,7 @@ def install_engineering_ai(app):
                 warning = ('AI değerlendirmesinde doğrulanabilir [kanıt-ID, Lsatır] referansları eksik veya hatalı; rapor doğrulanmamış taslaktır.'
                     if body.language == 'tr' else
                     'AI review has missing/invalid [evidence-id, Lline] citations; this is an unverified draft.')
-                return {'text': warning + '\\n\\n' + draft,
+                return {'text': warning + '\n\n' + draft,
                     'mode': 'model-unverified-draft', 'reviewRequired': True,
                     'evidenceIds': ids, 'knowledgeIds': [k['id'] for k in knowledge]}
             if body.module == 'CLI_SYNTHESIS':
