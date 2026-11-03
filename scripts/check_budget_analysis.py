@@ -15,7 +15,7 @@ def analyze(lang):
         draft = json.load(response)
     assert draft['mode'] in ('model-evidence-cited-draft', 'model-unverified-draft', 'evidence-only-provider-fallback'), draft
     if draft['mode'] == 'evidence-only-provider-fallback':
-        assert 'not a root-cause assessment' in draft['text'].lower(), draft
+        assert ('not a root-cause assessment' in draft['text'].lower() if lang == 'en' else 'kök neden analizi değildir' in draft['text'].lower()), draft
         assert draft['reviewRequired'] is True, draft
         print(f'{lang}: constrained inference unavailable; safe evidence-only fallback (NOT reasoning acceptance)')
     # Resource survivability is separate from engineering acceptance: only a cited
