@@ -1,6 +1,7 @@
 """Optional read-only engineering drafts. Disabled until explicitly configured."""
 from bgp_cli_evidence import summarize_capture, correlate
 from tac_overview import overview
+from vpc_engineering_rules import assess_vpc
 import json
 import os
 import re
@@ -102,6 +103,11 @@ def install_engineering_ai(app):
         if not slots.acquire(blocking=False):
             raise HTTPException(429, 'Another AI draft is in progress.')
         try:
+            if body.module == 'CLI_ANALYSIS' and body.vendor == 'Cisco NX-OS':
+                vpc_report = assess_vpc(content['evidence'], body.language)
+                if vpc_report:
+                    return {'text': vpc_report, 'mode': 'module-rules-vpc', 'reviewRequired': True,
+                            'evidenceIds': [e.id for e in body.evidence]}
             if body.module == 'CLI_ANALYSIS':
                 multi = overview(content['evidence'], body.vendor, body.language)
                 if multi:
