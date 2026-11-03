@@ -103,6 +103,51 @@ def install_engineering_ai(app):
             raise HTTPException(429, 'Another AI draft is in progress.')
         try:
             if body.module == 'CLI_ANALYSIS':
+                # Reason over evidence and engineering principles, not a growing list of
+                # hardcoded missing CLI tokens. Keep the deterministic overview as context.
+                observed = overview(content['evidence'], body.vendor, body.language)
+                context = observed[0][:9000] if observed else ''
+                review_instructions = INSTRUCTIONS + """
+Review the entire supplied evidence as a network engineer. Infer the relevant
+technology and design intent; evaluate configuration AND operational state together.
+Identify design assumptions and potentially absent best-practice capabilities only
+when the supplied configuration scope is sufficient to assess absence.
+Do not infer that a feature is disabled solely from a missing line; conflicting
+operational evidence takes precedence over that inference.
+Do not claim a vendor recommendation without an available cited source.
+For each finding state: hypothesis, supporting evidence IDs and exact L-line
+references, counterevidence, conditional risk, missing evidence and read-only
+verification. Do not fabricate evidence references or assert a root cause without
+proof. Explicitly say when the available material cannot establish a conclusion.
+Do not execute changes or propose automatic remediation.
+"""
+                try:
+                    draft = generate({'model': os.environ['AI_MODEL'], 'store': False,
+                        'max_output_tokens': 2200, 'instructions': review_instructions,
+                        'input': json.dumps({'vendor': body.vendor, 'language': body.language,
+                            'evidence': content['evidence'], 'observed_context': context})})
+                except HTTPException:
+                    draft = None
+                if draft:
+                    # A model output is a draft; reject invented evidence IDs before
+                    # returning it as evidence-grounded engineering analysis.
+                    cited = set(re.findall(r'\\bcli-\\d+(?:-\\d+)?\\b', draft))
+                    allowed = {e['id'] for e in content['evidence']}
+                    if cited and cited.issubset(allowed):
+                        return {'text': draft, 'mode': 'model-engineering-review',
+                            'reviewRequired': True, 'evidenceIds': sorted(cited)}
+                    # If the model did not cite valid evidence, do not label it verified.
+                    return {'text': ('Model çıktısı doğrulanabilir kanıt ID içermiyor; mühendis incelemesi gerekli.\\n\\n' if body.language == 'tr' else
+                        'Model output lacks verifiable evidence IDs; engineer review required.\\n\\n') + draft,
+                        'mode': 'model-unverified-draft', 'reviewRequired': True,
+                        'evidenceIds': [e.id for e in body.evidence]}
+                # Provider failure must not silently become a purported AI assessment.
+                if observed:
+                    return {'text': observed[0], 'mode': 'observations-only-provider-fallback',
+                        'reviewRequired': True, 'evidenceIds': [e.id for e in body.evidence]}
+                raise HTTPException(502, 'AI provider did not return an engineering review.')
+
+            if body.module == 'CLI_ANALYSIS':
                 multi = overview(content['evidence'], body.vendor, body.language)
                 if multi:
                     observed, areas = multi
