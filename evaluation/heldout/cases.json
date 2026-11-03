@@ -51,6 +51,17 @@
     "id": "V1",
     "tech": "VPC",
     "vendor": "Cisco NX-OS",
-    "raw": "N9K-A# show running-config vpc\nfeature vpc\nvpc domain 100\n  peer-keepalive destination 192.0.2.2 source 192.0.2.1 vrf management\ninterface port-channel1\n  switchport mode trunk\n  vpc peer-link\nN9K-A# show vpc\nvPC domain id : 100\nPeer status : peer adjacency formed ok\nvPC keep-alive status : peer is alive\nPeer-link status : Up\nPeer Gateway : Enabled\nvPC role : primary\nConsistency status : success\nN9K-A# show spanning-tree vlan 10\nVLAN0010\nSpanning tree enabled protocol rstp\nRoot ID Priority 24586\nBridge ID Priority 28682"
+    "raw": "N9K-A# show running-config vpc\nfeature vpc\nvpc domain 100\n  peer-keepalive destination 192.0.2.2 source 192.0.2.1 vrf management\ninterface port-channel1\n  switchport mode trunk\n  vpc peer-link\nN9K-A# show vpc\nvPC domain id : 100\nPeer status : peer adjacency formed ok\nvPC keep-alive status : peer is alive\nPeer-link status : Up\nPeer Gateway : Enabled\nvPC role : primary\nConsistency status : success\nN9K-A# show spanning-tree vlan 10\nVLAN0010\nSpanning tree enabled protocol rstp\nRoot ID Priority 24586\nBridge ID Priority 28682",
+    "acceptance": {
+      "must_mention": [
+        "peer-switch",
+        "peer-gateway"
+      ],
+      "must_not_claim": [
+        "peer-gateway is disabled",
+        "peer gateway is disabled"
+      ],
+      "minimum_line_citations": 1
+    }
   }
 ]
