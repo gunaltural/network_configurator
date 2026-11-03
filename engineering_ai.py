@@ -54,7 +54,7 @@ def generate(payload, *, local_choices=()):
     if local:
         url = os.environ['AI_BASE_URL'].rstrip('/') + '/chat/completions'
         key = os.getenv('AI_LOCAL_API_KEY')
-        payload = {'model': payload['model'], 'messages': [{'role': 'system', 'content': payload['instructions']}, {'role': 'user', 'content': payload['input']}], 'max_tokens': payload['max_output_tokens'], 'stream': False}
+        payload = {'model': payload['model'], 'messages': [{'role': 'system', 'content': payload['instructions']}, {'role': 'user', 'content': payload['input']}], 'max_tokens': min(payload['max_output_tokens'], 384), 'stream': False}
         if local_choices:
             # Application-owned labels, never CLI text. Constrain decoding itself;
             # post-validation still rejects invalid replies from other runtimes.
@@ -156,11 +156,14 @@ def install_engineering_ai(app):
         try:
             if body.module == 'CLI_ANALYSIS':
                 observed = overview(content['evidence'], body.vendor, body.language)
-                context = observed[0][:6000] if observed else ''
+                context = observed[0][:550] if observed else ''
                 knowledge = retrieve_knowledge(content['evidence'], body.vendor)
+                # Prompt stays within the bundled small-model context window.
+                # The full local evidence is retained for independent citation validation.
+                compact_knowledge = [{**item, 'questions': item['questions'][:2]} for item in knowledge[:2]]
                 inputs = {'vendor': body.vendor, 'language': body.language,
                     'evidence': content['evidence'], 'observed_context': context,
-                    'retrieved_knowledge': knowledge}
+                    'retrieved_knowledge': compact_knowledge}
                 try:
                     draft = generate({'model': os.environ['AI_MODEL'], 'store': False,
                         'max_output_tokens': 2200, 'instructions': INSTRUCTIONS + _CLI_REVIEW,
