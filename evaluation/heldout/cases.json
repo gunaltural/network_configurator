@@ -3,13 +3,26 @@
     "id": "B1",
     "tech": "BGP",
     "vendor": "Cisco IOS-XE",
-    "raw": "EDGE7# show ip bgp summary\nNeighbor V AS MsgRcvd MsgSent TblVer InQ OutQ Up/Down State/PfxRcd\n203.0.113.71 4 64520 0 0 1 0 0 never Idle (Admin)"
+    "raw": "EDGE7# show ip bgp summary\nNeighbor V AS MsgRcvd MsgSent TblVer InQ OutQ Up/Down State/PfxRcd\n203.0.113.71 4 64520 0 0 1 0 0 never Idle (Admin)",
+    "acceptance": {
+      "must_mention": [
+        "idle",
+        "admin"
+      ],
+      "minimum_line_citations": 1
+    }
   },
   {
     "id": "B2",
     "tech": "BGP",
     "vendor": "Cisco IOS-XE",
-    "raw": "EDGE8# show ip bgp summary\nNeighbor V AS MsgRcvd MsgSent TblVer InQ OutQ Up/Down State/PfxRcd\n203.0.113.72 4 64521 12 11 1 0 0 00:05:30 0"
+    "raw": "EDGE8# show ip bgp summary\nNeighbor V AS MsgRcvd MsgSent TblVer InQ OutQ Up/Down State/PfxRcd\n203.0.113.72 4 64521 12 11 1 0 0 00:05:30 0",
+    "acceptance": {
+      "must_mention": [
+        "203.0.113.72"
+      ],
+      "minimum_line_citations": 1
+    }
   },
   {
     "id": "M1",
