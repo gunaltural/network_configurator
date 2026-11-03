@@ -59,7 +59,11 @@
       ],
       "must_not_claim": [
         "peer-gateway is disabled",
-        "peer gateway is disabled"
+        "peer gateway is disabled",
+        "peer-keepalive is missing",
+        "peer keepalive is missing",
+        "no peer-keepalive configured",
+        "peer-keepalive not configured"
       ],
       "minimum_line_citations": 1
     }
