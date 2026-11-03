@@ -31,16 +31,41 @@ class Tests(unittest.TestCase):
             self.body['evidence'] *= 2
             self.assertEqual(self.client.post('/api/ai/analyze', json=self.body).status_code, 422)
 
-    def test_single_area_cli_returns_evidence_without_model_request(self):
+    def test_cli_model_review_uses_retrieved_knowledge(self):
         capture = dict(module='CLI_ANALYSIS', vendor='Cisco IOS-XE', task='report', evidence=[
             dict(id='summary', text='Device: CE1\nCommand: show ip bgp summary\nL2: Neighbor V AS MsgRcvd MsgSent TblVer InQ OutQ Up/Down State/PfxRcd\nL3: 192.0.2.2 4 65002 0 0 1 0 0 never Idle')])
-        with patch.dict(os.environ, {'AI_PROVIDER':'local','AI_ENABLED':'1','AI_MODEL':'network-engineer','AI_BASE_URL':'http://localhost:8080/v1'}, clear=True), patch('engineering_ai.generate') as generate:
+        env = {'AI_PROVIDER':'local','AI_ENABLED':'1','AI_MODEL':'network-engineer','AI_BASE_URL':'http://localhost:8080/v1'}
+        with patch.dict(os.environ, env, clear=True), patch('engineering_ai.generate', return_value='Observed idle [summary, L3].') as generate:
             result = self.client.post('/api/ai/analyze', json=capture)
             self.assertEqual(result.status_code, 200)
             draft = result.json()
-            self.assertEqual(draft['mode'], 'observations-only')
-            self.assertIn('AS 65002 · Idle', draft['text'])
-            generate.assert_not_called()
+            self.assertEqual(draft['mode'], 'model-evidence-cited-draft')
+            self.assertIn('bgp-control-plane', draft['knowledgeIds'])
+            self.assertEqual(draft['evidenceIds'], ['summary'])
+            payload = generate.call_args.args[0]
+            self.assertIn('retrieved_knowledge', payload['input'])
+            self.assertIn('L3:', payload['input'])
+
+    def test_cli_rejects_hallucinated_line_citation(self):
+        capture = dict(module='CLI_ANALYSIS', vendor='Cisco NX-OS', task='report', evidence=[
+            dict(id='cli-1-0', text='Device: LEAF1\nCommand: show vpc\nL3: peer-link status: up')])
+        env = {'AI_PROVIDER':'openai','AI_ENABLED':'1','AI_MODEL':'test','OPENAI_API_KEY':'test'}
+        with patch.dict(os.environ, env), patch('engineering_ai.generate', return_value='Potential issue [cli-1-0, L999].'):
+            result = self.client.post('/api/ai/analyze', json=capture)
+            self.assertEqual(result.status_code, 200)
+            self.assertEqual(result.json()['mode'], 'model-unverified-draft')
+            self.assertIn('unverified', result.json()['text'])
+
+    def test_cross_batch_synthesis_is_explicitly_unverified(self):
+        capture = dict(module='CLI_SYNTHESIS', vendor='Cisco NX-OS', task='report', evidence=[
+            dict(id='batch-1', text='Preliminary vPC hypothesis [cli-1-0, L6]'),
+            dict(id='batch-2', text='Potentially contradictory operational state [cli-8-0, L44]')])
+        env = {'AI_PROVIDER':'openai','AI_ENABLED':'1','AI_MODEL':'test','OPENAI_API_KEY':'test'}
+        with patch.dict(os.environ, env), patch('engineering_ai.generate', return_value='UNVERIFIED: compare peer state across reports.') as generate:
+            result = self.client.post('/api/ai/analyze', json=capture)
+            self.assertEqual(result.status_code, 200)
+            self.assertEqual(result.json()['mode'], 'cross-batch-unverified-synthesis')
+            self.assertIn('batch_drafts', generate.call_args.args[0]['input'])
 
     def test_cli_provider_failure_returns_explicit_evidence_only(self):
         from fastapi import HTTPException
