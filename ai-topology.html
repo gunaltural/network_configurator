@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI Topology Workspace · Network Configurator</title>
+<link rel="stylesheet" href="/corporate-theme.css">
+<style>
+:root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#edf3f7;color:#152536;font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:1500px;margin:0 auto;padding:22px}header{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap}
+h1{font-size:1.65rem;margin:8px 0}h2{font-size:1.15rem;margin:0 0 12px}h3{font-size:1rem;margin:14px 0 6px}
+a{color:#115984}p{margin:8px 0}.muted,.hint{color:#526575}.hint{font-size:.85rem}
+.grid{display:grid;grid-template-columns:minmax(320px,440px) minmax(0,1fr);gap:16px}.panel{border:1px solid #c9d7e2;background:#fff;border-radius:12px;padding:18px;margin-top:16px;min-width:0}
+fieldset{border:1px solid #d2dde5;border-radius:8px;margin:14px 0;padding:12px;min-width:0}legend{font-weight:650;padding:0 5px}
+.control{display:flex;align-items:end;flex-wrap:wrap;gap:8px}.control>*{min-width:0;flex:1}.control>button{flex:0 0 auto}
+label{display:block;font-weight:600;font-size:.9rem;margin:8px 0}input,select,button,textarea{font:inherit;border:1px solid #a9bbc9;border-radius:7px;padding:8px;background:white;color:#162c3d;max-width:100%}
+label>input,label>select,label>textarea{display:block;width:100%;margin-top:3px}button{cursor:pointer}button.primary{background:#174e76;color:#fff;border-color:#174e76}
+button:disabled{opacity:.55;cursor:not-allowed}button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #3186cc;outline-offset:2px}
+#topologyCanvas{display:block;width:100%;height:340px;border:1px solid #d5dfe7;border-radius:9px;background:#f8fbfd}#topologyCanvas text{font:13px system-ui,sans-serif;fill:#18374e}#topologyCanvas .node{fill:#e0eff8;stroke:#266b93;stroke-width:2}#topologyCanvas .link{stroke:#648ba8;stroke-width:3}
+#devicesList,#linksList{list-style:none;padding:0;margin:8px 0;display:flex;flex-wrap:wrap;gap:8px}#devicesList button,#linksList button{background:#f1f7fa}
+textarea{width:100%;min-height:140px;resize:vertical}pre{padding:12px;background:#f1f6fa;border:1px solid #d4e1eb;border-radius:8px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;max-height:250px}
+#analysisResult{min-height:340px}#status{min-height:1.5em;font-weight:600;color:#174e76}
+#status[data-error="true"]{color:#a12828}#sourceLabel{font-size:.9rem}
+@media(max-width:900px){.grid{grid-template-columns:1fr}main{padding:12px}#topologyCanvas{height:290px}}
+</style></head>
+<body><main>
+<header><div><a href="/">Network Configurator</a> / AI Analysis <h1>AI Topology Workspace</h1><p class="muted">Start from a design or template. Edit devices, links and configurations without changing the original Design project.</p></div><span id="sourceLabel">Independent workspace</span></header>
+<div class="grid"><section class="panel" aria-label="Topology editor">
+<h2>1 · Build or import topology</h2>
+<div class="control"><label>Starting point<select id="template"><option value="blank">Blank topology</option><option value="vpc">Cisco vPC pair</option><option value="bgp">CE–ISP eBGP</option><option value="evpn">EVPN leaf–spine</option></select></label><button id="applyTemplate">Use template</button></div>
+<div class="control"><button id="exportWorkspace">Save workspace (.json)</button><label>Open saved workspace<input type="file" id="importWorkspace" accept=".json,application/json"></label></div>
+<p class="hint">Local in-browser editing. A downloaded workspace includes device configurations and may contain secrets. Do not share it without checking.</p>
+<fieldset><legend>Devices</legend>
+<div class="control"><label>Selected device<select id="deviceSelect"><option value="">New device</option></select></label><button id="newDevice">New</button></div>
+<div class="control"><label>ID<input id="deviceId" placeholder="fw-1" maxlength="64"></label><label>Hostname<input id="hostname" placeholder="FW-1" maxlength="80"></label></div>
+<div class="control"><label>Vendor<input id="vendor" placeholder="FortiGate" maxlength="80"></label><label>Role<input id="role" placeholder="firewall" maxlength="80"></label></div>
+<div class="control"><button id="saveDevice" class="primary">Add / update device</button><button id="deleteDevice">Remove device</button></div>
+</fieldset>
+<fieldset><legend>Connections</legend>
+<div class="control"><label>Selected connection<select id="linkSelect"><option value="">New connection</option></select></label><button id="newLink">New</button></div>
+<div class="control"><label>Link ID<input id="linkId" placeholder="uplink-1" maxlength="64"></label><label>Type<input id="linkKind" placeholder="Ethernet / eBGP" maxlength="80"></label></div>
+<div class="control"><label>From<select id="linkA"></select></label><label>To<select id="linkB"></select></label></div>
+<div class="control"><label>From port<input id="linkAPort" placeholder="Eth1/1" maxlength="80"></label><label>To port<input id="linkBPort" placeholder="port1" maxlength="80"></label></div>
+<label><input type="checkbox" id="linkLogical"> Logical / control-plane link</label>
+<div class="control"><button id="saveLink" class="primary">Add / update connection</button><button id="deleteLink">Remove connection</button></div>
+</fieldset>
+<fieldset><legend>Per-device configuration / CLI capture</legend>
+<label>Device<select id="configDevice"></select></label>
+<label>Paste configuration or outputs<textarea id="configuration" spellcheck="false" placeholder="show running-config / show tech / display current-configuration …"></textarea></label>
+<div class="control"><label>Load local TXT / CFG<input type="file" id="configFile" accept=".txt,.log,.cfg,text/plain"></label><button id="saveConfig">Attach to selected device</button></div>
+<p class="hint">Files stay local until you explicitly run analysis. Analysis sends the reviewed, redacted evidence to the configured model provider. For captures exceeding 150 KB per device, use <a href="/analysis">CLI Analysis</a>.</p>
+</fieldset>
+</section>
+<div><section class="panel" aria-label="Topology overview">
+<h2>2 · Inspect network topology</h2><p id="overview">No devices yet.</p>
+<svg id="topologyCanvas" viewBox="0 0 800 360" role="img" aria-label="Editable network topology preview"></svg>
+<h3>Devices</h3><ul id="devicesList"></ul><h3>Connections</h3><ul id="linksList"></ul>
+</section>
+<section class="panel" aria-label="AI analysis"><h2>3 · Review and analyze</h2>
+<p>AI runs only when you explicitly press Analyze. Review the exact redacted evidence before sending it. A citation-valid draft is <strong>not</strong> a verified root-cause diagnosis.</p>
+<div class="control"><label>Report language<select id="language"><option value="en">English</option><option value="tr">Türkçe</option></select></label><button id="preview">Review evidence to send</button><button id="analyze" class="primary" disabled>Analyze reviewed evidence</button></div>
+<details id="evidenceDetails"><summary>Evidence preview (sanitized)</summary><pre id="evidencePreview"></pre></details>
+<p id="status" role="status"></p>
+<label>Editable engineering draft<textarea id="analysisResult" aria-label="Editable engineering analysis" spellcheck="false"></textarea></label>
+<button id="downloadReport" disabled>Download reviewed report (.txt)</button>
+</section></div></div></main>
+<script src="/ai-topology-workspace.js"></script><script src="/ai-topology-ui.js"></script>
+</body></html>
