@@ -6,30 +6,45 @@ function fromDesign(report){
  if(!report||!Array.isArray(report.devices))throw Error('A design with devices is required.');
  const nodes=report.devices.filter(d=>!d.inventoryOnly).map(d=>({id:identifier(d.id),hostname:identifier(d.hostname||d.id),vendor:identifier(d.vendor||report.vendor),role:identifier(d.tier||d.role),source:'design'}));
  const links=[...(report.links||[]),...(report.specialLinks||[])].filter(l=>l.enabled!==false).map((l,i)=>({id:identifier(l.id||'link-'+i),a:identifier(l.a),b:identifier(l.b),aPort:identifier(l.aPort||l.upperPort),bPort:identifier(l.bPort||l.lowerPort),kind:identifier(l.kind||'Connection'),logical:l.logical===true}));
- return validate({schema:'ai-topology-workspace-v1',sourceModule:identifier(report.source?.module),nodes,links,configs:[]});
+ const ids=new Set(nodes.map(n=>n.id));
+ const configs=(report.configurations||[]).filter(c=>ids.has(identifier(c.deviceId))&&typeof c.text==='string').map(c=>({
+  deviceId:identifier(c.deviceId),text:String(c.text).replace(/\\r\\n?/g,'\\n').split('\\n').map(safeLine).join('\\n')
+ }));
+ const designReview={
+  origin:'original-design-snapshot',edited:false,
+  parameters:(report.parameters||[]).map(p=>({
+   label:identifier(p.label).slice(0,300),
+   value:identifier(p.value).slice(0,1500),
+   impact:identifier(p.impact).slice(0,1500)
+  })),
+  checks:report.designChecks||null
+ };
+ return validate({schema:'ai-topology-workspace-v1',sourceModule:identifier(report.source?.module),nodes,links,configs,designReview});
 }
 function validate(workspace){
  const model=clone(workspace),ids=new Set(),linkIds=new Set();
  if(model.schema!=='ai-topology-workspace-v1'||!Array.isArray(model.nodes)||!Array.isArray(model.links)||!Array.isArray(model.configs))throw Error('Invalid workspace schema.');
+ if(model.designReview&&(!Array.isArray(model.designReview.parameters)||typeof model.designReview.edited!=='boolean'))throw Error('Invalid Design review context.');
  for(const n of model.nodes){if(!identifier(n.id)||ids.has(n.id))throw Error('Duplicate or empty device id.');ids.add(n.id);}
  for(const l of model.links){if(!identifier(l.id)||linkIds.has(l.id)||!ids.has(l.a)||!ids.has(l.b)||l.a===l.b)throw Error('Invalid link or endpoint.');linkIds.add(l.id);}
  for(const c of model.configs){if(!ids.has(c.deviceId)||typeof c.text!=='string')throw Error('Configuration has no matching device.');}
  return model;
 }
+function edited(next){if(next.designReview)next.designReview.edited=true;return next;}
 function addDevice(workspace,device){
- const next=validate(workspace);next.nodes.push({id:identifier(device.id),hostname:identifier(device.hostname||device.id),vendor:identifier(device.vendor),role:identifier(device.role),source:'user'});return validate(next);
+ const next=validate(workspace);next.nodes.push({id:identifier(device.id),hostname:identifier(device.hostname||device.id),vendor:identifier(device.vendor),role:identifier(device.role),source:'user'});return validate(edited(next));
 }
 function addLink(workspace,link){
- const next=validate(workspace);next.links.push({id:identifier(link.id),a:identifier(link.a),b:identifier(link.b),aPort:identifier(link.aPort),bPort:identifier(link.bPort),kind:identifier(link.kind||'Connection'),logical:link.logical===true});return validate(next);
+ const next=validate(workspace);next.links.push({id:identifier(link.id),a:identifier(link.a),b:identifier(link.b),aPort:identifier(link.aPort),bPort:identifier(link.bPort),kind:identifier(link.kind||'Connection'),logical:link.logical===true});return validate(edited(next));
 }
 function removeDevice(workspace,id){
- const next=validate(workspace);next.nodes=next.nodes.filter(n=>n.id!==id);next.links=next.links.filter(l=>l.a!==id&&l.b!==id);next.configs=next.configs.filter(c=>c.deviceId!==id);return validate(next);
+ const next=validate(workspace);next.nodes=next.nodes.filter(n=>n.id!==id);next.links=next.links.filter(l=>l.a!==id&&l.b!==id);next.configs=next.configs.filter(c=>c.deviceId!==id);return validate(edited(next));
 }
 function setConfiguration(workspace,deviceId,text){
  const next=validate(workspace);if(!next.nodes.some(n=>n.id===deviceId))throw Error('Unknown device.');
  if(typeof text!=='string')throw Error('Configuration must be text.');
  next.configs=next.configs.filter(c=>c.deviceId!==deviceId);
- next.configs.push({deviceId,text});return validate(next);
+ next.configs.push({deviceId,text});return validate(edited(next));
 }
 function analysisManifest(workspace){
  const model=validate(workspace);
@@ -64,17 +79,17 @@ function updateDevice(workspace,id,changes){
  const next=validate(workspace),device=next.nodes.find(n=>n.id===id);
  if(!device)throw Error('Unknown device.');
  for(const key of ['hostname','vendor','role'])if(Object.prototype.hasOwnProperty.call(changes,key))device[key]=identifier(changes[key]);
- return validate(next);
+ return validate(edited(next));
 }
 function updateLink(workspace,id,changes){
  const next=validate(workspace),link=next.links.find(l=>l.id===id);
  if(!link)throw Error('Unknown link.');
  for(const key of ['a','b','aPort','bPort','kind'])if(Object.prototype.hasOwnProperty.call(changes,key))link[key]=identifier(changes[key]);
  if(Object.prototype.hasOwnProperty.call(changes,'logical'))link.logical=changes.logical===true;
- return validate(next);
+ return validate(edited(next));
 }
 function removeLink(workspace,id){
- const next=validate(workspace);next.links=next.links.filter(l=>l.id!==id);return validate(next);
+ const next=validate(workspace);next.links=next.links.filter(l=>l.id!==id);return validate(edited(next));
 }
 const sensitive=/(?:password|passwd|secret|snmp[-\s]?server\s+community|snmp\s+community|community-string|private.?key|api.?key|authorization|sk-[A-Za-z0-9_-]+)/i;
 function safeLine(line){return sensitive.test(line)?'[REDACTED]':line.replace(/[\r\n\t]/g,' ');}
@@ -97,12 +112,27 @@ function analysisEvidenceBatches(workspace){
   }
   flush();
  };
- addChunks('topology','Device: WORKSPACE\nCommand: user topology manifest',topology);
+ addChunks('topology','Device: WORKSPACE\\nCommand: user topology manifest (design intent, not operational proof)',topology);
+ if(model.designReview){
+  const source=model.designReview.edited?'Original Design parameters (workspace has since been edited)':'Original Design parameters (intent; not operational proof)';
+  const params=['Source: '+source,...model.designReview.parameters.map(p=>
+   'Parameter '+p.label+' | selected='+p.value+' | engineering rationale='+p.impact
+  )];
+  addChunks('design-intent','Device: ORIGINAL-DESIGN\\nCommand: parameter choices and engineering rationale',params);
+  const checks=model.designReview.checks;
+  if(checks){
+   const observations=['Source: existing Design consistency checker; this is not AI reasoning or deployed configuration verification',
+    'Evaluated '+checks.evaluated+' inputs; '+checks.errors+' errors; '+checks.warnings+' warnings',
+    'Original Design status: '+(model.designReview.edited?'STALE AFTER WORKSPACE EDITS':'snapshot at import')];
+   for(const issue of checks.issues||[])observations.push('Design check '+issue.code+' '+issue.severity+': '+issue.message);
+   addChunks('design-check','Device: ORIGINAL-DESIGN\\nCommand: deterministic input checks',observations);
+  }
+ }
  for(const [index,c]of model.configs.entries()){
   const node=model.nodes.find(n=>n.id===c.deviceId);
   if(!node)continue;
   if(c.text.length>150000)throw Error('Device configuration exceeds 150 KB. Use CLI Analysis for large captures.');
-  addChunks('config-'+index,'Device: '+identifier(node.hostname).replace(/[\r\n]/g,' ')+'\nVendor: '+identifier(node.vendor).replace(/[\r\n]/g,' ')+'\nCommand: user-supplied configuration (unverified)',c.text.replace(/\r\n?/g,'\n').split('\n'));
+  addChunks('config-'+index,'Device: '+identifier(node.hostname).replace(/[\r\n]/g,' ')+'\nVendor: '+identifier(node.vendor).replace(/[\r\n]/g,' ')+'\nCommand: proposed configuration (generated Design or manually attached; NOT deployed)',c.text.replace(/\r\n?/g,'\n').split('\n'));
  }
  if(!items.length)throw Error('A device or link is required.');
  const batches=[];let batch=[],size=0;
