@@ -99,6 +99,51 @@ class Tests(unittest.TestCase):
             self.assertIn('retrieved_knowledge', payload['input'])
             self.assertNotIn('Max 65 words', payload['instructions'])
 
+    def test_opt_in_groq_uses_fixed_chat_endpoint_and_cites_real_evidence(self):
+        from engineering_ai import generate, configured
+        import json
+        env = {'AI_PROVIDER': 'groq', 'AI_ENABLED': '1',
+               'AI_MODEL': 'openai/gpt-oss-120b', 'GROQ_API_KEY': 'synthetic-secret'}
+        data = {'choices': [{'finish_reason': 'stop', 'message': {
+            'content': 'Observed operational state [cli-1, L4]; inspect the other peer.'}}]}
+        capture = dict(module='CLI_ANALYSIS', vendor='Cisco NX-OS', task='report',
+                       evidence=[dict(id='cli-1', text='Device: N9K-A\\nCommand: show vpc\\nL4: Peer Gateway : Enabled')])
+        with patch.dict(os.environ, env, clear=True), patch('engineering_ai.urllib.request.build_opener') as opener:
+            self.assertTrue(configured())
+            response = opener.return_value.open.return_value.__enter__.return_value
+            response.read.return_value = json.dumps(data).encode()
+            draft = self.client.post('/api/ai/analyze', json=capture)
+            self.assertEqual(draft.status_code, 200)
+            self.assertEqual(draft.json()['mode'], 'model-evidence-cited-draft')
+            self.assertFalse(draft.json()['engineeringVerified'])
+            req = opener.return_value.open.call_args.args[0]
+            self.assertEqual(req.full_url, 'https://api.groq.com/openai/v1/chat/completions')
+            self.assertEqual(req.get_header('Authorization'), 'Bearer synthetic-secret')
+            payload = json.loads(req.data)
+            self.assertEqual(payload['model'], 'openai/gpt-oss-120b')
+            self.assertEqual(payload['messages'][0]['role'], 'system')
+            self.assertEqual(payload['messages'][1]['role'], 'user')
+            self.assertIn('Peer Gateway : Enabled', payload['messages'][1]['content'])
+            self.assertIn('retrieved_knowledge', payload['messages'][1]['content'])
+            self.assertFalse(payload['stream'])
+        with patch.dict(os.environ, {**env, 'GROQ_API_KEY': ''}, clear=True):
+            self.assertFalse(configured())
+
+    def test_groq_incomplete_reply_does_not_pass_as_engineering_reasoning(self):
+        import json
+        env = {'AI_PROVIDER': 'groq', 'AI_ENABLED': '1',
+               'AI_MODEL': 'openai/gpt-oss-120b', 'GROQ_API_KEY': 'synthetic-secret'}
+        capture = dict(module='CLI_ANALYSIS', vendor='Cisco NX-OS', task='report',
+                       evidence=[dict(id='x', text='Device: N9K-A\\nL3: Peer-link status : Up')])
+        data = {'choices': [{'finish_reason': 'length', 'message': {
+            'content': 'Unsupported incomplete model output [x, L3]'}}]}
+        with patch.dict(os.environ, env, clear=True), patch('engineering_ai.urllib.request.build_opener') as opener:
+            opener.return_value.open.return_value.__enter__.return_value.read.return_value = json.dumps(data).encode()
+            result = self.client.post('/api/ai/analyze', json=capture)
+            self.assertEqual(result.status_code, 200)
+            self.assertEqual(result.json()['mode'], 'evidence-only-provider-fallback')
+            self.assertNotIn('Unsupported incomplete model output', result.json()['text'])
+
     def test_hosted_provider_receives_complete_retrieval_context(self):
         capture = dict(module='CLI_ANALYSIS', vendor='Cisco NX-OS', task='report', evidence=[
             dict(id='a', text='Device: N9K-A\nCommand: show vpc\nL3: vPC role : primary\nL4: Peer Gateway : Enabled'),
