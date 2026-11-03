@@ -1,0 +1,37 @@
+import {createRequire} from 'node:module';
+import assert from 'node:assert/strict';
+const {chromium}=createRequire(import.meta.url)('playwright');
+const browser=await chromium.launch({headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
+const page=await browser.newPage({viewport:{width:1280,height:900}});
+const base=process.env.SMOKE_URL||'http://127.0.0.1:8125';
+const errors=[];
+page.on('pageerror',error=>errors.push(error.message));
+try{
+ const response=await page.goto(base+'/ai-topology');
+ assert.equal(response.status(),200);
+ await page.locator('#template').selectOption('vpc');
+ await page.locator('#applyTemplate').click();
+ assert.match(await page.locator('#overview').innerText(),/2 devices · 2 links/);
+ await page.locator('#deviceId').fill('fw-1');
+ await page.locator('#hostname').fill('FW-1');
+ await page.locator('#vendor').fill('FortiGate');
+ await page.locator('#role').fill('edge');
+ await page.locator('#saveDevice').click();
+ assert.match(await page.locator('#overview').innerText(),/3 devices/);
+ await page.locator('#linkId').fill('fw-uplink');
+ await page.locator('#linkKind').fill('Ethernet');
+ await page.locator('#linkA').selectOption('n9k-a');
+ await page.locator('#linkB').selectOption('fw-1');
+ await page.locator('#saveLink').click();
+ assert.match(await page.locator('#overview').innerText(),/3 links/);
+ await page.locator('#configDevice').selectOption('fw-1');
+ await page.locator('#configuration').fill('hostname FW-1\nsnmp-server community dont-send-me RO\nset community 65000:1 additive');
+ await page.locator('#saveConfig').click();
+ await page.locator('#preview').click();
+ const review=await page.locator('#evidencePreview').innerText();
+ assert.ok(review.includes('65000:1 additive'),'Routing community survives client redaction');
+ assert.ok(!review.includes('dont-send-me'),'Credentials are not present in review payload');
+ assert.equal(await page.locator('#analyze').isDisabled(),false);
+ assert.ok(!errors.length,'No browser JS errors: '+errors.join(','));
+ console.log('AI topology Chromium: templates, mixed-vendor edits, link, configuration, reviewed evidence and routes passed.');
+}finally{await browser.close();}
