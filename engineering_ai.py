@@ -200,10 +200,20 @@ def install_engineering_ai(app):
                     return {'text': draft, 'mode': 'model-evidence-cited-draft',
                         'reviewRequired': True, 'evidenceIds': ids,
                         'knowledgeIds': [k['id'] for k in knowledge]}
-                warning = ('AI değerlendirmesinde doğrulanabilir [kanıt-ID, Lsatır] referansları eksik veya hatalı; rapor doğrulanmamış taslaktır.'
-                    if body.language == 'tr' else
-                    'AI review has missing/invalid [evidence-id, Lline] citations; this is an unverified draft.')
-                return {'text': warning + '\n\n' + draft,
+                # Fail closed: do not publish a speculative engineering claim when
+                # its supporting observation cannot be checked in the capture.
+                # Retain only an evidence excerpt and an explicit review warning.
+                tr = body.language == 'tr'
+                warning = ('AI modelinin bulguları kanıt ID ve satır doğrulamasını geçemedi; '
+                           'kanıtsız çıkarımlar rapordan çıkarıldı. Bu bir mühendislik teşhisi değildir.'
+                           if tr else 'Model findings failed evidence ID/line validation; '
+                           'unsubstantiated claims were withheld. This is not an engineering diagnosis.')
+                excerpts = []
+                for item in content['evidence'][:8]:
+                    lines = [line for line in item['text'].splitlines()
+                             if re.match(r'^L\\d+:', line)]
+                    excerpts.append('### ' + item['id'] + '\\n' + '\\n'.join(lines[:4]))
+                return {'text': warning + '\\n\\n' + '\\n\\n'.join(excerpts),
                     'mode': 'model-unverified-draft', 'reviewRequired': True,
                     'evidenceIds': ids, 'knowledgeIds': [k['id'] for k in knowledge]}
             if body.module == 'CLI_SYNTHESIS':
