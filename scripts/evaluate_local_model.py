@@ -28,6 +28,30 @@ def main():
     if not all(r['mentions_state'] and r['cites_evidence'] and r['cites_line'] for r in results):
         raise SystemExit('Draft lacks the observed state or its citation; engineering review required.')
 
+    # Require an actual free-form model completion, not only deterministic parsing
+    # or constrained selection. This guards against false-positive AI evaluations.
+    from engineering_ai import generate
+    started = time.monotonic()
+    model_draft = generate({
+        'model': os.environ['AI_MODEL'],
+        'instructions': (
+            'You are a network engineer. Explain the observed BGP state in two '
+            'short sentences. Distinguish observed state from possible causes. '
+            'Reference evidence ID cli-1. Do not invent a root cause.'
+        ),
+        'input': json.dumps({'evidence': evidence}, ensure_ascii=False),
+        'max_output_tokens': 192,
+    })
+    assert isinstance(model_draft, str) and len(model_draft.strip()) >= 30, (
+        'Real local model produced no substantive analysis'
+    )
+    print(json.dumps({
+        'real_model_completion': True,
+        'seconds': round(time.monotonic() - started, 2),
+        'characters': len(model_draft),
+        'draft': model_draft,
+    }, ensure_ascii=False), flush=True)
+
     # Exercise the same parser and endpoint used for a selected mixed support capture.
     import subprocess
     from pathlib import Path
