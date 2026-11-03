@@ -33,5 +33,29 @@ try{
  assert.ok(!review.includes('dont-send-me'),'Credentials are not present in review payload');
  assert.equal(await page.locator('#analyze').isDisabled(),false);
  assert.ok(!errors.length,'No browser JS errors: '+errors.join(','));
+
+ // Real application-to-AI bridge: consume the existing current Design report,
+ // not an artificial topology or prewritten simulator answer.
+ const designPage=await browser.newPage({viewport:{width:1280,height:900}});
+ try{
+  await designPage.goto(base+'/',{waitUntil:'domcontentloaded'});
+  const openReview=designPage.locator('#ncSidebar button').filter({hasText:'Analyze Design with AI (optional)'});
+  await openReview.waitFor({timeout:18000});
+  await designPage.locator('.tech[data-tech="VPC"]').click();
+  await designPage.waitForFunction(()=>!!window.NetworkWorkspaceProject?.diagnosticDesign, {timeout:10000});
+  await openReview.click();
+  await designPage.waitForURL('**/ai-topology',{timeout:15000});
+  const summary=await designPage.locator('#designReviewSummary').innerText();
+  assert.match(summary,/configuration proposals/,'Import actual generated configurations');
+  assert.match(summary,/engineering parameters/,'Import selected Design parameters');
+  assert.match(summary,/original input checks/,'Import existing Design Checks');
+  assert.ok(!(await designPage.locator('#designReviewPanel').isHidden()),'Original checks shown separately from AI output');
+  await designPage.locator('#preview').click();
+  const evidence=await designPage.locator('#evidencePreview').innerText();
+  assert.ok(evidence.includes('Command: proposed configuration'),'Generated configs clearly labeled as proposals');
+  assert.ok(evidence.includes('Command: deterministic input checks'),'Deterministic controls are reused, not copied as AI findings');
+  assert.ok(evidence.includes('Command: parameter choices'),'Design parameters feed AI review');
+ }finally{await designPage.close();}
+
  console.log('AI topology Chromium: templates, mixed-vendor edits, link, configuration, reviewed evidence and routes passed.');
 }finally{await browser.close();}
