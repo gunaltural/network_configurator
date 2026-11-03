@@ -207,7 +207,7 @@ def install_engineering_ai(app):
                 warning = ('AI modelinin bulguları kanıt ID ve satır doğrulamasını geçemedi; '
                            'kanıtsız çıkarımlar rapordan çıkarıldı. Bu bir mühendislik teşhisi değildir.'
                            if tr else 'Model findings failed evidence ID/line validation; '
-                           'unsubstantiated claims were withheld. This is not an engineering diagnosis.')
+                           'unverified claims were withheld. This is not an engineering diagnosis.')
                 excerpts = []
                 for item in content['evidence'][:8]:
                     lines = [line for line in item['text'].splitlines()
