@@ -143,7 +143,7 @@ $('importWorkspace').onchange=async()=>{
 $('preview').onclick=()=>{
  try{
   pendingBatches=api.analysisEvidenceBatches(workspace);
-  reviewedSignature=snapshot();runState={batches:pendingBatches,reports:[],index:0,signature:reviewedSignature};
+  reviewedSignature=snapshot();runState={batches:pendingBatches,reports:[],modes:[],index:0,signature:reviewedSignature,synthesis:''};
   const previewText=pendingBatches.flat().map(e=>'## '+e.id+'\n'+e.text).join('\n\n');
   $('evidencePreview').textContent=previewText;$('evidenceDetails').open=true;
   $('analyze').disabled=false;$('downloadReport').disabled=true;
@@ -152,7 +152,7 @@ $('preview').onclick=()=>{
 };
 function reportText(){
  const reports=runState?.reports||[];
- return '# AI Topology Engineering Analysis\n\nStatus: Unverified AI-assisted draft; engineer review required\nTopology: '+workspace.nodes.length+' devices / '+workspace.links.length+' connections\nBatches: '+reports.length+' / '+(runState?.batches.length||0)+'\n\n'+reports.join('\n\n');
+ return '# AI Topology Engineering Analysis\n\nStatus: Unverified AI-assisted draft; engineer review required\nTopology: '+workspace.nodes.length+' devices / '+workspace.links.length+' connections\nBatches: '+reports.length+' / '+(runState?.batches.length||0)+'\n\n'+reports.join('\n\n')+(runState?.synthesis?'\n\n## Cross-batch synthesis — UNVERIFIED\n'+runState.synthesis:'');
 }
 $('analyze').onclick=async()=>{
  if(busy)return;
@@ -170,10 +170,35 @@ $('analyze').onclick=async()=>{
    const result=await response.json();if(!response.ok)throw Error('Batch '+(i+1)+': '+(result.detail||'model request failed'));
    const unverified=result.mode!=='model-evidence-cited-draft';
    runState.reports.push('## Batch '+(i+1)+' — '+(unverified?'NOT VERIFIED / EVIDENCE ONLY':'Citations syntactically checked; engineering claims unverified')+'\n'+result.text);
+   runState.modes.push(result.mode);
    runState.index++;
    $('analysisResult').value=reportText();
   }
   const more=runState.index<runState.batches.length;
+  if(!more&&runState.reports.length>1&&!runState.synthesis){
+   if(runState.modes.some(mode=>mode!=='model-evidence-cited-draft')){
+    runState.synthesis='Not attempted: one or more batches lack valid model evidence citations. The individual observations must be reviewed first.';
+   }else{
+    try{
+     let nodes=runState.reports.map((text,i)=>({id:'batch-'+(i+1),text:text.slice(0,2600)})),round=0;
+     while(nodes.length>1&&round<6){
+      const next=[];
+      for(let i=0;i<nodes.length;i+=12){
+       const group=nodes.slice(i,i+12);
+       if(group.length===1){next.push(group[0]);continue;}
+       message('Cross-batch synthesis pass '+(round+1)+'…');
+       const response=await fetch('/api/ai/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({module:'CLI_SYNTHESIS',vendor,language:$('language').value,task:'report',evidence:group})});
+       const result=await response.json();
+       if(!response.ok||result.mode!=='cross-batch-unverified-synthesis')throw Error('Synthesis unavailable');
+       next.push({id:'synthesis-'+round+'-'+i,text:result.text.slice(0,2600)});
+      }
+      nodes=next;round++;
+     }
+     runState.synthesis=nodes.length===1?nodes[0].text:'Synthesis could not cover all batches.';
+    }catch(e){runState.synthesis='Synthesis unavailable: '+e.message+'. No cross-batch root cause has been established.';}
+   }
+   $('analysisResult').value=reportText();
+  }
   $('analyze').textContent=more?'Continue remaining batches':'Analyze reviewed evidence';
   $('downloadReport').disabled=false;
   message(more?'Partial analysis: '+runState.index+' / '+runState.batches.length+' batches. Continue to cover all evidence.':'All batches submitted. Cross-batch root cause is NOT independently established. Validate the report before use.');
