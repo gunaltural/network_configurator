@@ -12,6 +12,7 @@ on:
       - 'engineering-ai.js'
       - 'ai-evidence.js'
       - 'test_ai_design_handoff.cjs'
+      - 'test_ai_panel.cjs'
       - 'engineering_knowledge.py'
       - '.github/workflows/ai-analysis-mvp.yml'
   pull_request:
@@ -27,6 +28,7 @@ on:
       - 'engineering-ai.js'
       - 'ai-evidence.js'
       - 'test_ai_design_handoff.cjs'
+      - 'test_ai_panel.cjs'
       - 'app.py'
       - 'Dockerfile'
       - '.github/workflows/ai-analysis-mvp.yml'
