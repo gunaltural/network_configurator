@@ -25,6 +25,19 @@
     }
   },
   {
+    "id": "B3",
+    "tech": "BGP",
+    "vendor": "Cisco IOS-XE",
+    "raw": "EDGE9# show ip bgp summary\nNeighbor V AS MsgRcvd MsgSent TblVer InQ OutQ Up/Down State/PfxRcd\n203.0.113.73 4 64522 0 0 1 0 0 never Active\nEDGE9# show ip route 203.0.113.73\n% Network not in table\nEDGE9# show running-config | section router bgp\nrouter bgp 64510\n neighbor 203.0.113.73 remote-as 64522\n neighbor 203.0.113.73 update-source Loopback0",
+    "acceptance": {
+      "must_mention": [
+        "203.0.113.73",
+        "active"
+      ],
+      "minimum_line_citations": 2
+    }
+  },
+  {
     "id": "M1",
     "tech": "MLAG",
     "vendor": "Arista EOS",
