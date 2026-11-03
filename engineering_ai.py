@@ -42,7 +42,7 @@ def configured():
 
 
 def redact(value):
-    return re.sub(r'(?im)^.*(?:password|passwd|secret|snmp[-\s]?server\s+community|snmp\s+community|community-string|private.key|api.key|authorization|sk-[a-zA-Z0-9_-]+).*
+    return re.sub(r'(?im)^.*(?:password|passwd|secret|snmp[-\s]?server\s+community|snmp\s+community|community-string|private.key|api.key|authorization|sk-[a-zA-Z0-9_-]+).*$', '[REDACTED]', value)
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, *args, **kwargs):
