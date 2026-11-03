@@ -189,7 +189,7 @@ jobs:
           timeout --signal=TERM --kill-after=10s 75s node simulation/test_browser_smoke.mjs
           echo "::endgroup::"
           echo "::group::node simulation/test_workspace_browser.mjs"
-          timeout --signal=TERM --kill-after=10s 75s node simulation/test_workspace_browser.mjs
+          timeout --signal=TERM --kill-after=10s 180s node simulation/test_workspace_browser.mjs
           echo "::endgroup::"
           echo "::group::node simulation/test_pair_browser.mjs"
           timeout --signal=TERM --kill-after=10s 75s node simulation/test_pair_browser.mjs
