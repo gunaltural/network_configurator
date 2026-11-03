@@ -81,6 +81,21 @@ class Tests(unittest.TestCase):
             self.assertIn('manufacturer_documentation', payload['input'])
             self.assertIn('Max 65 words', payload['instructions'])
 
+    def test_full_local_profile_preserves_full_reasoning_context(self):
+        capture = dict(module='CLI_ANALYSIS', vendor='Cisco NX-OS', task='report', evidence=[
+            dict(id='a', text='Device: N9K-A\\nCommand: show vpc\\nL3: Peer Gateway : Enabled')])
+        env = {'AI_PROVIDER': 'local', 'AI_ENABLED': '1', 'AI_MODEL': 'strong-local',
+               'AI_BASE_URL': 'http://localhost:8080/v1', 'AI_LOCAL_REASONING_PROFILE': 'full'}
+        with patch.dict(os.environ, env, clear=True), patch('engineering_ai.generate',
+                return_value='Operational peer gateway enabled [a, L3].') as model:
+            response = self.client.post('/api/ai/analyze', json=capture)
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json()['mode'], 'model-evidence-cited-draft')
+            payload = model.call_args.args[0]
+            self.assertIn('senior multi-vendor', payload['instructions'])
+            self.assertIn('retrieved_knowledge', payload['input'])
+            self.assertNotIn('Max 65 words', payload['instructions'])
+
     def test_hosted_provider_receives_complete_retrieval_context(self):
         capture = dict(module='CLI_ANALYSIS', vendor='Cisco NX-OS', task='report', evidence=[
             dict(id='a', text='Device: N9K-A\nCommand: show vpc\nL3: vPC role : primary\nL4: Peer Gateway : Enabled'),
