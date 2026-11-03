@@ -107,7 +107,7 @@ class Tests(unittest.TestCase):
         data = {'choices': [{'finish_reason': 'stop', 'message': {
             'content': 'Observed operational state [cli-1, L4]; inspect the other peer.'}}]}
         capture = dict(module='CLI_ANALYSIS', vendor='Cisco NX-OS', task='report',
-                       evidence=[dict(id='cli-1', text='Device: N9K-A\\nCommand: show vpc\\nL4: Peer Gateway : Enabled')])
+                       evidence=[dict(id='cli-1', text='Device: N9K-A\nCommand: show vpc\nL4: Peer Gateway : Enabled')])
         with patch.dict(os.environ, env, clear=True), patch('engineering_ai.urllib.request.build_opener') as opener:
             self.assertTrue(configured())
             response = opener.return_value.open.return_value.__enter__.return_value
@@ -134,7 +134,7 @@ class Tests(unittest.TestCase):
         env = {'AI_PROVIDER': 'groq', 'AI_ENABLED': '1',
                'AI_MODEL': 'openai/gpt-oss-120b', 'GROQ_API_KEY': 'synthetic-secret'}
         capture = dict(module='CLI_ANALYSIS', vendor='Cisco NX-OS', task='report',
-                       evidence=[dict(id='x', text='Device: N9K-A\\nL3: Peer-link status : Up')])
+                       evidence=[dict(id='x', text='Device: N9K-A\nL3: Peer-link status : Up')])
         data = {'choices': [{'finish_reason': 'length', 'message': {
             'content': 'Unsupported incomplete model output [x, L3]'}}]}
         with patch.dict(os.environ, env, clear=True), patch('engineering_ai.urllib.request.build_opener') as opener:
