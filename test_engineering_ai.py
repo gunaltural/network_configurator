@@ -63,6 +63,29 @@ class Tests(unittest.TestCase):
             self.assertIn('manufacturer_documentation', payload['input'])
             self.assertIn('Max 65 words', payload['instructions'])
 
+    def test_hosted_provider_receives_complete_retrieval_context(self):
+        capture = dict(module='CLI_ANALYSIS', vendor='Cisco NX-OS', task='report', evidence=[
+            dict(id='a', text='Device: N9K-A\nCommand: show vpc\nL3: vPC role : primary\nL4: Peer Gateway : Enabled'),
+            dict(id='b', text='Device: N9K-A\nCommand: show spanning-tree vlan 10\nL8: Root ID Priority 24586')])
+        env = {'AI_PROVIDER': 'openai', 'AI_ENABLED': '1',
+               'OPENAI_API_KEY': 'synthetic-test-key', 'AI_MODEL': 'test-model'}
+        with patch.dict(os.environ, env, clear=True), patch('engineering_ai.generate',
+                return_value='Observed peer gateway enabled [a, L4]; additional peer evidence required.') as model:
+            response = self.client.post('/api/ai/analyze', json=capture)
+            self.assertEqual(response.status_code, 200)
+            data = response.json()
+            self.assertEqual(data['mode'], 'model-evidence-cited-draft')
+            self.assertFalse(data['engineeringVerified'])
+            request = model.call_args.args[0]
+            self.assertIn('manufacturer_documentation', request['input'])
+            self.assertIn('cisco-nxos-vpc-design', request['input'])
+            self.assertIn('How do peer reachability', request['input'])
+            self.assertIn('Does the spanning-tree', request['input'])
+            self.assertIn('peer-gateway', request['input'])
+            status = self.client.get('/api/ai/status').json()
+            self.assertEqual(status['provider'], 'openai')
+            self.assertFalse(status['reasoningVerified'])
+
     def test_cli_rejects_hallucinated_line_citation(self):
         capture = dict(module='CLI_ANALYSIS', vendor='Cisco NX-OS', task='report', evidence=[
             dict(id='cli-1-0', text='Device: LEAF1\nCommand: show vpc\nL3: peer-link status: up')])
