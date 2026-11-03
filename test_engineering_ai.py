@@ -42,6 +42,23 @@ class Tests(unittest.TestCase):
             self.assertIn('AS 65002 · Idle', draft['text'])
             generate.assert_not_called()
 
+    def test_cli_provider_failure_returns_explicit_evidence_only(self):
+        from fastapi import HTTPException
+        capture = dict(module='CLI_ANALYSIS', vendor='Other', task='report', evidence=[
+            dict(id='cli-1-1', text='Device: EDGE1\nCommand: show running-config\nL3: interface Ethernet1\nL4: ip address 192.0.2.1/24')])
+        env = {'AI_PROVIDER':'openai', 'AI_ENABLED':'1', 'AI_MODEL':'test', 'OPENAI_API_KEY':'test'}
+        with patch.dict(os.environ, env), patch('engineering_ai.generate', side_effect=HTTPException(502, 'AI provider did not return a complete draft.')):
+            result = self.client.post('/api/ai/analyze', json=capture)
+            self.assertEqual(result.status_code, 200)
+            draft = result.json()
+            self.assertEqual(draft['mode'], 'evidence-only-provider-fallback')
+            self.assertIn('cli-1-1', draft['text'])
+            self.assertIn('not a root-cause assessment', draft['text'])
+            self.assertTrue(draft['reviewRequired'])
+            self.assertEqual(draft['evidenceIds'], ['cli-1-1'])
+            ordinary = self.client.post('/api/ai/analyze', json=self.body)
+            self.assertEqual(ordinary.status_code, 502)
+
     def test_schema(self):
         self.body['rawConfig'] = 'not allowed'
         self.assertEqual(self.client.post('/api/ai/analyze', json=self.body).status_code, 422)
