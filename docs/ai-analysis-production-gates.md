@@ -16,6 +16,20 @@ The existing backend uses OpenAI Responses API. The server must have outbound HT
 
 **Data governance:** Entire selected redacted CLI evidence is sent to the provider. Do not enable hosted processing for confidential customer captures without appropriate organizational approval, data-processing review, and a validated redaction/retention policy. The current line-oriented redaction is not a full sensitive-data DLP solution; use synthetic captures for acceptance.
 
+### Recommended first real-model MVP without new hosting hardware: Groq free-tier (opt-in)
+
+Groq publishes free, rate-limited access to larger models; **access is not automatic, unlimited or guaranteed**. A project owner must create a free Groq account and server-side API credential and confirm that sending a particular sanitized capture to an external provider is authorized. This does not purchase hosting or a paid API plan.
+
+Server-only environment example:
+- `AI_ENABLED=1`
+- `AI_PROVIDER=groq`
+- `AI_MODEL=openai/gpt-oss-120b` (verify current model availability)
+- `GROQ_API_KEY=<secret>`
+
+The adapter uses the **fixed** `https://api.groq.com/openai/v1/chat/completions` endpoint with no user-configurable network URL. There is no automatic fallback from disabled/failed local inference to Groq: changing provider is an explicit deployment decision. The model's output must still pass actual citation validation, held-out engineering acceptance and full regression before production can claim AI reasoning.
+
+Source for plan and model/rate-limit availability: https://console.groq.com/docs/rate-limits. Do not infer your account-specific quotas from the general table. Do not place credentials in GitHub code or browser UI. A free account may not satisfy an organization's information-handling policies; use synthetic test captures until authorization is established.
+
 ### Experimental self-hosted local GGUF
 
 `AI_PROVIDER=local`, `AI_BASE_URL`, `AI_MODEL`, and `AI_ENABLED=1` select a local compatible server. Bundled Qwen2.5-0.5B may answer but currently **fails held-out vPC engineering reasoning** and the constrained memory/CPU evaluation. It is not an accepted production reasoning engine.
