@@ -71,6 +71,9 @@ def generate(payload, *, local_choices=()):
         if local:
             choice = data['choices'][0]
             if choice.get('finish_reason') != 'stop' or not isinstance(choice['message'].get('content'), str) or not choice['message']['content'].strip():
+                # Safe diagnostics only: do not log the model text or CLI evidence.
+                print('AI_LOCAL_INCOMPLETE finish_reason=' + str(choice.get('finish_reason')) +
+                      ' generated_chars=' + str(len(choice.get('message', {}).get('content') or '')), flush=True)
                 raise ValueError('Incomplete local response')
             return choice['message']['content']
         if data.get('status') != 'completed':
