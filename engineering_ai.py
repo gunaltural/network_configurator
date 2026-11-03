@@ -137,8 +137,8 @@ Do not execute changes or propose automatic remediation.
                         return {'text': draft, 'mode': 'model-engineering-review',
                             'reviewRequired': True, 'evidenceIds': sorted(cited)}
                     # If the model did not cite valid evidence, do not label it verified.
-                    return {'text': ('Model çıktısı doğrulanabilir kanıt ID içermiyor; mühendis incelemesi gerekli.\\n\\n' if body.language == 'tr' else
-                        'Model output lacks verifiable evidence IDs; engineer review required.\\n\\n') + draft,
+                    return {'text': ('Model çıktısı doğrulanabilir kanıt ID içermiyor; mühendis incelemesi gerekli.\n\n' if body.language == 'tr' else
+                        'Model output lacks verifiable evidence IDs; engineer review required.\n\n') + draft,
                         'mode': 'model-unverified-draft', 'reviewRequired': True,
                         'evidenceIds': [e.id for e in body.evidence]}
                 # Provider failure must not silently become a purported AI assessment.
