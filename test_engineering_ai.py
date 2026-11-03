@@ -46,6 +46,23 @@ class Tests(unittest.TestCase):
             self.assertIn('retrieved_knowledge', payload['input'])
             self.assertIn('L3:', payload['input'])
 
+    def test_vpc_model_receives_source_backed_questions_without_per_command_rules(self):
+        capture = dict(module='CLI_ANALYSIS', vendor='Cisco NX-OS', task='report', evidence=[
+            dict(id='cli-1-0', text='Device: N9K-A\\nCommand: show running-config vpc\\nL3: vpc domain 100'),
+            dict(id='cli-2-0', text='Device: N9K-A\\nCommand: show vpc\\nL8: Peer Gateway : Enabled')])
+        env = {'AI_PROVIDER':'local','AI_ENABLED':'1','AI_MODEL':'network-engineer','AI_BASE_URL':'http://localhost:8080/v1'}
+        with patch.dict(os.environ, env, clear=True), patch('engineering_ai.generate',
+                return_value='Operational state reports gateway forwarding enabled [cli-2-0, L8]; confirm configuration scope.') as generate:
+            response = self.client.post('/api/ai/analyze', json=capture)
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json()['mode'], 'model-evidence-cited-draft')
+            self.assertIn('cisco-nxos-vpc-design', response.json()['knowledgeIds'])
+            payload = generate.call_args.args[0]
+            self.assertIn('peer-switch', payload['input'])
+            self.assertIn('peer-gateway', payload['input'])
+            self.assertIn('manufacturer_documentation', payload['input'])
+            self.assertIn('Max 85 words', payload['instructions'])
+
     def test_cli_rejects_hallucinated_line_citation(self):
         capture = dict(module='CLI_ANALYSIS', vendor='Cisco NX-OS', task='report', evidence=[
             dict(id='cli-1-0', text='Device: LEAF1\nCommand: show vpc\nL3: peer-link status: up')])
