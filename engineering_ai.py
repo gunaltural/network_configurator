@@ -153,7 +153,11 @@ def install_engineering_ai(app):
 
     @app.get('/api/ai/status')
     def status():
-        return {'available': bool(configured()), 'readOnly': True}
+        enabled = bool(configured())
+        return {'available': enabled, 'readOnly': True,
+                'provider': os.getenv('AI_PROVIDER', 'local') if enabled else 'disabled',
+                'reasoningVerified': False,
+                'note': 'Credentials configured; this endpoint does not verify model quality or live inference.'}
 
     @app.post('/api/ai/analyze')
     def analyze(body: Analysis):
@@ -175,7 +179,8 @@ def install_engineering_ai(app):
                 knowledge = retrieve_knowledge(content['evidence'], body.vendor)
                 # Prompt stays within the bundled small-model context window.
                 # The full local evidence is retained for independent citation validation.
-                compact_knowledge = [{**item, 'questions': item['questions'][:2]} for item in knowledge[:2]]
+                compact_knowledge = ([{**item, 'questions': item['questions'][:2]} for item in knowledge[:2]]
+                    if os.getenv('AI_PROVIDER', 'local') == 'local' else knowledge)
                 inputs = {'vendor': body.vendor, 'language': body.language,
                     'evidence': content['evidence'], 'observed_context': context,
                     'retrieved_knowledge': compact_knowledge}
@@ -198,7 +203,7 @@ def install_engineering_ai(app):
                 valid, ids = validate_evidence_citations(draft, content['evidence'])
                 if valid:
                     return {'text': draft, 'mode': 'model-evidence-cited-draft',
-                        'reviewRequired': True, 'evidenceIds': ids,
+                        'reviewRequired': True, 'engineeringVerified': False, 'evidenceIds': ids,
                         'knowledgeIds': [k['id'] for k in knowledge]}
                 # Fail closed: do not publish a speculative engineering claim when
                 # its supporting observation cannot be checked in the capture.
