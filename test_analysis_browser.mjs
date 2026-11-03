@@ -20,7 +20,7 @@ try {
   await page.locator('#analyze').click();await page.waitForFunction(()=>document.getElementById('status').textContent.includes('Model unavailable'));
   assert.equal(await page.locator('#resultPanel').isVisible(),false);fail=false;
   await page.locator('#analyze').click();await page.locator('#resultPanel').waitFor({state:'visible'});
-  await page.locator('#result').fill('Reviewed test draft');assert.equal(await page.locator('#download').isEnabled(),true);
+  await page.locator('#download').waitFor({state:'visible'});await page.waitForFunction(()=>!document.getElementById('download').disabled);await page.locator('#result').fill('Reviewed test draft');assert.equal(await page.locator('#download').isEnabled(),true);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true,'No horizontal page overflow');
   assert.equal(requests,2);assert.deepEqual(errors,[]);await page.close();
  }
