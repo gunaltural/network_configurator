@@ -192,7 +192,8 @@ jobs:
           timeout --signal=TERM --kill-after=10s 180s env SMOKE_VENDOR_SCOPE=cisco node simulation/test_workspace_browser.mjs
           echo "::endgroup::"
           echo "::group::node simulation/test_pair_browser.mjs"
-          timeout --signal=TERM --kill-after=10s 75s node simulation/test_pair_browser.mjs
+          # Five vendors and their full scenario catalogues require more than 75 seconds on CI runners.
+          timeout --signal=TERM --kill-after=10s 240s node simulation/test_pair_browser.mjs
           echo "::endgroup::"
           echo "::group::node simulation/test_report_browser.mjs"
           timeout --signal=TERM --kill-after=10s 75s node simulation/test_report_browser.mjs
