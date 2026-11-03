@@ -83,7 +83,7 @@ class Tests(unittest.TestCase):
 
     def test_full_local_profile_preserves_full_reasoning_context(self):
         capture = dict(module='CLI_ANALYSIS', vendor='Cisco NX-OS', task='report', evidence=[
-            dict(id='a', text='Device: N9K-A\\nCommand: show vpc\\nL3: Peer Gateway : Enabled')])
+            dict(id='a', text='Device: N9K-A\nCommand: show vpc\nL3: Peer Gateway : Enabled')])
         env = {'AI_PROVIDER': 'local', 'AI_ENABLED': '1', 'AI_MODEL': 'strong-local',
                'AI_BASE_URL': 'http://localhost:8080/v1', 'AI_LOCAL_REASONING_PROFILE': 'full'}
         with patch.dict(os.environ, env, clear=True), patch('engineering_ai.generate',
