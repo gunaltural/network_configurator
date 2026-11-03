@@ -61,7 +61,7 @@ class Tests(unittest.TestCase):
             self.assertIn('peer-switch', payload['input'])
             self.assertIn('peer-gateway', payload['input'])
             self.assertIn('manufacturer_documentation', payload['input'])
-            self.assertIn('Max 85 words', payload['instructions'])
+            self.assertIn('Max 65 words', payload['instructions'])
 
     def test_cli_rejects_hallucinated_line_citation(self):
         capture = dict(module='CLI_ANALYSIS', vendor='Cisco NX-OS', task='report', evidence=[
