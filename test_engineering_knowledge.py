@@ -10,10 +10,14 @@ class KnowledgeRetrievalTests(unittest.TestCase):
         ]
         items = retrieve_knowledge(evidence, 'Cisco NX-OS')
         self.assertIn('multi-chassis-redundancy', [x['id'] for x in items])
-        self.assertTrue(all(x['origin_kind'] == 'existing_application_module' for x in items))
-        # A knowledge question is not a hardcoded peer-switch or peer-gateway absence detector.
-        self.assertNotIn('peer-switch', str(items))
-        self.assertNotIn('peer-gateway', str(items))
+        self.assertIn('cisco-nxos-vpc-design', [x['id'] for x in items])
+        vendor_guidance = next(x for x in items if x['id'] == 'cisco-nxos-vpc-design')
+        self.assertEqual(vendor_guidance['origin_kind'], 'manufacturer_documentation')
+        self.assertIn('cisco.com', vendor_guidance['source_uri'])
+        # Engineering knowledge can name technologies and capabilities;
+        # it must not encode a mechanical absence -> FAIL rule.
+        self.assertIn('peer-switch', str(vendor_guidance))
+        self.assertIn('rather than treating its absence as proof', str(vendor_guidance))
 
     def test_nonmatching_domain_does_not_hallucinate_knowledge(self):
         evidence = [{'id':'x', 'text':'Device: LEAF-1\nCommand: show clock\nL3: 10:11:12 UTC'}]
