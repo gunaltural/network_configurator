@@ -1,6 +1,14 @@
 name: AI Analysis reasoning MVP checks
 
 on:
+  push:
+    branches: ['feature/ai-reasoning-mvp']
+    paths:
+      - 'ai-topology*'
+      - 'test_ai_topology*'
+      - 'engineering-ai.js'
+      - 'engineering_knowledge.py'
+      - '.github/workflows/ai-analysis-mvp.yml'
   pull_request:
     paths:
       - 'engineering_ai.py'
