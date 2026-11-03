@@ -35,11 +35,16 @@ designTrigger.onclick=()=>{
  try{
   const report=window.NetworkWorkspaceProject?.diagnosticDesign?.()||window.NetworkReportProject?.snapshot?.();
   if(!Array.isArray(report?.devices)||!report.devices.length)throw Error('Open an individual Design with devices before importing it.');
-  // Handoff contains topology only: no report text, CLI captures, or passwords.
-  const subset={vendor:report.vendor,source:{module:report.source?.module||report.moduleKey||report.technology},
-   devices:report.devices.map(d=>({id:d.id,hostname:d.hostname,vendor:d.vendor,tier:d.tier,role:d.role,inventoryOnly:d.inventoryOnly})),
-   links:(report.links||[]).map(l=>({id:l.id,a:l.a,b:l.b,upperPort:l.upperPort,lowerPort:l.lowerPort,aPort:l.aPort,bPort:l.bPort,kind:l.kind,logical:l.logical,enabled:l.enabled})),
-   specialLinks:(report.specialLinks||[]).map(l=>({id:l.id,a:l.a,b:l.b,aPort:l.aPort,bPort:l.bPort,kind:l.kind,logical:l.logical,enabled:l.enabled}))};
+  // Reuse the current Design output, not synthetic Simulation verdicts.
+  // Only redacted Design parameters/config proposals and deterministic source
+  // checks cross the one-use same-tab boundary; nothing is transmitted yet.
+  const project=window.NetworkWorkspaceProject?.snapshot?.();
+  const sourceFields=project?.fields||null;
+  let validation=null;
+  if(sourceFields&&window.NetworkDesignChecks?.evaluate){
+   validation=window.NetworkDesignChecks.evaluate({module:report.source?.module,platform:report.vendor,fields:sourceFields});
+  }
+  const subset=window.NetworkAIEvidence.designHandoff(report,validation);
   window.sessionStorage.setItem('networkConfigurator.aiTopology.pending',JSON.stringify(subset));
   window.location.assign('/ai-topology');
  }catch(e){$('aiStatus').textContent=e.message;dialog.showModal();}
