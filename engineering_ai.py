@@ -79,6 +79,10 @@ def generate(payload, *, local_choices=()):
             {'role': 'system', 'content': payload['instructions']},
             {'role': 'user', 'content': payload['input']}
         ], 'max_tokens': min(payload['max_output_tokens'], 2000), 'stream': False}
+        if payload['model'] in ('openai/gpt-oss-120b', 'openai/gpt-oss-20b'):
+            # Keep the invisible reasoning budget bounded; do not expose chains
+            # in engineering reports or consume free-tier output on them.
+            payload.update(reasoning_effort='low', include_reasoning=False)
     else:
         url = 'https://api.openai.com/v1/responses'
         key = os.environ['OPENAI_API_KEY']
