@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 const browser=await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_EXECUTABLE||undefined,args:['--no-sandbox','--disable-dev-shm-usage','--use-gl=angle','--use-angle=swiftshader']});
 const context=await browser.newContext({viewport:{width:1500,height:1000}}),page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.dismiss());
 const base=process.env.SMOKE_URL||'http://127.0.0.1:8125';
+async function diagnosticScreenshot(path){try{await page.screenshot({path,timeout:5000,animations:'disabled'});}catch(error){console.warn('Optional screenshot skipped:',path,error.message);}}
 let count=0;
 try{
  for(const module of ['BASIC','BGP','OSPF','STP','VPC','EVPN','QOS','SDWAN']){
@@ -32,9 +33,9 @@ try{
     await page.locator('#wbPolicies').click();
     if(module==='STP'){const root=page.locator('#wbPoliciesPanel select').first(),values=await root.locator('option').evaluateAll(options=>options.map(o=>o.value)),old=await root.inputValue();await root.selectOption(values.find(value=>value!==old));assert.equal(await page.locator('#labMap [data-device-state="root"]').count(),1);assert.match(await page.locator('#labMap [data-topology-state]').textContent(),/ROOT:/);}
     else {const input=page.locator('#wbPoliciesPanel input[type="number"]').first();await input.fill(module==='BGP'?'350':module==='OSPF'?'37':'600');await input.dispatchEvent('change');if(module==='OSPF')assert.match(await page.locator('#labMap [data-path-decision="OSPF"]').textContent(),/37/);if(module==='QOS')assert.match(await page.locator('#labMap [data-topology-state]').textContent(),/Offered 600 Mbps/);if(module==='BGP'){await page.locator('#syntheticApplyOutbound').click();assert.match(await page.locator('#labMap [data-path-decision="BGP"]').textContent(),/350/);await page.locator('#syntheticInboundTab').click();await page.locator('#syntheticRecord').click();const inbound=await page.evaluate(()=>window.NetworkLab.scenarioRecords().at(-1));assert.ok(inbound.sourceDevice.startsWith('ISP'), 'inbound visual/report source is the upstream');assert.ok(inbound.targetDevice.startsWith('CE'),'inbound visual/report destination is the prefix owner');await page.locator('#syntheticOutboundTab').click();}}
-    await page.screenshot({path:'/tmp/visual-policy-'+module.toLowerCase()+'.png'});if(module==='BGP')await page.locator('#syntheticDefaultOutbound').click();else await page.getByRole('button',{name:'Restore design parameters',exact:true}).click();await page.locator('#wbFailures').click();
+    await diagnosticScreenshot('/tmp/visual-policy-'+module.toLowerCase()+'.png');if(module==='BGP')await page.locator('#syntheticDefaultOutbound').click();else await page.getByRole('button',{name:'Restore design parameters',exact:true}).click();await page.locator('#wbFailures').click();
    }
-   if(vendor===vendors[0]&&['BGP','STP','OSPF','QOS','EVPN'].includes(module))await page.screenshot({path:'/tmp/visual-'+module.toLowerCase()+'.png'});
+   if(vendor===vendors[0]&&['BGP','STP','OSPF','QOS','EVPN'].includes(module))await diagnosticScreenshot('/tmp/visual-'+module.toLowerCase()+'.png');
    const links=page.locator('#syntheticLinkChoices input');if(await links.count()){await links.first().check();await page.locator(module==='VPC'?'#pairFail':'#syntheticLinkDown').click();await page.locator(module==='VPC'?'#pairRestore':'#syntheticLinkUp').click();assert.equal(await links.first().isChecked(),false);}
    await page.locator('#syntheticRecord').click();
    await page.locator('#wbResults').click();await page.locator('#labSendEvidence').click();
@@ -47,7 +48,7 @@ try{
     const response=await context.request.post(base+'/api/network-lab/simulation-word',{data:payload});assert.equal(response.status(),200,module+' Word export: '+await response.text().then(x=>x.slice(0,60)));assert.ok((await response.body()).byteLength>1000);
    }
    count++;console.log('PASS',module,vendor);
-   if(module==='VPC'&&vendor==='Arista EOS')await page.screenshot({path:'/tmp/shared-vpc-simulation.png'});
+   if(module==='VPC'&&vendor==='Arista EOS')await diagnosticScreenshot('/tmp/shared-vpc-simulation.png');
    await page.goto(base+'/?resume=1');await page.evaluate(()=>window.__workspaceRestoreReady);await page.locator('#topologySimulation button').waitFor({state:'attached'});
   }
  }
