@@ -13,7 +13,7 @@ function parse(raw){
   }
   else if(current)current.lines.push({line:i+1,text:line});
  }
- return blocks.map(b=>({...b,lines:b.lines.filter(x=>x.text.trim()).map(x=>({...x,text:/password|passwd|secret|snmp[-\\s]?server\\s+community|snmp\\s+community|community-string|private.?key|api.?key|authorization|sk-[a-zA-Z0-9_-]+/i.test(x.text)?'[REDACTED]':x.text}))}));
+ return blocks.map(b=>({...b,lines:b.lines.filter(x=>x.text.trim()).map(x=>({...x,text:/password|passwd|secret|snmp[-\s]?server\s+community|snmp\s+community|community-string|private.?key|api.?key|authorization|sk-[a-zA-Z0-9_-]+/i.test(x.text)?'[REDACTED]':x.text}))}));
 }
 function evidence(blocks){const result=[];for(const b of blocks){let text='Device: '+b.device+'\nCommand: '+b.command+'\n';for(const line of b.lines){const next='L'+line.line+': '+line.text+'\n';if(text.length+next.length>2900){result.push({id:b.id+'-'+result.length,text});text='Device: '+b.device+'\nCommand: '+b.command+' (continued)\n';}if(next.length>2700)throw Error('A CLI line exceeds the analysis limit.');text+=next;}result.push({id:b.id+'-'+result.length,text});}if(result.length>30||JSON.stringify(result).length>35000)throw Error('Select fewer command blocks for this analysis.');return result;}
 
