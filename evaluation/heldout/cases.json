@@ -1,10 +1,56 @@
 [
- {"id":"B1","tech":"BGP","vendor":"Cisco IOS-XE","raw":"EDGE7# show ip bgp summary\nNeighbor V AS MsgRcvd MsgSent TblVer InQ OutQ Up/Down State/PfxRcd\n203.0.113.71 4 64520 0 0 1 0 0 never Idle (Admin)"},
- {"id":"B2","tech":"BGP","vendor":"Cisco IOS-XE","raw":"EDGE8# show ip bgp summary\nNeighbor V AS MsgRcvd MsgSent TblVer InQ OutQ Up/Down State/PfxRcd\n203.0.113.72 4 64521 12 11 1 0 0 00:05:30 0"},
- {"id":"M1","tech":"MLAG","vendor":"Arista EOS","raw":"PAIR7# show mlag\nMLAG Configuration:\npeer-link : Port-Channel90\nMLAG Status:\nstate : Active\nnegotiation status : Connected\npeer-link status : Up\nlocal-int status : Up\nPAIR7# show mlag interfaces\nmlag id local-intf peer-intf status\n10 Po10 Po10 active-full"},
- {"id":"M2","tech":"MLAG","vendor":"Cisco NX-OS","raw":"N7# show vpc peer-keepalive\nvPC keep-alive status : peer is not reachable through peer-keepalive"},
- {"id":"S1","tech":"STP","vendor":"Cisco IOS-XE","raw":"ACC7# show spanning-tree vlan 37\nVLAN0037\nSpanning tree enabled protocol rstp\nInterface Role Sts Cost Prio.Nbr Type\nGi1/0/47 Root FWD 4 128.47 P2p\nGi1/0/48 Altn BLK 4 128.48 P2p"},
- {"id":"S2","tech":"STP","vendor":"Cisco IOS-XE","raw":"DIST7# show spanning-tree inconsistentports\nName Interface Inconsistency\nVLAN0037 GigabitEthernet1/0/23 Root Inconsistent\nNumber of inconsistent ports (segments) in the system : 1"},
- {"id":"W1","tech":"SDWAN","vendor":"FortiGate","raw":"FG7# diagnose sys sdwan health-check\nHealth Check(DC_PROBE):\nSeq(1 wan1): state(dead), packet-loss(100.000%)\nSeq(2 wan2): state(alive), packet-loss(0.000%) latency(12.300)"},
- {"id":"W2","tech":"SDWAN","vendor":"FortiGate","raw":"FG8# diagnose sys sdwan health-check\nHealth Check(VOICE_PROBE):\nSeq(1 wan1): state(alive), packet-loss(0.000%) latency(28.100)\nSeq(2 wan2): state(alive), packet-loss(0.000%) latency(9.000)"}
+  {
+    "id": "B1",
+    "tech": "BGP",
+    "vendor": "Cisco IOS-XE",
+    "raw": "EDGE7# show ip bgp summary\nNeighbor V AS MsgRcvd MsgSent TblVer InQ OutQ Up/Down State/PfxRcd\n203.0.113.71 4 64520 0 0 1 0 0 never Idle (Admin)"
+  },
+  {
+    "id": "B2",
+    "tech": "BGP",
+    "vendor": "Cisco IOS-XE",
+    "raw": "EDGE8# show ip bgp summary\nNeighbor V AS MsgRcvd MsgSent TblVer InQ OutQ Up/Down State/PfxRcd\n203.0.113.72 4 64521 12 11 1 0 0 00:05:30 0"
+  },
+  {
+    "id": "M1",
+    "tech": "MLAG",
+    "vendor": "Arista EOS",
+    "raw": "PAIR7# show mlag\nMLAG Configuration:\npeer-link : Port-Channel90\nMLAG Status:\nstate : Active\nnegotiation status : Connected\npeer-link status : Up\nlocal-int status : Up\nPAIR7# show mlag interfaces\nmlag id local-intf peer-intf status\n10 Po10 Po10 active-full"
+  },
+  {
+    "id": "M2",
+    "tech": "MLAG",
+    "vendor": "Cisco NX-OS",
+    "raw": "N7# show vpc peer-keepalive\nvPC keep-alive status : peer is not reachable through peer-keepalive"
+  },
+  {
+    "id": "S1",
+    "tech": "STP",
+    "vendor": "Cisco IOS-XE",
+    "raw": "ACC7# show spanning-tree vlan 37\nVLAN0037\nSpanning tree enabled protocol rstp\nInterface Role Sts Cost Prio.Nbr Type\nGi1/0/47 Root FWD 4 128.47 P2p\nGi1/0/48 Altn BLK 4 128.48 P2p"
+  },
+  {
+    "id": "S2",
+    "tech": "STP",
+    "vendor": "Cisco IOS-XE",
+    "raw": "DIST7# show spanning-tree inconsistentports\nName Interface Inconsistency\nVLAN0037 GigabitEthernet1/0/23 Root Inconsistent\nNumber of inconsistent ports (segments) in the system : 1"
+  },
+  {
+    "id": "W1",
+    "tech": "SDWAN",
+    "vendor": "FortiGate",
+    "raw": "FG7# diagnose sys sdwan health-check\nHealth Check(DC_PROBE):\nSeq(1 wan1): state(dead), packet-loss(100.000%)\nSeq(2 wan2): state(alive), packet-loss(0.000%) latency(12.300)"
+  },
+  {
+    "id": "W2",
+    "tech": "SDWAN",
+    "vendor": "FortiGate",
+    "raw": "FG8# diagnose sys sdwan health-check\nHealth Check(VOICE_PROBE):\nSeq(1 wan1): state(alive), packet-loss(0.000%) latency(28.100)\nSeq(2 wan2): state(alive), packet-loss(0.000%) latency(9.000)"
+  },
+  {
+    "id": "V1",
+    "tech": "VPC",
+    "vendor": "Cisco NX-OS",
+    "raw": "N9K-A# show running-config vpc\nfeature vpc\nvpc domain 100\n  peer-keepalive destination 192.0.2.2 source 192.0.2.1 vrf management\ninterface port-channel1\n  switchport mode trunk\n  vpc peer-link\nN9K-A# show vpc\nvPC domain id : 100\nPeer status : peer adjacency formed ok\nvPC keep-alive status : peer is alive\nPeer-link status : Up\nPeer Gateway : Enabled\nvPC role : primary\nConsistency status : success\nN9K-A# show spanning-tree vlan 10\nVLAN0010\nSpanning tree enabled protocol rstp\nRoot ID Priority 24586\nBridge ID Priority 28682"
+  }
 ]
