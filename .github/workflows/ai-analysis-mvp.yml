@@ -4,6 +4,8 @@ on:
   push:
     branches: ['feature/ai-reasoning-mvp']
     paths:
+      - 'engineering_ai.py'
+      - 'test_engineering_ai.py'
       - 'ai-topology*'
       - 'test_ai_topology*'
       - 'engineering-ai.js'
