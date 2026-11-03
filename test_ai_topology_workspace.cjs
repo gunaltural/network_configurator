@@ -40,6 +40,7 @@ for(const name of ['blank','vpc','bgp','evpn']){
  assert.equal(created.schema,'ai-topology-workspace-v1');
 }
 assert.throws(()=>api.template('not-a-template'),/Unknown topology template/);
+assert.throws(()=>api.analysisEvidenceBatches(api.blank()),/at least one device/);
 const edited=api.updateDevice(modified,'fw',{hostname:'FGT-1',vendor:'FortiGate',role:'hub'});
 assert.equal(edited.nodes.find(x=>x.id==='fw').hostname,'FGT-1');
 assert.equal(modified.nodes.find(x=>x.id==='fw').hostname,'Firewall','Device edits must not mutate source');
