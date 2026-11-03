@@ -26,4 +26,8 @@ RUN cp /usr/share/common-licenses/Apache-2.0 /opt/models/LICENSE
 COPY start_embedded_ai.py ./
 CMD ["python", "start_embedded_ai.py"]
 
-FROM embedded AS production
+# Render converts non-secret environment variables into Docker build args.
+# Default preserves the current embedded runtime until an approved release
+# selects AI_IMAGE_PROFILE=hosted for the small, external-provider image.
+ARG AI_IMAGE_PROFILE=embedded
+FROM ${AI_IMAGE_PROFILE} AS production
