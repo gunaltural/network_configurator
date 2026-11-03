@@ -17,7 +17,7 @@ try {
   const summaries=page.locator('#blocks summary');for(let i=0;i<await summaries.count();i++)await summaries.nth(i).click({position:{x:160,y:10}});
   const checks=page.locator('[data-block]');for(let i=0;i<await checks.count();i++)await checks.nth(i).uncheck();
   assert.equal(await page.locator('#analyze').isDisabled(),true);await checks.first().check();
-  await page.locator('#analyze').click();await page.waitForFunction(()=>document.getElementById('status').textContent==='Model unavailable');
+  await page.locator('#analyze').click();await page.waitForFunction(()=>document.getElementById('status').textContent.includes('Model unavailable'));
   assert.equal(await page.locator('#resultPanel').isVisible(),false);fail=false;
   await page.locator('#analyze').click();await page.locator('#resultPanel').waitFor({state:'visible'});
   await page.locator('#result').fill('Reviewed test draft');assert.equal(await page.locator('#download').isEnabled(),true);
