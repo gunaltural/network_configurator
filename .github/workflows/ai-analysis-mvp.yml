@@ -6,6 +6,7 @@ on:
     paths:
       - 'engineering_ai.py'
       - 'test_engineering_ai.py'
+      - 'Dockerfile'
       - 'ai-topology*'
       - 'test_ai_topology*'
       - 'engineering-ai.js'
@@ -94,5 +95,17 @@ jobs:
           curl -fsS http://127.0.0.1:8125/ai-topology-ui.js | grep -q 'configDevice'
           node test_analysis_browser.mjs
           node test_ai_topology_browser.mjs
+      - name: Build hosted production profile without local model or secret
+        run: |
+          docker build --build-arg AI_IMAGE_PROFILE=hosted --target production -t nc-ai-mvp-hosted .
+          docker run -d --name hosted-smoke -p 127.0.0.1:18220:10000 -e AUTH_ENABLED=0 -e AI_ENABLED=0 nc-ai-mvp-hosted
+          trap 'docker logs --tail 15 hosted-smoke || true; docker rm -f hosted-smoke || true' EXIT
+          for i in $(seq 1 35); do
+            if curl -fsS --max-time 2 http://127.0.0.1:18220/healthz > /dev/null 2>&1; then break; fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:18220/healthz
+          curl -fsS http://127.0.0.1:18220/ai-topology | grep -q 'AI Topology Workspace'
+          docker inspect nc-ai-mvp-hosted --format '{{.Config.Cmd}}' | grep -q 'app.py'
       - name: Validate CLI parsing and large-capture batching
         run: node test_show_analysis.cjs && node test_show_analysis_large_capture.cjs
