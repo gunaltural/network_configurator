@@ -175,6 +175,11 @@ $('analyze').onclick=async()=>{
  try{
   const statusRes=await fetch('/api/ai/status');if(!statusRes.ok)throw Error('AI service status unavailable.');
   const available=await statusRes.json();if(!available.available)throw Error('AI provider is not configured. Topology editing and local export remain available.');
+  if(['groq','openai'].includes(available.provider)&&
+     !window.confirm('This sends the reviewed, redacted topology/configuration evidence to the external '+available.provider+' model provider. Confirm that you are authorized to share this data. Continue?')){
+    message('External model transfer cancelled. No evidence was submitted.');
+    return;
+  }
   const vendors=[...new Set(workspace.nodes.map(n=>n.vendor).filter(Boolean))],vendor=vendors.length===1?vendors[0]:'Mixed';
   const stop=Math.min(runState.batches.length,runState.index+12);
   for(;runState.index<stop;){
