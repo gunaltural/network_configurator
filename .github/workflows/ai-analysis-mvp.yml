@@ -34,6 +34,16 @@ jobs:
         run: python -m unittest -v test_bgp_cli_evidence.BgpCaptureTests.test_unrecognized_columns_never_become_observations
       - name: Verify multi-device TAC and FSM correlation
         run: python -m unittest -v test_bgp_cli_evidence.TacCorrelationTests.test_bundle_to_fsm_report
+      - name: TAC overview test_same_capture
+        run: python -m unittest -v test_tac_overview.OverviewTests.test_same_capture
+      - name: TAC overview test_module_examples
+        run: python -m unittest -v test_tac_overview.OverviewTests.test_module_examples
+      - name: TAC overview test_static_next_hop_connected_vrf_scope
+        run: python -m unittest -v test_tac_overview.OverviewTests.test_static_next_hop_connected_vrf_scope
+      - name: TAC overview test_cisco_historical_duplex_mismatch_diagnosis
+        run: python -m unittest -v test_tac_overview.OverviewTests.test_cisco_historical_duplex_mismatch_diagnosis
+      - name: TAC overview test_no_cross_router_or_unscoped_security_finding
+        run: python -m unittest -v test_tac_overview.OverviewTests.test_no_cross_router_or_unscoped_security_finding
       - name: Validate browser JavaScript syntax
         run: node --check analysis-ui.js && node --check show-analysis.js
       - name: Install browser DOM test dependency
