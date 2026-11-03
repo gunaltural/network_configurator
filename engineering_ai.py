@@ -91,8 +91,6 @@ def install_engineering_ai(app):
 
     @app.post('/api/ai/analyze')
     def analyze(body: Analysis):
-        if not configured():
-            raise HTTPException(503, 'AI is not configured.')
         if len({e.id for e in body.evidence}) != len(body.evidence):
             raise HTTPException(422, 'Evidence IDs must be unique.')
         content = body.model_dump()
@@ -108,6 +106,8 @@ def install_engineering_ai(app):
                 if vpc_report:
                     return {'text': vpc_report, 'mode': 'module-rules-vpc', 'reviewRequired': True,
                             'evidenceIds': [e.id for e in body.evidence]}
+            if not configured():
+                raise HTTPException(503, 'AI is not configured.')
             if body.module == 'CLI_ANALYSIS':
                 multi = overview(content['evidence'], body.vendor, body.language)
                 if multi:
