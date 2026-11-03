@@ -30,5 +30,7 @@ jobs:
         run: python -m unittest -v test_engineering_ai test_engineering_knowledge
       - name: Validate browser JavaScript syntax
         run: node --check analysis-ui.js && node --check show-analysis.js
+      - name: Install browser DOM test dependency
+        run: npm install --no-save --ignore-scripts jsdom@30.1.1
       - name: Validate CLI parsing and large-capture batching
         run: node test_show_analysis.cjs && node test_show_analysis_large_capture.cjs
