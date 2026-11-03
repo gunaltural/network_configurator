@@ -63,6 +63,7 @@ class Tests(unittest.TestCase):
             payload = generate.call_args.args[0]
             self.assertIn('retrieved_knowledge', payload['input'])
             self.assertIn('L3:', payload['input'])
+            self.assertIn('Design as intent and Simulation as hypothetical', payload['instructions'])
 
     def test_vpc_model_receives_source_backed_questions_without_per_command_rules(self):
         capture = dict(module='CLI_ANALYSIS', vendor='Cisco NX-OS', task='report', evidence=[
@@ -93,6 +94,8 @@ class Tests(unittest.TestCase):
             self.assertEqual(response.json()['mode'], 'model-evidence-cited-draft')
             payload = model.call_args.args[0]
             self.assertIn('senior multi-vendor', payload['instructions'])
+            self.assertIn('Simulation is a modeled hypothetical', payload['instructions'])
+            self.assertIn('simulated failure outcome MUST NOT be described as a measured live fault', payload['instructions'])
             self.assertIn('retrieved_knowledge', payload['input'])
             self.assertNotIn('Max 65 words', payload['instructions'])
 
