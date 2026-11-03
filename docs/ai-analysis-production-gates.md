@@ -26,6 +26,8 @@ Server-only environment example:
 - `AI_MODEL=openai/gpt-oss-120b` (verify current model availability)
 - `GROQ_API_KEY=<secret>`
 
+**Render image profile:** With an approved opt-in Groq setup, configure the non-secret Render service environment variable `AI_IMAGE_PROFILE=hosted`. Render translates runtime environment variables into build args for Docker builds; `Dockerfile` then uses the lightweight Python-only `production` stage. Existing/default `AI_IMAGE_PROFILE=embedded` retains the bundled local-model build and is not silently replaced. Never pass `GROQ_API_KEY` as a Docker `ARG` or embed it into image layers; keep it a runtime secret. Before enabling a live external provider, complete synthetic capture acceptance and data-handling approval.
+
 The adapter uses the **fixed** `https://api.groq.com/openai/v1/chat/completions` endpoint with no user-configurable network URL. There is no automatic fallback from disabled/failed local inference to Groq: changing provider is an explicit deployment decision. The model's output must still pass actual citation validation, held-out engineering acceptance and full regression before production can claim AI reasoning.
 
 Source for plan and model/rate-limit availability: https://console.groq.com/docs/rate-limits. Do not infer your account-specific quotas from the general table. Do not place credentials in GitHub code or browser UI. A free account may not satisfy an organization's information-handling policies; use synthetic test captures until authorization is established.
