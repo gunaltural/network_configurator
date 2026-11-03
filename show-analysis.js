@@ -21,11 +21,11 @@ function evidenceBatches(blocks){
  const batches=[];let batch=[],size=2;
  for(const block of blocks){
   // Split a single command into independently traceable, bounded evidence segments.
-  const chunks=[];let text='Device: '+block.device+'\\nCommand: '+block.command+'\\n';
+  const chunks=[];let text='Device: '+block.device+'\nCommand: '+block.command+'\n';
   for(const line of block.lines){
-   const next='L'+line.line+': '+line.text+'\\n';
+   const next='L'+line.line+': '+line.text+'\n';
    if(next.length>2700)throw Error('A CLI line exceeds the analysis limit.');
-   if(text.length+next.length>2900){chunks.push(text);text='Device: '+block.device+'\\nCommand: '+block.command+' (continued)\\n';}
+   if(text.length+next.length>2900){chunks.push(text);text='Device: '+block.device+'\nCommand: '+block.command+' (continued)\n';}
    text+=next;
   }
   chunks.push(text);
