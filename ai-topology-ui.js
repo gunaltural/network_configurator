@@ -38,6 +38,20 @@ function render(){
  populate($('linkB'),devs,$('linkB').value,false);
  populate($('configDevice'),devs,$('configDevice').value,false);
  $('overview').textContent=workspace.nodes.length+' devices · '+workspace.links.length+' links · '+workspace.configs.length+' configurations attached (not operationally validated)';
+ const review=workspace.designReview,panel=$('designReviewPanel');
+ panel.hidden=!review;
+ if(review){
+  const checks=review.checks||null;
+  $('designReviewSummary').textContent=
+   'Imported '+review.parameters.length+' Design engineering parameters and '+workspace.configs.length+
+   ' configuration proposals. '+(checks?checks.evaluated+' original input checks · '+checks.errors+' errors · '+checks.warnings+' advisories.':'Original Design consistency checks not provided.')+
+   (review.edited?' ATTENTION: Workspace changed after import; original Design checks are STALE.':' No network device has been verified.');
+  $('designReviewIssues').replaceChildren();
+  for(const issue of checks?.issues||[]){
+   const li=document.createElement('li');li.textContent=issue.severity.toUpperCase()+': '+issue.message;
+   $('designReviewIssues').append(li);
+  }
+ }
  $('devicesList').replaceChildren();$('linksList').replaceChildren();
  for(const node of workspace.nodes){
   const li=document.createElement('li'),button=document.createElement('button');
@@ -79,7 +93,7 @@ function fromHandoff(){
   const report=JSON.parse(handoffRaw);
   workspace=report?.schema==='ai-topology-workspace-v1'?api.validate(report):api.fromDesign(report);
   $('sourceLabel').textContent='Imported Design snapshot · independent copy';
-  message('Imported '+workspace.nodes.length+' design devices; edit this copy freely.');
+  message('Imported '+workspace.nodes.length+' Design devices, '+workspace.configs.length+' generated configuration proposals and '+(workspace.designReview?.parameters.length||0)+' engineering parameters. Review redacted evidence before AI analysis.');
  }catch(e){message('Could not import Design snapshot: '+e.message,true);}
 }
 $('applyTemplate').onclick=()=>{
