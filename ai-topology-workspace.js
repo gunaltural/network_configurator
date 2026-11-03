@@ -80,6 +80,7 @@ const sensitive=/(?:password|passwd|secret|snmp[-\s]?server\s+community|snmp\s+c
 function safeLine(line){return sensitive.test(line)?'[REDACTED]':line.replace(/[\r\n\t]/g,' ');}
 function analysisEvidenceBatches(workspace){
  const model=validate(workspace),items=[];
+ if(!model.nodes.length)throw Error('Add at least one device before analysis.');
  // Every topology and configuration fact is line-addressed. No fabricated CLI
  // commands, and no rule-derived conclusion is passed off as an observation.
  const topology=['Workspace topology: user-edited (not verified operational state)'];
