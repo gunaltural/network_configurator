@@ -7,7 +7,11 @@ const base=process.env.SMOKE_URL||'http://127.0.0.1:8125';
 async function diagnosticScreenshot(path){try{await page.screenshot({path,timeout:5000,animations:'disabled'});}catch(error){console.warn('Optional screenshot skipped:',path,error.message);}}
 let count=0;
 try{
- for(const module of ['BASIC','BGP','OSPF','STP','VPC','EVPN','QOS','SDWAN']){
+ const requestedModules=(process.env.SMOKE_MODULES||'BASIC,BGP,OSPF,STP,VPC,EVPN,QOS,SDWAN').split(',').map(x=>x.trim().toUpperCase()).filter(Boolean);
+ const allowedModules=new Set(['BASIC','BGP','OSPF','STP','VPC','EVPN','QOS','SDWAN']);
+ if(requestedModules.some(x=>!allowedModules.has(x)))throw new Error('Invalid SMOKE_MODULES value');
+ for(const module of requestedModules){
+  const moduleStarted=Date.now();console.log('START module',module,new Date().toISOString());
   await page.goto(base+'/');await page.locator('#v3TechGrid button').filter({has:page.locator('h3',{hasText:module==='BASIC'?'System and Management':module==='VPC'?'vPC / MLAG':module})}).click();
   await page.locator('#topologySimulation button').waitFor({state:'attached'});
   if(module==='SDWAN'){await page.locator('#sdLoadExample').click();await page.waitForFunction(()=>document.getElementById('sdExcelStatus').textContent.includes('Example loaded'));}
@@ -54,6 +58,7 @@ try{
    if(module==='VPC'&&vendor==='Arista EOS')await diagnosticScreenshot('/tmp/shared-vpc-simulation.png');
    await page.goto(base+'/?resume=1');await page.evaluate(()=>window.__workspaceRestoreReady);await page.locator('#topologySimulation button').waitFor({state:'attached'});
   }
+  console.log('FINISH module',module,'durationMs',Date.now()-moduleStarted);
  }
  assert.deepEqual(errors,[]);console.log(count+' module/vendor browser combinations passed');
 }finally{await browser.close();}
