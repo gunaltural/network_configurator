@@ -86,6 +86,46 @@ def overview(blocks, vendor, language):
                 if val.startswith('Class-map:'):qos_class=val.split(':',1)[1].split('(')[0].strip()
                 if qos_class and re.fullmatch(r'\(queue depth/total drops/no-buffer drops\)\s+\d+/\d+/\d+',val):
                     record('QoS',f'{qos_class}: {val}'+(' — Birikimli sayaç.' if tr else ' — Cumulative counters.'))
+    # Compare configured static next hops with directly connected networks in the same VRF.
+    # This is a configuration-level check, not a proof of operational reachability.
+    connected = defaultdict(list)
+    current_device = None
+    current_vrf = 'default'
+    current_address = None
+    for b in blocks:
+        lines = b['text'].splitlines()
+        if len(lines)<2 or not lines[0].startswith('Device: ') or not lines[1].startswith('Command: '):
+            continue
+        if not cisco or lines[1][9:].lower().removesuffix(' (continued)') != 'show running-config':
+            continue
+        device = lines[0][8:]
+        for row in lines[2:]:
+            match = re.fullmatch(r'L(\\d+): (.*)', row)
+            if not match: continue
+            number, raw = match.groups()
+            val = raw.strip()
+            if raw and not raw[0].isspace():
+                current_address = None
+                current_vrf = 'default'
+                current_device = device if val.startswith('interface ') else None
+            if current_device is None: continue
+            vrf_match = re.fullmatch(r'(?:vrf forwarding|vrf member) (\\S+)',val)
+            if vrf_match: current_vrf = vrf_match[1]
+            ip_match = re.fullmatch(r'ip address (\\d+\\.\\d+\\.\\d+\\.\\d+) (\\d+\\.\\d+\\.\\d+\\.\\d+)(?: secondary)?',val)
+            cidr_match = re.fullmatch(r'ip address (\\d+\\.\\d+\\.\\d+\\.\\d+/\\d+)(?: secondary)?',val)
+            try:
+                network = ipaddress.IPv4Interface((ip_match[1],ip_match[2])).network if ip_match else ipaddress.IPv4Interface(cidr_match[1]).network if cidr_match else None
+            except ValueError:
+                network = None
+            if network is not None:
+                connected[(device,current_vrf)].append((network,f'{device}; {b["id"]}, L{number}; show running-config'))
+    for (dev,vrf,prefix,hop),refs in routes.items():
+        if 'cfg' not in refs: continue
+        candidates = [(network,ref) for network,ref in connected[(dev,vrf)] if ipaddress.IPv4Address(hop) in network]
+        if candidates:
+            add('Static routes',('Next-hop doğrudan bağlı arayüz alt ağıyla eşleşiyor (çalışır durumda olduğu doğrulanmadı)' if tr else 'Next hop matches a directly connected interface subnet (operational state unverified)')+f': {vrf} · {prefix} → {hop}',refs['cfg']+'; '+candidates[0][1])
+        elif connected[(dev,vrf)]:
+            add('Static routes',('Next-hop için doğrudan bağlı alt ağ eşleşmesi yok; recursive route veya eksik kanıt olabilir' if tr else 'No directly connected subnet matches next hop; recursive route or missing evidence possible')+f': {vrf} · {prefix} → {hop}',refs['cfg'])
     for (dev,vrf,prefix,hop),refs in routes.items():
         if dev!='Unidentified' and 'cfg' in refs and 'rib' in refs:
             add('Static routes',('Konfigürasyon ve RIB eşleşiyor' if tr else 'Configuration and RIB match')+f': {vrf} · {prefix} → {hop}',refs['cfg']+'; '+refs['rib'])
