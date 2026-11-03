@@ -48,5 +48,22 @@ jobs:
         run: node --check analysis-ui.js && node --check show-analysis.js
       - name: Install browser DOM test dependency
         run: npm install --no-save --ignore-scripts jsdom@30.1.1
+      - name: Run isolated Chromium AI Analysis UI smoke
+        env:
+          AUTH_ENABLED: '0'
+          SMOKE_URL: http://127.0.0.1:8125
+        run: |
+          npx playwright --version
+          npx playwright install chromium
+          python -m pip install -r requirements.txt
+          python -m uvicorn app:app --host 127.0.0.1 --port 8125 >/tmp/ai-analysis-app.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" || true' EXIT
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8125/healthz >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:8125/healthz
+          node test_analysis_browser.mjs
       - name: Validate CLI parsing and large-capture batching
         run: node test_show_analysis.cjs && node test_show_analysis_large_capture.cjs
