@@ -74,7 +74,7 @@ def generate(payload, *, local_choices=()):
         headers['Authorization'] = 'Bearer ' + key
     request = urllib.request.Request(url, data=json.dumps(payload).encode(), headers=headers, method='POST')
     try:
-        with urllib.request.build_opener(NoRedirect()).open(request, timeout=75) as response:
+        # Full local inference on CPU can take longer than the compact 0.5B profile.\n        # Bound the request; never weaken evidence validation or fallback safety.\n        timeout = 240 if strong_local else 75\n        with urllib.request.build_opener(NoRedirect()).open(request, timeout=timeout) as response:
             data = json.loads(response.read(1000000))
         if local:
             choice = data['choices'][0]
