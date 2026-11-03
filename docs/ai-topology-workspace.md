@@ -8,6 +8,14 @@ Branch: `feature/ai-reasoning-mvp` / PR #57. **Experimental; not deployed or eng
 - **Analyze Design with AI (optional)** transfers only device/link topology fields from the current Design snapshot to the independent workspace using a one-use same-tab session-storage handoff. It never mutates or overwrites Design, Inventory, Simulation or Module Report.
 - In the independent editor, add/update/remove devices, add/update/remove connections, add device-specific configuration/CLI text, import/export a local JSON workspace, and inspect an SVG topology diagram. Configuration text is held in memory until explicitly included in an AI request; exporting JSON includes original text and may include credentials.
 
+## AI Design Review — first integrated baseline
+
+The existing **Analyze Design with AI (optional)** sidebar entry now creates a one-use, locally redacted Design snapshot containing the selected module's device and link topology, generated *device-specific configuration proposals*, engineering parameters/rationales, and the result from the **existing** `NetworkDesignChecks.evaluate` consistency checker on the original Design input fields. It does not recompute or copy vendor configuration-generation rules. The same shared `workspace-storage.js` decoder is loaded on the AI editor, so large safe handoffs from the main workspace survive the application's existing lossless session-storage compression.
+
+The AI editor shows deterministic Design issues in their own section (these checks are not AI conclusions), and clearly labels the AI evidence stream as **Design intent**, **generated configuration proposals (not deployed)**, and **original Design input checks**. After users change the imported topology or config, the original Design check status is marked **STALE**; generated settings are not silently represented as freshly validated.
+
+A user must still review the redacted evidence and explicitly click Analyze. Real CLI/show-tech observations are separate, and the AI's independent hypotheses require actual model-side citation and engineering acceptance. This is **not** proof that every generated CLI line matches its intended parameter, or that the LLM is competent.
+
 ## Evidence and shared AI analysis
 
 The workspace produces line-addressed topology and configuration evidence, with stable evidence IDs and original per-configuration line numbers. It redacts common password, SNMP and token lines before showing the complete review payload. The user explicitly chooses **Review evidence to send**, then **Analyze reviewed evidence**, which calls the same `/api/ai/analyze` endpoint used by CLI Analysis.
