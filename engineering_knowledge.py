@@ -1,9 +1,10 @@
 """Curated, versioned engineering questions for model retrieval.
 
-This is a small local retrieval corpus backed by existing application modules.
-It does not claim to fetch or quote external vendor documentation. Knowledge
+This is a small local retrieval corpus backed by existing application modules
+and explicitly attributed manufacturer engineering guidance. No live retrieval
+or full-document ingestion is claimed. Knowledge
 describes *what to reason about*, never a rule that a particular CLI token must
-exist. Vendor literature may be added with provenance in future iterations.
+exist. Vendor literature must carry a source URI and release applicability.
 """
 from __future__ import annotations
 
@@ -25,6 +26,21 @@ _CATALOG = (
         ),
         "origin": "simulation/vendor-failure-engine.mjs",
         "origin_kind": "existing_application_module",
+    },
+    {
+        "id": "cisco-nxos-vpc-design",
+        "title": "Cisco Nexus 9000 vPC STP root and gateway forwarding design",
+        "platforms": ("Cisco NX-OS",),
+        "terms": ("vpc", "peer-link", "peer-keepalive", "peer-switch", "peer-gateway"),
+        "questions": (
+            "Cisco peer-switch is a design option allowing both vPC peers to appear as one STP root; evaluate need using the intended STP root placement and both peers' bridge priorities, rather than treating its absence as proof of a fault.",
+            "Cisco peer-gateway is a forwarding optimization for packets addressed to a peer's router MAC; compare running-config scope with reported operational Peer Gateway state before deciding whether it is active or missing.",
+            "Check platform release and feature prerequisites; absence of configuration is not proof a capability is unavailable or disabled.",
+        ),
+        "origin": "Cisco Nexus 9000 NX-OS Interfaces Configuration Guide 10.2(x), Configuring vPCs",
+        "origin_kind": "manufacturer_documentation",
+        "source_uri": "https://www.cisco.com/c/en/us/td/docs/dcn/nx-os/nexus9000/102x/configuration/interfaces/cisco-nexus-9000-nx-os-interfaces-configuration-guide-102x.pdf",
+        "release_scope": "Nexus 9000 NX-OS 10.2(x); verify device platform/release",
     },
     {
         "id": "bgp-control-plane",
