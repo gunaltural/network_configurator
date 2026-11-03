@@ -32,7 +32,7 @@ function evidenceBatches(blocks){
   for(let chunkIndex=0;chunkIndex<chunks.length;chunkIndex++){
    const chunk=chunks[chunkIndex];
    const item={id:block.id+'-'+chunkIndex,text:chunk},itemSize=JSON.stringify(item).length+1;
-   if(batch.length && (batch.length>=30 || size+itemSize>34000)){batches.push(batch);batch=[];size=2;}
+   if(batch.length && (batch.length>=30 || size+itemSize>4000)){batches.push(batch);batch=[];size=2;}
    if(itemSize>34000)throw Error('Evidence chunk exceeds analysis request limit.');
    batch.push(item);size+=itemSize;
   }
