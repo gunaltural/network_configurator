@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        tech: [BGP, MLAG, STP, SDWAN]
+        tech: [BGP, MLAG, STP, SDWAN, VPC]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
