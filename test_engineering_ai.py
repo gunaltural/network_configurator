@@ -23,6 +23,12 @@ class Tests(unittest.TestCase):
         self.assertNotIn('privateName', filtered)
         self.assertNotIn('superSecret', filtered)
         self.assertIn('set community 65000:1 additive', filtered)
+        self.assertIn('L7: [REDACTED]', filtered)
+        self.assertIn('L9: [REDACTED]', filtered)
+        self.assertIn('L10: [REDACTED]', filtered)
+        self.assertIn('L8: set community 65000:1 additive', filtered)
+        self.assertEqual(filtered.count('[REDACTED]'), 3)
+
 
     def test_disabled(self):
         with patch.dict(os.environ, {'AI_ENABLED': '0'}), patch('engineering_ai.generate') as generate:
