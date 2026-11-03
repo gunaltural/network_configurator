@@ -394,3 +394,44 @@ duplicate `xmlns` attributes from blocking browser PNG generation and report ent
 ### Network Lab & Simulation
 
 The first FRR BGP lab pilot is available under Implementation & Validation. It exports an isolated Containerlab package and imports measured execution evidence. See [NETWORK_LAB.md](NETWORK_LAB.md) for setup, scope and limitations. A separate Linux lab host is required; Render does not execute the routers.
+
+
+## AI Engineering Analysis — stronger-model deployment (experimental)
+
+The AI Analysis MVP on `feature/ai-reasoning-mvp` is **not production-verified**.
+The production Docker stage currently embeds Qwen2.5 0.5B; setting
+`AI_LOCAL_REASONING_PROFILE=full` alone does **not** install or upgrade a model.
+
+For an independently operated, OpenAI-compatible inference service, deploy the
+application using the Dockerfile `app` stage (not the `production` stage) and
+configure the service environment:
+
+```text
+AI_ENABLED=1
+AI_PROVIDER=local
+AI_MODEL=<actual-model-id-served-by-the-inference-endpoint>
+AI_BASE_URL=https://<private-model-service>/v1
+AI_LOCAL_REASONING_PROFILE=full
+AI_LOCAL_API_KEY=<secret-if-the-endpoint-requires-it>
+```
+
+The inference endpoint must support `POST /v1/chat/completions`, return a
+complete nonempty assistant message with `finish_reason=stop`, and accept the
+larger full-context engineering prompt. The configured URL is server-side only;
+use a private network and TLS for external services. Never commit credentials,
+CLI captures, or customer topology. Redaction is a defense-in-depth measure, not
+a guarantee that all sensitive device information has been removed. Obtain
+authorization before sending customer evidence to a third-party provider.
+
+Alternatively, an explicitly authorized hosted OpenAI Responses API provider
+uses `AI_PROVIDER=openai`, `AI_MODEL=<supported-model-id>`, and a secret
+`OPENAI_API_KEY`. This requires a separately provisioned account and may incur
+API charges. Neither provider has been verified against the engineering
+acceptance suite in this branch. Do not interpret `/api/ai/status` showing
+`available=true` as a successful inference or reasoning-quality check.
+
+**Release gate:** run held-out BGP, vPC, MLAG, STP, SD-WAN and mixed
+show-tech cases against the actual configured model; verify evidence IDs and
+line citations, absence of invented claims, timeout/resource budget, UI
+regression, authentication, and production endpoint behavior. Keep PR #57 in
+draft and do not merge or deploy solely because unit tests pass.

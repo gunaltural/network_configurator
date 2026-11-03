@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        tech: [BGP, MLAG, STP, SDWAN]
+        tech: [BGP, MLAG, STP, SDWAN, VPC]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -20,6 +20,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - name: Install application test dependencies
         run: python -m pip install fastapi httpx httpx2
       - name: Verify raw TAC evidence correlation

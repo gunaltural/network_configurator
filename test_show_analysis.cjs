@@ -2,6 +2,15 @@ const assert=require('node:assert/strict');require('./show-analysis.js');
 const blocks=ShowAnalysis.parse('R1# show version\nVersion 1\npassword private\nR2> display interface brief\nport down\n---- show vlan ----\n20 users');
 assert.equal(blocks.length,3);assert.equal(blocks[0].device,'R1');assert.equal(blocks[1].device,'R2');assert.equal(blocks[2].command,'show vlan');const result=JSON.stringify(ShowAnalysis.evidence(blocks));assert.ok(!result.includes('private'));assert.ok(result.includes('L2: Version 1'));assert.equal(ShowAnalysis.parse('unstructured text').length,0);assert.throws(()=>ShowAnalysis.parse('x'.repeat(5000001)));assert.throws(()=>ShowAnalysis.evidence([{id:'x',device:'r',command:'show x',lines:[{line:1,text:'x'.repeat(4000)}]}]));console.log('CLI analysis: headers, devices, line evidence, redaction and limits passed');
 
+const communityCapture=ShowAnalysis.parse('CE1# show running-config\nip community-list standard CL-LOCAL permit 65000:1\nroute-map RM permit 10\n set community 65000:1 additive\nsnmp-server community monitoring RO');
+const communityEvidence=JSON.stringify(ShowAnalysis.evidence(communityCapture));
+assert.ok(communityEvidence.includes('ip community-list standard CL-LOCAL'));
+assert.ok(communityEvidence.includes('set community 65000:1 additive'));
+assert.ok(!communityEvidence.includes('snmp-server community monitoring'));
+assert.ok(!communityEvidence.includes('monitoring RO'));
+console.log('BGP policy communities retained; SNMP credentials masked');
+
+
 assert.equal(ShowAnalysis.parse('<HUAWEI> display bgp peer\npeer state')[0].device,'HUAWEI');
 for(const vendor of ['Cisco IOS-XE','Cisco NX-OS','Arista EOS','Huawei VRP','Juniper Junos','FortiGate']){const packs=ShowAnalysis.collectionGuide(vendor);assert.equal(packs.length,1);assert.ok(packs[0].commands.length>=2);assert.ok(packs[0].source.startsWith('https://'));const old=packs[0].commands[0][0];packs[0].commands[0][0]='changed';assert.equal(ShowAnalysis.collectionGuide(vendor)[0].commands[0][0],old);}
 assert.deepEqual(ShowAnalysis.collectionGuide('Other'),[]);
