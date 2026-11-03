@@ -36,5 +36,83 @@ function analysisManifest(workspace){
  // Never include raw configuration in a manifest destined for the AI provider.
  return {schema:model.schema,sourceModule:model.sourceModule,nodes:model.nodes,links:model.links,configurationCoverage:model.nodes.map(n=>({deviceId:n.id,present:model.configs.some(c=>c.deviceId===n.id)}))};
 }
-root.NetworkAITopology={fromDesign,validate,addDevice,addLink,removeDevice,setConfiguration,analysisManifest};
+
+function blank(){return validate({schema:'ai-topology-workspace-v1',sourceModule:'',nodes:[],links:[],configs:[]});}
+function template(kind){
+ if(kind==='blank')return blank();
+ const definitions={
+  vpc:{sourceModule:'VPC',nodes:[
+   {id:'n9k-a',hostname:'N9K-A',vendor:'Cisco NX-OS',role:'peer'},
+   {id:'n9k-b',hostname:'N9K-B',vendor:'Cisco NX-OS',role:'peer'}],
+   links:[{id:'peer-link',a:'n9k-a',b:'n9k-b',kind:'peer-link',aPort:'Eth1/1',bPort:'Eth1/1'},
+          {id:'keepalive',a:'n9k-a',b:'n9k-b',kind:'keepalive',logical:true}]},
+  bgp:{sourceModule:'BGP',nodes:[
+   {id:'ce-1',hostname:'CE-1',vendor:'Cisco IOS-XE',role:'customer-edge'},
+   {id:'isp-1',hostname:'ISP-1',vendor:'Other',role:'external'}],
+   links:[{id:'ebgp',a:'ce-1',b:'isp-1',kind:'eBGP',aPort:'Gi0/0',bPort:'Gi0/0'}]},
+  evpn:{sourceModule:'EVPN',nodes:[
+   {id:'leaf-1',hostname:'LEAF-1',vendor:'Arista EOS',role:'leaf'},
+   {id:'spine-1',hostname:'SPINE-1',vendor:'Arista EOS',role:'spine'},
+   {id:'leaf-2',hostname:'LEAF-2',vendor:'Arista EOS',role:'leaf'}],
+   links:[{id:'underlay-1',a:'leaf-1',b:'spine-1',kind:'underlay'},
+          {id:'underlay-2',a:'spine-1',b:'leaf-2',kind:'underlay'}]}
+ };
+ const definition=definitions[kind];if(!definition)throw Error('Unknown topology template.');
+ return validate({...blank(),...clone(definition),nodes:definition.nodes.map(n=>({...n,source:'template'}))});
+}
+function updateDevice(workspace,id,changes){
+ const next=validate(workspace),device=next.nodes.find(n=>n.id===id);
+ if(!device)throw Error('Unknown device.');
+ for(const key of ['hostname','vendor','role'])if(Object.prototype.hasOwnProperty.call(changes,key))device[key]=identifier(changes[key]);
+ return validate(next);
+}
+function updateLink(workspace,id,changes){
+ const next=validate(workspace),link=next.links.find(l=>l.id===id);
+ if(!link)throw Error('Unknown link.');
+ for(const key of ['a','b','aPort','bPort','kind'])if(Object.prototype.hasOwnProperty.call(changes,key))link[key]=identifier(changes[key]);
+ if(Object.prototype.hasOwnProperty.call(changes,'logical'))link.logical=changes.logical===true;
+ return validate(next);
+}
+function removeLink(workspace,id){
+ const next=validate(workspace);next.links=next.links.filter(l=>l.id!==id);return validate(next);
+}
+const sensitive=/(?:password|passwd|secret|snmp[-\s]?server\s+community|snmp\s+community|community-string|private.?key|api.?key|authorization|sk-[A-Za-z0-9_-]+)/i;
+function safeLine(line){return sensitive.test(line)?'[REDACTED]':line.replace(/[\r\n\t]/g,' ');}
+function analysisEvidenceBatches(workspace){
+ const model=validate(workspace),items=[];
+ // Every topology and configuration fact is line-addressed. No fabricated CLI
+ // commands, and no rule-derived conclusion is passed off as an observation.
+ const topology=['Workspace topology: user-edited (not verified operational state)'];
+ for(const n of model.nodes)topology.push('Device '+n.id+' hostname='+n.hostname+' vendor='+n.vendor+' role='+n.role);
+ for(const l of model.links)topology.push('Link '+l.id+' '+l.a+'['+l.aPort+'] to '+l.b+'['+l.bPort+'] kind='+l.kind+' logical='+!!l.logical);
+ const addChunks=(idPrefix,header,lines)=>{
+  let chunk=[],size=header.length+15,part=0;
+  function flush(){if(!chunk.length)return;items.push({id:idPrefix+'-'+part++,text:header+'\n'+chunk.join('\n')});chunk=[];size=header.length+15;}
+  for(let i=0;i<lines.length;i++){
+   const line='L'+(i+1)+': '+safeLine(lines[i]);
+   if(line.length+header.length>2850)throw Error('A line is too long for AI evidence; split it before analysis.');
+   if(chunk.length&&(size+line.length>2800)){flush();}
+   chunk.push(line);size+=line.length+1;
+  }
+  flush();
+ };
+ addChunks('topology','Device: WORKSPACE\nCommand: user topology manifest',topology);
+ for(const [index,c]of model.configs.entries()){
+  const node=model.nodes.find(n=>n.id===c.deviceId);
+  if(!node)continue;
+  if(c.text.length>150000)throw Error('Device configuration exceeds 150 KB. Use CLI Analysis for large captures.');
+  addChunks('config-'+index,'Device: '+identifier(node.hostname).replace(/[\r\n]/g,' ')+'\nVendor: '+identifier(node.vendor).replace(/[\r\n]/g,' ')+'\nCommand: user-supplied configuration (unverified)',c.text.replace(/\r\n?/g,'\n').split('\n'));
+ }
+ if(!items.length)throw Error('A device or link is required.');
+ const batches=[];let batch=[],size=0;
+ for(const item of items){
+  const weight=JSON.stringify(item).length;
+  if(batch.length&&(batch.length>=24||size+weight>27500)){batches.push(batch);batch=[];size=0;}
+  batch.push(item);size+=weight;
+ }
+ if(batch.length)batches.push(batch);
+ return batches;
+}
+
+root.NetworkAITopology={fromDesign,blank,template,validate,addDevice,updateDevice,addLink,updateLink,removeLink,removeDevice,setConfiguration,analysisManifest,analysisEvidenceBatches};
 })(typeof window==='undefined'?globalThis:window);
