@@ -72,6 +72,8 @@ class Tests(unittest.TestCase):
             self.assertEqual(result.status_code, 200)
             self.assertEqual(result.json()['mode'], 'model-unverified-draft')
             self.assertIn('unverified', result.json()['text'])
+            self.assertNotIn('Potential issue', result.json()['text'])
+            self.assertIn('peer-link status: up', result.json()['text'])
 
     def test_cross_batch_synthesis_is_explicitly_unverified(self):
         capture = dict(module='CLI_SYNTHESIS', vendor='Cisco NX-OS', task='report', evidence=[
