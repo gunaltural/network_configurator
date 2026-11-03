@@ -53,7 +53,11 @@ textarea{width:100%;min-height:140px;resize:vertical}pre{padding:12px;background
 <svg id="topologyCanvas" viewBox="0 0 800 360" role="img" aria-label="Editable network topology preview"></svg>
 <h3>Devices</h3><ul id="devicesList"></ul><h3>Connections</h3><ul id="linksList"></ul>
 </section>
-<section class="panel" aria-label="AI analysis"><h2>3 · Review and analyze</h2>
+<section class="panel" aria-label="AI analysis"><h2>3 · Review and analyze</h2><section id="designReviewPanel" hidden>
+<h3>Imported Design baseline — deterministic checks</h3>
+<p id="designReviewSummary"></p><ul id="designReviewIssues"></ul>
+<p class="hint">Existing Design checks validate selected inputs. They do not prove deployment or independent correctness of every generated configuration. AI reviews these as context, not as a precomputed answer.</p>
+</section>
 <p>AI runs only when you explicitly press Analyze. Review the exact redacted evidence before sending it. A citation-valid draft is <strong>not</strong> a verified root-cause diagnosis.</p>
 <div class="control"><label>Report language<select id="language"><option value="en">English</option><option value="tr">Türkçe</option></select></label><button id="preview">Review evidence to send</button><button id="analyze" class="primary" disabled>Analyze reviewed evidence</button></div>
 <details id="evidenceDetails"><summary>Evidence preview (sanitized)</summary><pre id="evidencePreview"></pre></details>
