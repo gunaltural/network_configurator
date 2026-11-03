@@ -109,7 +109,7 @@ def retrieve_knowledge(evidence: list[dict], vendor: str, *, max_items: int = 4)
     named = {platform for entry in _CATALOG for platform in entry["platforms"]}
     for observed in evidence:
         for line in observed.get("text", "").splitlines():
-            if re.search(r"(?i)(?:^Vendor:\\s*|\\bvendor=)", line):
+            if re.search(r"(?i)(?:^Vendor:\s*|\bvendor=)", line):
                 platforms.update(p for p in named if p.lower() in line.lower())
     for item in _CATALOG:
         if item["platforms"] and not platforms.intersection(item["platforms"]):
