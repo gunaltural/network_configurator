@@ -34,7 +34,8 @@
         "203.0.113.73",
         "active"
       ],
-      "minimum_line_citations": 2
+      "minimum_line_citations": 2,
+      "minimum_distinct_evidence_ids": 2
     }
   },
   {
