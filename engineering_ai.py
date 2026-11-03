@@ -215,7 +215,7 @@ def install_engineering_ai(app):
                     excerpts.append('### ' + item['id'] + '\\n' + '\\n'.join(lines[:4]))
                 return {'text': warning + '\\n\\n' + '\\n\\n'.join(excerpts),
                     'mode': 'model-unverified-draft', 'reviewRequired': True,
-                    'evidenceIds': ids, 'knowledgeIds': [k['id'] for k in knowledge]}
+                    'evidenceIds': [], 'knowledgeIds': [k['id'] for k in knowledge]}
             if body.module == 'CLI_SYNTHESIS':
                 draft = generate({'model': os.environ['AI_MODEL'], 'store': False,
                     'max_output_tokens': 1800, 'instructions': INSTRUCTIONS + _SYNTHESIS,
