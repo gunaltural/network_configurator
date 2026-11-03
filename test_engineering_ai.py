@@ -202,6 +202,7 @@ class LocalTests(unittest.TestCase):
             self.assertEqual(generate(payload), 'Reasoned draft')
             request = opener.return_value.open.call_args.args[0]
             self.assertEqual(json.loads(request.data)['max_tokens'], 2200)
+            self.assertEqual(opener.return_value.open.call_args.kwargs['timeout'], 240)
         env.pop('AI_LOCAL_REASONING_PROFILE')
         with patch.dict(os.environ, env, clear=True), patch('engineering_ai.urllib.request.build_opener') as opener:
             response = opener.return_value.open.return_value.__enter__.return_value
@@ -210,6 +211,7 @@ class LocalTests(unittest.TestCase):
             self.assertEqual(generate(payload), 'Compact draft')
             request = opener.return_value.open.call_args.args[0]
             self.assertEqual(json.loads(request.data)['max_tokens'], 640)
+            self.assertEqual(opener.return_value.open.call_args.kwargs['timeout'], 75)
 
     def test_invalid_server_not_enabled(self):
         from engineering_ai import configured
