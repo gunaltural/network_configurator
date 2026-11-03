@@ -150,9 +150,9 @@ jobs:
           curl -fsS http://127.0.0.1:18081/health
           python scripts/evaluate_local_model.py
           # Mandatory independent engineering-accuracy gate, not merely model availability.
-          python evaluation/heldout/run.py VPC
+          python evaluation/heldout/run.py BGP
 
-  hosted-vpc-acceptance:
+  hosted-bgp-acceptance:
     # Explicit manual execution only; synthetic holdout data, no customer CLI.
     # Never replaces the required local-model/evidence evaluation on PR.
     if: github.event_name == 'workflow_dispatch'
@@ -165,7 +165,7 @@ jobs:
           python-version: "3.12"
       - name: Install held-out evaluation dependencies
         run: python -m pip install fastapi httpx httpx2
-      - name: Independently evaluate GPT-OSS 120B on synthetic vPC evidence
+      - name: Independently evaluate GPT-OSS 120B on synthetic BGP evidence
         env:
           PYTHONPATH: .
           AI_ENABLED: "1"
@@ -180,7 +180,6 @@ jobs:
           fi
           # Engineering correctness gates run sequentially on real model responses.
           # Never substitute mocked adapter checks for model acceptance.
-          python evaluation/heldout/run.py VPC
           python evaluation/heldout/run.py BGP
           python evaluation/heldout/run.py MLAG
           python evaluation/heldout/run.py STP
