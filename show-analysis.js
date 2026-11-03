@@ -1,6 +1,6 @@
 (function(root){'use strict';
 function parse(raw){
- if(raw.length>2000000)throw Error('Maximum input size is 2 MB.');
+ if(raw.length>5000000)throw Error('Maximum input size is 5 MB.');
  const lines=raw.replace(/\r\n?/g,'\n').split('\n'),blocks=[];let current=null,bundleDevice=null;
  for(let i=0;i<lines.length;i++){
   const line=lines[i],match=line.replace(/^<([^>]+)>\s*/, '$1> ').match(/^(?:(\S+)[#>]\s*)?((?:show|display|get|diagnose)\s+.+?)\s*$/i)||line.match(/^[-=]{3,}\s*((?:show|display|get|diagnose)\s+.+?)\s*[-=]{3,}$/i);
@@ -17,6 +17,29 @@ function parse(raw){
 }
 function evidence(blocks){const result=[];for(const b of blocks){let text='Device: '+b.device+'\nCommand: '+b.command+'\n';for(const line of b.lines){const next='L'+line.line+': '+line.text+'\n';if(text.length+next.length>2900){result.push({id:b.id+'-'+result.length,text});text='Device: '+b.device+'\nCommand: '+b.command+' (continued)\n';}if(next.length>2700)throw Error('A CLI line exceeds the analysis limit.');text+=next;}result.push({id:b.id+'-'+result.length,text});}if(result.length>30||JSON.stringify(result).length>35000)throw Error('Select fewer command blocks for this analysis.');return result;}
 
+function evidenceBatches(blocks){
+ const batches=[];let batch=[],size=2;
+ for(const block of blocks){
+  // Split a single command into independently traceable, bounded evidence segments.
+  const chunks=[];let text='Device: '+block.device+'\nCommand: '+block.command+'\n';
+  for(const line of block.lines){
+   const next='L'+line.line+': '+line.text+'\n';
+   if(next.length>2700)throw Error('A CLI line exceeds the analysis limit.');
+   if(text.length+next.length>2900){chunks.push(text);text='Device: '+block.device+'\nCommand: '+block.command+' (continued)\n';}
+   text+=next;
+  }
+  chunks.push(text);
+  for(let chunkIndex=0;chunkIndex<chunks.length;chunkIndex++){
+   const chunk=chunks[chunkIndex];
+   const item={id:block.id+'-'+chunkIndex,text:chunk},itemSize=JSON.stringify(item).length+1;
+   if(batch.length && (batch.length>=30 || size+itemSize>34000)){batches.push(batch);batch=[];size=2;}
+   if(itemSize>34000)throw Error('Evidence chunk exceeds analysis request limit.');
+   batch.push(item);size+=itemSize;
+  }
+ }
+ if(batch.length)batches.push(batch);
+ return batches;
+}
 const profiles=[
  {vendor:'Cisco NX-OS',title:'vPC resilience',scope:'Collect from both peers at the same incident stage. Include device names and capture times.',source:'https://www.cisco.com/c/en/us/td/docs/switches/datacenter/nexus9000/sw/93x/troubleshooting/guide/b-cisco-nexus-9000-nx-os-troubleshooting-guide-93x/b-cisco-nexus-9000-nx-os-troubleshooting-guide-93x_chapter_0110.html',commands:[['show vpc','Peer role, peer-link and vPC state'],['show vpc peer-keepalive','Independent keepalive state'],['show vpc consistency-parameters global','Peer configuration consistency'],['show port-channel summary','Member and bundle state'],['show running-config vpc','Configured intent']],note:'A peer-link failure alone does not prove split-brain. Correlate both peer states, keepalive and event order. show tech-support vpc can provide an expanded capture.'},
  {vendor:'Cisco IOS-XE',title:'Campus STP / loop investigation',scope:'Collect from the root candidate and affected access switches for the same VLAN.',source:'https://www.cisco.com/c/en/us/support/docs/lan-switching/spanning-tree-protocol-stp-8021d/221722-troubleshoot-mac-flaps-loop-on-cisco-cat.html',commands:[['show spanning-tree','Root, port roles and forwarding/blocking state'],['show spanning-tree detail','Topology changes and originating interfaces']],note:'A blocked alternate port is not automatically a fault. Add interface, EtherChannel, VLAN and MAC evidence to investigate the affected path.'},
@@ -116,5 +139,5 @@ const examples=[
  "raw": "WAN-EDGE-02# show tech-support\n------------------ show running-config ------------------\nhostname WAN-EDGE-02\nip route vrf CORP 10.42.0.0 255.255.0.0 192.0.2.1\nip route vrf GUEST 10.42.0.0 255.255.0.0 198.51.100.1\nline vty 0 4\n access-class MGMT-IN in\n transport input ssh telnet\n!\n------------------ show ip route vrf CORP static ------------------\nRouting Table: CORP\nS    10.42.0.0/16 [1/0] via 192.0.2.1\n------------------ show ip access-lists ------------------\nExtended IP access list MGMT-IN\n    10 permit tcp host 203.0.113.40 any eq 22\n    20 deny ip any any log\n------------------ show ip bgp summary ------------------\nNeighbor V AS MsgRcvd MsgSent TblVer InQ OutQ Up/Down State/PfxRcd\n192.0.2.9 4 64520 0 0 1 0 0 never Idle\n------------------ show logging ------------------\n*Nov 1 08:00:01.003: %BGP-5-ADJCHANGE: neighbor 192.0.2.9 Down Peer closed the session\n------------------ show ip ospf neighbor ------------------\nNeighbor ID     Pri State           Dead Time Address         Interface\n10.1.0.2          1 FULL/DR         00:00:34  198.51.100.6    GigabitEthernet0/1\n------------------ show ntp status ------------------\nClock is unsynchronized, stratum 16, no reference clock"
 }
 ];
-root.ShowAnalysis={parse,evidence,collectionGuide,examples};
+root.ShowAnalysis={parse,evidence,evidenceBatches,collectionGuide,examples};
 })(typeof window==='undefined'?globalThis:window);
