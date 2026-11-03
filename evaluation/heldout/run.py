@@ -21,7 +21,7 @@ for c in cases:
         import re
         missing=[term for term in rules.get('must_mention',[]) if term.lower() not in output]
         unsupported=[term for term in rules.get('must_not_claim',[]) if term.lower() in output]
-        citations=len(re.findall(r'\\[[\\w-]+,\\s*L\\d+\\]',output,re.I))
+        citations=len(re.findall(r'\[[\w-]+,\s*L\d+\]',output,re.I))
         minimum=rules.get('minimum_line_citations',0)
         passed=response.status_code==200 and not missing and not unsupported and citations>=minimum and body.get('mode')=='model-evidence-cited-draft'
         print('ACCEPTANCE_RESULT '+json.dumps(dict(id=c['id'],passed=passed,missing_terms=missing,unsupported_claims=unsupported,valid_citation_count=citations,expected_minimum=minimum,mode=body.get('mode')),ensure_ascii=False),flush=True)
