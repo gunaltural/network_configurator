@@ -141,7 +141,24 @@ def install_engineering_ai(app):
                     tr = body.language == 'tr'
                     return {'text': observed + ('\n\nSonraki kontrol: ' if tr else '\n\nNext check: ') + choices[choice][tr],
                             'mode': 'observations-and-model-selection', 'reviewRequired': True, 'evidenceIds': [e.id for e in body.evidence]}
-            result = generate({'model': os.environ['AI_MODEL'], 'store': False, 'max_output_tokens': 2000, 'instructions': INSTRUCTIONS, 'input': json.dumps(content)})
+            try:
+                result = generate({'model': os.environ['AI_MODEL'], 'store': False, 'max_output_tokens': 2000, 'instructions': INSTRUCTIONS, 'input': json.dumps(content)})
+            except HTTPException:
+                if body.module != 'CLI_ANALYSIS':
+                    raise
+                # Never fabricate an assessment when the model fails: return traceable evidence instead.
+                tr = body.language == 'tr'
+                heading = 'AI yanıtı tamamlanamadı; aşağıda yalnızca seçilen kanıtların özeti yer alır.' if tr else 'AI response incomplete; only selected evidence is summarized below.'
+                lines = [heading, '']
+                for item in content['evidence']:
+                    first = item['text'].splitlines()
+                    lines.append('### '+item['id'])
+                    lines.extend(first[:8])
+                    if len(first)>8:
+                        lines.append(('... '+str(len(first)-8)+' satır daha; incelenmedi' if tr else '... '+str(len(first)-8)+' more lines; not assessed'))
+                    lines.append('')
+                lines.append('Bu bir kök neden analizi değildir; model servisini kontrol edin.' if tr else 'This is not a root-cause assessment; check the model service.')
+                return {'text':'\n'.join(lines),'mode':'evidence-only-provider-fallback','reviewRequired':True,'evidenceIds':[e.id for e in body.evidence]}
             return {'text': result, 'reviewRequired': True, 'evidenceIds': [e.id for e in body.evidence]}
         finally:
             slots.release()

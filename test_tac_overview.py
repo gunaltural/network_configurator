@@ -25,6 +25,24 @@ class OverviewTests(unittest.TestCase):
                 text,areas=overview(blocks,vendor,'en')
                 self.assertIn(group,areas)
                 self.assertIn('Missing evidence',text)
+    def test_static_next_hop_connected_vrf_scope(self):
+        raw = ('EDGE# show running-config\n'
+               'interface GigabitEthernet0/0\n'
+               ' ip address 192.0.2.1 255.255.255.0\n'
+               'interface GigabitEthernet0/1\n'
+               ' vrf forwarding BLUE\n'
+               ' ip address 198.51.100.1 255.255.255.0\n'
+               'ip route 203.0.113.0 255.255.255.0 192.0.2.2\n'
+               'ip route vrf BLUE 10.10.0.0 255.255.0.0 198.51.100.2\n'
+               'ip route vrf BLUE 10.20.0.0 255.255.0.0 192.0.2.2')
+        result = overview(parse(raw),'Cisco IOS-XE','en')
+        self.assertIsNotNone(result)
+        text,areas=result
+        self.assertIn('Next hop matches a directly connected interface subnet',text)
+        self.assertIn('No directly connected subnet matches next hop',text)
+        self.assertIn('10.20.0.0/16',text)
+        self.assertIn('198.51.100.2',text)
+
     def test_no_cross_router_or_unscoped_security_finding(self):
         data='A# show running-config\nip route 203.0.113.0 255.255.255.0 192.0.2.1\n transport input telnet\nB# show ip route static\nS 203.0.113.0/24 [1/0] via 192.0.2.1'
         text,areas=overview(parse(data),'Cisco IOS-XE','en')
