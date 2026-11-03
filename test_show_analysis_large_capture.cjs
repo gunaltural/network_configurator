@@ -23,6 +23,8 @@ const batches = evidenceBatches(blocks);
 assert.ok(batches.length > 30, 'large capture must split into bounded requests');
 for (const batch of batches) { assert.ok(batch.length <= 30); assert.ok(JSON.stringify(batch).length <= 35000); }
 assert.match(batches[0][0].text, /Command: show version/);
+assert.ok(batches.flat().every(item => /^cli-\\d+-\\d+$/.test(item.id)));
+assert.equal(new Set(batches.flat().map(item => item.id)).size, batches.flat().length, 'chunk ids must be unique');
 assert.equal(blocks[0].command, 'show version');
 assert.equal(blocks[1].command, 'show running-config');
 assert.equal(blocks[2].command, 'show ip route');
