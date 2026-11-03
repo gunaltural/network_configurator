@@ -12,6 +12,18 @@ class Tests(unittest.TestCase):
         self.client = TestClient(app)
         self.body = dict(module='BGP', vendor='Cisco IOS-XE', task='scenario', evidence=[dict(id='s1', text='ISP1 failed\npassword sensitive')])
 
+    def test_redaction_masks_snmp_credentials_not_routing_communities(self):
+        sample = ('Device: EDGE1\nCommand: show running-config\n'
+                  'L7: snmp-server community verySecret RO\n'
+                  'L8: set community 65000:1 additive\n'
+                  'L9: snmp community privateName\n'
+                  'L10: username admin secret superSecret\n')
+        filtered = redact(sample)
+        self.assertNotIn('verySecret', filtered)
+        self.assertNotIn('privateName', filtered)
+        self.assertNotIn('superSecret', filtered)
+        self.assertIn('set community 65000:1 additive', filtered)
+
     def test_disabled(self):
         with patch.dict(os.environ, {'AI_ENABLED': '0'}), patch('engineering_ai.generate') as generate:
             self.assertFalse(self.client.get('/api/ai/status').json()['available'])
