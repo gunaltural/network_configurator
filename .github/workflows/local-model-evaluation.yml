@@ -151,3 +151,31 @@ jobs:
           python scripts/evaluate_local_model.py
           # Mandatory independent engineering-accuracy gate, not merely model availability.
           python evaluation/heldout/run.py VPC
+
+  hosted-vpc-acceptance:
+    # Explicit manual execution only; synthetic holdout data, no customer CLI.
+    # Never replaces the required local-model/evidence evaluation on PR.
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install held-out evaluation dependencies
+        run: python -m pip install fastapi httpx httpx2
+      - name: Independently evaluate GPT-OSS 120B on synthetic vPC evidence
+        env:
+          PYTHONPATH: .
+          AI_ENABLED: "1"
+          AI_PROVIDER: groq
+          AI_MODEL: openai/gpt-oss-120b
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GROQ_API_KEY}" ]; then
+            echo "GROQ_API_KEY GitHub Actions secret is not configured; no external model test ran."
+            exit 1
+          fi
+          python evaluation/heldout/run.py VPC
