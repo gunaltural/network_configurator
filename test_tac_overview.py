@@ -43,6 +43,18 @@ class OverviewTests(unittest.TestCase):
         self.assertIn('10.20.0.0/16',text)
         self.assertIn('198.51.100.2',text)
 
+    def test_cisco_historical_duplex_mismatch_diagnosis(self):
+        raw = ('SW1# show stacks\n'
+               '123: %CDP-4-DUPLEX_MISMATCH: duplex mismatch discovered on GigabitEthernet9/39 (not half duplex), with PEER(ABC) mgmt0 (half duplex).\n'
+               '124: %CDP-4-DUPLEX_MISMATCH: duplex mismatch discovered on GigabitEthernet9/39 (not half duplex), with PEER(ABC) mgmt0 (half duplex).')
+        result = overview(parse(raw),'Cisco IOS-XE','en')
+        self.assertIsNotNone(result)
+        report, groups = result
+        self.assertIn('Interface diagnostics',groups)
+        self.assertIn('Recorded CDP duplex mismatch',report)
+        self.assertIn('show interfaces GigabitEthernet9/39',report)
+        self.assertEqual(report.count('Recorded CDP duplex mismatch'),1)
+
     def test_no_cross_router_or_unscoped_security_finding(self):
         data='A# show running-config\nip route 203.0.113.0 255.255.255.0 192.0.2.1\n transport input telnet\nB# show ip route static\nS 203.0.113.0/24 [1/0] via 192.0.2.1'
         text,areas=overview(parse(data),'Cisco IOS-XE','en')
