@@ -37,6 +37,9 @@ def configured():
     provider = os.getenv('AI_PROVIDER', 'local')
     if provider == 'openai':
         return enabled and bool(os.getenv('OPENAI_API_KEY'))
+    if provider == 'groq':
+        # Fixed HTTPS endpoint: no untrusted runtime-supplied upstream URLs.
+        return enabled and bool(os.getenv('GROQ_API_KEY'))
     url = urlparse(os.getenv('AI_BASE_URL', ''))
     return enabled and provider == 'local' and url.scheme in ('http', 'https') and bool(url.hostname) and not url.username and not url.password and not url.query and not url.fragment
 
@@ -67,6 +70,15 @@ def generate(payload, *, local_choices=()):
             # Application-owned labels, never CLI text. Constrain decoding itself;
             # post-validation still rejects invalid replies from other runtimes.
             payload['grammar'] = 'root ::= ' + ' | '.join(json.dumps(label) for label in local_choices)
+    elif os.getenv('AI_PROVIDER') == 'groq':
+        # Explicit opt-in to external processing; never send customer CLI to
+        # an external provider simply because a dependency is installed.
+        url = 'https://api.groq.com/openai/v1/chat/completions'
+        key = os.environ['GROQ_API_KEY']
+        payload = {'model': payload['model'], 'messages': [
+            {'role': 'system', 'content': payload['instructions']},
+            {'role': 'user', 'content': payload['input']}
+        ], 'max_tokens': min(payload['max_output_tokens'], 2000), 'stream': False}
     else:
         url = 'https://api.openai.com/v1/responses'
         key = os.environ['OPENAI_API_KEY']
@@ -79,13 +91,14 @@ def generate(payload, *, local_choices=()):
         timeout = 240 if strong_local else 75
         with urllib.request.build_opener(NoRedirect()).open(request, timeout=timeout) as response:
             data = json.loads(response.read(1000000))
-        if local:
+        if local or os.getenv('AI_PROVIDER') == 'groq':
             choice = data['choices'][0]
             if choice.get('finish_reason') != 'stop' or not isinstance(choice['message'].get('content'), str) or not choice['message']['content'].strip():
-                # Safe diagnostics only: do not log the model text or CLI evidence.
-                print('AI_LOCAL_INCOMPLETE finish_reason=' + str(choice.get('finish_reason')) +
-                      ' generated_chars=' + str(len(choice.get('message', {}).get('content') or '')), flush=True)
-                raise ValueError('Incomplete local response')
+                # Safe diagnostics only; never log model text, evidence or keys.
+                if local:
+                    print('AI_LOCAL_INCOMPLETE finish_reason=' + str(choice.get('finish_reason')) +
+                          ' generated_chars=' + str(len(choice.get('message', {}).get('content') or '')), flush=True)
+                raise ValueError('Incomplete chat response')
             return choice['message']['content']
         if data.get('status') != 'completed':
             raise ValueError('Incomplete')
