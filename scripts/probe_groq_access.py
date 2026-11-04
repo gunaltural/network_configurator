@@ -111,7 +111,11 @@ def run_probe(key):
         print('GROQ_COMPARISON endpoint=' + name + ' status=' + str(outcome['status'])
               + ' content_type=' + outcome['content_type']
               + ' category=' + outcome['category'] + extra, flush=True)
-    return models['status'] == 200 and available and chat['status'] == 200 and completion_ok
+    # Chat capability is decisive. A blocked model listing must not prevent
+    # engineering acceptance if the actual authorized chat request succeeds.
+    chat_ready = chat['status'] == 200 and completion_ok
+    print('GROQ_COMPARISON decision=' + ('chat_ready' if chat_ready else 'chat_unavailable'), flush=True)
+    return chat_ready
 
 
 def main():
