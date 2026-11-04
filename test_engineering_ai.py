@@ -285,6 +285,9 @@ class LocalTests(unittest.TestCase):
     def test_groq_without_key_fails_closed_without_network_or_model_claim(self):
         """A provider adapter alone is not a verified or enabled LLM."""
         from engineering_ai import configured
+        app = FastAPI()
+        install_engineering_ai(app)
+        client = TestClient(app)
         body = dict(module='CLI_ANALYSIS', vendor='Cisco NX-OS', task='report',
                     evidence=[dict(id='cli-1', text='Device: N9K-A\\nL1: Peer Gateway : Enabled')])
         env = {'AI_ENABLED': '1', 'AI_PROVIDER': 'groq',
@@ -292,7 +295,7 @@ class LocalTests(unittest.TestCase):
         with patch.dict(os.environ, env, clear=True), patch(
                 'engineering_ai.urllib.request.build_opener') as opener:
             self.assertFalse(configured())
-            result = self.client.post('/api/ai/analyze', json=body)
+            result = client.post('/api/ai/analyze', json=body)
             self.assertEqual(result.status_code, 503)
             self.assertNotIn('model-evidence-cited-draft', result.text)
             opener.assert_not_called()
