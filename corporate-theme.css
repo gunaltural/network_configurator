@@ -321,7 +321,7 @@ body.nc-operation-view :is(.workspace>.topology,#v3Health,.nc-project-flow:not(.
 /* Mobile single-workflow header and guided-flow isolation.
    Retain native Save / Download / Open controls, including keyboard access,
    without allowing the project toolbar to occupy half the viewport. */
-body.guided-active .nc-project-flow:not(.guided-flow){display:none!important}
+body.guided-active .nc-project-flow:not(.guided-flow):not(.quick-design-actions){display:none!important}
 @media (max-width:800px){
   body>.v3-topbar{
     display:grid!important;
