@@ -208,14 +208,22 @@ $('analyze').onclick=async()=>{
  busy=true;$('analyze').disabled=true;
  try{
   const statusRes=await fetch('/api/ai/status');if(!statusRes.ok)throw Error('AI service status unavailable.');
-  const available=await statusRes.json();if(!available.available)throw Error('AI provider is not configured. Topology editing and local export remain available.');
+  const available=await statusRes.json();
+  if(!available.available)throw Error(available.note||'AI model unavailable. Topology editing and local export remain available.');
+  // The embedded local model uses a small context window. Keep every reviewed
+  // original line and citation, but submit small evidence chunks separately.
+  if(available.provider==='local'&&runState.index===0&&!runState.reports.length){
+   runState.batches=runState.batches.flat().map(item=>[item]);
+  }
   if(['groq','openai'].includes(available.provider)&&
      !window.confirm('This sends the reviewed, redacted topology/configuration evidence to the external '+available.provider+' model provider. Confirm that you are authorized to share this data. Continue?')){
     message('External model transfer cancelled. No evidence was submitted.');
     return;
   }
   const vendors=[...new Set(workspace.nodes.map(n=>n.vendor).filter(Boolean))],vendor=vendors.length===1?vendors[0]:'Mixed';
-  const stop=Math.min(runState.batches.length,runState.index+12);
+  // Under the resource-limited local runtime, do only one model request per
+  // explicit click. Prevent a mobile request from launching 12 slow inferences.
+  const stop=Math.min(runState.batches.length,runState.index+(available.provider==='local'?1:12));
   for(;runState.index<stop;){
    const i=runState.index;
    message('Analyzing batch '+(i+1)+' of '+runState.batches.length+'…');
