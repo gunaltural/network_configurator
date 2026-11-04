@@ -316,3 +316,70 @@ body.nc-operation-view :is(.workspace>.topology,#v3Health,.nc-project-flow:not(.
  .layout .operations-view .troubleshooting-cli>.sd-card:nth-child(5){grid-column:2;grid-row:3}
  .layout .operations-view #sdConfigPreview{min-height:360px;max-height:60vh}
 }
+
+
+/* Mobile single-workflow header and guided-flow isolation.
+   Retain native Save / Download / Open controls, including keyboard access,
+   without allowing the project toolbar to occupy half the viewport. */
+body.guided-active .nc-project-flow:not(.guided-flow):not(.quick-design-actions){display:none!important}
+@media (max-width:800px){
+  body>.v3-topbar{
+    display:grid!important;
+    grid-template-columns:40px minmax(0,1fr);
+    grid-template-rows:auto auto;
+    align-items:center;
+    column-gap:10px;
+    row-gap:6px;
+    padding:8px 12px!important;
+    max-width:100%;
+    box-sizing:border-box;
+  }
+  body>.v3-topbar>.nc-menu-toggle{
+    grid-column:1;
+    grid-row:1;
+    justify-self:start;
+  }
+  body>.v3-topbar>.nc-signout{
+    grid-column:2;
+    grid-row:1;
+    justify-self:end;
+    margin:0;
+    white-space:nowrap;
+    padding:6px 10px;
+  }
+  body>.v3-topbar>.nc-account,
+  body>.v3-topbar>.nc-header-meta{display:none!important}
+  body>.v3-topbar>.v3-actions{
+    grid-column:1/-1;
+    grid-row:2;
+    display:flex;
+    flex:none;
+    flex-wrap:nowrap!important;
+    justify-content:flex-start;
+    align-items:center;
+    gap:7px;
+    min-width:0;
+    width:100%;
+    max-width:100%;
+    margin:0;
+    padding:0 0 4px;
+    overflow-x:auto;
+    overflow-y:hidden;
+    overscroll-behavior-x:contain;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:thin;
+  }
+  body>.v3-topbar>.v3-actions>.v3-project{
+    flex:0 0 132px;
+    width:132px;
+    min-width:132px;
+    max-width:160px;
+    box-sizing:border-box;
+  }
+  body>.v3-topbar>.v3-actions>.v3-btn{
+    flex:0 0 auto;
+    white-space:nowrap;
+    padding:7px 10px;
+    font-size:12px;
+  }
+}
