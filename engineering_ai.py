@@ -282,7 +282,8 @@ def install_engineering_ai(app):
                         'reviewRequired': True, 'evidenceIds': [e.id for e in body.evidence],
                         'knowledgeIds': [k['id'] for k in knowledge]}
                 valid, ids = validate_evidence_citations(draft, content['evidence'])
-                if not valid and os.getenv('AI_LOCAL_REASONING_PROFILE') == 'full':
+                if not valid and (os.getenv('AI_PROVIDER', 'local') != 'local' or
+                                  os.getenv('AI_LOCAL_REASONING_PROFILE') == 'full'):
                     # One model-driven revision, never invented citations or rules.
                     # Supply original evidence again so the model can reconcile
                     # its claims with the exact line references. Fail closed if
