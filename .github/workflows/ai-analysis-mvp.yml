@@ -1,0 +1,113 @@
+name: AI Analysis reasoning MVP checks
+
+on:
+  push:
+    branches: ['feature/ai-reasoning-mvp']
+    paths:
+      - 'engineering_ai.py'
+      - 'test_engineering_ai.py'
+      - 'Dockerfile'
+      - 'ai-topology*'
+      - 'test_ai_topology*'
+      - 'engineering-ai.js'
+      - 'ai-evidence.js'
+      - 'test_ai_design_handoff.cjs'
+      - 'test_ai_panel.cjs'
+      - 'engineering_knowledge.py'
+      - '.github/workflows/ai-analysis-mvp.yml'
+  pull_request:
+    paths:
+      - 'engineering_ai.py'
+      - 'engineering_knowledge.py'
+      - 'analysis-ui.js'
+      - 'analysis.html'
+      - 'test_engineering_ai.py'
+      - 'test_engineering_knowledge.py'
+      - 'ai-topology*'
+      - 'test_ai_topology*'
+      - 'engineering-ai.js'
+      - 'ai-evidence.js'
+      - 'test_ai_design_handoff.cjs'
+      - 'test_ai_panel.cjs'
+      - 'app.py'
+      - 'Dockerfile'
+      - '.github/workflows/ai-analysis-mvp.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ai-mvp:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install minimal Python dependencies
+        run: python -m pip install 'fastapi>=0.110' 'httpx>=0.27'
+      - name: Compile AI analysis Python modules before runtime tests
+        run: python -m py_compile engineering_ai.py engineering_knowledge.py test_engineering_ai.py test_engineering_knowledge.py
+      - name: Independently regression-test existing Simulation engine (not an AI answer bank)
+        run: node simulation/test_pair_behavior.cjs
+      - name: Validate model review and knowledge retrieval
+        run: python -m unittest -v test_engineering_ai test_engineering_knowledge
+      - name: Verify BGP CLI mixed capture
+        run: python -m unittest -v test_bgp_cli_evidence.BgpCaptureTests.test_mixed_capture
+      - name: Verify BGP CLI unsupported columns
+        run: python -m unittest -v test_bgp_cli_evidence.BgpCaptureTests.test_unrecognized_columns_never_become_observations
+      - name: Verify multi-device TAC and FSM correlation
+        run: python -m unittest -v test_bgp_cli_evidence.TacCorrelationTests.test_bundle_to_fsm_report
+      - name: TAC overview test_same_capture
+        run: python -m unittest -v test_tac_overview.OverviewTests.test_same_capture
+      - name: TAC overview test_module_examples
+        run: python -m unittest -v test_tac_overview.OverviewTests.test_module_examples
+      - name: TAC overview test_static_next_hop_connected_vrf_scope
+        run: python -m unittest -v test_tac_overview.OverviewTests.test_static_next_hop_connected_vrf_scope
+      - name: TAC overview test_cisco_historical_duplex_mismatch_diagnosis
+        run: python -m unittest -v test_tac_overview.OverviewTests.test_cisco_historical_duplex_mismatch_diagnosis
+      - name: TAC overview test_no_cross_router_or_unscoped_security_finding
+        run: python -m unittest -v test_tac_overview.OverviewTests.test_no_cross_router_or_unscoped_security_finding
+      - name: Validate browser JavaScript syntax
+        run: node --check analysis-ui.js && node --check show-analysis.js && node --check ai-topology-workspace.js && node --check ai-topology-ui.js && node --check engineering-ai.js && node --check ai-evidence.js
+      - name: Install browser DOM test dependency
+        run: npm install --no-save --ignore-scripts jsdom@30.1.1 playwright
+      - name: Test editable AI topology and Design import contracts
+        run: node test_ai_topology_workspace.cjs && node test_ai_design_handoff.cjs && node test_ai_topology_ui.cjs && node test_ai_panel.cjs
+      - name: Run isolated Chromium AI Analysis UI smoke
+        env:
+          AUTH_ENABLED: '0'
+          SMOKE_URL: http://127.0.0.1:8125
+        run: |
+          npx playwright --version
+          npx playwright install chromium
+          python -m pip install -r requirements.txt
+          python -m uvicorn app:app --host 127.0.0.1 --port 8125 >/tmp/ai-analysis-app.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" || true' EXIT
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8125/healthz >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:8125/healthz
+          curl -fsS http://127.0.0.1:8125/ai-topology | grep -q 'AI Analysis V0.1 Beta'
+          curl -fsS http://127.0.0.1:8125/ai-topology-workspace.js | grep -q 'analysisEvidenceBatches'
+          curl -fsS http://127.0.0.1:8125/ai-topology-ui.js | grep -q 'configDevice'
+          node test_analysis_browser.mjs
+          node test_ai_topology_browser.mjs
+      - name: Build hosted production profile without local model or secret
+        run: |
+          docker build --build-arg AI_IMAGE_PROFILE=hosted --target production -t nc-ai-mvp-hosted .
+          docker run -d --name hosted-smoke -p 127.0.0.1:18220:10000 -e AUTH_ENABLED=0 -e AI_ENABLED=0 nc-ai-mvp-hosted
+          trap 'docker logs --tail 15 hosted-smoke || true; docker rm -f hosted-smoke || true' EXIT
+          for i in $(seq 1 35); do
+            if curl -fsS --max-time 2 http://127.0.0.1:18220/healthz > /dev/null 2>&1; then break; fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:18220/healthz
+          curl -fsS http://127.0.0.1:18220/ai-topology | grep -q 'AI Analysis V0.1 Beta'
+          docker inspect nc-ai-mvp-hosted --format '{{.Config.Cmd}}' | grep -q 'app.py'
+      - name: Validate CLI parsing and large-capture batching
+        run: node test_show_analysis.cjs && node test_show_analysis_large_capture.cjs
