@@ -99,6 +99,25 @@ class Tests(unittest.TestCase):
             self.assertIn('retrieved_knowledge', payload['input'])
             self.assertNotIn('Max 65 words', payload['instructions'])
 
+    def test_groq_403_error_classifier_exposes_only_safe_categories(self):
+        import io
+        import urllib.error
+        from engineering_ai import groq_error_category
+        def failure(content):
+            return urllib.error.HTTPError('https://api.groq.com/openai/v1/chat/completions',
+                                          403, 'Forbidden', {}, io.BytesIO(content.encode()))
+        self.assertEqual(groq_error_category(failure(
+            '{"error":{"type":"permissions_error","code":"model_permission_blocked_org",'
+            '"message":"secret-private-cli should never be logged"}}')),
+            'model_permission_blocked_org')
+        self.assertEqual(groq_error_category(failure(
+            '{"error":{"type":"permissions_error","code":"unexpected_private_secret"}}')),
+            'permissions_error')
+        self.assertEqual(groq_error_category(failure('HTML authorization refused')),
+                         'unclassified')
+        self.assertEqual(groq_error_category(failure('{"error":{"type":42}}')),
+                         'unclassified')
+
     def test_opt_in_groq_uses_fixed_chat_endpoint_and_cites_real_evidence(self):
         from engineering_ai import generate, configured
         import json
