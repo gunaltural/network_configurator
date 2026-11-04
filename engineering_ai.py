@@ -78,6 +78,18 @@ def groq_error_category(error):
     return 'unclassified'
 
 
+def provider_timeout():
+    """Validated override for bounded local inference; preserves v0.1 model-profile defaults."""
+    raw = os.getenv('AI_LOCAL_TIMEOUT_SECONDS', '180')
+    try:
+        timeout = int(raw)
+    except ValueError:
+        raise ValueError('AI_LOCAL_TIMEOUT_SECONDS must be an integer') from None
+    if not 5 <= timeout <= 600:
+        raise ValueError('AI_LOCAL_TIMEOUT_SECONDS must be between 5 and 600')
+    return timeout
+
+
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, *args, **kwargs):
         return None
@@ -116,7 +128,7 @@ def generate(payload, *, local_choices=()):
     try:
         # Full local inference on CPU can take longer than the compact 0.5B profile.
         # Bound the request; never weaken evidence validation or fallback safety.
-        timeout = 240 if strong_local else 75
+        timeout = (provider_timeout() if local and 'AI_LOCAL_TIMEOUT_SECONDS' in os.environ else (240 if strong_local else 75))
         with urllib.request.build_opener(NoRedirect()).open(request, timeout=timeout) as response:
             data = json.loads(response.read(1000000))
         if local or os.getenv('AI_PROVIDER') == 'groq':
