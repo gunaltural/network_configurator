@@ -106,5 +106,28 @@
       ],
       "minimum_line_citations": 1
     }
+  },
+  {
+    "id": "V2",
+    "tech": "VPC",
+    "vendor": "Cisco NX-OS",
+    "raw": "N9K-B# show running-config vpc\nfeature vpc\nvpc domain 200\n  peer-keepalive destination 192.0.2.11 source 192.0.2.12 vrf management\ninterface port-channel2\n  switchport mode trunk\n  vpc peer-link\nN9K-B# show vpc\nvPC domain id : 200\nPeer status : peer adjacency formed ok\nvPC keep-alive status : peer is alive\nPeer-link status : Up\nPeer Gateway : Disabled\nvPC role : secondary\nConsistency status : success\nN9K-B# show spanning-tree vlan 20\nVLAN0020\nSpanning tree enabled protocol rstp\nRoot ID Priority 24596\nBridge ID Priority 28692",
+    "acceptance": {
+      "must_mention": [
+        "peer-gateway",
+        "peer-switch"
+      ],
+      "must_not_claim": [
+        "peer gateway is enabled",
+        "peer-gateway is enabled",
+        "peer-keepalive is missing",
+        "peer keepalive is missing",
+        "peer-keepalive not configured",
+        "peer-switch is mandatory",
+        "peer-switch is required"
+      ],
+      "minimum_line_citations": 2,
+      "minimum_distinct_evidence_ids": 2
+    }
   }
 ]
