@@ -33,7 +33,7 @@ class AccessComparisonTests(unittest.TestCase):
         output = io.StringIO()
         with patch.object(probe, 'call', side_effect=fake_call), contextlib.redirect_stdout(output):
             ok = probe.run_probe('synthetic-key')
-        self.assertFalse(ok, 'Model list denial is still reported independently')
+        self.assertTrue(ok, 'Working chat must permit engineering tests despite a model-list 403')
         self.assertEqual(len(calls), 3)
         self.assertEqual(calls[2][0], probe.CHAT_URL)
         self.assertTrue(calls[2][1])
@@ -41,6 +41,7 @@ class AccessComparisonTests(unittest.TestCase):
         self.assertNotIn('synthetic-key', output.getvalue())
         self.assertIn('endpoint=authorized_chat status=200', output.getvalue())
         self.assertIn('completion_ok=true', output.getvalue())
+        self.assertIn('decision=chat_ready', output.getvalue())
 
     def test_success_when_both_authenticated_calls_complete(self):
         def fake_call(url, key=None, payload=None, timeout=20):
