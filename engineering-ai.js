@@ -30,7 +30,15 @@ let context=null,busy=false,language='en',reportSnapshot=null,modelProvider='dis
 async function openAssistant(designOnly=false){if(busy)return;dialog.showModal();$('aiTask').value=designOnly?'design':'report';$('aiRun').disabled=true;$('aiCopy').disabled=true;$('aiDraft').value='';$('aiEvidence').textContent='';context=null;reportSnapshot=null;$('aiInsert').disabled=true;
 try{const report=window.NetworkReportProject?.snapshot?.()||(window.__designWorkspaceOpened?window.NetworkWorkspaceProject?.diagnosticDesign?.():null);renderDesign(designOnly?report:null);context=NetworkAIEvidence.build(report);reportSnapshot=window.NetworkReportProject?JSON.stringify(report):null;language=report.language==='tr'?'tr':'en';$('aiEvidence').textContent=JSON.stringify(context,null,2);const r=await fetch('/api/ai/status');if(!r.ok)throw Error('AI status unavailable.');const status=await r.json();modelProvider=status.available?status.provider||'local':'disabled';$('aiRun').disabled=!status.available;$('aiStatus').textContent=status.available?'Ready. Only displayed evidence will be sent.':'Model server is not activated. Your project is unchanged.';}catch(e){$('aiStatus').textContent=e.message;}}
 trigger.onclick=()=>openAssistant(false);
-workspaceTrigger.onclick=()=>window.location.assign('/ai-topology');
+workspaceTrigger.onclick=()=>{
+ // A current Design must be imported, never silently replaced with a blank
+ // topology. The separate project action explicitly opens a blank editor.
+ const designOpen=!!document.getElementById('v3WorkspaceHead') &&
+   !document.getElementById('v3Dashboard')?.classList.contains('show') &&
+   !!window.NetworkWorkspaceProject?.diagnosticDesign;
+ if(designOpen)designTrigger.click();
+ else window.location.assign('/ai-topology');
+};
 designTrigger.onclick=()=>{
  try{
   const report=window.NetworkWorkspaceProject?.diagnosticDesign?.()||window.NetworkReportProject?.snapshot?.();
