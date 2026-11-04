@@ -29,6 +29,20 @@ let panel=node('section',undefined,{class:'nc-project-flow guided-flow','aria-la
 function currentModule(){return state?.modules[state.active];}
 function matches(){if(!state)return false;if(main)return api()?.snapshot()?.project?.id===state.projectId;if(reporting)return reportApi()?.snapshot()?.source?.projectId===state.projectId;if(lab){const context=read(new URLSearchParams(location.search).get('workspace')==='1'?'networkConfigurator.lab.workspace':'networkConfigurator.lab.context');return context?.projectId===state.projectId;}return false;}
 function render(){if(!panel)return;const active=matches()&&!(main&&document.getElementById('v3Dashboard').classList.contains('show'));panel.hidden=!active;document.body.classList.toggle('guided-active',active);document.body.classList.toggle('guided-project',active&&state.mode==='project');if(!active)return;panel.replaceChildren();const m=currentModule(),title=node('h2',(state.mode==='standalone'?'Independent workspace · ':'Project · ')+state.name);panel.append(title);const steps=node('div',undefined,{class:'guided-modules'});state.modules.forEach((item,i)=>{const b=button((i+1)+'. '+modules.find(([k])=>k===item.key)[1]+' · '+item.status,async()=>{if(i===state.active)return;await switchModule(i);});b.disabled=i>0&&state.modules.slice(0,i).some(x=>x.status!=='complete');if(i===state.active)b.setAttribute('aria-current','step');steps.append(b);});panel.append(steps);
+ // The project overview is the first visible screen on mobile; keep both
+ // independent AI entry points here without changing the five delivery stages.
+ if(main){
+  const aiActions=node('div',undefined,{class:'guided-actions guided-ai-entries','aria-label':'AI Analysis optional tools'});
+  aiActions.append(
+   button('AI Analysis V0.1 Beta',()=>{location.assign('/ai-topology');},'guidedAIAnalysis'),
+   button('Design → AI Analizine Gönder',()=>{
+    const handoff=document.getElementById('sendDesignToAI');
+    if(!handoff)throw Error('Design AI handoff is not ready. Reload the application.');
+    handoff.click();
+   },'guidedDesignToAI')
+  );
+  panel.append(aiActions);
+ }
  const all=state.modules.every(x=>x.status==='complete'),actions=node('div',undefined,{class:'guided-actions'});
  if(state.mode==='project'){if(all){panel.append(node('h3','Project completed'),node('p',state.modules.length+' module(s) completed · '+state.modules.reduce((sum,x)=>sum+(x.scenarioCount||0),0)+' simulation scenario(s) included.'));const review=node('details',undefined,{class:'guided-completion-review'});review.append(node('summary','Review or edit module workflow'),projectSteps());panel.append(review);}else panel.append(projectSteps());}else panel.append(node('p','Technology → Topology → Simulation · report export is optional.'));
  if(main){const actual=api()?.diagnosticScope()?.module;if(actual!==m.key)actions.append(button('Return to active module '+m.key,async()=>{await api().activateModule(m.key,m.platform);persist();}));else if(state.mode==='standalone')actions.append(button('Open simulation',launchSimulation,'guidedSimulate'),button('Save as project',promoteProject,'guidedSaveProject'));}
