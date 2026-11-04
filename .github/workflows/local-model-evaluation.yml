@@ -37,6 +37,11 @@ on:
       - "Dockerfile"
       - "scripts/check_budget_analysis.py"
   workflow_dispatch:
+# Avoid overlapping expensive model evaluations from successive automation pushes.
+# Never cancel a newer run in favor of a stale SHA.
+concurrency:
+  group: real-model-evaluation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
