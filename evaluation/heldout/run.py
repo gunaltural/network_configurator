@@ -8,6 +8,8 @@ assert (os.environ.get('AI_PROVIDER') == 'local' and os.environ.get('AI_BASE_URL
 app=FastAPI()
 install_engineering_ai(app)
 cases=json.loads(Path(__file__).with_name('cases.json').read_text())
+selected = [c for c in cases if c['tech'] == sys.argv[1] and 'acceptance' in c]
+assert selected, 'No independent acceptance cases selected; refusing false-green result.'
 for c in cases:
     if c['tech']!=sys.argv[1]: continue
     evidence=json.loads(subprocess.check_output(['node','-e',"require('./show-analysis.js');const a=ShowAnalysis;console.log(JSON.stringify(a.evidence(a.parse(require('fs').readFileSync(0,'utf8')))))"],input=c['raw'],text=True))
