@@ -56,7 +56,7 @@ def overview(blocks, vendor, language):
             # Cisco syslog events may appear inside show stacks / show tech sections.
             # A recorded event is historical evidence, not proof of a current fault.
             if cisco and '%CDP-4-DUPLEX_MISMATCH:' in val:
-                mismatch = re.search(r'duplex mismatch discovered on (\\S+) .*? with (\\S+) .*?\\((half|full) duplex\\)',val,re.I)
+                mismatch = re.search(r'duplex mismatch discovered on (\S+) .*? with (\S+) .*?\((half|full) duplex\)',val,re.I)
                 if mismatch:
                     local,peer,peer_mode=mismatch.groups()
                     key=(dev,local,peer,peer_mode.lower())
