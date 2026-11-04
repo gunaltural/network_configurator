@@ -19,7 +19,7 @@ function fromDesign(report){
   })),
   checks:report.designChecks||null
  };
- return validate({schema:'ai-topology-workspace-v1',sourceModule:identifier(report.source?.module),nodes,links,configs,designReview});
+ return validate({schema:'ai-topology-workspace-v1',sourceModule:identifier(report.source?.module),sourceProjectName:identifier(report.source?.projectName).slice(0,120),nodes,links,configs,designReview});
 }
 function validate(workspace){
  const model=clone(workspace),ids=new Set(),linkIds=new Set();

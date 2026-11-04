@@ -33,7 +33,7 @@ function designHandoff(report,validation){
  const safeConfig=text=>String(text??'').replace(/\r\n?/g,'\n').split('\n').map(cleanLine).join('\n');
  const subset={
   vendor:clean(report.vendor),
-  source:{module:clean(report.source.module)},
+  source:{module:clean(report.source.module),projectName:cleanLine(report.name||'').slice(0,120)},
   devices:report.devices.map(d=>({id:clean(d.id),hostname:clean(d.hostname),vendor:clean(d.vendor||report.vendor),tier:clean(d.tier),role:clean(d.role),inventoryOnly:d.inventoryOnly===true})),
   links:(report.links||[]).map(l=>({id:clean(l.id),a:clean(l.a),b:clean(l.b),upperPort:clean(l.upperPort),lowerPort:clean(l.lowerPort),aPort:clean(l.aPort),bPort:clean(l.bPort),kind:clean(l.kind),logical:l.logical===true,enabled:l.enabled!==false})),
   specialLinks:(report.specialLinks||[]).map(l=>({id:clean(l.id),a:clean(l.a),b:clean(l.b),aPort:clean(l.aPort),bPort:clean(l.bPort),kind:clean(l.kind),logical:l.logical===true,enabled:l.enabled!==false})),

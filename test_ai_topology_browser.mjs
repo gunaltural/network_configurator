@@ -64,5 +64,29 @@ try{
   assert.ok(evidence.includes('Command: parameter choices'),'Design parameters feed AI review');
  }finally{await designPage.close();}
 
+ // Regression: entering AI V0.1 from the actual BGP project MUST transfer
+ // the current topology instead of silently opening a blank editor.
+ const guidedPage=await browser.newPage({viewport:{width:1280,height:900}});
+ try{
+  await guidedPage.goto(base+'/',{waitUntil:'domcontentloaded'});
+  await guidedPage.locator('#guidedNewProject').click();
+  await guidedPage.locator('#guidedName').fill('BGP8888');
+  await guidedPage.locator('#guidedModules input[value=BGP]').check();
+  await guidedPage.locator('#guidedCreate').click();
+  await guidedPage.waitForFunction(()=>window.ProjectWorkflow?.state()?.name==='BGP8888');
+  const source=await guidedPage.evaluate(()=>{
+   const report=window.NetworkWorkspaceProject.diagnosticDesign();
+   return {count:report.devices.length,links:(report.links||[]).length+(report.specialLinks||[]).filter(l=>l.enabled!==false).length};
+  });
+  assert.ok(source.count>0,'Current BGP Design has devices before the handoff');
+  await guidedPage.locator('#guidedAIAnalysis').click();
+  await guidedPage.waitForURL('**/ai-topology',{timeout:15000});
+  await guidedPage.waitForFunction(()=>document.getElementById('sourceLabel')?.textContent.includes('BGP8888'),null,{timeout:10000});
+  const imported=await guidedPage.evaluate(()=>({label:document.getElementById('sourceLabel').textContent,overview:document.getElementById('overview').textContent,status:document.getElementById('status').textContent}));
+  assert.match(imported.label,/BGP8888.*BGP/,'Source project identity remains visible');
+  assert.ok(imported.overview.includes(source.count+' devices'),'Exact existing BGP device count imported, not demo template');
+  assert.ok(imported.overview.includes(source.links+' links'),'Existing BGP link count imported');
+  assert.match(imported.status,/Design aktarıldı/,'Import is unambiguously acknowledged');
+ }finally{await guidedPage.close();}
  console.log('AI topology Chromium: templates, mixed-vendor edits, link, configuration, reviewed evidence and routes passed.');
 }finally{await browser.close();}

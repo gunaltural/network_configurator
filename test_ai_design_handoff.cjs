@@ -3,6 +3,7 @@ const assert=require('node:assert/strict');
 require('./ai-evidence.js');require('./ai-topology-workspace.js');require('./design-checks.js');
 const E=global.NetworkAIEvidence,W=global.NetworkAITopology,C=global.NetworkDesignChecks;
 const report={
+ name:'VPC-Handoff-Test',
  source:{module:'VPC',generatedAt:'2026-11-03T00:00:00Z'},vendor:'Cisco NX-OS',
  devices:[{id:'upper-1',hostname:'N9K-A',tier:'upper'},{id:'upper-2',hostname:'N9K-B',tier:'upper'}],
  links:[{id:'peer',a:'upper-1',b:'upper-2',upperPort:'Eth1/1',lowerPort:'Eth1/1',kind:'peer-link'}],
@@ -22,6 +23,7 @@ assert.equal(handoff.designChecks.evaluated,validation.evaluated);
 assert.ok(!JSON.stringify(handoff).includes('TopSecret')&&!JSON.stringify(handoff).includes('MoreSecret'));
 assert.ok(JSON.stringify(handoff).includes('65000:1 additive'),'Routing communities are not SNMP secrets');
 const workspace=W.fromDesign(handoff);
+assert.equal(workspace.sourceProjectName,'VPC-Handoff-Test');
 assert.equal(workspace.configs.length,2);
 assert.equal(workspace.designReview.parameters.length,2);
 assert.equal(workspace.designReview.edited,false);
