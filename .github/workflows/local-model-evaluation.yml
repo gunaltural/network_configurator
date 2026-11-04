@@ -196,6 +196,9 @@ jobs:
           fi
           # Engineering correctness gates run sequentially on real model responses.
           # Never substitute mocked adapter checks for model acceptance.
+          # The independent Cisco vPC holdout is the first mandatory reasoning gate.
+          # It checks conditional peer-switch advice and operational peer-gateway / keepalive counter-evidence.
+          python evaluation/heldout/run.py VPC
           python evaluation/heldout/run.py BGP
           # Additional vendor suites remain diagnostic until independent acceptance rubrics exist.
           python evaluation/heldout/run.py MLAG
