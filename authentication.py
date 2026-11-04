@@ -153,14 +153,22 @@ def install_authentication(app, base_dir):
         simulator_ready = all(
             (base_dir / name).is_file() for name in required_assets
         )
+        # Verify the actual AI Analysis UI bundle as well as Simulator assets;
+        # a version-only release check cannot detect a stale or partial deploy.
+        ai_assets = (
+            'ai-topology.html', 'ai-topology-ui.js', 'ai-topology-workspace.js',
+            'ai-evidence.js', 'engineering-ai.js', 'project-workflow.js',
+        )
+        ai_analysis_ready = all((base_dir / name).is_file() for name in ai_assets)
         payload = {
-            'ok': simulator_ready,
+            'ok': simulator_ready and ai_analysis_ready,
             'version': str(app.version),
             'simulator_ready': simulator_ready,
+            'ai_analysis_ready': ai_analysis_ready,
         }
         return JSONResponse(
             payload,
-            status_code=200 if simulator_ready else 503,
+            status_code=200 if simulator_ready and ai_analysis_ready else 503,
             headers={'Cache-Control': 'no-store'},
         )
 

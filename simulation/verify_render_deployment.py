@@ -32,7 +32,9 @@ def check_once(base_url, expected_version, timeout=15):
             return False, f'Deployed version {actual_version!r}, expected {expected_version!r}'
         if payload.get('simulator_ready') is not True or payload.get('ok') is not True:
             return False, 'Required Simulator files not ready in running deployment.'
-        return True, f'LIVE verified: version {actual_version}, Simulator assets ready'
+        if payload.get('ai_analysis_ready') is not True:
+            return False, 'AI Analysis V0.1 assets not ready in running deployment.'
+        return True, f'LIVE verified: version {actual_version}, Simulator and AI Analysis V0.1 assets ready'
     except HTTPError as error:
         return False, f'Health endpoint returned HTTP {error.code}'
     except (URLError, TimeoutError, OSError, ValueError) as error:

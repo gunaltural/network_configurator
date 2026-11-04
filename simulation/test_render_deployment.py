@@ -21,14 +21,14 @@ class FakeResponse:
 class RenderDeploymentVerificationTests(unittest.TestCase):
     def test_expected_version_and_ready_assets(self):
         with patch('verify_render_deployment.urlopen', return_value=FakeResponse({
-            'ok': True, 'version': '5.44.3', 'simulator_ready': True
+            'ok': True, 'version': '5.44.3', 'simulator_ready': True, 'ai_analysis_ready': True
         })):
             ok, result = check_once('https://test.example', '5.44.3')
             self.assertTrue(ok, result)
 
     def test_stale_render_deploy_is_not_success(self):
         with patch('verify_render_deployment.urlopen', return_value=FakeResponse({
-            'ok': True, 'version': '5.44.2', 'simulator_ready': True
+            'ok': True, 'version': '5.44.2', 'simulator_ready': True, 'ai_analysis_ready': True
         })):
             ok, result = check_once('https://test.example', '5.44.3')
             self.assertFalse(ok)
@@ -40,6 +40,15 @@ class RenderDeploymentVerificationTests(unittest.TestCase):
         })):
             ok, _ = check_once('https://test.example', '5.44.3')
             self.assertFalse(ok)
+
+    def test_missing_ai_analysis_assets_is_failure(self):
+        with patch('verify_render_deployment.urlopen', return_value=FakeResponse({
+            'ok': True, 'version': '5.44.3', 'simulator_ready': True,
+            'ai_analysis_ready': False
+        })):
+            ok, result = check_once('https://test.example', '5.44.3')
+            self.assertFalse(ok)
+            self.assertIn('AI Analysis', result)
 
     def test_server_error_is_failure(self):
         with patch('verify_render_deployment.urlopen', side_effect=HTTPError(
