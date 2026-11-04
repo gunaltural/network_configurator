@@ -129,7 +129,7 @@ function analysisEvidenceBatches(workspace){
    const observations=['Source: existing Design consistency checker; this is not AI reasoning or deployed configuration verification',
     'Evaluated '+checks.evaluated+' inputs; '+checks.errors+' errors; '+checks.warnings+' warnings',
     'Original Design status: '+(model.designReview.edited?'STALE AFTER WORKSPACE EDITS':'snapshot at import')];
-   for(const issue of checks.issues||[])observations.push('Design check '+issue.code+' '+issue.severity+': '+issue.message);
+   for(const issue of checks.issues||[])observations.push(safeLine('Design check '+issue.code+' '+issue.severity+': '+issue.message));
    addChunks('design-check','Device: ORIGINAL-DESIGN\nCommand: deterministic input checks',observations);
   }
  }
