@@ -101,6 +101,17 @@ function fromHandoff(){
   message('Mevcut '+project+(workspace.sourceModule||'')+' Design aktarıldı: '+workspace.nodes.length+' cihaz, '+workspace.links.length+' bağlantı, '+workspace.configs.length+' konfigürasyon. Analizden önce gizlenmiş kanıtları inceleyin.');
  }catch(e){message('Could not import Design snapshot: '+e.message,true);}
 }
+$('aiBuildTopology').onclick=()=>{
+ if((workspace.nodes.length||workspace.links.length||workspace.configs.length)&&
+    !window.confirm('Replace the current topology and its attached configurations with a new, independent network?'))return;
+ try{
+  workspace=api.buildFreeTopology({deviceCount:Number($('aiNodeCount').value),
+   layout:$('aiTopologyPattern').value,vendor:$('aiDefaultVendor').value,role:clean($('aiDefaultRole').value)});
+  $('sourceLabel').textContent='New independent topology';
+  changed('Created '+workspace.nodes.length+' devices and '+workspace.links.length+' links.');
+  loadDevice();loadLink();loadConfig();
+ }catch(e){message(e.message,true);}
+};
 $('applyTemplate').onclick=()=>{
  if((workspace.nodes.length||workspace.configs.length)&&!window.confirm('Replace your current topology and attached configurations?'))return;
  try{workspace=api.template($('template').value);$('sourceLabel').textContent='Template · independent copy';changed('Template loaded.');loadDevice();loadLink();loadConfig();}

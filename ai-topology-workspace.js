@@ -80,6 +80,39 @@ function template(kind){
  const definition=definitions[kind];if(!definition)throw Error('Unknown topology template.');
  return validate({...blank(),...clone(definition),nodes:definition.nodes.map(n=>({...n,source:'template'}))});
 }
+// Technology-neutral builder: constructs only user-selected nodes and links.
+// Never invents routing policies, configurations, device state or AI conclusions.
+function buildFreeTopology(options={}){
+ const count=Number(options.deviceCount);
+ if(!Number.isInteger(count)||count<1||count>32)throw Error('Device count must be between 1 and 32.');
+ const layout=identifier(options.layout||'none');
+ if(!['none','chain','ring','star','dual-hub','mesh'].includes(layout))throw Error('Unknown topology pattern.');
+ if(layout==='mesh'&&count>16)throw Error('Full mesh is limited to 16 devices (120 links).');
+ const vendor=identifier(options.vendor||'Other'),role=identifier(options.role||'network-node');
+ if(!vendor||!role||vendor.length>80||role.length>80)throw Error('Vendor and role must be provided (max 80 characters).');
+ const nodes=Array.from({length:count},(_,i)=>{
+  const name='NODE-'+String(i+1).padStart(2,'0');
+  return {id:'node-'+String(i+1),hostname:name,vendor,role,source:'user'};
+ });
+ const links=[],pairs=new Set();
+ function connect(i,j){
+  if(i===j)return;
+  const a=Math.min(i,j),b=Math.max(i,j),key=a+':'+b;
+  if(pairs.has(key))return;
+  pairs.add(key);
+  links.push({id:'link-'+(links.length+1),a:nodes[a].id,b:nodes[b].id,
+   kind:'physical connection (planned)',aPort:'',bPort:'',logical:false});
+ }
+ if(layout==='chain')for(let i=1;i<count;i++)connect(i-1,i);
+ if(layout==='ring'&&count>1)for(let i=0;i<count;i++)connect(i,(i+1)%count);
+ if(layout==='star')for(let i=1;i<count;i++)connect(0,i);
+ if(layout==='dual-hub'&&count>1){
+  connect(0,1);
+  for(let i=2;i<count;i++){connect(0,i);connect(1,i);}
+ }
+ if(layout==='mesh')for(let i=0;i<count;i++)for(let j=i+1;j<count;j++)connect(i,j);
+ return validate({...blank(),nodes,links,configs:[]});
+}
 function updateDevice(workspace,id,changes){
  const next=validate(workspace),device=next.nodes.find(n=>n.id===id);
  if(!device)throw Error('Unknown device.');
@@ -150,5 +183,5 @@ function analysisEvidenceBatches(workspace){
  return batches;
 }
 
-root.NetworkAITopology={fromDesign,blank,template,validate,addDevice,updateDevice,addLink,updateLink,removeLink,removeDevice,setConfiguration,analysisManifest,analysisEvidenceBatches};
+root.NetworkAITopology={fromDesign,blank,template,buildFreeTopology,validate,addDevice,updateDevice,addLink,updateLink,removeLink,removeDevice,setConfiguration,analysisManifest,analysisEvidenceBatches};
 })(typeof window==='undefined'?globalThis:window);

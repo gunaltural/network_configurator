@@ -40,6 +40,24 @@ for(const name of ['blank','vpc','bgp','evpn']){
  assert.equal(created.schema,'ai-topology-workspace-v1');
 }
 assert.throws(()=>api.template('not-a-template'),/Unknown topology template/);
+for(const kind of ['none','chain','ring','star','dual-hub','mesh']){
+ const count=kind==='mesh'?8:6;
+ const model=api.buildFreeTopology({deviceCount:count,layout:kind,vendor:'Arista EOS',role:'leaf'});
+ const expected={none:0,chain:5,ring:6,star:5,'dual-hub':9,mesh:28}[kind];
+ assert.equal(model.nodes.length,count,kind);
+ assert.equal(model.links.length,expected,kind);
+ assert.ok(model.nodes.every(n=>n.vendor==='Arista EOS'&&n.role==='leaf'));
+ assert.equal(model.configs.length,0,'Never fabricate generated configurations');
+}
+const independent=api.buildFreeTopology({deviceCount:4,layout:'dual-hub',vendor:'FortiGate',role:'edge'});
+assert.equal(independent.links.length,5);
+assert.equal(api.updateDevice(independent,'node-1',{vendor:'Cisco NX-OS'}).nodes[0].vendor,'Cisco NX-OS');
+assert.equal(independent.nodes[0].vendor,'FortiGate','Vendor changes do not mutate original');
+assert.equal(api.buildFreeTopology({deviceCount:1,layout:'ring'}).links.length,0);
+assert.equal(api.buildFreeTopology({deviceCount:2,layout:'ring'}).links.length,1);
+for(const count of [0,33,4.5,'invalid'])assert.throws(()=>api.buildFreeTopology({deviceCount:count}),/Device count/);
+assert.throws(()=>api.buildFreeTopology({deviceCount:17,layout:'mesh'}),/16 devices/);
+assert.throws(()=>api.buildFreeTopology({deviceCount:4,layout:'vpc'}),/Unknown topology pattern/);
 assert.throws(()=>api.analysisEvidenceBatches(api.blank()),/at least one device/);
 const edited=api.updateDevice(modified,'fw',{hostname:'FGT-1',vendor:'FortiGate',role:'hub'});
 assert.equal(edited.nodes.find(x=>x.id==='fw').hostname,'FGT-1');

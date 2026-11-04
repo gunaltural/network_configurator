@@ -14,6 +14,12 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  w.eval(fs.readFileSync('ai-topology-workspace.js','utf8'));
  w.eval(fs.readFileSync('ai-topology-ui.js','utf8'));
  assert.match($('overview').textContent,/0 devices/);
+ $('aiNodeCount').value='6';$('aiTopologyPattern').value='dual-hub';
+ $('aiDefaultVendor').value='Arista EOS';$('aiDefaultRole').value='distribution';
+ $('aiBuildTopology').click();
+ assert.match($('overview').textContent,/6 devices · 9 links · 0 configurations/);
+ assert.match($('sourceLabel').textContent,/New independent topology/);
+ assert.ok(w.NetworkAITopology);
  $('template').value='vpc';$('applyTemplate').click();
  assert.match($('overview').textContent,/2 devices · 2 links/);
  $('deviceId').value='fw-1';$('hostname').value='FW-1';$('vendor').value='FortiGate';$('role').value='edge';
