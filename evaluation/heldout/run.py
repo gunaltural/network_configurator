@@ -26,10 +26,10 @@ for c in cases:
         for item in evidence:
             if isinstance(item, dict):
                 available[str(item.get('id', '')).lower()] = {
-                    int(number) for number in re.findall(r'(?m)^L(\\d+):', str(item.get('text', '')))
+                    int(number) for number in re.findall(r'(?m)^L(\d+):', str(item.get('text', '')))
                 }
         references = [(match.group(1), int(match.group(2)))
-                      for match in re.finditer(r'\\[([\\w-]+),\\s*L(\\d+)\\]', output, re.I)]
+                      for match in re.finditer(r'\[([\w-]+),\s*L(\d+)\]', output, re.I)]
         invalid_citations = [f'{evidence_id}:L{line}' for evidence_id, line in references
                              if line not in available.get(evidence_id.lower(), set())]
         citations = len(references) - len(invalid_citations)
