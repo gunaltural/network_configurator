@@ -27,7 +27,12 @@ function validate(workspace){
  if(model.designReview&&(!Array.isArray(model.designReview.parameters)||typeof model.designReview.edited!=='boolean'))throw Error('Invalid Design review context.');
  for(const n of model.nodes){if(!identifier(n.id)||ids.has(n.id))throw Error('Duplicate or empty device id.');ids.add(n.id);}
  for(const l of model.links){if(!identifier(l.id)||linkIds.has(l.id)||!ids.has(l.a)||!ids.has(l.b)||l.a===l.b)throw Error('Invalid link or endpoint.');linkIds.add(l.id);}
- for(const c of model.configs){if(!ids.has(c.deviceId)||typeof c.text!=='string')throw Error('Configuration has no matching device.');}
+ const configuredDevices=new Set();
+ for(const c of model.configs){
+  if(!ids.has(c.deviceId)||typeof c.text!=='string')throw Error('Configuration has no matching device.');
+  if(configuredDevices.has(c.deviceId))throw Error('Duplicate configuration for device.');
+  configuredDevices.add(c.deviceId);
+ }
  return model;
 }
 function edited(next){if(next.designReview)next.designReview.edited=true;return next;}
