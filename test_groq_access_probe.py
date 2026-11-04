@@ -66,5 +66,23 @@ class AccessComparisonTests(unittest.TestCase):
             self.assertFalse(probe.run_probe('synthetic-key'))
 
 
+    def test_length_limited_and_empty_hosted_responses_fail_closed(self):
+        # Connectivity must never count a truncated or empty model answer as ready.
+        for finish, content in [('length', 'partial'), ('stop', ''), ('stop', None)]:
+            with self.subTest(finish=finish, content=content):
+                def fake_call(url, key=None, payload=None, timeout=20):
+                    if url == probe.MODELS_URL:
+                        return {'status':200, 'category':'none', 'content_type':'json',
+                                'body':{'data':[{'id':probe.MODEL}]}}
+                    return {'status':200, 'category':'none', 'content_type':'json',
+                            'body':{'choices':[{'finish_reason':finish,
+                                               'message':{'content':content}}]}}
+                output = io.StringIO()
+                with patch.object(probe, 'call', side_effect=fake_call), contextlib.redirect_stdout(output):
+                    self.assertFalse(probe.run_probe('synthetic-key'))
+                self.assertIn('decision=chat_unavailable', output.getvalue())
+                self.assertNotIn('synthetic-key', output.getvalue())
+
+
 if __name__ == '__main__':
     unittest.main()
