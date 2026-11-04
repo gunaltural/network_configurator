@@ -5,6 +5,7 @@ const browser=await chromium.launch({headless:true,args:['--no-sandbox','--disab
 const page=await browser.newPage({viewport:{width:1280,height:900}});
 const base=process.env.SMOKE_URL||'http://127.0.0.1:8125';
 const errors=[];
+page.on('dialog',dialog=>dialog.accept()); // Tests intentionally replace the previously built scratch network.
 page.on('pageerror',error=>errors.push(error.message));
 try{
  const response=await page.goto(base+'/ai-topology');
