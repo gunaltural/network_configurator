@@ -1719,6 +1719,18 @@ def ai_evidence_script():
 def ai_panel_script():
     return FileResponse(BASE_DIR / 'engineering-ai.js', media_type='application/javascript')
 
+@app.get('/ai-topology')
+def ai_topology_page():
+    return FileResponse(BASE_DIR / 'ai-topology.html', media_type='text/html')
+
+@app.get('/ai-topology-ui.js')
+def ai_topology_ui_script():
+    return FileResponse(BASE_DIR / 'ai-topology-ui.js', media_type='application/javascript')
+
+@app.get('/ai-topology-workspace.js')
+def ai_topology_workspace_script():
+    return FileResponse(BASE_DIR / 'ai-topology-workspace.js', media_type='application/javascript')
+
 @app.get('/analysis')
 def cli_analysis_page():
     return FileResponse(BASE_DIR / 'analysis.html', media_type='text/html')

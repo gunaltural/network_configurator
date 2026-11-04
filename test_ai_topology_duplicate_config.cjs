@@ -1,0 +1,14 @@
+'use strict';
+const assert=require('node:assert/strict');
+require('./ai-topology-workspace.js');
+const W=global.NetworkAITopology;
+const model=W.template('vpc');
+const first=W.setConfiguration(model,'n9k-a','hostname N9K-A\nfeature vpc');
+const second=W.setConfiguration(first,'n9k-a','hostname N9K-A\nfeature vpc\nvpc domain 100');
+assert.equal(second.configs.length,1,'Updating device configuration must replace, not append');
+assert.match(second.configs[0].text,/vpc domain 100/);
+const conflicting={...second,configs:[...second.configs,{deviceId:'n9k-a',text:'hostname N9K-A\nno feature vpc'}]};
+assert.throws(()=>W.validate(conflicting),/Duplicate configuration/,'Conflicting configuration snapshots cannot be accepted as one evidence source');
+assert.throws(()=>W.analysisEvidenceBatches(conflicting),/Duplicate configuration/,'Conflicting evidence must fail closed before analysis');
+assert.throws(()=>W.analysisManifest(conflicting),/Duplicate configuration/,'Manifest must not hide conflicting input');
+console.log('AI topology evidence: duplicate device configs rejected; explicit updates replace prior snapshot.');

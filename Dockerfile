@@ -1,3 +1,4 @@
+ARG AI_IMAGE_PROFILE=embedded
 FROM ghcr.io/ggml-org/llama.cpp@sha256:d9e9e74ba3f7ef119b1939162b1631f99b75ec703c310d140cfa2fdac8907389 AS llama_runtime
 FROM python:3.12-slim AS app
 WORKDIR /app
@@ -6,10 +7,15 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY simulation-workbench.js simulation_report.py simulation-report.js synthetic-bgp.js synthetic-lab.js lab_service.py lab_gateway.py network_lab.py lab_runner.py network-lab.html network-lab.js sdwan-bulk-template.json sdwan-template.json discovery_details.py discovery_report.py sdwan_excel.py network_discovery.py network-discovery.html network-discovery.js config_compare.py config-compare.html config-compare.js project_store.py project-library.js app.py authentication.py login.html report_docx.py inventory_excel.py web.html reporting.html engineering-locale.js engineering-report.js path-diagnostics.js design-checks.js vpc-report.js verification-plan.js corporate-theme.css corporate-shell.js huawei-istack.js ./
 COPY project-workflow.js workspace-storage.js deliverables.html deliverables.js ./
-COPY bgp-traffic-policy.js engineering_ai.py bgp_cli_evidence.py bgp_diagnostic_rules.py bgp_route_diagnostic_rules.py bgp_route_cli_evidence.py bgp_eos_cli_evidence.py bgp_eos_neighbor_detail.py tac_overview.py cross_domain_evidence.py ai-evidence.js engineering-ai.js analysis.html show-analysis.js analysis-ui.js ./
+COPY bgp-traffic-policy.js engineering_ai.py engineering_knowledge.py bgp_cli_evidence.py bgp_diagnostic_rules.py bgp_route_diagnostic_rules.py bgp_route_cli_evidence.py bgp_eos_cli_evidence.py bgp_eos_neighbor_detail.py tac_overview.py cross_domain_evidence.py ai-evidence.js engineering-ai.js ai-topology-workspace.js ai-topology-ui.js ai-topology.html analysis.html show-analysis.js analysis-ui.js ./
 COPY port_mapping.py port-mapping.html port-mapping.js port-mapping-core.js port-mapping-oui.json.gz port-mapping-registry-NOTICE.txt ./
 COPY samples/port-mapping ./samples/port-mapping
 COPY simulation/ ./simulation/
+CMD ["python", "app.py"]
+
+# Lightweight first-MVP target when an explicitly configured external AI
+# provider handles inference. No GGUF download, local server or GPU runtime.
+FROM app AS hosted
 CMD ["python", "app.py"]
 
 # Production and the resource-limited acceptance test ship the same local model.
@@ -21,4 +27,7 @@ RUN cp /usr/share/common-licenses/Apache-2.0 /opt/models/LICENSE
 COPY start_embedded_ai.py ./
 CMD ["python", "start_embedded_ai.py"]
 
-FROM embedded AS production
+# Render converts non-secret environment variables into Docker build args.
+# Default preserves the current embedded runtime until an approved release
+# selects AI_IMAGE_PROFILE=hosted for the small, external-provider image.
+FROM ${AI_IMAGE_PROFILE} AS production
