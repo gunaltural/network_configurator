@@ -41,4 +41,15 @@ assert.ok(JSON.stringify(W.analysisEvidenceBatches(altered)).includes('workspace
 assert.ok(!JSON.stringify(W.analysisManifest(workspace)).includes('TopSecret'),'Manifest never includes configs');
 assert.throws(()=>E.designHandoff({...report,source:{module:'COMBINED'}},null),/individual module/);
 assert.throws(()=>E.designHandoff({...report,configurations:[{deviceId:'upper-1',text:'x'.repeat(150001)}]},null),/150 KB/);
+// A manually attached CLI proposal must remain design intent, not observed state.
+// Regression: editing a design-derived workspace invalidates the original check snapshot.
+const manuallyEdited=W.setConfiguration(workspace,'upper-1',
+ 'hostname N9K-A\\nusername engineer secret ManualSecret\\nfeature vpc\\nvpc domain 100');
+assert.equal(manuallyEdited.designReview.edited,true);
+assert.equal(workspace.designReview.edited,false,'Manual config edits cannot mutate imported Design');
+const editedEvidence=JSON.stringify(W.analysisEvidenceBatches(manuallyEdited));
+assert.ok(!editedEvidence.includes('ManualSecret'),'Manually attached secrets must be redacted');
+assert.ok(editedEvidence.includes('STALE AFTER WORKSPACE EDITS'),'Original checker findings must be marked stale');
+assert.ok(editedEvidence.includes('NOT deployed'),'Manual configuration must not become operational evidence');
+assert.ok(editedEvidence.includes('L3: feature vpc'),'Manual CLI lines retain citation coordinates');
 console.log('AI Design Review: generator proposals, input checker, intent provenance, original line numbers, redaction and stale source controls passed.');
