@@ -5,10 +5,20 @@ const browser=await chromium.launch({headless:true,args:['--no-sandbox','--disab
 const page=await browser.newPage({viewport:{width:1280,height:900}});
 const base=process.env.SMOKE_URL||'http://127.0.0.1:8125';
 const errors=[];
+page.on('dialog',dialog=>dialog.accept()); // Tests intentionally replace the previously built scratch network.
 page.on('pageerror',error=>errors.push(error.message));
 try{
  const response=await page.goto(base+'/ai-topology');
  assert.equal(response.status(),200);
+ await page.locator('#aiNodeCount').fill('7');
+ await page.locator('#aiTopologyPattern').selectOption('ring');
+ await page.locator('#aiDefaultVendor').selectOption('Arista EOS');
+ await page.locator('#aiDefaultRole').fill('fabric-node');
+ await page.locator('#aiBuildTopology').click();
+ assert.match(await page.locator('#overview').innerText(),/7 devices · 7 links · 0 configurations/);
+ assert.ok((await page.locator('#devicesList').innerText()).includes('Arista EOS'));
+ await page.locator('#assessStructure').click();
+ assert.match(await page.locator('#structuralResult').innerText(),/Potential single-path links: none/);
  await page.locator('#template').selectOption('vpc');
  await page.locator('#applyTemplate').click();
  assert.match(await page.locator('#overview').innerText(),/2 devices · 2 links/);

@@ -40,6 +40,47 @@ for(const name of ['blank','vpc','bgp','evpn']){
  assert.equal(created.schema,'ai-topology-workspace-v1');
 }
 assert.throws(()=>api.template('not-a-template'),/Unknown topology template/);
+for(const kind of ['none','chain','ring','star','dual-hub','mesh']){
+ const count=kind==='mesh'?8:6;
+ const model=api.buildFreeTopology({deviceCount:count,layout:kind,vendor:'Arista EOS',role:'leaf'});
+ const expected={none:0,chain:5,ring:6,star:5,'dual-hub':9,mesh:28}[kind];
+ assert.equal(model.nodes.length,count,kind);
+ assert.equal(model.links.length,expected,kind);
+ assert.ok(model.nodes.every(n=>n.vendor==='Arista EOS'&&n.role==='leaf'));
+ assert.equal(model.configs.length,0,'Never fabricate generated configurations');
+}
+const independent=api.buildFreeTopology({deviceCount:4,layout:'dual-hub',vendor:'FortiGate',role:'edge'});
+assert.equal(independent.links.length,5);
+assert.equal(api.updateDevice(independent,'node-1',{vendor:'Cisco NX-OS'}).nodes[0].vendor,'Cisco NX-OS');
+assert.equal(independent.nodes[0].vendor,'FortiGate','Vendor changes do not mutate original');
+assert.equal(api.buildFreeTopology({deviceCount:1,layout:'ring'}).links.length,0);
+assert.equal(api.buildFreeTopology({deviceCount:2,layout:'ring'}).links.length,1);
+for(const count of [0,33,4.5,'invalid'])assert.throws(()=>api.buildFreeTopology({deviceCount:count}),/Device count/);
+assert.throws(()=>api.buildFreeTopology({deviceCount:17,layout:'mesh'}),/16 devices/);
+assert.throws(()=>api.buildFreeTopology({deviceCount:4,layout:'vpc'}),/Unknown topology pattern/);
+const star=api.structuralAssessment(api.buildFreeTopology({deviceCount:5,layout:'star'}));
+assert.deepEqual(star.potentialTransitDependencies,['node-1']);
+assert.equal(star.potentialSinglePathLinks.length,4);
+assert.equal(star.components.length,1);
+const cycle=api.structuralAssessment(api.buildFreeTopology({deviceCount:5,layout:'ring'}));
+assert.deepEqual(cycle.potentialTransitDependencies,[]);
+assert.deepEqual(cycle.potentialSinglePathLinks,[]);
+const dual=api.structuralAssessment(api.buildFreeTopology({deviceCount:5,layout:'dual-hub'}));
+assert.deepEqual(dual.potentialTransitDependencies,[]);
+assert.deepEqual(dual.potentialSinglePathLinks,[]);
+const noLinks=api.structuralAssessment(api.buildFreeTopology({deviceCount:4,layout:'none'}));
+assert.equal(noLinks.components.length,4);
+assert.equal(noLinks.isolatedDevices.length,4);
+assert.equal(noLinks.configurationMissing.length,4);
+const oneConfig=api.structuralAssessment(api.setConfiguration(independent,'node-1','hostname node-1'));
+assert.equal(oneConfig.configurationMissing.length,3);
+assert.ok(JSON.stringify(star).includes('not-operational'));
+const parallel=api.addLink(api.buildFreeTopology({deviceCount:2,layout:'chain'}),{id:'redundant-path',a:'node-1',b:'node-2',kind:'physical'});
+assert.deepEqual(api.structuralAssessment(parallel).potentialSinglePathLinks,[],
+ 'Two parallel modeled physical paths must not be mistaken for a single bridge');
+const onePhysicalOneLogical=api.addLink(api.buildFreeTopology({deviceCount:2,layout:'chain'}),{id:'logical-peer',a:'node-1',b:'node-2',kind:'control',logical:true});
+assert.equal(api.structuralAssessment(onePhysicalOneLogical).potentialSinglePathLinks.length,1,
+ 'Logical adjacency is not a second physical cable');
 assert.throws(()=>api.analysisEvidenceBatches(api.blank()),/at least one device/);
 const edited=api.updateDevice(modified,'fw',{hostname:'FGT-1',vendor:'FortiGate',role:'hub'});
 assert.equal(edited.nodes.find(x=>x.id==='fw').hostname,'FGT-1');

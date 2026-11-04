@@ -24,7 +24,15 @@ textarea{width:100%;min-height:140px;resize:vertical}pre{padding:12px;background
 <header><div><a href="/">Network Configurator</a> / AI Analysis <h1>AI Analysis V0.1 Beta</h1><p class="hint">Experimental model output is not independently verified. Validate findings against device evidence before operational changes.</p><p class="muted">Start from a design or template. Edit devices, links and configurations without changing the original Design project.</p></div><span id="sourceLabel">Independent workspace</span></header>
 <div class="grid"><section class="panel" aria-label="Topology editor">
 <h2>1 · Build or import topology</h2>
-<div class="control"><label>Starting point<select id="template"><option value="blank">Blank topology</option><option value="vpc">Cisco vPC pair</option><option value="bgp">CE–ISP eBGP</option><option value="evpn">EVPN leaf–spine</option></select></label><button id="applyTemplate">Use template</button></div>
+<div class="control"><label>Optional technology example<select id="template"><option value="blank">Blank topology</option><option value="vpc">Cisco vPC pair</option><option value="bgp">CE–ISP eBGP</option><option value="evpn">EVPN leaf–spine</option></select></label><button id="applyTemplate">Use example</button></div>
+<fieldset id="freeTopologyBuilder"><legend>New project · free topology (no technology restrictions)</legend>
+<div class="control"><label>Number of devices (1–32)<input type="number" id="aiNodeCount" min="1" max="32" step="1" value="4"></label>
+<label>Connection pattern<select id="aiTopologyPattern"><option value="none">No connections (manual)</option><option value="chain">Chain</option><option value="ring">Ring</option><option value="star">Star</option><option value="dual-hub">Dual hub</option><option value="mesh">Full mesh (up to 16)</option></select></label></div>
+<div class="control"><label>Initial vendor<select id="aiDefaultVendor"><option>Cisco NX-OS</option><option>Cisco IOS-XE</option><option>Arista EOS</option><option>Huawei_CE_SW</option><option>FortiGate</option><option>Juniper Junos</option><option selected>Other</option></select></label>
+<label>Initial device role<input id="aiDefaultRole" maxlength="80" value="network-node"></label></div>
+<button class="primary" id="aiBuildTopology" type="button">Create independent topology</button>
+<p class="hint">Choose any topology, then edit each device vendor, role, name and link freely below. This builder never generates a configuration or diagnoses a network.</p>
+</fieldset>
 <div class="control"><button id="exportWorkspace">Save workspace (.json)</button><label>Open saved workspace<input type="file" id="importWorkspace" accept=".json,application/json"></label></div>
 <p class="hint">Local in-browser editing. A downloaded workspace includes device configurations and may contain secrets. Do not share it without checking.</p>
 <fieldset><legend>Devices</legend>
@@ -53,7 +61,11 @@ textarea{width:100%;min-height:140px;resize:vertical}pre{padding:12px;background
 <svg id="topologyCanvas" viewBox="0 0 800 360" role="img" aria-label="Editable network topology preview"></svg>
 <h3>Devices</h3><ul id="devicesList"></ul><h3>Connections</h3><ul id="linksList"></ul>
 </section>
-<section class="panel" aria-label="AI analysis"><h2>3 · Review and analyze</h2><section id="designReviewPanel" hidden>
+<section class="panel" aria-label="AI analysis"><h2>3 · Review and analyze</h2>
+<section id="structuralReview"><h3>Structural dependency analysis · deterministic, not AI</h3>
+<button id="assessStructure" type="button">Inspect connectivity and single-path dependencies</button>
+<pre id="structuralResult" aria-live="polite">Not yet assessed. Only modeled physical links are considered.</pre>
+<p class="hint">A bridge or transit node is a possible dependency in the drawn graph. It does not prove production outages or operational reachability; logical overlay links are analyzed separately.</p></section><section id="designReviewPanel" hidden>
 <h3>Imported Design baseline — deterministic checks</h3>
 <p id="designReviewSummary"></p><ul id="designReviewIssues"></ul>
 <p class="hint">Existing Design checks validate selected inputs. They do not prove deployment or independent correctness of every generated configuration. AI reviews these as context, not as a precomputed answer.</p>
