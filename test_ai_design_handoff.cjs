@@ -44,7 +44,7 @@ assert.throws(()=>E.designHandoff({...report,configurations:[{deviceId:'upper-1'
 // A manually attached CLI proposal must remain design intent, not observed state.
 // Regression: editing a design-derived workspace invalidates the original check snapshot.
 const manuallyEdited=W.setConfiguration(workspace,'upper-1',
- 'hostname N9K-A\\nusername engineer secret ManualSecret\\nfeature vpc\\nvpc domain 100');
+ 'hostname N9K-A\nusername engineer secret ManualSecret\nfeature vpc\nvpc domain 100');
 assert.equal(manuallyEdited.designReview.edited,true);
 assert.equal(workspace.designReview.edited,false,'Manual config edits cannot mutate imported Design');
 const editedEvidence=JSON.stringify(W.analysisEvidenceBatches(manuallyEdited));
