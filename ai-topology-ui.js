@@ -208,7 +208,13 @@ $('analyze').onclick=async()=>{
  busy=true;$('analyze').disabled=true;
  try{
   const statusRes=await fetch('/api/ai/status');if(!statusRes.ok)throw Error('AI service status unavailable.');
-  const available=await statusRes.json();if(!available.available)throw Error('AI provider is not configured. Topology editing and local export remain available.');
+  const available=await statusRes.json();
+  if(!available.available)throw Error(available.note||'AI model unavailable. Topology editing and local export remain available.');
+  // The embedded local model uses a small context window. Keep every reviewed
+  // original line and citation, but submit small evidence chunks separately.
+  if(available.provider==='local'&&runState.index===0&&!runState.reports.length){
+   runState.batches=runState.batches.flat().map(item=>[item]);
+  }
   if(['groq','openai'].includes(available.provider)&&
      !window.confirm('This sends the reviewed, redacted topology/configuration evidence to the external '+available.provider+' model provider. Confirm that you are authorized to share this data. Continue?')){
     message('External model transfer cancelled. No evidence was submitted.');

@@ -227,16 +227,37 @@ Return a concise cross-batch draft marked UNVERIFIED until original citations
 and operational states can be checked together.
 """
 
+def local_runtime_reachable():
+    """Check deployment-owned model health without sending customer evidence."""
+    if not configured() or os.getenv('AI_PROVIDER', 'local') != 'local':
+        return False
+    base = os.environ['AI_BASE_URL'].rstrip('/')
+    if base.endswith('/v1'):
+        base = base[:-3]
+    try:
+        req = urllib.request.Request(base + '/health', method='GET')
+        with urllib.request.build_opener(NoRedirect()).open(req, timeout=2) as response:
+            return response.status == 200 and json.loads(response.read(2048)).get('status') == 'ok'
+    except (OSError, ValueError, TypeError, AttributeError):
+        return False
+
+
 def install_engineering_ai(app):
     slots = threading.BoundedSemaphore(1)
 
     @app.get('/api/ai/status')
     def status():
         enabled = bool(configured())
-        return {'available': enabled, 'readOnly': True,
-                'provider': os.getenv('AI_PROVIDER', 'local') if enabled else 'disabled',
-                'reasoningVerified': False,
-                'note': 'Credentials configured; this endpoint does not verify model quality or live inference.'}
+        provider = os.getenv('AI_PROVIDER', 'local') if enabled else 'disabled'
+        ready = local_runtime_reachable() if provider == 'local' else enabled
+        note = ('AI provider is not configured.' if not enabled else
+                'Local model is not responding; AI analysis is unavailable.' if provider == 'local' and not ready else
+                'Local model responds; engineering quality is NOT verified.' if provider == 'local' else
+                'Credentials exist, but provider access and engineering quality are NOT verified.')
+        return {'available': ready, 'configured': enabled,
+                'runtimeReachable': ready if provider == 'local' else None,
+                'readOnly': True, 'provider': provider,
+                'reasoningVerified': False, 'note': note}
 
     @app.post('/api/ai/analyze')
     def analyze(body: Analysis):
