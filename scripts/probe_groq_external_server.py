@@ -35,7 +35,7 @@ class ProbeHandler(BaseHTTPRequestHandler):
             return
         key = self.headers.get('X-Groq-Probe-Key', '')
         # Only single-shot requests; no CLI/capture/prompt body is accepted.
-        if not (key.startswith('gsk_') and len(key) <= 256) or int(self.headers.get('Content-Length', '0') or '0'):
+        if not (8 <= len(key) <= 256 and key.isascii()) or int(self.headers.get('Content-Length', '0') or '0'):
             self.send_json(400, {'error': 'invalid_request'})
             return
         self.server.used = True
