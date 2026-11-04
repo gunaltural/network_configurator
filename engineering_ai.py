@@ -54,6 +54,30 @@ def redact(value):
         lambda match: (match.group('line') or '') + '[REDACTED]', value
     )
 
+def groq_error_category(error):
+    """Classify only documented provider codes; never log a response message.
+
+    Error messages can contain request content and should not reach CI logs.
+    """
+    try:
+        data = json.loads(error.read(2048))
+        problem = data.get('error', {})
+        if not isinstance(problem, dict):
+            return 'unclassified'
+        code = problem.get('code')
+        if code in {'model_permission_blocked_org', 'model_permission_blocked_project',
+                    'organization_restricted', 'model_not_found', 'invalid_api_key',
+                    'insufficient_permissions'}:
+            return code
+        category = problem.get('type')
+        if category in {'permissions_error', 'authentication_error',
+                        'invalid_request_error', 'rate_limit_error'}:
+            return category
+    except (OSError, ValueError, TypeError, AttributeError):
+        pass
+    return 'unclassified'
+
+
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, *args, **kwargs):
         return None
@@ -116,7 +140,7 @@ def generate(payload, *, local_choices=()):
     except urllib.error.HTTPError as exc:
         # Log only the HTTP status, never credentials, prompts or provider body.
         if os.getenv('AI_PROVIDER') == 'groq':
-            print('AI_GROQ_HTTP_STATUS=' + str(exc.code), flush=True)
+            print('AI_GROQ_HTTP_STATUS=' + str(exc.code) + ' CATEGORY=' + groq_error_category(exc), flush=True)
         raise HTTPException(502, 'AI provider did not return a complete draft.') from None
     except (OSError, ValueError, KeyError, TypeError, AttributeError, IndexError) as exc:
         # A bounded diagnostic category makes hosted failures actionable without leaking CLI.
