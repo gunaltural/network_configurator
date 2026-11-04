@@ -66,7 +66,7 @@ function render(){
  }
  draw();
 }
-function changed(label){invalidate();render();message(label+' Your original Design project was not modified.');}
+function changed(label){invalidate();$('structuralResult').textContent='Topology changed. Re-run structural analysis.';render();message(label+' Your original Design project was not modified.');}
 function loadDevice(){
  const n=workspace.nodes.find(n=>n.id===$('deviceSelect').value);
  $('deviceId').readOnly=!!n;$('deviceId').value=n?.id||'';$('hostname').value=n?.hostname||'';
@@ -169,6 +169,24 @@ $('importWorkspace').onchange=async()=>{
  if((workspace.nodes.length||workspace.configs.length)&&!window.confirm('Replace the current topology?'))return;
  try{workspace=api.validate(JSON.parse(await file.text()));$('sourceLabel').textContent='Imported saved workspace';changed('Saved workspace imported.');loadDevice();loadLink();loadConfig();}
  catch(e){message('Invalid workspace file: '+e.message,true);}
+};
+$('assessStructure').onclick=()=>{
+ try{
+  const result=api.structuralAssessment(workspace);
+  const lines=[
+   'Source: planned graph only; not observed operational reachability',
+   'Devices: '+result.devices+' · physical links: '+result.physicalLinks+
+     ' · logical links: '+result.logicalLinks,
+   'Physical components: '+result.components.length+
+     ' ('+result.components.map(x=>x.length).join(', ')+' device(s))',
+   'Isolated in drawn physical graph: '+(result.isolatedDevices.join(', ')||'none'),
+   'Potential transit dependencies: '+(result.potentialTransitDependencies.join(', ')||'none'),
+   'Potential single-path links: '+(result.potentialSinglePathLinks.join(', ')||'none'),
+   'Devices without attached configurations: '+(result.configurationMissing.join(', ')||'none'),
+   result.caveat
+  ];
+  $('structuralResult').textContent=lines.join('\n');
+ }catch(e){message(e.message,true);}
 };
 $('preview').onclick=()=>{
  try{

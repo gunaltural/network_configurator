@@ -17,6 +17,8 @@ try{
  await page.locator('#aiBuildTopology').click();
  assert.match(await page.locator('#overview').innerText(),/7 devices · 7 links · 0 configurations/);
  assert.ok((await page.locator('#devicesList').innerText()).includes('Arista EOS'));
+ await page.locator('#assessStructure').click();
+ assert.match(await page.locator('#structuralResult').innerText(),/Potential single-path links: none/);
  await page.locator('#template').selectOption('vpc');
  await page.locator('#applyTemplate').click();
  assert.match(await page.locator('#overview').innerText(),/2 devices · 2 links/);

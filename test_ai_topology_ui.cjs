@@ -20,6 +20,9 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  assert.match($('overview').textContent,/6 devices · 9 links · 0 configurations/);
  assert.match($('sourceLabel').textContent,/New independent topology/);
  assert.ok(w.NetworkAITopology);
+ $('assessStructure').click();
+ assert.match($('structuralResult').textContent,/Potential single-path links: none/);
+ assert.match($('structuralResult').textContent,/Devices without attached configurations/);
  $('template').value='vpc';$('applyTemplate').click();
  assert.match($('overview').textContent,/2 devices · 2 links/);
  $('deviceId').value='fw-1';$('hostname').value='FW-1';$('vendor').value='FortiGate';$('role').value='edge';

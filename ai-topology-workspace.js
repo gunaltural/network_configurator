@@ -51,6 +51,42 @@ function setConfiguration(workspace,deviceId,text){
  next.configs=next.configs.filter(c=>c.deviceId!==deviceId);
  next.configs.push({deviceId,text});return validate(edited(next));
 }
+// Structural graph evidence is computed from user-defined *physical* links.
+// These are possible dependency points, not observed outages or AI diagnoses.
+function structuralAssessment(workspace){
+ const model=validate(workspace),physical=model.links.filter(l=>!l.logical);
+ const adjacency=new Map(model.nodes.map(n=>[n.id,[]]));
+ for(const l of physical){adjacency.get(l.a).push([l.b,l.id]);adjacency.get(l.b).push([l.a,l.id]);}
+ const visited=new Set(),disc=new Map(),low=new Map(),parents=new Map(),articulation=new Set(),bridges=[],components=[];
+ let tick=0;
+ function visit(u,component){
+  visited.add(u);disc.set(u,++tick);low.set(u,disc.get(u));component.push(u);
+  let children=0;
+  for(const [v,edge]of adjacency.get(u)){
+   if(!visited.has(v)){
+    parents.set(v,u);children++;visit(v,component);
+    low.set(u,Math.min(low.get(u),low.get(v)));
+    if(parents.has(u)&&low.get(v)>=disc.get(u))articulation.add(u);
+    if(low.get(v)>disc.get(u))bridges.push(edge);
+   }else if(parents.get(u)!==v)low.set(u,Math.min(low.get(u),disc.get(v)));
+  }
+  if(!parents.has(u)&&children>1)articulation.add(u);
+ }
+ for(const node of model.nodes){
+  if(visited.has(node.id))continue;
+  const component=[];visit(node.id,component);components.push(component);
+ }
+ return {
+  evidenceType:'planned-graph-structure-not-operational',
+  devices:model.nodes.length,physicalLinks:physical.length,
+  logicalLinks:model.links.length-physical.length,components,
+  isolatedDevices:model.nodes.filter(n=>adjacency.get(n.id).length===0).map(n=>n.id),
+  potentialTransitDependencies:[...articulation].sort(),
+  potentialSinglePathLinks:[...new Set(bridges)].sort(),
+  configurationMissing:model.nodes.filter(n=>!model.configs.some(c=>c.deviceId===n.id)).map(n=>n.id),
+  caveat:'Graph dependencies are conditional. Missing links/configurations may be outside the modeled scope; no failure, outage, traffic path or vendor compliance is proven.'
+ };
+}
 function analysisManifest(workspace){
  const model=validate(workspace);
  // Never include raw configuration in a manifest destined for the AI provider.
@@ -136,7 +172,13 @@ function analysisEvidenceBatches(workspace){
  if(!model.nodes.length)throw Error('Add at least one device before analysis.');
  // Every topology and configuration fact is line-addressed. No fabricated CLI
  // commands, and no rule-derived conclusion is passed off as an observation.
- const topology=['Workspace topology: user-edited (not verified operational state)'];
+ const assessment=structuralAssessment(model);
+ const topology=['Workspace topology: user-edited (not verified operational state)',
+  'Graph review: physical-model components='+assessment.components.length+
+   '; potential transit nodes='+assessment.potentialTransitDependencies.join(',')+
+   '; potential single-path links='+assessment.potentialSinglePathLinks.join(',')+
+   '; logical links excluded from physical reachability='+assessment.logicalLinks,
+  'Graph review is a computed structural observation only, not proof of traffic failure or an AI diagnosis'];
  for(const n of model.nodes)topology.push('Device '+n.id+' hostname='+n.hostname+' vendor='+n.vendor+' role='+n.role);
  for(const l of model.links)topology.push('Link '+l.id+' '+l.a+'['+l.aPort+'] to '+l.b+'['+l.bPort+'] kind='+l.kind+' logical='+!!l.logical);
  const addChunks=(idPrefix,header,lines)=>{
@@ -183,5 +225,5 @@ function analysisEvidenceBatches(workspace){
  return batches;
 }
 
-root.NetworkAITopology={fromDesign,blank,template,buildFreeTopology,validate,addDevice,updateDevice,addLink,updateLink,removeLink,removeDevice,setConfiguration,analysisManifest,analysisEvidenceBatches};
+root.NetworkAITopology={fromDesign,blank,template,buildFreeTopology,structuralAssessment,validate,addDevice,updateDevice,addLink,updateLink,removeLink,removeDevice,setConfiguration,analysisManifest,analysisEvidenceBatches};
 })(typeof window==='undefined'?globalThis:window);

@@ -61,7 +61,11 @@ textarea{width:100%;min-height:140px;resize:vertical}pre{padding:12px;background
 <svg id="topologyCanvas" viewBox="0 0 800 360" role="img" aria-label="Editable network topology preview"></svg>
 <h3>Devices</h3><ul id="devicesList"></ul><h3>Connections</h3><ul id="linksList"></ul>
 </section>
-<section class="panel" aria-label="AI analysis"><h2>3 · Review and analyze</h2><section id="designReviewPanel" hidden>
+<section class="panel" aria-label="AI analysis"><h2>3 · Review and analyze</h2>
+<section id="structuralReview"><h3>Structural dependency analysis · deterministic, not AI</h3>
+<button id="assessStructure" type="button">Inspect connectivity and single-path dependencies</button>
+<pre id="structuralResult" aria-live="polite">Not yet assessed. Only modeled physical links are considered.</pre>
+<p class="hint">A bridge or transit node is a possible dependency in the drawn graph. It does not prove production outages or operational reachability; logical overlay links are analyzed separately.</p></section><section id="designReviewPanel" hidden>
 <h3>Imported Design baseline — deterministic checks</h3>
 <p id="designReviewSummary"></p><ul id="designReviewIssues"></ul>
 <p class="hint">Existing Design checks validate selected inputs. They do not prove deployment or independent correctness of every generated configuration. AI reviews these as context, not as a precomputed answer.</p>
