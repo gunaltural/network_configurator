@@ -110,7 +110,15 @@ def generate(payload, *, local_choices=()):
         if not text.strip():
             raise ValueError('Empty')
         return text
-    except (OSError, ValueError, KeyError, TypeError, AttributeError, IndexError):
+    except urllib.error.HTTPError as exc:
+        # Log only the HTTP status, never credentials, prompts or provider body.
+        if os.getenv('AI_PROVIDER') == 'groq':
+            print('AI_GROQ_HTTP_STATUS=' + str(exc.code), flush=True)
+        raise HTTPException(502, 'AI provider did not return a complete draft.') from None
+    except (OSError, ValueError, KeyError, TypeError, AttributeError, IndexError) as exc:
+        # A bounded diagnostic category makes hosted failures actionable without leaking CLI.
+        if os.getenv('AI_PROVIDER') == 'groq':
+            print('AI_GROQ_FAILURE_TYPE=' + type(exc).__name__, flush=True)
         raise HTTPException(502, 'AI provider did not return a complete draft.') from None
 
 
