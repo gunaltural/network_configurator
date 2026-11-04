@@ -59,16 +59,16 @@ function structuralAssessment(workspace){
  for(const l of physical){adjacency.get(l.a).push([l.b,l.id]);adjacency.get(l.b).push([l.a,l.id]);}
  const visited=new Set(),disc=new Map(),low=new Map(),parents=new Map(),articulation=new Set(),bridges=[],components=[];
  let tick=0;
- function visit(u,component){
+ function visit(u,component,parentEdge=null){
   visited.add(u);disc.set(u,++tick);low.set(u,disc.get(u));component.push(u);
   let children=0;
   for(const [v,edge]of adjacency.get(u)){
    if(!visited.has(v)){
-    parents.set(v,u);children++;visit(v,component);
+    parents.set(v,u);children++;visit(v,component,edge);
     low.set(u,Math.min(low.get(u),low.get(v)));
     if(parents.has(u)&&low.get(v)>=disc.get(u))articulation.add(u);
     if(low.get(v)>disc.get(u))bridges.push(edge);
-   }else if(parents.get(u)!==v)low.set(u,Math.min(low.get(u),disc.get(v)));
+   }else if(edge!==parentEdge)low.set(u,Math.min(low.get(u),disc.get(v)));
   }
   if(!parents.has(u)&&children>1)articulation.add(u);
  }

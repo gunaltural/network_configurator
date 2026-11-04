@@ -75,6 +75,12 @@ assert.equal(noLinks.configurationMissing.length,4);
 const oneConfig=api.structuralAssessment(api.setConfiguration(independent,'node-1','hostname node-1'));
 assert.equal(oneConfig.configurationMissing.length,3);
 assert.ok(JSON.stringify(star).includes('not-operational'));
+const parallel=api.addLink(api.buildFreeTopology({deviceCount:2,layout:'chain'}),{id:'redundant-path',a:'node-1',b:'node-2',kind:'physical'});
+assert.deepEqual(api.structuralAssessment(parallel).potentialSinglePathLinks,[],
+ 'Two parallel modeled physical paths must not be mistaken for a single bridge');
+const onePhysicalOneLogical=api.addLink(api.buildFreeTopology({deviceCount:2,layout:'chain'}),{id:'logical-peer',a:'node-1',b:'node-2',kind:'control',logical:true});
+assert.equal(api.structuralAssessment(onePhysicalOneLogical).potentialSinglePathLinks.length,1,
+ 'Logical adjacency is not a second physical cable');
 assert.throws(()=>api.analysisEvidenceBatches(api.blank()),/at least one device/);
 const edited=api.updateDevice(modified,'fw',{hostname:'FGT-1',vendor:'FortiGate',role:'hub'});
 assert.equal(edited.nodes.find(x=>x.id==='fw').hostname,'FGT-1');
