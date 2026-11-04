@@ -87,13 +87,18 @@ function saveFile(name,text,type){
  a.href=url;a.download=name;document.body.append(a);a.click();a.remove();URL.revokeObjectURL(url);
 }
 function fromHandoff(){
- const handoffRaw=sessionStorage.getItem(handoff);if(!handoffRaw)return;
+ const handoffRaw=sessionStorage.getItem(handoff);
+ if(!handoffRaw){
+  message('Boş AI çalışma alanı açıldı. Mevcut Design topolojisini aktarmak için projeye dönüp “AI Analizine Gönder” seçeneğini kullanın.');
+  return;
+ }
  sessionStorage.removeItem(handoff);
  try{
   const report=JSON.parse(handoffRaw);
   workspace=report?.schema==='ai-topology-workspace-v1'?api.validate(report):api.fromDesign(report);
-  $('sourceLabel').textContent='Imported Design snapshot · independent copy';
-  message('Imported '+workspace.nodes.length+' Design devices, '+workspace.configs.length+' generated configuration proposals and '+(workspace.designReview?.parameters.length||0)+' engineering parameters. Review redacted evidence before AI analysis.');
+  const project=workspace.sourceProjectName?workspace.sourceProjectName+' · ':'';
+  $('sourceLabel').textContent='Imported Design · '+project+(workspace.sourceModule||'')+' · independent copy';
+  message('Mevcut '+project+(workspace.sourceModule||'')+' Design aktarıldı: '+workspace.nodes.length+' cihaz, '+workspace.links.length+' bağlantı, '+workspace.configs.length+' konfigürasyon. Analizden önce gizlenmiş kanıtları inceleyin.');
  }catch(e){message('Could not import Design snapshot: '+e.message,true);}
 }
 $('applyTemplate').onclick=()=>{

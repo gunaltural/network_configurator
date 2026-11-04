@@ -34,12 +34,14 @@ function render(){if(!panel)return;const active=matches()&&!(main&&document.getE
  if(main){
   const aiActions=node('div',undefined,{class:'guided-actions guided-ai-entries','aria-label':'AI Analysis optional tools'});
   aiActions.append(
-   button('AI Analysis V0.1 Beta',()=>{location.assign('/ai-topology');},'guidedAIAnalysis'),
-   button('Design → AI Analizine Gönder',()=>{
+   button('AI Analysis V0.1 · Mevcut topolojiyi aktar',()=>{
+    // Import a snapshot of the ACTIVE Design; the independent editor must
+    // never replace the user's BGP/EVPN/VPC design with a blank template.
     const handoff=document.getElementById('sendDesignToAI');
-    if(!handoff)throw Error('Design AI handoff is not ready. Reload the application.');
+    if(!handoff)throw Error('Design AI aktarımı hazır değil. Mevcut Design ekranını yeniden açın.');
     handoff.click();
-   },'guidedDesignToAI')
+   },'guidedAIAnalysis'),
+   button('Yeni boş AI çalışma alanı',()=>{location.assign('/ai-topology');},'guidedBlankAI')
   );
   panel.append(aiActions);
  }
