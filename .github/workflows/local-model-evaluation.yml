@@ -11,6 +11,7 @@ on:
       - "test_ai_topology_workspace.cjs"
       - "engineering_ai.py"
       - "scripts/probe_groq_access.py"
+      - "test_groq_access_probe.py"
       - "test_ai_local_timeout.py"
       - "scripts/check_budget_analysis.py"
       - "Dockerfile"
@@ -26,6 +27,7 @@ on:
       - "test_ai_topology_workspace.cjs"
       - "engineering_ai.py"
       - "scripts/probe_groq_access.py"
+      - "test_groq_access_probe.py"
       - "bgp_cli_evidence.py"
       - "test_bgp_cli_evidence.py"
       - "tac_overview.py"
@@ -172,6 +174,8 @@ jobs:
           python-version: "3.12"
       - name: Install held-out evaluation dependencies
         run: python -m pip install fastapi httpx httpx2
+      - name: Verify independent endpoint probe and safe diagnostics offline
+        run: python -m unittest -v test_groq_access_probe
       - name: Test Groq account and model permission without customer evidence
         env:
           PYTHONPATH: .
