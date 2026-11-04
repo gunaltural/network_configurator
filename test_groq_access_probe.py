@@ -84,5 +84,17 @@ class AccessComparisonTests(unittest.TestCase):
                 self.assertNotIn('synthetic-key', output.getvalue())
 
 
+    def test_nonempty_but_wrong_synthetic_reply_fails(self):
+        def fake_call(url, key=None, payload=None, timeout=20):
+            if url == probe.MODELS_URL:
+                return {'status': 200, 'category': 'none', 'content_type': 'json',
+                        'body': {'data': [{'id': probe.MODEL}]}}
+            return {'status': 200, 'category': 'none', 'content_type': 'json',
+                    'body': {'choices': [{'finish_reason': 'stop',
+                                          'message': {'content': 'I cannot comply'}}]}}
+        with patch.object(probe, 'call', side_effect=fake_call), contextlib.redirect_stdout(io.StringIO()):
+            self.assertFalse(probe.run_probe('synthetic-key'))
+
+
 if __name__ == '__main__':
     unittest.main()
