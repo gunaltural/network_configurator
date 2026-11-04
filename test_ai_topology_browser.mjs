@@ -27,6 +27,9 @@ try{
  await page.locator('#configDevice').selectOption('fw-1');
  await page.locator('#configuration').fill('hostname FW-1\nsnmp-server community dont-send-me RO\nset community 65000:1 additive');
  await page.locator('#saveConfig').click();
+ await page.setViewportSize({width:390,height:844});
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+2),true,'AI Analysis mobile editor must not overflow viewport');
+ await page.setViewportSize({width:1280,height:900});
  await page.locator('#preview').click();
  const review=await page.locator('#evidencePreview').innerText();
  assert.ok(review.includes('65000:1 additive'),'Routing community survives client redaction');
@@ -39,7 +42,7 @@ try{
  const designPage=await browser.newPage({viewport:{width:1280,height:900}});
  try{
   await designPage.goto(base+'/?workspace=VPC',{waitUntil:'domcontentloaded'});
-  const openReview=designPage.locator('#ncSidebar button').filter({hasText:'Analyze Design with AI (optional)'});
+  const openReview=designPage.locator('#sendDesignToAI');
   await openReview.waitFor({timeout:18000});
   await designPage.waitForFunction(()=>window.__designWorkspaceOpened===true,{timeout:15000});
   await designPage.waitForFunction(()=>!!window.NetworkWorkspaceProject?.diagnosticDesign, {timeout:10000});
