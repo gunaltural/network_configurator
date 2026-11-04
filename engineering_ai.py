@@ -78,7 +78,7 @@ def generate(payload, *, local_choices=()):
         payload = {'model': payload['model'], 'messages': [
             {'role': 'system', 'content': payload['instructions']},
             {'role': 'user', 'content': payload['input']}
-        ], 'max_tokens': min(payload['max_output_tokens'], 2000), 'stream': False}
+        ], 'max_tokens': min(payload['max_output_tokens'], 3500), 'stream': False}
         if payload['model'] in ('openai/gpt-oss-120b', 'openai/gpt-oss-20b'):
             # Keep the invisible reasoning budget bounded; do not expose chains
             # in engineering reports or consume free-tier output on them.
@@ -101,6 +101,9 @@ def generate(payload, *, local_choices=()):
                 # Safe diagnostics only; never log model text, evidence or keys.
                 if local:
                     print('AI_LOCAL_INCOMPLETE finish_reason=' + str(choice.get('finish_reason')) +
+                          ' generated_chars=' + str(len(choice.get('message', {}).get('content') or '')), flush=True)
+                elif os.getenv('AI_PROVIDER') == 'groq':
+                    print('AI_GROQ_INCOMPLETE finish_reason=' + str(choice.get('finish_reason')) +
                           ' generated_chars=' + str(len(choice.get('message', {}).get('content') or '')), flush=True)
                 raise ValueError('Incomplete chat response')
             return choice['message']['content']
