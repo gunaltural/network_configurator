@@ -102,7 +102,7 @@ def run_probe(key):
             finish = raw_finish if raw_finish in SAFE_FINISH else 'other'
             reply = choice.get('message', {})
             completion_ok = (finish == 'stop' and isinstance(reply, dict) and
-                             bool(str(reply.get('content') or '').strip()))
+                             str(reply.get('content') or '').strip() == 'OK')
     for name, outcome, extra in [
         ('anonymous_models', anonymous, ''),
         ('authorized_models', models, ' target_model_listed=' + str(available).lower()),
