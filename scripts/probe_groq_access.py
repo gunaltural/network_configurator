@@ -11,11 +11,23 @@ import urllib.request
 API = 'https://api.groq.com/openai/v1/models'
 MODEL = 'openai/gpt-oss-120b'
 
+def anonymous_http_status():
+    """A no-credential GET distinguishes broad edge blocking from key scope."""
+    try:
+        with urllib.request.urlopen(API, timeout=15) as response:
+            return response.status
+    except urllib.error.HTTPError as error:
+        return error.code
+    except (OSError, ValueError):
+        return 'unavailable'
+
+
 def main():
     key = os.environ.get('GROQ_API_KEY', '')
     if not key:
         print('GROQ_PREFLIGHT missing_secret')
         raise SystemExit(2)
+    print('GROQ_NETWORK anonymous_status=' + str(anonymous_http_status()))
     request = urllib.request.Request(API, headers={'Authorization': 'Bearer ' + key})
     try:
         with urllib.request.urlopen(request, timeout=20) as response:
