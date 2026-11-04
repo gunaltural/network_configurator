@@ -221,7 +221,9 @@ $('analyze').onclick=async()=>{
     return;
   }
   const vendors=[...new Set(workspace.nodes.map(n=>n.vendor).filter(Boolean))],vendor=vendors.length===1?vendors[0]:'Mixed';
-  const stop=Math.min(runState.batches.length,runState.index+12);
+  // Under the resource-limited local runtime, do only one model request per
+  // explicit click. Prevent a mobile request from launching 12 slow inferences.
+  const stop=Math.min(runState.batches.length,runState.index+(available.provider==='local'?1:12));
   for(;runState.index<stop;){
    const i=runState.index;
    message('Analyzing batch '+(i+1)+' of '+runState.batches.length+'…');
