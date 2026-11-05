@@ -560,8 +560,12 @@ $('loadSTPLab').onclick=()=>{
  }catch(e){message('LAB: '+e.message,true);}
 };
 function saveFile(name,text,type){
- const blob=new Blob([text],{type}),url=URL.createObjectURL(blob),a=document.createElement('a');
- a.href=url;a.download=name;document.body.append(a);a.click();a.remove();URL.revokeObjectURL(url);
+ // Avoid re-wrapping server-generated PDF/DOCX binary. Safari may cancel a
+ // synthetic download if its Blob URL is revoked in the same event loop tick.
+ const blob=text instanceof Blob?text:new Blob([text],{type});
+ const url=URL.createObjectURL(blob),a=document.createElement('a');
+ a.href=url;a.download=name;document.body.append(a);a.click();a.remove();
+ setTimeout(()=>URL.revokeObjectURL(url),60000);
 }
 document.querySelectorAll('#moduleChoices input').forEach(input=>input.addEventListener('change',()=>{invalidate();updateScopeCount();message('Analysis scope changed. Review evidence again before sending.');}));
 $('moduleSearch').addEventListener('input',()=>{
@@ -792,25 +796,43 @@ function getReportDocument(){
 }
 async function downloadDocument(format){
  const button=$(format==='pdf'?'downloadEngineeringPDF':'downloadEngineeringWord');
- if(button.disabled||!reportAvailable())return;
- const html=activeSavedReport?.html||getReportDocument();
- if(!html.trim())return;
+ if(button.dataset.downloading==='true'||!reportAvailable())return;
+ const label=format==='pdf'?'PDF':'Word',ext=format==='pdf'?'pdf':'docx';
+ const originalText=button.textContent;
+ button.dataset.downloading='true';
  button.disabled=true;
+ button.textContent='Preparing '+label+'…';
+ $('reportStageStatus').textContent='Preparing '+label+' from the visible HTML report. Other reports remain available.';
+ const controller=new AbortController();
+ const watchdog=setTimeout(()=>controller.abort(),90000);
  try{
+  const html=activeSavedReport?.html||getReportDocument();
+  if(!html.trim())throw Error('No report HTML to export.');
   const response=await fetch('/api/ai/engineering-report/'+format,{
    method:'POST',headers:{'Content-Type':'application/json'},
-   body:JSON.stringify({html,title:'Network Engineering Assessment'})
+   body:JSON.stringify({html,title:'Network Engineering Assessment'}),
+   signal:controller.signal
   });
   if(!response.ok){
    const data=await response.json().catch(()=>({}));
-   throw Error(data.detail||'Document export failed with status '+response.status);
+   throw Error(data.detail||'Server returned '+response.status+'.');
   }
   const blob=await response.blob();
-  const ext=format==='pdf'?'pdf':'docx';
-  saveFile('network-engineering-assessment.'+ext,blob,format==='pdf'?'application/pdf':'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-  $('reportStageStatus').textContent=ext.toUpperCase()+' report downloaded. HTML report source remains unchanged.';
- }catch(error){message('Download '+format.toUpperCase()+': '+error.message,true);}
- finally{button.disabled=!reportAvailable();}
+  const header=await blob.slice(0,4).text();
+  if((format==='pdf'&&!header.startsWith('%PDF'))||(format==='word'&&!header.startsWith('PK')))
+   throw Error('Server response was not a valid '+label+' file.');
+  saveFile('network-engineering-assessment.'+ext,blob,response.headers.get('content-type')||blob.type);
+  $('reportStageStatus').textContent=label+' download prepared successfully ('+Math.round(blob.size/1024)+' KB).';
+ }catch(error){
+  const detail=error.name==='AbortError'?'Report export timed out. Try again or download HTML.':error.message;
+  $('reportStageStatus').textContent=label+' download failed: '+detail;
+  message(label+' download failed: '+detail,true);
+ }finally{
+  clearTimeout(watchdog);
+  button.textContent=originalText;
+  button.dataset.downloading='false';
+  button.disabled=!reportAvailable();
+ }
 }
 $('downloadEngineeringPDF').onclick=()=>downloadDocument('pdf');
 $('downloadEngineeringWord').onclick=()=>downloadDocument('word');
