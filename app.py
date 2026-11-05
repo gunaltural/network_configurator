@@ -1740,6 +1740,10 @@ def stp_analysis_v1_script():
 def stp_knowledge_v1_script():
     return FileResponse(BASE_DIR / 'stp-knowledge-v1.js', media_type='application/javascript')
 
+@app.get('/stp-cto-report.js')
+def stp_cto_report_script():
+    return FileResponse(BASE_DIR / 'stp-cto-report.js', media_type='application/javascript')
+
 @app.get('/api/engineering-knowledge/stp')
 def stp_design_engineering_knowledge():
     """Versioned, read-only SQLite knowledge derived from the existing STP Design UI."""
