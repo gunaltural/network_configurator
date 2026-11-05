@@ -1751,6 +1751,10 @@ def ai_topology_page():
 def network_evidence_correlation_script():
     return FileResponse(BASE_DIR / 'network-evidence-correlation-v1.js', media_type='application/javascript')
 
+@app.get('/ai-engineering-assessment-v1.js')
+def ai_engineering_assessment_script():
+    return FileResponse(BASE_DIR / 'ai-engineering-assessment-v1.js', media_type='application/javascript')
+
 @app.get('/ai-topology-ui.js')
 def ai_topology_ui_script():
     return FileResponse(BASE_DIR / 'ai-topology-ui.js', media_type='application/javascript')
