@@ -26,6 +26,7 @@ on:
       - 'stp-network-analysis-v2.js'
       - 'network-engineering-findings-v1.js'
       - 'test_network_engineering_findings_v1.cjs'
+      - 'test_ai_stp_disabled_design_browser.mjs'
       - 'stp-operational-evidence-v1.js'
       - 'stp-synthetic-lab-v1.js'
       - 'test_stp_operational_v1.cjs'
@@ -142,6 +143,7 @@ jobs:
           curl -fsS http://127.0.0.1:8125/ai-topology-ui.js | grep -q 'configDevice'
           node test_analysis_browser.mjs
           node test_ai_topology_browser.mjs
+          node test_ai_stp_disabled_design_browser.mjs
       - name: Build hosted production profile without local model or secret
         run: |
           docker build --build-arg AI_IMAGE_PROFILE=hosted --target production -t nc-ai-mvp-hosted .
