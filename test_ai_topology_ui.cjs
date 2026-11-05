@@ -63,16 +63,19 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  const svg=d.getElementById('topologyCanvas');
  svg.getBoundingClientRect=()=>({left:0,top:0,width:800,height:360});
  const node=svg.querySelector('[data-device-id="n9k-a"]');
- const x=Number(node.getAttribute('cx')),y=Number(node.getAttribute('cy'));
+ assert.equal(node.tagName.toLowerCase(),'rect','Editable network nodes share Design-style rectangular cards');
+ const x=Number(node.getAttribute('x'))+57,y=Number(node.getAttribute('y'))+35;
  const mouse=(name,cx,cy)=>new w.MouseEvent(name,{bubbles:true,button:0,clientX:cx,clientY:cy});
  node.dispatchEvent(mouse('pointerdown',x,y));
  svg.dispatchEvent(mouse('pointermove',x+70,y+45));
  svg.dispatchEvent(mouse('pointerup',x+70,y+45));
  const moved=svg.querySelector('[data-device-id="n9k-a"]');
- assert.equal(Number(moved.getAttribute('cx')),x+70,'drag updates node X');
- assert.equal(Number(moved.getAttribute('cy')),y+45,'drag updates node Y');
+ assert.equal(Number(moved.getAttribute('x'))+57,x+70,'drag updates node X');
+ assert.equal(Number(moved.getAttribute('y'))+35,y+45,'drag updates node Y');
  assert.equal(svg.querySelectorAll('line').length,2,'links remain visible after drag');
- assert.equal(svg.querySelectorAll('text').length,4,'no redundant Connection text is rendered on lines');
+ assert.equal(svg.querySelectorAll('text').length,8,'tier labels plus device captions, without redundant Connection text on links');
+ assert.equal(svg.querySelectorAll('.topology-tier').length,2,'Design-style core and access tier backgrounds render');
+ assert.equal(svg.querySelectorAll('.node-title').length,2,'device title labels render in Design style');
  assert.equal(d.getElementById('connectionEditor').open,false,'advanced link editor stays collapsed by default');
 
  $('deviceId').value='fw-1';$('hostname').value='FW-1';$('vendor').value='FortiGate';$('role').value='edge';
