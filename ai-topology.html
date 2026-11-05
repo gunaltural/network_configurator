@@ -110,13 +110,14 @@ textarea{width:100%;min-height:140px;resize:vertical}pre{padding:12px;background
 <p class="hint">Compares only selected device configurations and explicitly configured STP values. This deterministic preflight is not an AI diagnosis or proof of live root roles.</p>
 <button type="button" id="runSTPPreflight">Compare selected STP configurations (local)</button>
 <pre id="stpPreflightResult" aria-live="polite">Select STP and devices, then compare their configurations.</pre>
+<button id="runSTPCTO" type="button" class="primary">Generate CTO Engineering Dashboard (Design knowledge DB)</button><button id="exportSTPCTO" type="button" disabled>Export CTO report (.html)</button>
+<div id="stpCTOStatus" role="status" class="hint"></div>
+<div id="stpCTOView" class="cto-view" aria-live="polite"></div>
 <details id="stpKnowledgeDetails"><summary>STP Engineering Knowledge Catalog V1 · vendor references</summary>
 <p class="hint">Scoped configuration findings with Cisco reference links. Absent commands are NOT proof of disabled features. Non-Cisco configurations require platform-specific references.</p>
 <button type="button" id="runSTPKnowledge">Evaluate selected device configs against STP Design parameters</button>
 <pre id="stpKnowledgeResult" aria-live="polite">Knowledge review not run.</pre>
-<button id="runSTPCTO" type="button" class="primary">Generate CTO Engineering Dashboard (Design knowledge DB)</button>
-<div id="stpCTOStatus" role="status" class="hint"></div>
-<div id="stpCTOView" class="cto-view" aria-live="polite"></div>
+
 <div id="stpKnowledgeSources" class="hint" aria-label="Official vendor source links"></div>
 </details>
 </section>
