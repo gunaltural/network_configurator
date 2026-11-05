@@ -41,7 +41,11 @@ try{
  await page.locator('#configuration').fill('hostname FW-1\nsnmp-server community dont-send-me RO\nset community 65000:1 additive');
  await page.locator('#saveConfig').click();
  await page.setViewportSize({width:390,height:844});
- assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+2),true,'AI Analysis mobile editor must not overflow viewport');
+ const mobileLayout=await page.evaluate(()=>({
+  width:window.innerWidth,scrollWidth:document.documentElement.scrollWidth,
+  offenders:[...document.querySelectorAll('body *')].filter(el=>el.getClientRects().length&&el.getBoundingClientRect().right>window.innerWidth+2).slice(0,8).map(el=>({tag:el.tagName,id:el.id,cls:String(el.className).slice(0,55),right:Math.round(el.getBoundingClientRect().right)}))
+ }));
+ assert.equal(mobileLayout.scrollWidth<=mobileLayout.width+2,true,'AI Analysis mobile editor must not overflow viewport: '+JSON.stringify(mobileLayout));
  await page.setViewportSize({width:1280,height:900});
  await page.locator('#preview').click();
  const review=await page.locator('#evidencePreview').innerText();
