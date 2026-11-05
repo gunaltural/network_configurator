@@ -1787,6 +1787,10 @@ def engineering_knowledge_stp_v1_script():
 def network_engineering_findings_v1_script():
     return FileResponse(BASE_DIR / 'network-engineering-findings-v1.js', media_type='application/javascript')
 
+@app.get('/network-engineering-review-v1.js')
+def network_engineering_review_v1_script():
+    return FileResponse(BASE_DIR / 'network-engineering-review-v1.js', media_type='application/javascript')
+
 @app.get('/stp-cto-report.js')
 def stp_cto_report_script():
     return FileResponse(BASE_DIR / 'stp-cto-report.js', media_type='application/javascript')
