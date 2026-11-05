@@ -224,10 +224,10 @@ const sensitive=/(?:password|passwd|secret|snmp[-\s]?server\s+community|snmp\s+c
 function safeLine(line){return sensitive.test(line)?'[REDACTED]':line.replace(/[\r\n\t]/g,' ');}
 function analysisEvidenceBatches(workspace,selectedDeviceIds){
  const model=validate(workspace),items=[];
+ if(!model.nodes.length)throw Error('Add at least one device before analysis.');
  const allIds=new Set(model.nodes.map(n=>n.id));
  const chosen=selectedDeviceIds==null?allIds:new Set(selectedDeviceIds);
  if(!chosen.size||[...chosen].some(id=>!allIds.has(id)))throw Error('Select one or more valid devices before analysis.');
- if(!model.nodes.length)throw Error('Add at least one device before analysis.');
  // Every topology and configuration fact is line-addressed. No fabricated CLI
  // commands, and no rule-derived conclusion is passed off as an observation.
  const topology=['Workspace topology: user-edited (not verified operational state)'];
