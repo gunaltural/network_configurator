@@ -24,6 +24,7 @@ const STANDARD_REFERENCES={
  bpduGuard:['ieee8021d','ieee8021w'],
  rootGuard:['ieee8021d','ieee8021q'],
  loopGuard:['ieee8021w','ieee8021q'],
+ udld:[],
  nativeVlan:['ieee8021q'],
  allowedVlans:['ieee8021q'],
  vtpMode:[],vtpVersion:[],vtpDomain:[],vtpPassword:[],dtp:[]
@@ -42,11 +43,12 @@ const PARAMETERS=[
  {id:'rootGuard',label:'Root Guard',design:'rootguard',source:'stp'},
  {id:'portfast',label:'PortFast / edge ports',design:'portfast',source:'stp'},
  {id:'loopGuard',label:'Loop Guard',design:'loopguard',source:'stp'},
+ {id:'udld',label:'UDLD aggressive',design:'udld',source:'stp'},
  {id:'mstRegion',label:'MST region / instance mapping',design:'campusMstName',source:'stp'}
 ];
 function parse(node,raw){
  const text=String(raw||''),rows=text.replace(/\r\n?/g,'\n').split('\n');
- const observed={vtpMode:[],vtpVersion:[],vtpDomain:[],vtpPassword:[],nativeVlan:[],allowedVlans:[],dtp:[],stpMode:[],bridgePriority:[],bpduGuard:[],rootGuard:[],portfast:[],loopGuard:[],mstRegion:[]};
+ const observed={vtpMode:[],vtpVersion:[],vtpDomain:[],vtpPassword:[],nativeVlan:[],allowedVlans:[],dtp:[],stpMode:[],bridgePriority:[],bpduGuard:[],rootGuard:[],portfast:[],loopGuard:[],udld:[],mstRegion:[]};
  let iface=null,mst=false;
  rows.forEach((line,i)=>{
   const t=line.trim(),number=i+1;
@@ -70,6 +72,7 @@ function parse(node,raw){
   hit('rootGuard',/^spanning-tree guard root/i,()=>t);
   hit('portfast',/^spanning-tree portfast(?:\s|$)/i,()=>t);
   hit('loopGuard',/^spanning-tree (?:loopguard|guard loop)/i,()=>t);
+  if(iface)hit('udld',/^udld port (aggressive|enable)/i,m=>m[1].toLowerCase());
   if(mst&&/^(?:name|revision|instance)\s+/i.test(t))observed.mstRegion.push({value:t,line:number,iface:null,command:t});
  });
  return {id:node.id,hostname:node.hostname,vendor:node.vendor,platform:String(node.vendor||''),hasCapture:!!text.trim(),observed};
