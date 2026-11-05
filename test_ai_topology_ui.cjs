@@ -14,6 +14,10 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  w.eval(fs.readFileSync('ai-topology-workspace.js','utf8'));
  w.eval(fs.readFileSync('ai-topology-ui.js','utf8'));
  assert.match($('overview').textContent,/0 devices/);
+ assert.match($('topologyEntryHint').textContent,/No Design topology imported/,'Dashboard opens the same empty Analysis Workspace');
+ const shell=fs.readFileSync('corporate-shell.js','utf8');
+ assert.match(shell,/AI Analysis Workspace[^\n]*data-nc-ai-workspace[^\n]*\/ai-topology/,'Dashboard Analysis routes to shared topology workspace');
+ assert.match(shell,/CLI \/ Show-Tech Analysis[^\n]*\/analysis/,'Legacy CLI analysis remains separately accessible');
  $('template').value='vpc';$('applyTemplate').click();
  assert.match($('overview').textContent,/2 devices · 2 links/);
  // Drag a node, ensure its location changes and the connecting SVG line follows.
@@ -86,6 +90,7 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  assert.equal(t.sessionStorage.getItem('networkConfigurator.aiTopology.pending'),null,'Handoff is consumed once');
  assert.equal(t.document.querySelector('#moduleChoices input[value="VPC"]').checked,true,'Design module presets analysis scope');
  assert.equal(t.document.getElementById('returnToDesign').hidden,false,'Return to Design link shown');
+ assert.match(t.document.getElementById('topologyEntryHint').textContent,/Imported VPC topology/,'Import opens same page with source context');
  assert.equal(t.document.getElementById('returnToDesign').getAttribute('href'),'/?resume=1&workspace=VPC','Return link points to source module with restored workspace');
  assert.equal(t.document.getElementById('showOriginalDesign').hidden,false,'Original Design preview tab is visible');
  assert.match(t.document.getElementById('originalDesignImage').src,/ORIGINAL-DESIGN/,'Source SVG is preserved as image');
