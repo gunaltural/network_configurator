@@ -21,7 +21,7 @@ textarea{width:100%;min-height:140px;resize:vertical}pre{padding:12px;background
 @media(max-width:900px){.grid{grid-template-columns:1fr}main{padding:12px}#topologyCanvas{height:290px}}
 </style></head>
 <body><main>
-<header><div><a href="/">Network Configurator</a> / AI Analysis <h1>AI Topology Workspace</h1><p class="muted">Start from a design or template. Edit devices, links and configurations without changing the original Design project.</p></div><span id="sourceLabel">Independent workspace</span></header>
+<header><div><a href="/">Network Configurator</a> / AI Analysis <a id="returnToDesign" href="/" hidden>Return to Design</a> <h1>AI Topology Workspace</h1><p class="muted">Start from a design or template. Edit devices, links and configurations without changing the original Design project.</p></div><span id="sourceLabel">Independent workspace</span></header>
 <div class="grid"><section class="panel" aria-label="Topology editor">
 <h2>1 · Build or import topology</h2>
 <div class="control"><label>Starting point<select id="template"><option value="blank">Blank topology</option><option value="vpc">Cisco vPC pair</option><option value="bgp">CE–ISP eBGP</option><option value="evpn">EVPN leaf–spine</option></select></label><button id="applyTemplate">Use template</button></div>
