@@ -136,6 +136,8 @@ class Tests(unittest.TestCase):
             self.assertIn('cisco-bgp-basic-2026', draft['sourceIndexIds'])
             self.assertIn('L3:', payload['input'])
             self.assertIn('Design as intent and Simulation as hypothetical', payload['instructions'])
+            self.assertIn('common evidence-based matrix', payload['instructions'])
+            self.assertIn('read-only audit', payload['instructions'])
 
     def test_vpc_model_receives_source_backed_questions_without_per_command_rules(self):
         capture = dict(module='CLI_ANALYSIS', vendor='Cisco NX-OS', task='report', evidence=[
@@ -170,6 +172,9 @@ class Tests(unittest.TestCase):
             self.assertIn('simulated failure outcome MUST NOT be described as a measured live fault', payload['instructions'])
             self.assertIn('retrieved_knowledge', payload['input'])
             self.assertNotIn('Max 65 words', payload['instructions'])
+            self.assertIn('SAME assessment methodology', payload['instructions'])
+            self.assertIn('counterevidence', payload['instructions'])
+            self.assertIn('observable acceptance criterion', payload['instructions'])
 
     def test_groq_403_error_classifier_exposes_only_safe_categories(self):
         import io
