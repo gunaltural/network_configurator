@@ -45,6 +45,9 @@ designTrigger.onclick=()=>{
   if(sourceFields&&window.NetworkDesignChecks?.evaluate){
    validation=window.NetworkDesignChecks.evaluate({module:report.source?.module,platform:report.vendor,fields:sourceFields});
   }
+  // Reuse the Design module's own SVG, rather than reconstructing its layout from device counts.
+  // This is a visual-only snapshot; it is never included in the model evidence batches.
+  try{report.topologySvg=window.NetworkWorkspaceProject?.simulationTopologySvg?.()||'';}catch{report.topologySvg='';}
   const subset=window.NetworkAIEvidence.designHandoff(report,validation);
   window.sessionStorage.setItem('networkConfigurator.aiTopology.pending',JSON.stringify(subset));
   window.location.assign('/ai-topology');
