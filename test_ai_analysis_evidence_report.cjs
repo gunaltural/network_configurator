@@ -46,6 +46,9 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  assert.match(output.textContent,/CORE-01/);
  assert.match(output.textContent,/BGP/);
  assert.match(output.textContent,/Neighbor FSM/,'Technology-specific verification task provided');
+ assert.match(output.textContent,/Inter-domain routing policy/,'Technology purpose is explained for executives');
+ assert.match(output.textContent,/unintended advertisements/,'Conditional risk is explained without asserting a live failure');
+ assert.match(output.textContent,/router bgp, neighbor address families/,'Evidence and CLI method provided for BGP');
  assert.match(output.textContent,/L2: router bgp 65001/,'Line-addressed device CLI shown');
  assert.doesNotMatch(output.textContent,/PrivateSecretValue/,'Credentials never appear in report');
  assert.equal(output.querySelectorAll('.engineering-deployment-evidence').length,6);
