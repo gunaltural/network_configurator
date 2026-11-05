@@ -1,34 +1,11 @@
 import {createRequire} from 'node:module';import assert from 'node:assert/strict';const {chromium}=createRequire(import.meta.url)('playwright');
 const browser=await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_EXECUTABLE||undefined,args:['--no-sandbox','--disable-dev-shm-usage','--use-gl=angle','--use-angle=swiftshader']});
 const ctx=await browser.newContext({viewport:{width:1500,height:1050}}),page=await ctx.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));const base=process.env.SMOKE_URL||'http://127.0.0.1:8125';
-async function run(id){
- try{
-  await page.locator('#pairScenario').selectOption(id,{timeout:10000});
-  await page.locator('#pairRunScenario').click({timeout:12000});
- }catch(error){
-  const pageClosed=page.isClosed();
-  const details={vendor:typeof scope==='string'?scope:'unknown',scenario:id,pageClosed,
-   enabled:pageClosed?null:await page.locator('#pairRunScenario').isEnabled().catch(()=>null),
-   selected:pageClosed?null:await page.locator('#pairScenario').inputValue().catch(()=>null),
-   state:pageClosed?null:(await page.locator('#pairState').textContent().catch(()=>null))?.slice(0,250),
-   browserErrors:errors.slice(-3)};
-  console.error('PAIR_SCENARIO_FAILURE '+JSON.stringify(details));
-  if(!pageClosed)await page.screenshot({path:'/tmp/pair-browser-failure-'+scope+'.png',fullPage:true}).catch(()=>{});
-  throw error;
- }
-}
+async function run(id){await page.locator('#pairScenario').selectOption(id);await page.locator('#pairRunScenario').click();}
 async function nativeGeometry(){return page.locator('#labMap [data-lab-device],#labMap [data-lab-link],#labMap [data-lab-links]').evaluateAll(items=>items.map(el=>[el.tagName,...['data-lab-device','data-lab-link','data-lab-links','x','y','x1','y1','x2','y2','d','points','transform'].map(a=>el.getAttribute(a))]));}
 async function record(){await page.locator('#syntheticRecord').click();const scenario=await page.evaluate(()=>window.NetworkLab.scenarioRecords().at(-1));assert.ok(scenario.scenarioNames.en);assert.ok(scenario.scenarioNames.tr);assert.ok(scenario.assessment.en.summary);assert.ok(scenario.assessment.tr.summary);if(/split-brain|dual-active|conditional/.test(scenario.modelStatus))assert.match(scenario.assessment.en.summary,/coordination.*unresolved/i);return scenario;}
-const vendorByScope={
- 'cisco-nxos':'Cisco NX-OS','arista-eos':'Arista EOS','huawei-ce':'Huawei_CE_SW',
- 'cisco-ios-xe':'Cisco IOS-XE','huawei-istack':'Huawei iStack'
-};
-const scope=process.env.PAIR_TEST_VENDOR||'all';
-if(scope!=='all'&&!vendorByScope[scope])throw Error('Unknown PAIR_TEST_VENDOR: '+scope);
-const vendors=scope==='all'?Object.values(vendorByScope):[vendorByScope[scope]];
 try{
-for(const vendor of vendors){
- console.log('START pair-browser vendor',vendor);
+for(const vendor of ['Cisco NX-OS','Arista EOS','Huawei_CE_SW','Cisco IOS-XE','Huawei iStack']){
  await page.goto(base+'/');await page.locator('#v3TechGrid button').filter({has:page.locator('h3',{hasText:'vPC / MLAG'})}).click();await page.locator('#platform').selectOption(vendor);await page.waitForTimeout(100);
  const design=await page.evaluate(()=>window.NetworkWorkspaceProject.prepareWorkspaceSimulation());const peerNames=design.report.devices.filter(n=>n.tier==='upper').slice(0,2).map(n=>n.hostname);
  await page.locator('#topologySimulation button').evaluate(button=>button.click());await page.waitForURL('**/network-lab?workspace=1');await page.locator('#wbFailures').click();
