@@ -99,6 +99,26 @@ try{
  assert.ok(!(await page.locator('#showTechDeviceList').innerText()).includes('lab-core-a-synthetic-showtech.txt'),
   'Real capture replaces that device synthetic evidence rather than mixing it');
  assert.match(await page.locator('#stpCTOView').innerText(),/17\.15\.07/);
+ assert.equal(await page.locator('#showTechFile').getAttribute('accept'),null,'File picker must not grey out CLI extensions');
+ assert.equal(await page.locator('#showTechFile').getAttribute('multiple'),'','Multiple show commands can be selected at once');
+ await page.locator('#showTechDevice').selectOption('lab-core-b');
+ await page.locator('#showTechFile').setInputFiles([
+  {name:'show_version.out',mimeType:'text/plain',buffer:Buffer.from('===== show version =====\nCisco IOS XE Software, Version 17.15.09\nModel Number : C9500-24Y4C')},
+  {name:'show_udld',mimeType:'application/octet-stream',buffer:Buffer.from('===== show udld interface =====\nTenGigabitEthernet1/0/1 aggressive bidirectional')}
+ ]);
+ await page.waitForFunction(()=>document.getElementById('showTechStatus')?.textContent.includes('show_udld'),{timeout:12000});
+ const evidenceList=await page.locator('#showTechDeviceList').innerText();
+ assert.match(evidenceList,/show_version\.out/,'CLI .out file accepted');
+ assert.match(evidenceList,/show_udld/,'Extensionless command output accepted');
+ assert.ok(!evidenceList.includes('lab-core-b-synthetic-showtech.txt'),'Real CLI replaces synthetic evidence per device');
+ await page.locator('#showTechDevice').selectOption('lab-access-a');
+ await page.locator('#showTechPastePanel').evaluate(el=>{el.open=true;});
+ await page.locator('#showTechPasteName').fill('show-spanning-tree-root');
+ await page.locator('#showTechPasteText').fill('===== show spanning-tree root =====\nVLAN0010 4106 0011.2200.0001 4 TenGigabitEthernet1/0/1');
+ await page.locator('#attachShowTechPaste').click();
+ await page.waitForFunction(()=>document.getElementById('showTechStatus')?.textContent.includes('show-spanning-tree-root'),{timeout:12000});
+ assert.match(await page.locator('#showTechDeviceList').innerText(),/show-spanning-tree-root/,'CLI can be pasted for a specific device');
+
  assert.ok(!errors.length,'No UI script errors after synthetic LAB and operational upload: '+errors.join(','));
  console.log('AI topology Chromium: templates, mixed-vendor edits, link, configuration, reviewed evidence and routes passed.');
 }finally{await browser.close();}
