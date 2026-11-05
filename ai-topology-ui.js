@@ -144,6 +144,15 @@ function saveFile(name,text,type){
  a.href=url;a.download=name;document.body.append(a);a.click();a.remove();URL.revokeObjectURL(url);
 }
 document.querySelectorAll('#moduleChoices input').forEach(input=>input.addEventListener('change',()=>{invalidate();updateScopeCount();message('Analysis scope changed. Review evidence again before sending.');}));
+$('moduleSearch').addEventListener('input',()=>{
+ const query=$('moduleSearch').value.trim().toLocaleLowerCase();
+ document.querySelectorAll('#moduleChoices label').forEach(label=>{label.hidden=!label.textContent.toLocaleLowerCase().includes(query);});
+});
+$('clearModules').onclick=()=>{
+ for(const checkbox of document.querySelectorAll('#moduleChoices input'))checkbox.checked=false;
+ invalidate();updateScopeCount();message('Analysis modules cleared. Select at least one technology.');
+};
+
 function fromHandoff(){
  const handoffRaw=sessionStorage.getItem(handoff);if(!handoffRaw)return;
  sessionStorage.removeItem(handoff);
