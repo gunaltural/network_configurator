@@ -9,6 +9,9 @@ page.on('pageerror',error=>errors.push(error.message));
 try{
  const response=await page.goto(base+'/ai-topology');
  assert.equal(response.status(),200);
+ await page.locator('#chooseBuild').click();
+ await page.locator('#legacyTemplates').evaluate(el=>{el.open=true;});
+ await page.locator('#connectionEditor').evaluate(el=>{el.open=true;});
  await page.locator('#template').selectOption('vpc');
  await page.locator('#applyTemplate').click();
  assert.match(await page.locator('#overview').innerText(),/2 devices · 2 links/);
