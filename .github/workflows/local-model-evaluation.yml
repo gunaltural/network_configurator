@@ -3,21 +3,8 @@ on:
   push:
     branches:
       - feature/ai-reasoning-mvp
-    paths:
-      - ".github/workflows/local-model-evaluation.yml"
-      - "scripts/evaluate_local_model.py"
-      - "evaluation/heldout/**"
-      - "ai-topology-workspace.js"
-      - "test_ai_topology_workspace.cjs"
-      - "engineering_ai.py"
-      - "scripts/probe_groq_access.py"
-      - "test_groq_access_probe.py"
-      - "test_ai_local_timeout.py"
-      - "scripts/check_budget_analysis.py"
-      - "Dockerfile"
-      - "start_embedded_ai.py"
-      - "tac_overview.py"
-      - "show-analysis.js"
+    # Every feature-branch commit must produce a fresh real-model acceptance run.
+    # Path filters previously allowed unrelated changes to leave HEAD without a gate.
   pull_request:
     paths:
       - ".github/workflows/local-model-evaluation.yml"
