@@ -108,6 +108,7 @@ function refreshWorkflow(){
  }
  for(const step of workflowStages)step.hidden=Number(step.dataset.step)!==currentStep;
  $('wizardBack').disabled=currentStep===1;
+ $('wizardNext').hidden=currentStep===4;
  $('wizardNext').disabled=currentStep===4||!enabled[currentStep+1];
  $('wizardNext').textContent=['','Continue to Configurations','Continue to Analysis','View Report',''][currentStep];
  $('workflowSummary').textContent=[
@@ -117,6 +118,12 @@ function refreshWorkflow(){
   activeSavedReport?'Read-only saved report':'View, export, annotate or save the engineering report'
  ][currentStep];
 }
+function showGeneratedReport(){
+ if(!reportGenerated||activeSavedReport)return;
+ $('savedReportPreview').hidden=true;
+ $('stpCTOView').hidden=false;
+ $('viewSTPCTO').textContent='Hide HTML View';
+}
 function navigateWorkflow(step){
  if(!Number.isInteger(step)||step<1||step>4)return false;
  const archived=step===4&&reportAvailable();
@@ -124,6 +131,7 @@ function navigateWorkflow(step){
  if(step>2&&!workspace.configs.some(c=>hasConfig(c.deviceId))&&!archived){message('Attach at least one device configuration before analysis.',true);return false;}
  if(step===4&&!reportAvailable()){message('Run engineering analysis before opening the report.',true);return false;}
  currentStep=step;refreshWorkflow();
+ if(step===4)showGeneratedReport();
  $('workflowNav').scrollIntoView?.({behavior:'smooth',block:'start'});return true;
 }
 setupWorkflow();
@@ -730,10 +738,10 @@ $('runSTPCTO').onclick=async()=>{
   $('stpCTOStatus').textContent='STP V2 · '+network.deviceCount+' devices · '+operational.devices.filter(x=>x.present).length+' with verification CLI · '+network.findings.length+' network findings'+(operational.devices.some(x=>x.syntheticOnly)?' · SYNTHETIC LAB':'')+'.';
   activeSavedReport=null;reportGenerated=true;$('savedReportPreview').hidden=true;
   $('saveEngineeringReport').disabled=false;$('editEngineeringReport').disabled=false;
-  $('reportStageStatus').textContent='Analysis complete. Open HTML View, export, edit reviewer notes, or save.';
+  $('reportStageStatus').textContent='Engineering report generated. HTML report displayed below.';
   $('exportSTPCTO').disabled=false;$('viewSTPCTO').disabled=false;
   $('downloadEngineeringPDF').disabled=false;$('downloadEngineeringWord').disabled=false;
-  if(currentStep===3)navigateWorkflow(4);else refreshWorkflow();
+  if(currentStep===3)navigateWorkflow(4);else{refreshWorkflow();if(currentStep===4)showGeneratedReport();}
  }catch(error){$('exportSTPCTO').disabled=true;$('viewSTPCTO').disabled=true;$('stpCTOView').replaceChildren();$('stpCTOStatus').textContent='CTO report error: '+error.message;message(error.message,true);}
 };
 $('viewSTPCTO').onclick=()=>{
@@ -1015,7 +1023,7 @@ $('analyze').onclick=async()=>{
   if(runState.reports.length){
    activeSavedReport=null;reportGenerated=true;buildGenericReport();$('saveEngineeringReport').disabled=false;$('editEngineeringReport').disabled=false;
    $('reportStageStatus').textContent=more?'Partial analysis — additional batches remain.':'Analysis draft ready for engineering review.';
-   if(!more&&currentStep===3)navigateWorkflow(4);else refreshWorkflow();
+   if(!more&&currentStep===3)navigateWorkflow(4);else{refreshWorkflow();if(currentStep===4)showGeneratedReport();}
   }
   message(more?'Partial analysis: '+runState.index+' / '+runState.batches.length+' batches. Continue to cover all evidence.':'All batches submitted. Cross-batch root cause is NOT independently established. Validate the report before use.');
  }catch(e){message(e.message,true);}
