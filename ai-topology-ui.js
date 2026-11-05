@@ -526,7 +526,30 @@ $('preview').onclick=()=>{
 };
 function reportText(){
  const reports=runState?.reports||[];
- return '# AI Topology Engineering Analysis\n\nSelected modules: '+selectedModules().join(', ')+'\nSelected devices: '+scopedDeviceIds().map(id=>workspace.nodes.find(n=>n.id===id)?.hostname||id).join(', ')+'\nStatus: Unverified AI-assisted draft; engineer review required\nTopology: '+workspace.nodes.length+' devices / '+workspace.links.length+' connections\nBatches: '+reports.length+' / '+(runState?.batches.length||0)+'\n\n'+reports.join('\n\n')+(runState?.synthesis?'\n\n## Cross-batch synthesis — UNVERIFIED\n'+runState.synthesis:'');
+ return '# AI Topology Engineering Analysis\n\nSelected modules: '+selectedModules().join(', ')+'\nSelected devices: '+scopedDeviceIds().map(id=>workspace.nodes.find(n=>n.id===id)?.hostname||id).join(', ')+'\nStatus: '+(runState?.modes.includes('deterministic-stp-offline')?'DETERMINISTIC STP CONFIGURATION REVIEW ONLY — NO AI MODEL WAS RUN; engineer review required':'Unverified AI-assisted draft; engineer review required')+'\nTopology: '+workspace.nodes.length+' devices / '+workspace.links.length+' connections\nBatches: '+reports.length+' / '+(runState?.batches.length||0)+'\n\n'+reports.join('\n\n')+(runState?.synthesis?'\n\n## Cross-batch synthesis — UNVERIFIED\n'+runState.synthesis:'');
+}
+function reportOfflineSTP(reason){
+ if(!isReviewed()||!runState)throw Error('Review the current device evidence before STP local analysis.');
+ if(!selectedModules().includes('STP'))throw Error('STP module must be selected for local fallback.');
+ const selected=scopedDeviceIds();
+ if(!selected.length)throw Error('Select at least one STP device.');
+ const preflight=stpV1Review(),catalog=stpKnowledgeV1Review();
+ const lang=$('language').value;
+ const title=lang==='tr'
+  ?'STP V1 — YEREL KONFİGÜRASYON ANALİZİ (AI modeli ÇALIŞTIRILMADI)'
+  :'STP V1 — LOCAL CONFIGURATION ANALYSIS (NO AI MODEL WAS RUN)';
+ const notice=lang==='tr'
+  ?'AI sağlayıcısı kullanılamıyor. Aşağıdaki bulgular kaynaklı ve deterministik ön kontroldür. Gerçek root/port durumları doğrulanmamıştır.'
+  :'AI provider unavailable. Findings below are source-backed deterministic checks only. Actual root and port states are not verified.';
+ runState.reports=[title+'\n\n'+notice+'\n\n## STP configuration comparison\n'+window.NetworkSTPV1.format(preflight)+
+  '\n\n## STP Design parameter / standards knowledge review\n'+window.NetworkSTPKnowledgeV1.format(catalog)];
+ runState.modes=['deterministic-stp-offline'];
+ runState.index=0;runState.synthesis='';
+ $('stpPreflightResult').textContent=window.NetworkSTPV1.format(preflight);
+ $('stpKnowledgeResult').textContent=window.NetworkSTPKnowledgeV1.format(catalog);
+ $('analysisResult').value=reportText();
+ $('downloadReport').disabled=false;
+ message((lang==='tr'?'Yalnız STP yerel konfigürasyon değerlendirmesi oluşturuldu. AI çalıştırılmadı. ':'Local STP configuration assessment generated; AI was not run. ')+reason);
 }
 $('analyze').onclick=async()=>{
  if(busy)return;
@@ -534,7 +557,7 @@ $('analyze').onclick=async()=>{
  busy=true;$('analyze').disabled=true;
  try{
   const statusRes=await fetch('/api/ai/status');if(!statusRes.ok)throw Error('AI service status unavailable.');
-  const available=await statusRes.json();if(!available.available)throw Error('AI provider is not configured. Topology editing and local export remain available.');
+  const available=await statusRes.json();if(!available.available){if(selectedModules().includes('STP')){reportOfflineSTP('AI provider is not configured.');return;}throw Error('AI provider is not configured. Local STP review is available when STP is selected.');}
   if(['groq','openai'].includes(available.provider)&&
      !window.confirm('This sends the reviewed, redacted topology/configuration evidence to the external '+available.provider+' model provider. Confirm that you are authorized to share this data. Continue?')){
     message('External model transfer cancelled. No evidence was submitted.');
