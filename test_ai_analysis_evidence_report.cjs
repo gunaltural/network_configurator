@@ -19,8 +19,8 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  let mode='disabled',modelCalls=0;
  w.fetch=async(url)=>{
   if(url==='/api/projects/status')return {ok:true,json:async()=>({configured:false,available:false})};
-  if(url==='/api/ai/status')return {ok:true,json:async()=>({available:mode==='model',provider:'local'})};
-  if(url==='/api/ai/analyze'){modelCalls++;return {ok:true,json:async()=>({mode:'model-evidence-cited-draft',text:'Provisional BGP finding [config-0, L2].'})};}
+  if(url==='/api/ai/status')return {ok:true,json:async()=>({available:mode!=='disabled',provider:'local'})};
+  if(url==='/api/ai/analyze'){modelCalls++;return {ok:true,json:async()=>({mode:mode==='fallback'?'evidence-only-provider-fallback':'model-evidence-cited-draft',text:mode==='fallback'?'Provider unavailable; evidence only.':'Provisional BGP finding [config-0, L2].'})};}
   throw Error('Unexpected request '+url);
  };
  w.eval(fs.readFileSync('ai-topology-workspace.js','utf8'));
@@ -74,6 +74,11 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  assert.match($('stpCTOView').textContent,/AI DRAFT/);
  assert.match($('stpCTOView').textContent,/Provisional BGP finding/);
  assert.match($('stpCTOView').textContent,/show-bgp-summary.out/);
+ // Provider-side evidence-only fallback must never be presented as successful AI reasoning.
+ mode='fallback';$('configuration').value='hostname CORE-01\nrouter bgp 65003';$('saveConfig').click();
+ await $('analyze').onclick();
+ assert.match($('stpCTOView').textContent,/PROVIDER FAILED — EVIDENCE ONLY, NOT AI REASONING/);
+ assert.doesNotMatch($('stpCTOView').textContent,/AI DRAFT — ENGINEER REVIEW REQUIRED/);
  dom.window.close();
  console.log('AI Analysis 6-device Design handoff, no-model report, provenance, staleness, CLI and model regression passed');
 })().catch(e=>{console.error(e);process.exitCode=1;});
