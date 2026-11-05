@@ -40,12 +40,16 @@ function assess(args){
   findings.push(Object.assign({id:'XC-'+(findings.length+1),status:'REVIEW',confidence:'SOURCE_SCOPED',
    severity:'NONE',networkImpact:'No production service impact proven.',evidence:[],
    source:(()=>{
-    const platforms=[...new Set((item.deviceIds||[]).map(id=>parsed.get(id)?.vendor).filter(Boolean))];
-    if(platforms.length!==1)return [];
-    const key=platforms[0]==='arista'&&item.technology==='BGP'?'ARISTA_BGP':
-     platforms[0]==='arista'&&item.technology==='VPC'?'ARISTA_MLAG':
-     platforms[0]==='cisco'&&item.technology!=='SDWAN'?item.technology:
-     platforms[0]==='fortinet'&&item.technology==='SDWAN'?'SDWAN':null;
+    const selectedNodes=(item.deviceIds||[]).map(id=>parsed.get(id)?.node).filter(Boolean);
+    if(selectedNodes.length!==(item.deviceIds||[]).length||!selectedNodes.length)return [];
+    const same=pattern=>selectedNodes.every(node=>pattern.test(String(node.vendor||'')));
+    // Documentation for Cisco IOS/IOS-XE does not automatically apply to NX-OS,
+    // and Nexus EVPN/vPC references do not automatically apply to IOS-XE.
+    const key=same(/Arista|EOS/i)&&item.technology==='BGP'?'ARISTA_BGP':
+     same(/Arista|EOS/i)&&item.technology==='VPC'?'ARISTA_MLAG':
+     same(/Cisco IOS(?:-XE)?|IOS XE/i)&&['BGP','OSPF'].includes(item.technology)?item.technology:
+     same(/Cisco NX-OS|NX.OS/i)&&['EVPN','VPC'].includes(item.technology)?item.technology:
+     same(/FortiGate|FortiOS|Fortinet/i)&&item.technology==='SDWAN'?'SDWAN':null;
     return key&&SOURCES[key]?[SOURCES[key]]:[];
    })()},item));
  }
