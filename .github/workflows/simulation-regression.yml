@@ -191,9 +191,14 @@ jobs:
           echo "::group::node simulation/test_workspace_browser.mjs"
           timeout --signal=TERM --kill-after=10s 180s env SMOKE_VENDOR_SCOPE=cisco node simulation/test_workspace_browser.mjs
           echo "::endgroup::"
-          echo "::group::node simulation/test_pair_browser.mjs"
-          timeout --signal=TERM --kill-after=10s 75s node simulation/test_pair_browser.mjs
-          echo "::endgroup::"
+          # One complete browser/test process per platform. The former shared
+          # 75s limit expired after the third vendor, leaving IOS-XE and iStack
+          # untested despite all earlier scenario checks passing.
+          for vendor in cisco-nxos arista-eos huawei-ce cisco-ios-xe huawei-istack; do
+            echo "::group::simulation/test_pair_browser.mjs [$vendor]"
+            timeout --signal=TERM --kill-after=10s 120s env PAIR_TEST_VENDOR="$vendor" node simulation/test_pair_browser.mjs
+            echo "::endgroup::"
+          done
           echo "::group::node simulation/test_report_browser.mjs"
           timeout --signal=TERM --kill-after=10s 75s node simulation/test_report_browser.mjs
           echo "::endgroup::"
