@@ -13,7 +13,7 @@ function fromDesign(report){
  const links=[...(report.links||[]),...(report.specialLinks||[])].filter(l=>l.enabled!==false).map((l,i)=>({id:identifier(l.id||'link-'+i),a:identifier(l.a),b:identifier(l.b),aPort:identifier(l.aPort||l.upperPort),bPort:identifier(l.bPort||l.lowerPort),kind:identifier(l.kind||'Connection'),logical:l.logical===true}));
  const ids=new Set(nodes.map(n=>n.id));
  const configs=(report.configurations||[]).filter(c=>ids.has(identifier(c.deviceId))&&typeof c.text==='string').map(c=>({
-  deviceId:identifier(c.deviceId),source:'design',text:String(c.text).replace(/\r\n?/g,'\n').split('\n').map(safeLine).join('\n')
+  deviceId:identifier(c.deviceId),source:'design',text:redactPrivateKeyBlocks(String(c.text).replace(/\r\n?/g,'\n').split('\n')).map(safeLine).join('\n')
  }));
  const designReview={
   origin:'original-design-snapshot',edited:false,
