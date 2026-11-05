@@ -127,6 +127,12 @@ function appendDecisionMatrix(paper,review,preflight,db,tr){
    if(!c){status=L('OTOMATİK ANALİZ YOK','NOT AUTOMATED');meaning=L('Manuel / operasyonel kanıt gerekli','Manual or operational evidence required');results.notAutomated++;}
    else if(findings.length){status=L('İNCELEME GEREKLİ','REVIEW REQUIRED');meaning=findings.map(x=>x.title).join(' · ');results.issues++;}
    else if(refs.length){status=L('GÖZLENDİ · UYGUNLUK DOĞRULANMADI','OBSERVED · NOT COMPLIANCE');meaning=L('Konfigürasyon satırı var; davranış doğrulanmadı','Configuration observed; behavior unverified');results.observed++;}
+   else if(id==='STP-008'||id==='STP-009'){
+    status=L('ROL BAĞIMLI · EKSİKLİK TESPİT EDİLMEDİ','ROLE DEPENDENT · NO DEFECT ESTABLISHED');
+    meaning=L('PortFast / BPDU Guard özellikle gerçek edge portları için değerlendirilir. Core trunk üzerinde görünmemesi tek başına risk değildir; komşu/port görevi doğrulanmalı.',
+    'PortFast / BPDU Guard require confirmed edge-port context. Not configured on a Core trunk is not, by itself, a defect; verify neighbor and port role.');
+    results.unverified++;
+   }
    else {status=L('KANIT YETERSİZ','INSUFFICIENT EVIDENCE');meaning=L('Ayar yokluğu/varsayılanı belirlenemedi','Absence or default cannot be determined');results.unverified++;}
    const row=E('tr','');for(const value of [id,label,hostname,status,(refs.slice(0,3).join(' · ')||meaning),verify]){
     const td=E('td','',value);td.style.cssText='padding:7px;border-bottom:1px solid #e2e8f0;vertical-align:top;overflow-wrap:anywhere';row.append(td);
