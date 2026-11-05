@@ -36,6 +36,21 @@ class Tests(unittest.TestCase):
             self.assertEqual(self.client.post('/api/ai/analyze', json=self.body).status_code, 503)
             generate.assert_not_called()
 
+    def test_redaction_masks_multiline_pem_and_preserves_original_line_refs(self):
+        data = ("L1: interface Gi0/1\n"
+                "L2: -----BEGIN RSA PRIVATE KEY-----\n"
+                "L3: SUPERSECRETBASE64PAYLOAD\n"
+                "L4: -----END RSA PRIVATE KEY-----\n"
+                "L5: router bgp 65001\n")
+        safe = redact(data)
+        self.assertNotIn("SUPERSECRETBASE64PAYLOAD", safe)
+        for n in (2,3,4):
+            self.assertIn(f"L{n}: [REDACTED]", safe)
+        self.assertIn("L5: router bgp 65001", safe)
+        incomplete = redact("L1: -----BEGIN OPENSSH PRIVATE KEY-----\nL2: UNCLOSEDKEY\nL3: do not leak")
+        self.assertNotIn("UNCLOSEDKEY", incomplete)
+        self.assertIn("L3: [REDACTED]", incomplete)
+
     def test_redaction_masks_psk_isakmp_and_private_keys(self):
         raw = ("L11: crypto isakmp key SuperSensitive address 192.0.2.2\n"
                "L12: set psksecret MyPrivatePSK\n"
