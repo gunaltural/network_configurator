@@ -257,7 +257,47 @@ function removeLink(workspace,id){
 }
 const sensitive=/(?:password|passwd|secret|snmp[-\s]?server\s+community|snmp\s+community|community-string|private.?key|api.?key|authorization|set\s+psksecret|set\s+enc-password|crypto\s+isakmp\s+key|pre-shared-key|shared-secret|BEGIN [A-Z ]*PRIVATE KEY|sk-[A-Za-z0-9_-]+)/i;
 function safeLine(line){return sensitive.test(line)?'[REDACTED]':line.replace(/[\r\n\t]/g,' ');}
-function analysisEvidenceBatches(workspace,selectedDeviceIds){
+/* Evidence retrieval across the whole capture. This is bounded selection, not
+ * full-file model inference. Original line identifiers must survive sampling. */
+const CAPTURE_TOPICS={
+ BGP:/\bbgp\b|neighbor|prefix|remote-as|local.pref|route.map|state\/pfx|tcp.179|route policy/i,
+ OSPF:/\bospf\b|adjacency|\blsdb\b|exstart|exchange|router.id|area [0-9]/i,
+ EVPN:/\bevpn\b|\bvxlan\b|\bvni\b|\bnve\b|route.target|type.[235]|mac.ip|vtep/i,
+ VPC:/\bvpc\b|\bmlag\b|peer.link|keep.alive|peer.gateway|port.channel|consistency/i,
+ STP:/spanning.tree|\bstp\b|\brstp\b|\bmst\b|bpdu|root.bridge|root.guard/i,
+ SDWAN:/sd.wan|sdwan|health.check|\bsla\b|service4|packet.loss|tunnel|ipsec/i,
+ SYSTEM:/aaa|ssh|ntp|snmp|logging|username|access.class|tacacs/i,
+ DCI:/\bdci\b|\bevpn\b|\bvlan\b|\bvni\b|border|underlay|overlay/i
+};
+function selectCaptureExcerpt(lines,modules){
+ const MAX_LINES=220,MAX_CHARS=24000,SCAN_MAX=100000,first=Math.min(36,lines.length);
+ const terms=(modules||[]).map(x=>CAPTURE_TOPICS[String(x).toUpperCase()]).filter(Boolean);
+ const universal=/^\s*(?:\S+[#>]\s*)?(?:show|display|diagnose|get)\s+|^Neighbor\s+V\s+AS\s+MsgRcvd|^Health Check\(|^interface\b|^\s*ip route\b/i;
+ const scores=new Map(),scanned=Math.min(lines.length,SCAN_MAX);
+ function score(i,value){if(i>=0&&i<scanned)scores.set(i,Math.max(scores.get(i)||0,value));}
+ for(let i=0;i<scanned;i++){
+  const text=lines[i],specific=terms.some(re=>re.test(text));
+  if(!specific&&!universal.test(text))continue;
+  const importance=specific?12:6;
+  score(i,importance);
+  for(let offset=-2;offset<=3;offset++)if(offset!==0)score(i+offset,importance-3);
+ }
+ const selected=new Set();let size=0;
+ const take=index=>{
+  if(selected.has(index)||selected.size>=MAX_LINES)return;
+  const added=String(lines[index]).length+('L'+(index+1)+': ').length+1;
+  if(size+added>MAX_CHARS)return;
+  selected.add(index);size+=added;
+ };
+ for(let i=0;i<first;i++)take(i);
+ for(const [index] of [...scores].sort((a,b)=>b[1]-a[1]||a[0]-b[0]))take(index);
+ // Exact original line numbers are preserved even for noncontiguous extracts.
+ const chosen=[...selected].sort((a,b)=>a-b);
+ return {chosen,scanned,total:lines.length,
+  lines:chosen.map(i=>lines[i]),originalNumbers:chosen.map(i=>i+1),
+  clipped:chosen.length<lines.length||scanned<lines.length};
+}
+function analysisEvidenceBatches(workspace,selectedDeviceIds,selectedModules){
  const model=validate(workspace),items=[];
  const allIds=new Set(model.nodes.map(n=>n.id));
  const chosen=selectedDeviceIds==null?allIds:new Set(selectedDeviceIds);
@@ -269,11 +309,11 @@ function analysisEvidenceBatches(workspace,selectedDeviceIds){
  topology.push('Selected devices: '+[...chosen].join(', '));
  for(const n of model.nodes.filter(n=>chosen.has(n.id)))topology.push('Device '+n.id+' hostname='+n.hostname+' vendor='+n.vendor+' role='+n.role);
  for(const l of model.links.filter(l=>chosen.has(l.a)&&chosen.has(l.b)))topology.push('Link '+l.id+' '+l.a+'['+l.aPort+'] to '+l.b+'['+l.bPort+'] kind='+l.kind+' logical='+!!l.logical);
- const addChunks=(idPrefix,header,lines)=>{
+ const addChunks=(idPrefix,header,lines,originalNumbers)=>{
   let chunk=[],size=header.length+15,part=0;
   function flush(){if(!chunk.length)return;items.push({id:idPrefix+'-'+part++,text:header+'\n'+chunk.join('\n')});chunk=[];size=header.length+15;}
   for(let i=0;i<lines.length;i++){
-   const line='L'+(i+1)+': '+safeLine(lines[i]);
+   const line='L'+(originalNumbers?.[i]||i+1)+': '+safeLine(lines[i]);
    if(line.length+header.length>2850)throw Error('A line is too long for AI evidence; split it before analysis.');
    if(chunk.length&&(size+line.length>2800)){flush();}
    chunk.push(line);size+=line.length+1;
@@ -306,11 +346,19 @@ function analysisEvidenceBatches(workspace,selectedDeviceIds){
   const node=model.nodes.find(n=>n.id===c.deviceId);
   if(!node||!chosen.has(c.deviceId))continue;
   const lines=c.text.replace(/\r\n?/g,'\n').split('\n');
-  const excerpt=lines.slice(0,220).join('\n').slice(0,24000).split('\n');
-  const included=excerpt.length;
-  items.push({id:'capture-coverage-'+index,text:'Device: '+identifier(node.hostname)+'\nCommand: capture coverage and provenance, NOT an operational finding\nL1: File '+safeLine(c.filename)+'\nL2: Source '+(c.synthetic?'SYNTHETIC LAB':'user-attached operational capture')+'; capture timestamp UNKNOWN and device authenticity NOT VERIFIED\nL3: Total lines '+lines.length+'; included excerpt lines '+included+'; full capture retained locally; omitted lines NOT evidence of absence.'});
-  if(lines.length>220||c.text.length>24000)excerpt.push('[PARTIAL CLI EXCERPT — full capture remains local; do not infer omitted commands]');
-  addChunks('show-tech-'+index,'Device: '+identifier(node.hostname).replace(/[\r\n]/g,' ')+'\nVendor: '+identifier(node.vendor).replace(/[\r\n]/g,' ')+'\nCommand: '+(c.synthetic?'SYNTHETIC LAB verification output — NOT real device evidence':'observed verification CLI capture (separate from Design configuration)')+'\nFile: '+safeLine(c.filename),excerpt);
+  const selection=selectCaptureExcerpt(lines,selectedModules);
+  items.push({id:'capture-coverage-'+index,text:'Device: '+identifier(node.hostname)+
+   '\nCommand: capture coverage and provenance, NOT an operational finding'+
+   '\nL1: File '+safeLine(c.filename)+
+   '\nL2: Source '+(c.synthetic?'SYNTHETIC LAB':'user-attached operational capture')+
+   '; capture timestamp UNKNOWN and device authenticity NOT VERIFIED'+
+   '\nL3: Total lines '+lines.length+'; included excerpt lines '+selection.chosen.length+
+   '; scanned '+selection.scanned+' lines using bounded, technology-aware retrieval; full capture retained locally; omitted lines NOT evidence of absence.'});
+  addChunks('show-tech-'+index,'Device: '+identifier(node.hostname).replace(/[\r\n]/g,' ')+
+   '\nVendor: '+identifier(node.vendor).replace(/[\r\n]/g,' ')+
+   '\nCommand: '+(c.synthetic?'SYNTHETIC LAB verification output — NOT real device evidence':
+    'observed verification CLI capture (separate from Design configuration)')+
+   '\nFile: '+safeLine(c.filename),selection.lines,selection.originalNumbers);
  }
  if(!items.length)throw Error('A device or link is required.');
  const batches=[];let batch=[],size=0;
