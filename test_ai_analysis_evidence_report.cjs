@@ -24,6 +24,7 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
   throw Error('Unexpected request '+url);
  };
  w.eval(fs.readFileSync('ai-topology-workspace.js','utf8'));
+ w.eval(fs.readFileSync('network-evidence-correlation-v1.js','utf8'));
  w.eval(fs.readFileSync('ai-topology-ui.js','utf8'));
  assert.equal($('workflowStep2').hidden,false,'Design handoff enters the same 4-stage workflow');
  assert.match($('designReviewSummary').textContent,/6 Design configuration proposals/);
@@ -46,6 +47,7 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  assert.match(output.textContent,/CORE-01/);
  assert.match(output.textContent,/BGP/);
  assert.match(output.textContent,/Neighbor FSM/,'Technology-specific verification task provided');
+ assert.match(output.textContent,/Cross-device CLI evidence correlation/,'Generic report includes evidence correlation layer');
  assert.match(output.textContent,/Inter-domain routing policy/,'Technology purpose is explained for executives');
  assert.match(output.textContent,/unintended advertisements/,'Conditional risk is explained without asserting a live failure');
  assert.match(output.textContent,/router bgp, neighbor address families/,'Evidence and CLI method provided for BGP');
@@ -63,7 +65,7 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  // Operational capture does not overwrite generated Design configuration.
  $('showTechDevice').value='node-0';
  $('showTechPasteName').value='show-bgp-summary.out';
- $('showTechPasteText').value='CORE-01#show ip bgp summary\nNeighbor 192.0.2.1 Estab';
+ $('showTechPasteText').value='CORE-01#show ip bgp summary\nNeighbor V AS MsgRcvd MsgSent TblVer InQ OutQ Up/Down State/PfxRcd\n192.0.2.1 4 65002 0 0 1 0 0 never Active';
  await $('attachShowTechPaste').onclick();
  assert.match($('showTechDeviceList').textContent,/show-bgp-summary.out/);
  assert.match($('showTechDeviceList').textContent,/Design \/ attached configuration available/);
@@ -74,6 +76,8 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  assert.match($('stpCTOView').textContent,/AI DRAFT/);
  assert.match($('stpCTOView').textContent,/Provisional BGP finding/);
  assert.match($('stpCTOView').textContent,/show-bgp-summary.out/);
+ assert.match($('stpCTOView').textContent,/Observed BGP neighbor FSM/,'Observed FSM is correlated from uploaded show output');
+ assert.match($('stpCTOView').textContent,/L3: 192.0.2.1 4 65002/,'Original device line proof is visible in expanded DOM');
  // Provider-side evidence-only fallback must never be presented as successful AI reasoning.
  mode='fallback';$('configuration').value='hostname CORE-01\nrouter bgp 65003';$('saveConfig').click();
  await $('analyze').onclick();
