@@ -63,10 +63,30 @@ _SENSITIVE_CLI_LINE = re.compile(
     r'sk-[a-zA-Z0-9_-]+).*$'
 )
 
+_PRIVATE_KEY_BEGIN = re.compile(r'-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----', re.I)
+_PRIVATE_KEY_END = re.compile(r'-----END [A-Z0-9 ]*PRIVATE KEY-----', re.I)
+_LINE_REFERENCE = re.compile(r'^(L\\d+:\\s*)')
+
 def redact(value):
-    return _SENSITIVE_CLI_LINE.sub(
-        lambda match: (match.group('line') or '') + '[REDACTED]', value
-    )
+    """Keep CLI line numbers while masking credentials, including multiline keys.
+
+    For an unterminated private-key block, redact through end of evidence.
+    """
+    protected = []
+    in_key = False
+    for line in value.splitlines(keepends=True):
+        body = line.rstrip('\\r\\n')
+        end = line[len(body):]
+        starts = bool(_PRIVATE_KEY_BEGIN.search(body))
+        ends = bool(_PRIVATE_KEY_END.search(body))
+        hide = in_key or starts or bool(_SENSITIVE_CLI_LINE.search(body))
+        prefix = _LINE_REFERENCE.match(body)
+        protected.append(((prefix.group(1) if prefix else '') + '[REDACTED]' if hide else body) + end)
+        if starts:
+            in_key = True
+        if ends:
+            in_key = False
+    return ''.join(protected)
 
 def groq_error_category(error):
     """Classify only documented provider codes; never log a response message.
