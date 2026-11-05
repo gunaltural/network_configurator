@@ -466,7 +466,7 @@ function renderSTPKnowledgeSources(){
  container.replaceChildren();
  const catalog=window.NetworkSTPKnowledgeV1;
  if(!catalog)return;
- for(const source of Object.values(catalog.sources)){
+ for(const source of [...Object.values(catalog.sources),...Object.values(catalog.standards||{})]){
   const a=document.createElement('a');
   a.href=source.url;a.target='_blank';a.rel='noopener noreferrer';
   a.textContent=source.title;
