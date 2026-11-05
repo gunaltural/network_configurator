@@ -49,6 +49,36 @@ class Tests(unittest.TestCase):
             self.body['evidence'] *= 2
             self.assertEqual(self.client.post('/api/ai/analyze', json=self.body).status_code, 422)
 
+    def test_stp_v1_selected_core_comparison_uses_distinct_model_prompt_and_citations(self):
+        capture = dict(module='STP_ANALYSIS', vendor='Cisco NX-OS', task='report', evidence=[
+            dict(id='core-1-config-0', text='Device: CORE-1\nCommand: proposed configuration\nL1: spanning-tree mode rapid-pvst\nL2: spanning-tree vlan 10 priority 4096'),
+            dict(id='core-2-config-0', text='Device: CORE-2\nCommand: proposed configuration\nL1: spanning-tree mode rapid-pvst\nL2: spanning-tree vlan 10 priority 8192'),
+            dict(id='stp-v1-preflight', text='Device: STP-V1-PREFLIGHT\nL1: deterministic preflight, not an AI answer key')])
+        env = {'AI_PROVIDER':'local','AI_ENABLED':'1','AI_MODEL':'network-engineer',
+               'AI_BASE_URL':'http://localhost:8080/v1'}
+        observation = ('Core priority differs for VLAN10: CORE-1 has 4096 [core-1-config-0, L2] '
+                       'and CORE-2 has 8192 [core-2-config-0, L2]; '
+                       'operational root status remains unverified.')
+        with patch.dict(os.environ, env, clear=True), patch('engineering_ai.generate',
+                return_value=observation) as model:
+            result = self.client.post('/api/ai/analyze', json=capture)
+            self.assertEqual(result.status_code, 200)
+            self.assertEqual(result.json()['mode'], 'model-evidence-cited-draft')
+            self.assertFalse(result.json()['engineeringVerified'])
+            instructions = model.call_args.args[0]['instructions']
+            self.assertIn('STP V1', instructions)
+            self.assertIn('deterministic preflight as an answer key', instructions)
+            self.assertIn('STP', model.call_args.args[0]['input'])
+        with patch.dict(os.environ, env, clear=True), patch('engineering_ai.generate',
+                return_value='Core-1 is definitely the root bridge.') as model:
+            result = self.client.post('/api/ai/analyze', json=capture)
+            self.assertEqual(result.status_code, 200)
+            self.assertEqual(result.json()['mode'], 'model-unverified-draft')
+            self.assertNotIn('definitely the root', result.json()['text'])
+        with patch.dict(os.environ, {'AI_ENABLED':'0'}, clear=True), patch('engineering_ai.generate') as model:
+            self.assertEqual(self.client.post('/api/ai/analyze', json=capture).status_code, 503)
+            model.assert_not_called()
+
     def test_cli_model_review_uses_retrieved_knowledge(self):
         capture = dict(module='CLI_ANALYSIS', vendor='Cisco IOS-XE', task='report', evidence=[
             dict(id='summary', text='Device: CE1\nCommand: show ip bgp summary\nL2: Neighbor V AS MsgRcvd MsgSent TblVer InQ OutQ Up/Down State/PfxRcd\nL3: 192.0.2.2 4 65002 0 0 1 0 0 never Idle')])
