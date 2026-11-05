@@ -135,6 +135,9 @@ try{
  await page.locator('#runSTPCTO').click();
  await page.waitForFunction(()=>document.getElementById('workflowStep4')?.hidden===false,{timeout:12000});
  assert.equal(await page.locator('#workflowStep4').isVisible(),true);
+ assert.equal(await page.getByText('Editable engineering draft').count(),0,'No legacy draft field in report flow');
+ assert.equal(await page.locator('#internalAnalysisCapture').isVisible(),false,'Internal model text stays hidden');
+ assert.match(await page.locator('#stpCTOView').textContent(),/Verification task/,'VERIFY next steps remain visible inside existing findings');
  assert.equal(await page.locator('#editEngineeringReport').isEnabled(),true);
  assert.equal(await page.locator('#saveEngineeringReport').isEnabled(),true);
  await page.locator('#viewSTPCTO').click();
