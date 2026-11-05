@@ -839,6 +839,9 @@ function buildGenericReport(options={}){
    'Technology-specific control-plane/data-plane design','Incorrect implementation may reduce intended resilience or reachability',
    'Review platform-scoped configuration and captured operational evidence'])])
  ));
+ // Technical source links are chosen from the actual device-scoped finding,
+ // never added to a mixed-vendor report based only on the selected module name.
+ let scopedReferences=[];
  // Technology-independent operational evidence correlation. This is a separate,
  // versioned read-only adapter, never a substitute for the real AI reasoning layer.
  if(window.NetworkEvidenceCorrelationV1){
@@ -846,6 +849,9 @@ function buildGenericReport(options={}){
    const intelligence=window.NetworkEvidenceCorrelationV1.assess({
     workspace,deviceIds:nodes.map(n=>n.id),modules
    });
+   scopedReferences=intelligence.findings.flatMap(finding=>(finding.source||[]).map(src=>({
+    ...src,technology:finding.technology,devices:finding.devices||[]
+   })));
    const assessment=section(L('Cihazlar arası CLI korelasyonu ve kanıt değerlendirmesi','Cross-device CLI evidence correlation'));
    assessment.append(E('p','report-muted',L(
     'Bu bölüm yalnızca sağlanan CLI kanıtlarından çıkarılan sınırlı gözlemleri gösterir. Gözlendi = doğru tasarım veya uyumluluk PASS değildir. İncelenmeli = kesin arıza değildir. Çelişki = ayrıca doğrulanmalıdır.',
@@ -1013,20 +1019,24 @@ function buildGenericReport(options={}){
  output.append(E('p','report-meta',L('Metodoloji: Tasarım → konfigürasyon → operasyonel kanıt → mühendislik değerlendirmesi → doğrulama.','Method: Design → configuration → operational evidence → engineering evaluation → verification.')));
  output.append(E('p','report-muted',L('Üretici dokümanları teknoloji ve sürüm özelidir; aşağıdaki kaynaklar seçili cihazlarda otomatik uyumluluk kanıtı değildir.',
   'Manufacturer references are technology- and release-scoped; they are not automatic compliance proof for the selected devices.')));
- const references=[['CIS — Cisco configuration benchmarks','https://www.cisecurity.org/benchmark/cisco']];
- const byModule={
-  STP:[['Cisco — Campus high-availability design (STP)','https://www.cisco.com/c/en/us/td/docs/solutions/Enterprise/Campus/HA_campus_DG/hacampusdg.html']],
-  BGP:[['Cisco — IOS/IOS-XE BGP neighbor troubleshooting (updated 2026-09-02)','https://www.cisco.com/c/en/us/support/docs/ip/border-gateway-protocol-bgp/218027-troubleshoot-border-gateway-protocol-bas.html']],
-  OSPF:[['Cisco — IOS OSPF adjacency troubleshooting','https://www.cisco.com/c/en/us/support/docs/ip/open-shortest-path-first-ospf/13699-29.html']],
-  EVPN:[['Cisco — NX-OS 10.5(x) VXLAN BGP EVPN configuration','https://www.cisco.com/c/en/us/td/docs/dcn/nx-os/nexus9000/105x/configuration/vxlan/cisco-nexus-9000-series-nx-os-vxlan-configuration-guide-release-105x/m_configuring_vxlan_bgp_evpn.html']],
-  VPC:[['Cisco — NX-OS 10.5(x) vPC and keepalive behavior','https://www.cisco.com/c/en/us/td/docs/dcn/nx-os/nexus9000/105x/configuration/interfaces/cisco-nexus-9000-series-nx-os-interfaces-configuration-guide-release-105x/m_configuring_vpcs_9x.html']],
-  SDWAN:[['Fortinet — FortiOS 7.4 SD-WAN / BGP SLA routing','https://docs.fortinet.com/document/fortigate/7.4.0/administration-guide/256748']]
- };
- for(const module of modules)for(const reference of byModule[module]||[])references.push(reference);
- if(modules.includes('EVPN')||modules.includes('DCI'))references.push(['Arista — EOS EVPN user manual (verify release)','https://www.arista.com/en/assets/data/pdf/user-manual/um-books/EOS-User-Manual.pdf']);
- for(const [name,url] of references){
-  const p=E('p',''),link=E('a','',name);link.href=url;link.rel='noopener noreferrer';link.target='_blank';p.append(link);output.append(p);
+ const references=[{
+  title:L('CIS — Değerlendirme metodolojisi; IOS-XE dışı cihazlarda uygunluk hükmü değil','CIS — Evaluation methodology; not cross-vendor compliance'),
+  url:'https://www.cisecurity.org/benchmark/cisco',scope:'Methodological example only; benchmark profile/release applicability is unverified.'
+ }];
+ const seen=new Set(references.map(item=>item.url));
+ for(const source of scopedReferences){
+  if(!/^https:\/\//i.test(source.url||'')||seen.has(source.url))continue;
+  seen.add(source.url);
+  references.push({title:source.title,url:source.url,scope:source.scope||'Vendor software release must be checked.'});
  }
+ for(const item of references){
+  const p=E('p',''),link=E('a','',item.title);link.href=item.url;link.rel='noopener noreferrer';link.target='_blank';
+  p.append(link,E('span','report-meta',' · '+item.scope));output.append(p);
+ }
+ if(!scopedReferences.length)output.append(E('p','report-muted',L(
+  'Seçili kanıtlar için üretici/sürüm ile eşleşen bir teknik kaynak tespit edilemedi. Yanlış üretici dokümanı genel referans olarak eklenmedi.',
+  'No manufacturer/release-scoped source matched selected evidence. Unrelated vendor references are omitted.'
+ )));
  $('stpCTOView').replaceChildren(article);$('stpCTOView').hidden=true;
  $('viewSTPCTO').textContent='HTML View';$('viewSTPCTO').disabled=false;$('exportSTPCTO').disabled=false;
  $('downloadEngineeringPDF').disabled=false;$('downloadEngineeringWord').disabled=false;
