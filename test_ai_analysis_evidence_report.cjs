@@ -49,6 +49,9 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  assert.match(output.textContent,/BGP/);
  assert.match(output.textContent,/Neighbor FSM/,'Technology-specific verification task provided');
  assert.match(output.textContent,/Cross-device CLI evidence correlation/,'Generic report includes evidence correlation layer');
+ assert.match(output.textContent,/Engineering assessment matrix/);
+ assert.equal(output.querySelector('[data-assessment-schema]')?.dataset.assessmentSchema,'ai-engineering-assessment-matrix-v1');
+ assert.match(output.textContent,/NOT VERIFIED/);
  assert.match(output.textContent,/Inter-domain routing policy/,'Technology purpose is explained for executives');
  assert.match(output.textContent,/unintended advertisements/,'Conditional risk is explained without asserting a live failure');
  assert.match(output.textContent,/router bgp, neighbor address families/,'Evidence and CLI method provided for BGP');
@@ -84,6 +87,9 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  assert.match($('stpCTOView').textContent,/Provisional BGP finding/);
  assert.match($('stpCTOView').textContent,/show-bgp-summary.out/);
  assert.match($('stpCTOView').textContent,/Observed BGP neighbor FSM/,'Observed FSM is correlated from uploaded show output');
+ assert.ok($('stpCTOView').querySelectorAll('.ai-engineering-matrix-finding').length>0);
+ assert.match($('stpCTOView').textContent,/Acceptance criterion/);
+ assert.match($('stpCTOView').textContent,/Counterevidence/);
  assert.match($('stpCTOView').textContent,/L3: 192.0.2.1 4 65002/,'Original device line proof is visible in expanded DOM');
  // Provider-side evidence-only fallback must never be presented as successful AI reasoning.
  mode='fallback';$('configuration').value='hostname CORE-01\nrouter bgp 65003';$('saveConfig').click();
