@@ -4,6 +4,123 @@ if(!api)return;
 const handoff='networkConfigurator.aiTopology.pending';
 let workspace=api.blank(),pendingBatches=null,reviewedSignature=null,runState=null,busy=false,originalMode=true;
 const selectedDeviceIds=new Set();
+
+/* Four-stage Design-like workflow; all existing element IDs and analysis functions remain intact. */
+let currentStep=1,reportGenerated=false,activeSavedReport=null;
+const workflowStages=[];
+function createStep(number,title){
+ const el=document.createElement('section');el.id='workflowStep'+number;el.dataset.step=number;
+ el.className='workflow-step';el.hidden=number!==1;
+ const h=document.createElement('h2');h.textContent=number+' · '+title;el.append(h);
+ $('workflowStages').append(el);workflowStages.push(el);return el;
+}
+function stagePanel(){
+ const panel=document.createElement('section');panel.className='panel workflow-stage-panel';return panel;
+}
+function setupWorkflow(){
+ const old=$('legacyWorkspaceGrid'),topology=old.querySelector('[aria-label="Topology editor"]'),
+  overview=old.querySelector('[aria-label="Topology overview"]'),analysis=old.querySelector('[aria-label="Engineering analysis"]');
+ if(!topology||!overview||!analysis)throw Error('Workflow initialization failed.');
+ const first=createStep(1,'Topology Selection'),columns=document.createElement('div');columns.className='workflow-columns';
+ columns.append(topology,overview);first.append(columns);
+ topology.querySelector('h2').textContent='Import or build topology';
+ overview.querySelector('h2').textContent='Topology Preview';
+ const second=createStep(2,'Configuration & Evidence'),config=stagePanel();
+ const info=document.createElement('p');info.className='hint';info.id='readinessSummary';
+ const table=document.createElement('div');table.id='configReadiness';
+ config.append(info,table,$('perDeviceConfiguration'),$('showTechEvidence'),$('designReviewPanel'));second.append(config);
+ const third=createStep(3,'Network Engineering Analysis');
+ analysis.querySelector('h2').textContent='Analyze selected devices';
+ third.append(analysis);
+ const fourth=createStep(4,'Engineering Report'),report=stagePanel();
+ const reportHelp=document.createElement('p');reportHelp.id='reportStageStatus';reportHelp.className='hint';
+ reportHelp.textContent='Run analysis in step 3 to generate a report.';
+ const controls=document.createElement('div');controls.className='report-tools';
+ controls.append($('viewSTPCTO'),$('exportSTPCTO'));
+ for(const [id,label] of [['saveEngineeringReport','Save Report'],['editEngineeringReport','Edit Report']]){
+  const b=document.createElement('button');b.type='button';b.id=id;b.textContent=label;b.disabled=true;controls.append(b);
+ }
+ const edits=document.createElement('div');edits.id='reportEditPanel';edits.hidden=true;
+ const noteTitle=document.createElement('h3');noteTitle.textContent='Reviewer notes (automatic CLI evidence is unchanged)';
+ edits.append(noteTitle);
+ for(const [id,label] of [['reviewExecutiveComment','Executive commentary'],['reviewEngineeringNotes','Technical notes / recommendations']]){
+  const wrapper=document.createElement('label');wrapper.textContent=label;
+  const text=document.createElement('textarea');text.id=id;wrapper.append(text);edits.append(wrapper);
+ }
+ const apply=document.createElement('button');apply.id='applyReportEdits';apply.type='button';apply.className='primary';apply.textContent='Apply Reviewer Notes';
+ edits.append(apply);
+ const saved=document.createElement('details');saved.id='savedReportsPanel';
+ const title=document.createElement('summary');title.textContent='Saved reports (this browser)';
+ const row=document.createElement('div');row.className='control';
+ const list=document.createElement('select');list.id='reportSavedList';list.setAttribute('aria-label','Saved reports');
+ const open=document.createElement('button');open.type='button';open.id='openSavedReport';open.textContent='Open saved report';
+ row.append(list,open);saved.append(title,row);
+ const frame=document.createElement('iframe');frame.id='savedReportPreview';frame.title='Read-only saved report';frame.setAttribute('sandbox','');frame.hidden=true;
+ report.append(reportHelp,controls,$('stpCTOStatus'),edits,$('stpCTOView'),frame,
+  $('analysisResult').closest('label'),$('downloadReport'),saved);
+ fourth.append(report);
+ $('workflowStages').before($('status'));old.remove();
+ $('runSTPCTO').textContent='Run STP Engineering Analysis';
+ for(const b of document.querySelectorAll('#workflowNav button[data-workflow-step]')){
+  b.onclick=()=>navigateWorkflow(Number(b.dataset.workflowStep));
+ }
+ $('wizardBack').onclick=()=>navigateWorkflow(currentStep-1);
+ $('wizardNext').onclick=()=>navigateWorkflow(currentStep+1);
+}
+const hasConfig=id=>workspace.configs.some(c=>c.deviceId===id&&typeof c.text==='string'&&!!c.text.trim());
+function renderReadiness(){
+ const root=$('configReadiness');root.replaceChildren();
+ const table=document.createElement('table'),header=document.createElement('tr');
+ for(const title of ['Device','Configuration','Verification CLI','Action']){const th=document.createElement('th');th.textContent=title;header.append(th);}
+ table.append(header);let ready=0,withCli=0;
+ for(const node of workspace.nodes){
+  const isReady=hasConfig(node.id);if(isReady)ready++;
+  const files=(workspace.showTech||[]).filter(c=>c.deviceId===node.id);if(files.length)withCli++;
+  const tr=document.createElement('tr');
+  const fields=[
+   node.hostname+' · '+(node.vendor||'Unknown'),
+   isReady?(node.source==='design'?'Design configuration':'Configuration attached'):'Missing — attach configuration',
+   files.length?files.length+' captured file(s)':'Optional · not uploaded'
+  ];
+  fields.forEach((value,i)=>{const td=document.createElement('td');td.textContent=value;if(i===1)td.className='readiness-state '+(isReady?'good':'missing');tr.append(td);});
+  const cell=document.createElement('td'),button=document.createElement('button');
+  button.type='button';button.textContent=isReady?'View / replace':'Attach config';
+  button.onclick=()=>{navigateWorkflow(2);$('configDevice').value=node.id;loadConfig();$('perDeviceConfiguration').scrollIntoView?.({behavior:'smooth',block:'nearest'});};
+  cell.append(button);tr.append(cell);table.append(tr);
+ }
+ root.append(table);
+ $('readinessSummary').textContent=ready+' / '+workspace.nodes.length+' devices have configuration · '+withCli+' have optional CLI evidence';
+}
+function reportAvailable(){return reportGenerated||!!activeSavedReport;}
+function refreshWorkflow(){
+ renderReadiness();
+ const enabled={1:true,2:workspace.nodes.length>0,3:workspace.configs.some(c=>hasConfig(c.deviceId)),4:reportAvailable()};
+ for(const button of document.querySelectorAll('#workflowNav button[data-workflow-step]')){
+  const step=Number(button.dataset.workflowStep);
+  button.disabled=!enabled[step]&&step!==currentStep;
+  if(step===currentStep)button.setAttribute('aria-current','step');else button.removeAttribute('aria-current');
+ }
+ for(const step of workflowStages)step.hidden=Number(step.dataset.step)!==currentStep;
+ $('wizardBack').disabled=currentStep===1;
+ $('wizardNext').disabled=currentStep===4||!enabled[currentStep+1];
+ $('wizardNext').textContent=['','Continue to Configurations','Continue to Analysis','View Report',''][currentStep];
+ $('workflowSummary').textContent=[
+  '',workspace.nodes.length+' nodes · '+workspace.links.length+' modeled links',
+  workspace.configs.filter(c=>hasConfig(c.deviceId)).length+' configurations ready · operational CLI optional',
+  'Select devices and technologies, then run analysis',
+  activeSavedReport?'Read-only saved report':'View, export, annotate or save the engineering report'
+ ][currentStep];
+}
+function navigateWorkflow(step){
+ if(!Number.isInteger(step)||step<1||step>4)return false;
+ if(step>1&&!workspace.nodes.length){message('Create or import a topology first.',true);return false;}
+ if(step>2&&!workspace.configs.some(c=>hasConfig(c.deviceId))){message('Attach at least one device configuration before analysis.',true);return false;}
+ if(step===4&&!reportAvailable()){message('Run engineering analysis before opening the report.',true);return false;}
+ currentStep=step;refreshWorkflow();
+ $('workflowNav').scrollIntoView?.({behavior:'smooth',block:'start'});return true;
+}
+setupWorkflow();
+
 const scopedDeviceIds=()=>workspace.nodes.map(node=>node.id).filter(id=>selectedDeviceIds.has(id));
 function syncDeviceChoices(){
  const known=new Set(workspace.nodes.map(n=>n.id));
