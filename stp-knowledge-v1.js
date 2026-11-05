@@ -137,20 +137,78 @@ function review(workspace,ids){
  const coverage=PARAMETERS.map(p=>({id:p.id,label:p.label,design:p.design,source:SOURCES[p.source],standards:(STANDARD_REFERENCES[p.id]||[]).map(id=>STANDARDS[id]),devices:parsed.map(d=>({hostname:d.hostname,seen:d.observed[p.id].length>0,refs:d.observed[p.id].map(o=>ref(d,o))}))}));
  return {kind:'source-curated-knowledge-catalog-v1-not-live-rag',devices:parsed.map(d=>d.hostname),entries,coverage,standards:STANDARDS,sourceScope:'Cisco Catalyst IOS XE references; adapt semantics to exact vendor/platform before adopting recommendations',furtherEvidence:['show vtp status','show interfaces trunk','show interfaces switchport','show spanning-tree root','show spanning-tree detail','show etherchannel summary']};
 }
-function format(r){
- const out=['STP Engineering Knowledge Catalog V1 — configuration review; NOT live RAG / confirmed AI diagnosis',
-  'Selected: '+r.devices.join(', '),'Documentation scope: '+r.sourceScope,''];
- for(const e of r.entries){
-  out.push('['+e.severity.toUpperCase()+'] '+e.title,'  Behavior / trade-offs: '+e.impact,'  Config evidence: '+(e.evidence.join(' ; ')||'Not established'),'  Cisco source: '+e.source.title+' | '+e.source.url);
-  if(e.limitation)out.push('  Evidence limitation: '+e.limitation);
-  out.push('');
+function format(r,language){
+ const tr=String(language||'').toLowerCase().startsWith('tr');
+ const labels=tr?{
+  title:'STP MÜHENDİSLİK DEĞERLENDİRMESİ — KAYNAKLI KONFİGÜRASYON ANALİZİ',
+  status:'YEREL DETERMINISTIK KONTROL • AI MODELİ ÇALIŞTIRILMADI',
+  devices:'Kapsamdaki cihazlar',summary:'YÖNETİCİ ÖZETİ',findings:'ÖNCELİKLİ BULGULAR',
+  observed:'Gözlem/kanıt',behavior:'Neden önemli?',action:'Önerilen aksiyon',limit:'Doğrulama sınırı',
+  source:'Üretici kaynağı',checks:'DOĞRULAMA PLANI',standards:'İLGİLİ STANDARTLAR',
+  absence:'Konfigürasyonda görülmeyen özellik, devre dışı kabul edilemez.',
+  noFault:'Bu rapor canlı root bridge, port durumları veya gerçek bir kesinti tespit edildiğini iddia etmez.',
+  noFindings:'Açık konfigürasyon çelişkisi saptanmadı; bu, ağın doğru veya risksiz olduğunu kanıtlamaz.',
+  missing:'Cihazdan canlı show çıktılarıyla doğrulanmalı.',
+  actions:{vtpMode:'show vtp status ve show vlan brief ile her iki Core üzerindeki VLAN yönetimini karşılaştırın.',
+   vtpVersion:'show vtp status üzerinden primary-server rolünü, VTP sürümünü ve değişiklik yetkilerini doğrulayın.',
+   vtpDomain:'VTP domain ve değişiklik prosedürünü inceleyin; eksik satırı tek başına güvenlik açığı saymayın.',
+   vtpPassword:'Parolayı rapora yazmadan VTP kimlik doğrulaması ve yetkilerini doğrulayın.',
+   nativeVlan:'Her iki uçta show interfaces trunk ile native VLAN değerlerini ve kullanılmayan VLAN izolasyonunu doğrulayın.',
+   allowedVlans:'show interfaces trunk ile gerekli VLAN listesini doğrulayın; değişiklik öncesi servis bağımlılıklarını çıkarın.',
+   dtp:'Trunk gerektiren portları belirleyin; komşu ve DTP davranışını show interfaces switchport ile doğrulayın.',
+   stpMode:'show spanning-tree summary ve show spanning-tree root ile iki Core arasında mod ve root tutarlılığını inceleyin.',
+   mstRegion:'MST name, revision ve VLAN-instance map değerlerini iki uçta karşılaştırın.',
+   default:'İlgili portun görevini ve canlı STP durumunu doğrulamadan konfigürasyon değişikliği önermeyin.'}
+ }:{
+  title:'STP ENGINEERING ASSESSMENT — EVIDENCE-BASED CONFIGURATION REVIEW',
+  status:'LOCAL DETERMINISTIC REVIEW • NO AI MODEL WAS RUN',
+  devices:'Selected devices',summary:'EXECUTIVE SUMMARY',findings:'PRIORITIZED ENGINEERING FINDINGS',
+  observed:'Configuration evidence',behavior:'Engineering implication',action:'Recommended action',limit:'Evidence limitation',
+  source:'Vendor reference',checks:'READ-ONLY VERIFICATION PLAN',standards:'RELEVANT STANDARDS',
+  absence:'A missing configuration statement is not proof that a feature is disabled.',
+  noFault:'This report does not prove live root bridge, port states or operational outages.',
+  noFindings:'No explicit configuration contradiction found; this is not assurance of correctness.',
+  missing:'Requires corroboration from live show commands.',
+  actions:{vtpMode:'Compare show vtp status and show vlan brief on both Cores to validate VLAN lifecycle.',
+   vtpVersion:'Verify VTPv3 primary server status, version and authorization with show vtp status.',
+   vtpDomain:'Check operational VTP domain and change-control process; omission is not proof of an issue.',
+   vtpPassword:'Validate VTP authentication without exposing secret values in the report.',
+   nativeVlan:'Verify native VLAN and peer trunk policy with show interfaces trunk on both ends.',
+   allowedVlans:'Validate intended trunk VLAN scope before pruning live services.',
+   dtp:'Confirm neighbor port purpose and DTP state using show interfaces switchport.',
+   stpMode:'Compare show spanning-tree summary and show spanning-tree root between selected Cores.',
+   mstRegion:'Compare MST name, revision and instance-to-VLAN maps on both peers.',
+   default:'Validate actual interface roles and live STP state before suggesting a configuration change.'}
+ };
+ const sorted=[...r.entries].sort((a,b)=>({warning:0,review:1,missing:2,info:3}[a.severity]??4)-({warning:0,review:1,missing:2,info:3}[b.severity]??4));
+ const counts={warning:sorted.filter(x=>x.severity==='warning').length,review:sorted.filter(x=>x.severity==='review').length,info:sorted.filter(x=>x.severity==='info').length};
+ const out=['# '+labels.title,labels.status,'',labels.devices+': '+r.devices.join(' ↔ '),
+  '', '## '+labels.summary,
+  tr?'Konfigürasyondan '+counts.warning+' yüksek öncelikli, '+counts.review+' inceleme gerektiren bulgu ve '+counts.info+' bilgi notu çıkarıldı. Öncelik canlı kesinti kanıtı değildir.'
+    :counts.warning+' high-priority, '+counts.review+' review-required and '+counts.info+' informational observations from supplied configuration; priority is not proof of impact.',
+  labels.noFault,labels.absence,'','## '+labels.findings];
+ if(!sorted.length)out.push(labels.noFindings);
+ for(const [i,e] of sorted.entries()){
+  out.push((i+1)+'. ['+e.severity.toUpperCase()+'] '+e.title,
+   '   '+labels.observed+': '+(e.evidence.join(' | ')||labels.missing),
+   '   '+labels.behavior+': '+e.impact,
+   '   '+labels.action+': '+(labels.actions[e.parameter]||labels.actions.default),
+   '   '+labels.limit+': '+(e.limitation||labels.missing),
+   '   '+labels.source+': '+e.source.title+' — '+e.source.url,'');
  }
- out.push('PARAMETER COVERAGE (absence is unknown, not disabled)');
- for(const p of r.coverage)out.push(p.label+': '+p.devices.map(d=>d.hostname+'='+ (d.seen?'observed':'not observed')).join('; '));
- out.push('STP STANDARDS AND EVIDENCE ROLES');
- for(const x of Object.values(STANDARDS))out.push(x.title+' ['+x.role+'] '+x.url+' — '+x.scope);
- out.push('RFC 7727 applicability: do not infer ICCP or PE virtual-root synchronization from a generic Core/Access, vPC, MLAG or stacking topology.');
- out.push('Read-only validation: '+r.furtherEvidence.join(' | '));
+ out.push('## '+labels.checks);
+ for(const line of r.furtherEvidence)out.push('- '+line);
+ out.push('', '## '+labels.standards);
+ const relevant=new Map();
+ for(const item of r.coverage){
+  if(item.devices.some(d=>d.seen))for(const standard of item.standards)
+   relevant.set(standard.url,standard.title+' — '+standard.url);
+ }
+ for(const source of relevant.values())out.push('- '+source);
+ out.push(tr?'RFC 4188/4318 MIB gözlem kaynaklarıdır; mevcut SNMP verisi olmadan operasyonel bulgu değildir.'
+  :'RFC 4188/4318 specify SNMP observability; they are not operational findings absent measurements.');
+ out.push(tr?'RFC 7727 yalnız ICCP Provider Edge bağlamı doğrulandığında uygulanır.'
+  :'RFC 7727 applies only when an ICCP Provider Edge context is established.');
  return out.join('\n');
 }
 function context(r){
