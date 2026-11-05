@@ -66,7 +66,7 @@ try{
 
 
  // Optional 2 Core + 1 Access fixture uses the same browser, parser and report pipeline.
- await page.locator('#syntheticLabEntry').evaluate(el=>{el.open=true;});
+ assert.equal(await page.locator('#loadSTPLab').isVisible(),true,'LAB launch is visible');
  page.once('dialog',dialog=>dialog.accept());
  await page.locator('#loadSTPLab').click();
  assert.match(await page.locator('#overview').innerText(),/3 devices · 3 links/);
@@ -84,6 +84,8 @@ try{
  assert.match(labReport,/LAB-ACCESS-A/);
  assert.match(await page.locator('#stpCTOView').textContent(),/ROOT_ID_MATCH/,'Collapsed operational root correlation remains available in report details');
  assert.match(labReport,/STP-018/);
+ assert.match(labReport,/Verification commands/);
+ assert.match(labReport,/show version or show tech-support/);
  assert.equal(await page.locator('[data-evidence-upload="lab-core-a"]').count(),18);
  // Every criterion uploads to the owning device. Genuine evidence supersedes synthetic fixtures.
  const chooser=page.waitForEvent('filechooser');
