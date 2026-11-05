@@ -1,4 +1,4 @@
-name: Real local model evaluation
+name: Local model inference and safety smoke (not engineering acceptance)
 on:
   push:
     branches:
@@ -52,7 +52,7 @@ jobs:
           echo "74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db  /tmp/model.gguf" | sha256sum -c -
       # The 0.5B model is a diagnostic baseline, not the engineering reasoning acceptance gate.
       # Its incomplete output remains visible in logs without masking the required 3B run.
-      - name: Run local inference with synthetic CLI evidence
+      - name: Run local model transport and fail-closed checks with synthetic CLI
         continue-on-error: true
         env:
           PYTHONPATH: .
@@ -72,6 +72,12 @@ jobs:
           done
           curl -fsS http://127.0.0.1:18081/health
           python scripts/evaluate_local_model.py
+          {
+            echo "### Local model transport and safety smoke"
+            echo "- A green CI result confirms the model endpoint and fail-closed behavior, not engineering accuracy."
+            echo "- Responses labeled model-unverified-draft were **not** accepted as engineering findings."
+            echo "- Independent hosted and stronger-model holdout acceptance remain separate release gates."
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Evaluate app and inference under a shared free-tier-sized budget
         # 300 MB local-model OOM is known; diagnostic only, not a hosted-AI release gate.
         continue-on-error: true
