@@ -140,7 +140,9 @@
       "sources": [
         "IEEE-802.1D",
         "RFC-4188"
-      ]
+      ],
+      "contextTr": "Düşük bridge priority aynı VLAN veya MST instance içinde root seçimini destekler. Birincil ve ikincil Core için öncelikler farklılaştırılmalıdır. Tasarım active/standby veya VLAN bazlı dağılım amaçlıyor olabilir; cihaz konfigürasyonu tek başına gerçek root durumunu ispatlamaz.",
+      "analysisTr": "Core cihazlarının aynı VLAN/instance için priority değerlerini birlikte değerlendirin. Root adayı, yedek root ve olası trafik yolu tasarımını açıklayın; show spanning-tree root ile sonucu doğrulayın."
     },
     {
       "id": "stp.redundancy",
@@ -160,7 +162,9 @@
       ],
       "sources": [
         "IEEE-802.1w"
-      ]
+      ],
+      "contextTr": "İki Core’a bağlı Access bağlantıları, bağımsız cihazlarda STP üzerinden alternatif yol sağlar; iki ayrı Core’a uzanan bağlantı tek bir Port-channel gibi değerlendirilemez. StackWise Virtual kullanılırsa mantıksal cihaz ve MEC davranışı değişir.",
+      "analysisTr": "Access bağlantılarının rolleri, alternatif yol ve Core arızasında erişim etkisini inceleyin. Gerçek port state, topology change ve link demeti durumunu kanıt olarak isteyin."
     },
     {
       "id": "stp.mode",
@@ -182,7 +186,9 @@
         "IEEE-802.1w",
         "IEEE-802.1s",
         "IEEE-802.1Q"
-      ]
+      ],
+      "contextTr": "RSTP desteklenen bağlantılarda hızlı yeniden yakınsama mekanizmaları sağlar. MSTP’de bölge adı, revizyon ve VLAN–instance eşlemeleri tutarlı olmalıdır; aksi halde bölge sınırı davranışı değişir.",
+      "analysisTr": "İki Core’un STP modlarını, MST bölge bilgilerini ve sınır linklerini karşılaştırın. Sadece mode satırına bakarak yakınsama süresi veya canlı root rolü ilan etmeyin."
     },
     {
       "id": "stp.edge_portfast",
@@ -199,7 +205,9 @@
       "sources": [
         "IEEE-802.1w",
         "CISCO-CAMPUS"
-      ]
+      ],
+      "contextTr": "PortFast/edge port, gerçek uç cihaz bağlantılarının beklemeden forwarding davranışına geçmesi içindir. Switch-to-switch yedek bağlantılarda yanlış kullanım loop riskini artırabilir.",
+      "analysisTr": "PortFast tanımlarını arayüzün gerçek rolüyle karşılaştırın. Core trunk ile kullanıcı edge portlarını ayırmadan genel kural uygulamayın."
     },
     {
       "id": "stp.bpdu_guard",
@@ -216,7 +224,9 @@
       ],
       "sources": [
         "CISCO-CAMPUS"
-      ]
+      ],
+      "contextTr": "BPDU Guard uç erişim portunda beklenmeyen BPDU alındığında portu korumaya almak için kullanılır; üreticiye göre err-disable davranışı olabilir.",
+      "analysisTr": "Edge portlarında BPDU Guard politikasını kontrol edin. Korumanın eksik olduğu iddiasını yalnız ilgili arayüzün görevi ve platform varsayılanları biliniyorsa üretin."
     },
     {
       "id": "stp.root_guard",
@@ -232,7 +242,9 @@
       ],
       "sources": [
         "CISCO-CAMPUS"
-      ]
+      ],
+      "contextTr": "Root Guard aşağı akışa bakan designated portlarda üstün BPDU alan komşunun root olmasını önlemeye yardımcı olur. Gerçek root port üzerine gelişigüzel uygulanmamalıdır.",
+      "analysisTr": "Port rolü ve komşu hiyerarşisine göre Root Guard yerleşimini değerlendirin; root-inconsistent durumunu operasyonel çıktıdan doğrulayın."
     },
     {
       "id": "stp.loop_guard",
@@ -248,7 +260,9 @@
       ],
       "sources": [
         "CISCO-CAMPUS"
-      ]
+      ],
+      "contextTr": "Loop Guard, beklenen BPDU’ların kaybolması nedeniyle uygun yedek portun yanlışlıkla forwarding'e geçmesi riskini azaltmayı amaçlar.",
+      "analysisTr": "Loop Guard etkinliğini ve hedef portun STP rolünü kontrol edin. Root Guard ile aynı arayüzde kullanımını üretici kısıtları açısından inceleyin."
     },
     {
       "id": "stp.udld",
@@ -264,7 +278,9 @@
       ],
       "sources": [
         "CISCO-CAMPUS"
-      ]
+      ],
+      "contextTr": "UDLD özellikle çift yönlü fiziksel bağlantı beklentisi olan fiber uplinklerde tek yönlü arızaların tespitine katkı sağlar; destek cihaz ve optiğe bağlıdır.",
+      "analysisTr": "Uplink ortamını, UDLD durumunu ve arıza halinde beklenen reaksiyonu cihaz üzerinde doğrulayın."
     },
     {
       "id": "campus.vtp",
@@ -284,7 +300,9 @@
       "sources": [
         "CISCO-VTP-17.15",
         "CISCO-VTP-4500"
-      ]
+      ],
+      "contextTr": "VTP off VLAN veritabanını yerel yönetir ve ilan iletimini sınırlar. Transparent, VLAN’ları yerel tutarken uygun VTP sürümlerinde ilanları trunk boyunca iletebilir. Server/Client merkezi VLAN güncellemelerine katılabilir; VTPv3 primary-server ve kimlik doğrulaması kritik değişiklik kontrolleridir.",
+      "analysisTr": "Core cihazlarının VTP mode, sürüm, domain, kimlik doğrulama varlığı, VLAN veritabanı ve trunk erişimini birlikte inceleyin. Server/Client’da parola yokluğu doğrulanırsa kritik bütünlük riskini belirtin; yalnız konfigürasyonda görünmüyorsa yüksek öncelikli kontrol olarak işaretleyin."
     },
     {
       "id": "campus.native_vlan",
@@ -302,7 +320,9 @@
       "sources": [
         "IEEE-802.1Q",
         "CISCO-CAMPUS"
-      ]
+      ],
+      "contextTr": "Native VLAN, 802.1Q trunk üzerinde etiketsiz trafik için sınıflandırmayı belirler. VLAN 1 kullanımı ve uçlar arasında native VLAN uyuşmazlığı koşullara bağlı ayrıştırma ve VLAN hopping riskleri yaratabilir. Sadece 'vlan 999' komutu native VLAN atandığını göstermez.",
+      "analysisTr": "Eşleştirilen trunk uçlarında native VLAN, izin verilen VLAN’lar ve etiketsiz trafik politikasını karşılaştırın. Gerçek bağlantıyı ve operasyonel trunk durumunu doğrulamadan kesin saldırı veya kesinti sonucu üretmeyin."
     },
     {
       "id": "campus.allowed_vlans",
@@ -321,7 +341,9 @@
       "sources": [
         "IEEE-802.1Q",
         "CISCO-CAMPUS"
-      ]
+      ],
+      "contextTr": "Trunk üzerinde gereksiz VLAN’ların açık olması broadcast ve unknown-unicast yayılımını büyütebilir. Pruning servis VLAN’larını ve yönetim trafiğini koruyacak şekilde planlanmalıdır.",
+      "analysisTr": "İki Core ve Access uplinklerinde required/allowed VLAN listelerini karşılaştırın; gerekli VLAN’ları koruyarak fazlalıkları belirleyin."
     },
     {
       "id": "campus.dtp",
@@ -337,7 +359,9 @@
       ],
       "sources": [
         "CISCO-CAMPUS"
-      ]
+      ],
+      "contextTr": "DTP trunk modunu komşu ile müzakere eder. Statik trunk ve uygun nonegotiate, yanlışlıkla trunk oluşması riskini azaltabilir; komşu uyumu zorunludur.",
+      "analysisTr": "Özellikle host-facing bağlantılarda dinamik trunk modlarını inceleyin; bağlantı görevi ve komşu ayarına göre statik mode/nonegotiate önerisini koşullu sunun."
     },
     {
       "id": "campus.interconnect",
@@ -357,7 +381,9 @@
       ],
       "sources": [
         "CISCO-CAMPUS"
-      ]
+      ],
+      "contextTr": "Bağımsız Core cihazlar aynı LACP port-channel’ın iki farklı ucu gibi davranmaz; buna karşılık StackWise Virtual tek mantıksal bridge ve MEC yaklaşımı sunabilir.",
+      "analysisTr": "İki Core’un bağımsız/StackWise mimarisini, aralarındaki interconnect'i ve uplink Port-channel üyeliklerini birlikte değerlendirin."
     },
     {
       "id": "stp.operational_mib",
@@ -377,7 +403,9 @@
       "sources": [
         "RFC-4188",
         "RFC-4318"
-      ]
+      ],
+      "contextTr": "RFC 4188 BRIDGE-MIB, root ID/root port/topology-change verilerini; RFC 4318 RSTP-MIB ise edge ve point-to-point port durumlarını izleme imkânı sağlar. Bu değerler canlı SNMP sorgusu yapılmadan ölçülmüş sayılamaz.",
+      "analysisTr": "show spanning-tree root/detail veya uygun salt-okunur MIB sorgularıyla gerçek port rolleri ve topology change sayaçlarındaki artışı doğrulayın. SNMP write erişimi güvenliğini ayrıca değerlendirin."
     },
     {
       "id": "stp.iccp",
@@ -391,7 +419,9 @@
       ],
       "sources": [
         "RFC-7727"
-      ]
+      ],
+      "contextTr": "RFC 7727 ICCP kullanan yedekli Provider Edge gruplarının STP uygulamasını tanımlar. Standalone Core çiftine, vPC veya MLAG’a otomatik olarak uygulanamaz.",
+      "analysisTr": "Yalnız ICCP/PE yedeklilik mimarisi kanıtlanırsa RFC 7727 sanal root ve eşzamanlama konularını analize ekleyin."
     }
   ]
 }
