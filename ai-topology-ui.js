@@ -461,6 +461,20 @@ $('assessStructure').onclick=()=>{
   $('structuralResult').textContent=lines.join('\n');
  }catch(e){message(e.message,true);}
 };
+function renderSTPKnowledgeSources(){
+ const container=$('stpKnowledgeSources');
+ container.replaceChildren();
+ const catalog=window.NetworkSTPKnowledgeV1;
+ if(!catalog)return;
+ for(const source of Object.values(catalog.sources)){
+  const a=document.createElement('a');
+  a.href=source.url;a.target='_blank';a.rel='noopener noreferrer';
+  a.textContent=source.title;
+  a.style.display='block';a.style.margin='4px 0';
+  container.append(a);
+ }
+}
+renderSTPKnowledgeSources();
 function stpKnowledgeV1Review(){
  if(!window.NetworkSTPKnowledgeV1)throw Error('STP knowledge catalog script unavailable.');
  return window.NetworkSTPKnowledgeV1.review(workspace,scopedDeviceIds());
