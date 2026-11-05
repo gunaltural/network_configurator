@@ -8,6 +8,9 @@ on:
       - 'test_groq_access_probe.py'
       - 'engineering_ai.py'
       - 'engineering_knowledge.py'
+      - 'engineering_source_index.py'
+      - 'test_engineering_source_index.py'
+      - 'knowledge/engineering_sources_v1.json'
       - 'analysis-ui.js'
       - 'analysis.html'
       - 'test_engineering_ai.py'
@@ -58,6 +61,9 @@ on:
       - 'test_groq_access_probe.py'
       - 'engineering_ai.py'
       - 'engineering_knowledge.py'
+      - 'engineering_source_index.py'
+      - 'test_engineering_source_index.py'
+      - 'knowledge/engineering_sources_v1.json'
       - 'analysis-ui.js'
       - 'analysis.html'
       - 'test_engineering_ai.py'
@@ -112,7 +118,7 @@ jobs:
       - name: Test hosted provider access probe fail-closed (offline; no API secret)
         run: python -m unittest -v test_groq_access_probe
       - name: Validate model review and knowledge retrieval
-        run: python -m unittest -v test_engineering_ai test_engineering_knowledge test_knowledge_store
+        run: python -m unittest -v test_engineering_ai test_engineering_knowledge test_engineering_source_index test_knowledge_store
       - name: Verify BGP CLI mixed capture
         run: python -m unittest -v test_bgp_cli_evidence.BgpCaptureTests.test_mixed_capture
       - name: Verify BGP CLI unsupported columns
