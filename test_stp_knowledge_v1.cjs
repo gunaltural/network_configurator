@@ -41,7 +41,7 @@ assert.match(api.format(report),/802\.1w/);
 assert.ok(report.coverage.find(x=>x.id==='stpMode').standards.some(x=>x.title.includes('802.1w')));
 
 assert.ok(api.format(report).includes('NOT live RAG'));
-assert.ok(api.context(report).join(' ').includes('curated Cisco documentation'));
+assert.ok(api.context(report).join(' ').includes('curated vendor documentation'));
 const noLink=api.review({...base,links:[]},['a','b']);
 assert.ok(!noLink.entries.some(x=>x.title.includes('native VLAN mismatch')),'No cross-device port claims without mapped topology link');
 const parsed=api.parse(nodes[0],'vtp password secret-without-reveal\nvtp mode client');
