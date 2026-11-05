@@ -42,6 +42,8 @@ function designHandoff(report,validation){
   configurations:(report.configurations||[]).filter(c=>c&&typeof c.text==='string').map(c=>({
     deviceId:clean(c.deviceId),text:safeConfig(c.text),source:'generated-design-configuration'
   })),
+  // Visual-only Design snapshot. Never forwarded to the AI evidence endpoint.
+  topologySvg:typeof report.topologySvg==='string'&&report.topologySvg.length<=120000&&/^<svg[\\s>]/i.test(report.topologySvg.trim())?report.topologySvg:null,
   designChecks:validation&&typeof validation==='object'?{
     source:'existing-design-checks',evaluated:Number(validation.evaluated)||0,
     errors:Number(validation.errors)||0,warnings:Number(validation.warnings)||0,
