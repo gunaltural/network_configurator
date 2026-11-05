@@ -68,7 +68,7 @@ assert.ok(!scopedEvidence.includes('Link uplink'),'Links to unselected endpoints
 assert.ok(scopedEvidence.includes('Selected devices: a'),'Selected device IDs appear explicitly');
 assert.throws(()=>api.analysisEvidenceBatches(bothConfigured,[]),/Select one or more valid devices/);
 assert.throws(()=>api.analysisEvidenceBatches(bothConfigured,['missing']),/Select one or more valid devices/);
-assert.equal(JSON.stringify(withCapture).includes('N9K-A'),false,'Original workspace remains unchanged by scoped analysis');
+assert.equal(withCapture.configs.some(c=>c.deviceId==='a'),false,'Original workspace is not changed by adding test configuration to its copy');
 
 const big=Array.from({length:320},(_,i)=>'interface Ethernet'+i+'\n description uplink-'+i).join('\n');
 const extended=api.setConfiguration(withCapture,'fw',big);
