@@ -1747,6 +1747,10 @@ def ai_engineering_report_export(export_format: str, request: AIEngineeringExpor
 def ai_topology_page():
     return FileResponse(BASE_DIR / 'ai-topology.html', media_type='text/html')
 
+@app.get('/network-evidence-correlation-v1.js')
+def network_evidence_correlation_script():
+    return FileResponse(BASE_DIR / 'network-evidence-correlation-v1.js', media_type='application/javascript')
+
 @app.get('/ai-topology-ui.js')
 def ai_topology_ui_script():
     return FileResponse(BASE_DIR / 'ai-topology-ui.js', media_type='application/javascript')
