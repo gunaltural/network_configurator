@@ -3,7 +3,7 @@
 'use strict';
 const E=(tag,cls,txt)=>{const x=document.createElement(tag);if(cls)x.className=cls;if(txt!==undefined)x.textContent=String(txt);return x;};
 const A=(node,...children)=>{for(const child of children)node.append(child);return node;};
-function build(container,review,preflight,db,language,engineering,network){
+function build(container,review,preflight,db,language,engineering,network,operational){
  if(!engineering||engineering.kind!=='stp-engineering-v2-deterministic-not-ai')throw Error('STP Engineering V2 evidence engine is unavailable.');
  if(!network||network.kind!=='stp-network-correlation-v2')throw Error('N-device STP network correlation is unavailable.');
  if(!db||db.module!=='STP'||!Array.isArray(db.records)||db.records.length<10)throw Error('Engineering knowledge DB is not ready.');
@@ -13,7 +13,7 @@ function build(container,review,preflight,db,language,engineering,network){
  container.replaceChildren();
  const paper=E('article','paper stp-design-paper');container.append(paper);
  const hdr=A(E('header','report-header'),E('div','report-tag','NETWORK CONFIGURATOR / ENGINEERING ASSESSMENT'),E('h1','',L('STP Mühendislik Analiz Raporu','STP Engineering Assessment Report')),E('p','report-meta',L('Tasarım / konfigürasyon değerlendirmesi · Mühendis onayı bekleniyor','Design / configuration assessment · Engineer approval pending')));
- hdr.append(E('p','report-meta',L('Konfigürasyon bazlı inceleme — AI modeli çalıştırılmadı; operasyonel root ve port durumları doğrulanmadı.','Configuration-only assessment — AI model was not run; live root and port states unverified.')));
+ hdr.append(E('p','report-meta',operational?.devices.some(x=>x.present)?L('Tasarım konfigürasyonu + cihaz bazlı doğrulama çıktıları; sentetik veriler ayrıca işaretlenmiştir. AI modeli çalıştırılmadı.','Design configurations + per-device operational CLI; synthetic data is labelled. No AI model run.'):L('Yalnızca tasarım konfigürasyonu; operasyonel veriler yüklenmedi. AI modeli çalıştırılmadı.','Design configuration only; no operational captures provided. No AI model run.')));
  paper.append(hdr);
  const risk=review.entries.filter(x=>x.severity==='warning'||x.severity==='review');
  // When VTP authentication cannot be evidenced, domain/mode checks belong to
@@ -28,7 +28,7 @@ function build(container,review,preflight,db,language,engineering,network){
  paper.append(E('h2','',L('1 · Yönetici özeti','1 · Executive summary')));
  paper.append(E('p','',L('Değerlendirme yalnızca seçilen cihaz konfigürasyonlarına dayanır. Canlı root/port durumları doğrulanmadı.','Review is based only on selected configurations. Live root and port state is unverified.')));
  paper.append(kpis);
- appendNetworkReadout(paper,network,tr);
+ appendNetworkReadout(paper,network,tr,operational);
  appendEngineeringReadout(paper,engineering,tr);
  const rootFindings=preflight.findings.filter(x=>['BRIDGE_PRIORITY_COMPARISON','EQUAL_BRIDGE_PRIORITY'].includes(x.code));
  const sec=E('section','');sec.append(E('h2','',L('2 · STP Root Tasarımı ve Yedeklilik','2 · Root Placement and Redundancy')));
@@ -81,7 +81,7 @@ function build(container,review,preflight,db,language,engineering,network){
  paper.append(risks);
  const verify=E('section','');verify.append(E('h2','',L('4 · Doğrulama ve Kabul Planı','4 · Verification and Acceptance')));
  const ol=E('ol','');for(const x of [...new Set([...preflight.missing,...review.furtherEvidence])].slice(0,12))ol.append(E('li','',x));verify.append(ol);paper.append(verify);
- const parameterCoverage=appendDecisionMatrix(paper,review,preflight,db,tr,engineering);
+ const parameterCoverage=appendDecisionMatrix(paper,review,preflight,db,tr,engineering,operational);
  paper.append(E('footer','report-footer',L('Kaynak:','Source:')+' Design parameter know-how · SQLite knowledge v'+db.version+' · '+db.signature.slice(0,12)+' · '+L('AI çalıştırılmadı','No AI executed')));
  return {deviceCount:review.devices.length,riskCount:decisions.length,ruleCount:db.records.length,parameterCoverage};
 }
@@ -89,7 +89,7 @@ function build(container,review,preflight,db,language,engineering,network){
 
 
 /* Aggregate all selected configurations into one topology and protocol report. */
-function appendNetworkReadout(paper,network,tr){
+function appendNetworkReadout(paper,network,tr,operational){
  const L=(a,b)=>tr?a:b,sec=E('section','stp-network-readout');
  sec.append(E('h2','',L('2 · Bütünleşik Ağ ve Protokol Değerlendirmesi','2 · End-to-end Network and Protocol Assessment')));
  sec.append(E('p','',L('Bu bölüm seçilen cihazları ayrı ayrı değerlendirmekle yetinmez; VLAN, fiziksel bağlantı, root tercihleri, port korumaları ve topolojik bağımlılıkları tüm seçili cihazlar arasında karşılaştırır.',
@@ -108,6 +108,18 @@ function appendNetworkReadout(paper,network,tr){
   L(' uç eşleşmeli bağlantı. ',' links with mapped endpoints. ')+network.scope));
  for(const component of network.components){
   sec.append(E('p','cto-context',L('Modellenen bağlantılı cihaz grubu: ','Modeled connected component: ')+component.join(' ↔ ')));
+ }
+ if(operational?.devices.some(x=>x.present)){
+  const verification=E('details','');verification.open=false;
+  verification.append(E('summary','',L('Operasyonel CLI: Root ID korelasyonu','Operational CLI: Root ID correlation')));
+  if(operational.devices.some(x=>x.syntheticOnly))verification.append(E('p','report-meta','SYNTHETIC LAB — NOT REAL DEVICE EVIDENCE'));
+  for(const rel of operational.relationships){
+   const p=E('p','',rel.devices.join(' ↔ ')+' VLAN '+rel.vlan+' · '+rel.status);
+   verification.append(p);
+   if(rel.status==='CONFLICTING_ROOT_EVIDENCE')verification.append(E('p','cto-action',L('Cihazlar farklı Root ID bildiriyor. Zaman ve STP domain sınırını kontrol edin.','Conflicting Root IDs observed; verify capture times and STP domain boundaries.')));
+  }
+  if(!operational.relationships.length)verification.append(E('p','',L('Root ID için karşılaştırılabilir operasyonel çıktı bulunamadı.','No comparable operational Root IDs supplied.')));
+  sec.append(verification);
  }
  const vlanSec=E('details','');vlanSec.open=true;vlanSec.append(E('summary','',L('VLAN bazında root adayları ve karşılaştırmalı priority','Per-VLAN root candidate / priority correlation')));
  const rootTable=E('table','');rootTable.style.cssText='width:100%;border-collapse:collapse;font-size:12px';
@@ -235,41 +247,55 @@ function appendEngineeringReadout(paper,assessment,tr){
  }
  paper.append(section);
 }
-function appendEngineeringMatrix(paper,assessment,tr){
- const L=(a,b)=>tr?a:b;
- const section=E('section','stp-assessment-matrix');section.append(E('h2','',L('5 · 18 Kontrol İçin Cihaz Bazlı Kanıt ve Karar Matrisi','5 · Per-device Evidence and Decision Matrix — 18 Controls')));
- section.append(E('p','report-muted',L(
-  'Durumlar: OBSERVED = komut okundu (uyumluluk sertifikası değil); DESIGN_REVIEW = topoloji/rol ile yorum gerektirir; ROLE_DEPENDENT = ilgili rol kanıtlanmadan eksiklik değildir; VERIFY = operasyonel kanıt gerekir; NOT_APPLICABLE = bu protokol tasarımında uygulanmaz. NOT AUTOMATED: canlı port/root ve arıza analizi konfigürasyondan yapılamaz.',
-  'OBSERVED = configuration statement read (not compliance); DESIGN_REVIEW = topology/role reasoning needed; ROLE_DEPENDENT = absence is not a fault without an applicable role; VERIFY = operational evidence needed; NOT_APPLICABLE = not relevant to protocol. NOT AUTOMATED: live root/port and failure verification require operational input.')));
+function appendEngineeringMatrix(paper,assessment,tr,operational){
+ const L=(a,b)=>tr?a:b,section=E('section','stp-assessment-matrix');
+ section.append(E('h2','',L('5 · Cihaz Bazlı Mühendislik Kriterleri','5 · Per-device Engineering Criteria')));
  let observed=0,review=0,verify=0;
- for(const device of assessment.devices){
-  const details=E('details','');details.open=true;details.append(E('summary','',device.hostname+' · '+device.controls.length+L(' kriter',' criteria')));
-  const table=E('table','');table.style.cssText='width:100%;border-collapse:collapse;font-size:11px';
+ for(const [index,device] of assessment.devices.entries()){
+  const op=operational?.devices.find(x=>x.deviceId===device.id);
+  const hasEvidence=!!op?.present;
+  const group=E('details','stp-device-criteria');group.open=index===0;
+  const heading=device.hostname+' · '+device.controls.length+' '+L('kriter','controls')+' · '+(hasEvidence?op.syntheticOnly?'SYNTHETIC LAB':L('CLI yüklü','CLI attached'):L('Show Tech yok','Show Tech missing'));
+  group.append(E('summary','',heading));
+  const tip=E('p','report-meta',hasEvidence?
+   L('Yüklü kanıt: ','Captured files: ')+op.captures.map(x=>x.filename+(x.synthetic?' [LAB]':'')).join(', '):
+   L('Operasyonel kanıt yüklenmedi. Aşağıdaki Upload düğmesiyle bu cihaz için ekleyebilirsiniz.','No operational evidence attached. Use Upload to add verification CLI for this device.'));
+  group.append(tip);
+  const table=E('table','stp-compact-matrix');table.style.cssText='width:100%;border-collapse:collapse;font-size:11px';
   const header=E('tr','');
-  for(const text of ['ID',L('Kriter ve durum','Control / status'),L('Konfigürasyondan okunan','Observed from config'),L('Mühendislik yorumu','Engineering interpretation'),L('Kanıt / doğrulama','Evidence / verification')]){
-   const th=E('th','',text);th.style.cssText='text-align:left;padding:8px;border-bottom:2px solid #bccbd6';header.append(th);
+  for(const x of ['ID',L('Kontrol','Control'),L('Sonuç','Result'),L('Kanıt ve doğrulama','Evidence / verification')]){
+   const th=E('th','',x);th.style.cssText='padding:8px;text-align:left;border-bottom:2px solid #becbd5';header.append(th);
   }table.append(header);
   for(const c of device.controls){
-   if(c.status==='OBSERVED')observed++;else if(c.status==='VERIFY')verify++;else review++;
-   const row=E('tr',''),proof=E('div','');
-   proof.append(E('strong','',c.verify));
-   if(c.evidence.length){const ds=E('details','');ds.append(E('summary','',L('CLI kanıtı ('+c.evidence.length+')','CLI evidence ('+c.evidence.length+')')));for(const e of c.evidence)ds.append(E('p','',e));proof.append(ds);}
-   if(c.source){const link=E('a','',c.source.title);link.href=c.source.url;link.target='_blank';link.rel='noopener noreferrer';proof.append(link);}
-   for(const val of [c.id,c.label+' · '+c.status,c.observed,c.analysis,proof]){
-    const cell=E('td','');cell.style.cssText='padding:8px;vertical-align:top;border-bottom:1px solid #dbe5ec;overflow-wrap:anywhere';
-    if(typeof val==='string')cell.textContent=val;else cell.append(val);row.append(cell);
-   }table.append(row);
+   if(c.status==='OBSERVED'||c.status==='OPERATIONAL_EVIDENCE'||c.status==='LAB_OBSERVED')observed++;
+   else if(c.status==='VERIFY'||c.status==='NO_DATA')verify++;else review++;
+   const row=E('tr',''),action=E('div',''),upload=E('button','');
+   upload.type='button';upload.dataset.evidenceUpload=device.id;upload.className='evidence-upload';
+   upload.textContent=L('CLI yükle','Upload CLI');upload.setAttribute('aria-label',L(device.hostname+' için CLI kanıtı yükle, '+c.id,'Upload CLI for '+device.hostname+', '+c.id));
+   action.append(upload);
+   const info=E('details','');info.append(E('summary','',L('Detay / Kanıt','Details / Evidence')));
+   info.append(E('p','',c.analysis||L('Mühendislik yorumu yok','No interpretation')));
+   info.append(E('p','',L('Doğrulama: ','Verify: ')+(c.verify||'-')));
+   for(const evidence of c.evidence.slice(0,40))info.append(E('p','report-meta',evidence));
+   if(c.evidence.length>40)info.append(E('p','report-meta',L('Ek kanıtlar kısaltıldı.','Additional evidence omitted from display.')));
+   if(c.source){const link=E('a','',c.source.title);link.href=c.source.url;link.rel='noopener noreferrer';link.target='_blank';info.append(link);}
+   action.append(info);
+   const compact=String(c.observed||'-'),short=compact.length>180?compact.slice(0,177)+'…':compact;
+   const cells=[c.id,c.label,c.status+' · '+short,action];
+   for(const value of cells){const td=E('td','');td.style.cssText='padding:8px;vertical-align:top;border-bottom:1px solid #dbe5ec;overflow-wrap:anywhere';
+    if(typeof value==='string')td.textContent=value;else td.append(value);row.append(td);}
+   table.append(row);
   }
-  details.append(table);section.append(details);
+  group.append(table);section.append(group);
  }
- section.append(E('p','report-muted',L('Gözlenen: ','Observed: ')+observed+L(' · Tasarım/rol incelemesi: ',' · Design/role review: ')+review+L(' · Operasyonel doğrulama: ',' · Operational verification: ')+verify+'.'));
+ section.append(E('p','report-meta',L('Okunan kriter: ','Observed controls: ')+observed+' · '+L('Tasarım/rol incelemesi: ','Design/role review: ')+review+' · '+L('Ek kanıt gerekli: ','Verification pending: ')+verify));
  paper.append(section);
  return {observed,issues:assessment.findings.length,unverified:verify,notAutomated:verify};
 }
 
 /* Auditable engineering parameter matrix — evidence presence is NOT compliance. */
-function appendDecisionMatrix(paper,review,preflight,db,tr,engineering){
- if(engineering)return appendEngineeringMatrix(paper,engineering,tr);
+function appendDecisionMatrix(paper,review,preflight,db,tr,engineering,operational){
+ if(engineering)return appendEngineeringMatrix(paper,engineering,tr,operational);
  const L=(a,b)=>tr?a:b;
  const matrix=E('section','stp-assessment-matrix');
  matrix.append(E('h2','',L('5 · Cihaz Bazlı Parametre Matrisi ve Kanıt Kapsamı','5 · Device Parameter Matrix and Evidence Coverage')));
