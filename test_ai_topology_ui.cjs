@@ -42,6 +42,22 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  assert.equal($('chooseSaved').getAttribute('aria-pressed'),'true','saved workspace tab is active');
  assert.ok($('importWorkspace'),'saved workspace file input exists');
  $('chooseBuild').click();assert.equal($('buildSource').hidden,false,'build topology entry is separate');
+ assert.ok([...$('buildTechnology').options].some(o=>o.value==='STP')&&[...$('buildTechnology').options].some(o=>o.value==='EVPN'),'All Design technologies appear in builder');
+ $('buildTechnology').value='BGP';$('buildTechnology').dispatchEvent(new w.Event('change'));
+ assert.equal($('buildPrimaryCount').disabled,false,'BGP CE count can be changed');
+ $('buildVendor').value='Cisco';$('buildVendor').dispatchEvent(new w.Event('change'));
+ assert.ok([...$('buildPlatform').options].every(o=>o.value.startsWith('Cisco')),'Vendor filters operating platforms');
+ $('buildPlatform').value='Cisco IOS-XE';$('buildPrimaryCount').value='3';$('buildSecondaryCount').value='2';
+ $('applyTechnologyTemplate').click();
+ assert.match($('overview').textContent,/5 devices · 6 links/,'Three CE and two upstream router template built');
+ assert.equal(d.querySelectorAll('#deviceAnalysisChoices input:checked').length,5,'All generated devices available for scoped analysis');
+ assert.equal($('configuration').value,'','Template does not fabricate device configurations');
+ const generatedNode=$('topologyCanvas').querySelector('[data-device-id="ce-1"]');
+ generatedNode.dispatchEvent(new w.MouseEvent('click',{bubbles:true}));
+ assert.equal($('configDevice').value,'ce-1','Clicking a network node selects its configuration upload target');
+ $('configuration').value='hostname CE-01\\nrouter bgp 65001';$('saveConfig').click();
+ assert.match($('overview').textContent,/1 configurations/,'User attaches actual configuration to generated node');
+
  $('chooseDesign').click();assert.equal($('designSource').hidden,false,'Design import entry can be restored');
  Object.defineProperty($('importDesignFile'),'files',{configurable:true,value:[{name:'Design-test.json',size:100,text:async()=>JSON.stringify({schema:'network-configurator-project-v1',name:'Campus STP',design:savedBrowserDesign})}]});
  await $('importDesignFile').onchange();
