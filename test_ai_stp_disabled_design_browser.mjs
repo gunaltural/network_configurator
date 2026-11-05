@@ -31,7 +31,9 @@ async function scenario(disabled){
   await page.waitForURL('**/ai-topology',{timeout:15000});
   await page.waitForFunction(()=>document.getElementById('workflowStep2')?.hidden===false,{timeout:15000});
   await page.locator('#wizardNext').click();
-  await page.locator('#runSTPCTO').click();
+  assert.equal(await page.locator('#preview').isVisible(),false,'No old manual evidence review button');
+  assert.equal(await page.locator('#evidenceDetails').isVisible(),false,'No raw internal evidence preview');
+  await page.locator('#analyze').click();
   await page.waitForFunction(()=>!document.getElementById('viewSTPCTO').disabled,{timeout:15000});
   const rows=await page.locator('.network-engineering-findings-v1 [data-finding-id]').evaluateAll(els=>els.map(x=>({id:x.dataset.findingId,status:x.dataset.findingStatus,text:x.textContent.slice(0,300)})));
   console.log((disabled?'DISABLED':'PROTECTED')+'_FINDINGS '+JSON.stringify(rows));
