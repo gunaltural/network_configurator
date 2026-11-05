@@ -25,6 +25,7 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  };
  w.eval(fs.readFileSync('ai-topology-workspace.js','utf8'));
  w.eval(fs.readFileSync('network-evidence-correlation-v1.js','utf8'));
+ w.eval(fs.readFileSync('ai-engineering-assessment-v1.js','utf8'));
  w.eval(fs.readFileSync('ai-topology-ui.js','utf8'));
  assert.equal($('workflowStep2').hidden,false,'Design handoff enters the same 4-stage workflow');
  assert.match($('designReviewSummary').textContent,/6 Design configuration proposals/);
