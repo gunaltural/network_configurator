@@ -43,6 +43,16 @@ class EngineeringSourceIndexTests(unittest.TestCase):
         evidence = [{"id":"topology","text":"Device: A\nVendor: Cisco IOS-XE\nDevice: B\nVendor: Arista EOS\nBGP summary Neighbor Active"}]
         self.assertEqual(retrieve_sources(evidence,"Mixed"),[])
 
+    def test_huawei_bgp_document_not_attributed_to_cisco(self):
+        evidence=[{"id":"ce-bgp","text":"Device: CE6865-A\\nVendor: Huawei CloudEngine VRP8\\n"
+            "Command: display bgp peer\\nL2: Peer V AS MsgRcvd MsgSent OutQ Up/Down State PrefRcv\\n"
+            "L3: 192.0.2.2 4 64513 1 1 0 00:00:11 Established 62"}]
+        found=retrieve_sources(evidence,"Mixed")
+        ids=[item["id"] for item in found]
+        self.assertIn("huawei-ce-bgp-peer",ids)
+        self.assertNotIn("cisco-bgp-basic-2026",ids)
+        self.assertFalse(any(item["vendor"]=="Cisco" for item in catalog()["sources"] if item["id"]=="huawei-ce-bgp-peer"))
+
     def test_software_module_not_inferred_from_missing_vendor(self):
         self.assertEqual(retrieve_sources([{"id":"a","text":"L1: show vpc peer-gateway"}], "Unknown"), [])
     def test_bound_results(self):
