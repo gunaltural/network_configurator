@@ -30,7 +30,7 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{JSDOM}=require
  $('runSTPPreflight').click();
  assert.match($('stpPreflightResult').textContent,/BRIDGE_PRIORITY_COMPARISON/);
  $('runSTPKnowledge').click();
- assert.match($('stpKnowledgeResult').textContent,/ÖNCELİKLİ BULGULAR/,'Knowledge catalog is visible independently of model');
+ assert.match($('stpKnowledgeResult').textContent,/PRIORITIZED ENGINEERING FINDINGS/,'Knowledge catalog is visible independently of model');
  assert.match($('stpKnowledgeResult').textContent,/Cisco Catalyst/,'Source references are reported');
 
  assert.doesNotMatch($('stpPreflightResult').textContent,/ACCESS-1/);
