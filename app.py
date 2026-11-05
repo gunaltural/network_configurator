@@ -27,6 +27,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 from typing import List, Literal
 
+from knowledge_store import get_stp_knowledge
 from fastapi.responses import FileResponse
 from fastapi import FastAPI, HTTPException, Request as WebRequest
 from inventory_excel import parse_inventory_xlsx
@@ -1738,6 +1739,11 @@ def stp_analysis_v1_script():
 @app.get('/stp-knowledge-v1.js')
 def stp_knowledge_v1_script():
     return FileResponse(BASE_DIR / 'stp-knowledge-v1.js', media_type='application/javascript')
+
+@app.get('/api/engineering-knowledge/stp')
+def stp_design_engineering_knowledge():
+    """Versioned, read-only SQLite knowledge derived from the existing STP Design UI."""
+    return get_stp_knowledge()
 
 @app.get('/analysis')
 def cli_analysis_page():
