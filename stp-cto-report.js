@@ -124,6 +124,15 @@ function appendUnifiedFindings(paper,assessment,tr){
   ];
   for(const [label,value] of fields){if(!value)continue;const row=E('p','');
    const key=E('strong','',label+': ');row.append(key,document.createTextNode(String(value)));box.append(row);}
+  if(f.status==='VERIFY'&&f.verificationTask){
+   const task=f.verificationTask;
+   const next=E('div','verification-next-step');
+   next.style.cssText='border-top:1px solid #d9e3ea;padding:9px 0;margin:8px 0;font-size:12px';
+   next.append(E('strong','',L('Doğrulama görevi','Verification task')+' · '+task.owner+' · '+L('Onay: ','Review: ')+task.reviewer));
+   next.append(E('p','',L('Yapılacak: ','Action: ')+task.action));
+   next.append(E('p','',L('Başarı ölçütü: ','Accept when: ')+task.acceptance));
+   box.append(next);
+  }
   box.append(E('p','report-muted',L('Kanıt düzeyi: ','Evidence level: ')+f.confidence+' · '+L('Veri türü: ','Source type: ')+f.provenance));
   const detail=E('details','');detail.append(E('summary','',L('CLI kanıtı, doğrulama ve üretici kaynakları','CLI evidence, verification and vendor references')));
   if(f.verification.length){detail.append(E('strong','',L('Doğrulama komutları','Verification commands')));
