@@ -257,6 +257,18 @@ function removeLink(workspace,id){
 }
 const sensitive=/(?:password|passwd|secret|snmp[-\s]?server\s+community|snmp\s+community|community-string|private.?key|api.?key|authorization|set\s+psksecret|set\s+enc-password|crypto\s+isakmp\s+key|pre-shared-key|shared-secret|BEGIN [A-Z ]*PRIVATE KEY|sk-[A-Za-z0-9_-]+)/i;
 function safeLine(line){return sensitive.test(line)?'[REDACTED]':line.replace(/[\r\n\t]/g,' ');}
+function redactPrivateKeyBlocks(lines){
+ let inKey=false;
+ return lines.map(line=>{
+  const begins=/-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----/i.test(line);
+  const ends=/-----END [A-Z0-9 ]*PRIVATE KEY-----/i.test(line);
+  const hide=inKey||begins;
+  if(begins)inKey=true;
+  if(ends)inKey=false;
+  return hide?'[REDACTED]':line;
+ });
+}
+
 /* Evidence retrieval across the whole capture. This is bounded selection, not
  * full-file model inference. Original line identifiers must survive sampling. */
 const CAPTURE_TOPICS={
@@ -340,12 +352,12 @@ function analysisEvidenceBatches(workspace,selectedDeviceIds,selectedModules){
   const node=model.nodes.find(n=>n.id===c.deviceId);
   if(!node||!chosen.has(c.deviceId))continue;
   if(c.text.length>150000)throw Error('Device configuration exceeds 150 KB. Use CLI Analysis for large captures.');
-  addChunks('config-'+index,'Device: '+identifier(node.hostname).replace(/[\r\n]/g,' ')+'\nVendor: '+identifier(node.vendor).replace(/[\r\n]/g,' ')+'\nCommand: proposed configuration (generated Design or manually attached; NOT deployed)',c.text.replace(/\r\n?/g,'\n').split('\n'));
+  addChunks('config-'+index,'Device: '+identifier(node.hostname).replace(/[\r\n]/g,' ')+'\nVendor: '+identifier(node.vendor).replace(/[\r\n]/g,' ')+'\nCommand: proposed configuration (generated Design or manually attached; NOT deployed)',redactPrivateKeyBlocks(c.text.replace(/\r\n?/g,'\n').split('\n')));
  }
  for(const [index,c]of model.showTech.entries()){
   const node=model.nodes.find(n=>n.id===c.deviceId);
   if(!node||!chosen.has(c.deviceId))continue;
-  const lines=c.text.replace(/\r\n?/g,'\n').split('\n');
+  const lines=redactPrivateKeyBlocks(c.text.replace(/\r\n?/g,'\n').split('\n'));
   const selection=selectCaptureExcerpt(lines,selectedModules);
   items.push({id:'capture-coverage-'+index,text:'Device: '+identifier(node.hostname)+
    '\nCommand: capture coverage and provenance, NOT an operational finding'+
