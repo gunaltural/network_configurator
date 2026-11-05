@@ -101,6 +101,31 @@ $('refreshSavedDesign').onclick=async()=>{
   projectStatus(sourceProjects.size+' browser Design source(s) available. Server Project Library is unavailable here; saved local projects remain selectable.');
  }
 };
+function designFromJson(input){
+ if(input?.schema==='network-configurator-v3')return input;
+ if(input?.schema==='network-configurator-project-v1'&&input.design?.schema==='network-configurator-v3')return input.design;
+ throw Error('Unsupported JSON format. Choose a Design project export or a saved AI Workspace file.');
+}
+function openDesignForImport(design){
+ if(design?.schema!=='network-configurator-v3'||!design.workspace?.technology||!design.fields||typeof design.fields!=='object')
+  throw Error('This file does not contain a usable Network Configurator Design workspace.');
+ const module=String(design.workspace.technology).toUpperCase();
+ if(!['BASIC','BGP','OSPF','STP','VPC','EVPN','SDWAN','QOS'].includes(module))
+  throw Error('Unsupported Design technology: '+module);
+ if((workspace.nodes.length||workspace.configs.length)&&!window.confirm('Replace the current unsaved AI workspace with a different Design import?'))return false;
+ sessionStorage.setItem('networkConfigurator.workflow.design',JSON.stringify(design));
+ window.location.assign('/?resume=1&workspace='+encodeURIComponent(module)+'&aiImport=1');
+ return true;
+}
+$('importDesignFile').onchange=async()=>{
+ const file=$('importDesignFile').files?.[0];if(!file)return;
+ if(file.size>5000000)return projectStatus('Design JSON exceeds 5 MB.');
+ try{
+  const design=designFromJson(JSON.parse(await file.text()));
+  projectStatus('Opening '+(design.project?.name||file.name)+' in Design for AI import…');
+  openDesignForImport(design);
+ }catch(error){projectStatus('Design JSON import failed: '+error.message);}
+};
 $('openSavedDesign').onclick=async()=>{
  const source=sourceProjects.get($('savedDesignSelect').value);if(!source)return;
  try{
@@ -110,16 +135,7 @@ $('openSavedDesign').onclick=async()=>{
    if(!response.ok)throw Error('The saved Project Library document could not be opened.');
    const record=await response.json();design=record.document?.design;
   }
-  if(design?.schema!=='network-configurator-v3'||!design.workspace?.technology||!design.fields||typeof design.fields!=='object')
-   throw Error('This record does not contain a usable Design workspace.');
-  const module=String(design.workspace.technology).toUpperCase();
-  if(!['BASIC','BGP','OSPF','STP','VPC','EVPN','SDWAN','QOS'].includes(module))
-   throw Error('This saved Design technology is not yet supported for import.');
-  if((workspace.nodes.length||workspace.configs.length)&&!window.confirm('Open another Design? Your current unsaved AI workspace will not be preserved.'))return;
-  sessionStorage.setItem('networkConfigurator.workflow.design',JSON.stringify(design));
-  // Generate vendor configuration through Design itself, not from storage snapshots.
-  // The user then invokes the existing audited Design -> AI handoff.
-  window.location.assign('/?resume=1&workspace='+encodeURIComponent(module)+'&aiImport=1');
+  openDesignForImport(designFromJson(design));
  }catch(error){projectStatus('Could not open Design: '+error.message);}
 };
 function makeOption(id,name){const opt=document.createElement('option');opt.value=id;opt.textContent=name;return opt;}
@@ -318,11 +334,18 @@ $('exportWorkspace').onclick=()=>{
  message('Workspace downloaded to this device. No cloud project was changed.');
 };
 $('importWorkspace').onchange=async()=>{
- const file=$('importWorkspace').files[0];if(!file)return;
- if(file.size>2000000)return message('Maximum workspace JSON size is 2 MB.',true);
- if((workspace.nodes.length||workspace.configs.length)&&!window.confirm('Replace the current topology?'))return;
- try{workspace=api.validate(JSON.parse(await file.text()));$('sourceLabel').textContent='Imported saved workspace';changed('Saved workspace imported.');loadDevice();loadLink();loadConfig();}
- catch(e){message('Invalid workspace file: '+e.message,true);}
+ const file=$('importWorkspace').files?.[0];if(!file)return;
+ if(file.size>5000000)return message('Maximum JSON size is 5 MB.',true);
+ try{
+  const input=JSON.parse(await file.text());
+  if(input?.schema==='network-configurator-v3'||input?.schema==='network-configurator-project-v1'){
+   chooseEntry('design');
+   projectStatus('Design project JSON detected. Opening source Design before AI import.');
+   openDesignForImport(designFromJson(input));return;
+  }
+  if((workspace.nodes.length||workspace.configs.length)&&!window.confirm('Replace the current AI workspace?'))return;
+  workspace=api.validate(input);$('sourceLabel').textContent='Imported saved AI workspace';changed('Saved AI workspace imported.');loadDevice();loadLink();loadConfig();
+ }catch(e){message('JSON import failed: '+e.message,true);}
 };
 $('preview').onclick=()=>{
  try{
