@@ -24,21 +24,43 @@ function build(container,review,preflight,db,language){
  const rootFindings=preflight.findings.filter(x=>['BRIDGE_PRIORITY_COMPARISON','EQUAL_BRIDGE_PRIORITY'].includes(x.code));
  const sec=E('section','');sec.append(E('h2','',L('2 · STP Root Tasarımı ve Yedeklilik','2 · Root Placement and Redundancy')));
  if(rootFindings.length){
-  const distinct=[...new Set(rootFindings.map(x=>x.claim.replace(/^(VLAN|MST) \d+:/,'').trim()))];
-  sec.append(E('p','',rootFindings.length+' VLAN/instance: '+distinct.join(' · ')));
-  sec.append(E('p','',L('Düşük konfigüre priority birincil root tercihine işaret eder. Gerçek root seçimi yalnız konfigürasyondan kanıtlanamaz. Root yerleşiminin active/standby mı yoksa VLAN bazlı yük paylaşımı mı hedeflediği topoloji bağlamında doğrulanmalıdır.','Lower configured priority favors the root candidate, but does not prove live root state. Validate whether design intends active/standby or per-VLAN load sharing.')));
-  sec.append(E('small','',rootFindings.flatMap(x=>x.refs).filter((x,i,a)=>a.indexOf(x)===i).join(' · ')));
- }else sec.append(E('p','',L('İki cihazdan karşılaştırılabilir root priority kanıtı alınamadı.','No comparable bridge priorities supplied across both nodes.')));
+  const byIntention=new Map();
+  for(const result of rootFindings){
+   const m=result.claim.match(/^(VLAN|MST)\s+(\d+):\s*(.*?)\s+(\d+)\s+vs\s+(.*?)\s+(\d+)\./);
+   if(!m)continue;
+   const key=[m[3],m[4],m[5],m[6],result.code].join('|');
+   const value=byIntention.get(key)||{first:m[3],firstPri:Number(m[4]),second:m[5],secondPri:Number(m[6]),instances:[],refs:[]};
+   value.instances.push(m[1]+' '+m[2]);value.refs.push(...result.refs);
+   byIntention.set(key,value);
+  }
+  for(const choice of byIntention.values()){
+   const card=E('div','decision');
+   const priorityEqual=choice.firstPri===choice.secondPri;
+   const candidate=choice.firstPri<choice.secondPri?choice.first:choice.firstPri>choice.secondPri?choice.second:null;
+   card.append(E('strong','',L('Root bridge konumlandırması','Root bridge placement')+' — '+choice.instances.join(', ')));
+   card.append(E('span','choice',choice.first+' '+choice.firstPri+' · '+choice.second+' '+choice.secondPri));
+   const engineering=priorityEqual?
+    L('İki Core aynı bridge priority ile yapılandırılmış. Daha düşük köprü kimliğini belirleyen diğer alanlara göre root seçilebilir; birincil/yedek root tasarım niyeti açık değildir.',
+      'Both Cores have the same configured bridge priority. The remaining bridge ID can decide root selection, so primary/backup intent is unclear.'):
+    L(candidate+' daha düşük bridge priority ile ilgili VLAN/instance grubunda root tercih adayıdır. Bu düzen iki Core arasında planlı bir birincil/yedek STP tasarımına işaret edebilir. VLAN bazlı trafik paylaşımı hedefleniyorsa root yerleşimlerinin farklılaştırılması ayrıca değerlendirilmelidir. Mevcut root/port state sonucu yalnız bu konfigürasyondan çıkarılamaz.',
+      candidate+' has the lower priority and is the preferred root candidate for these VLANs/instances. This can be intentional active/standby, while per-VLAN load distribution requires deliberate root placement. Live root and port roles remain unverified.');
+   card.append(E('p','',engineering));
+   card.append(E('p','report-muted',L('Doğrulama: iki Core üzerinde show spanning-tree root ve ilgili VLAN/instance çıktıları; başka daha düşük bridge ID olup olmadığı.','Verify show spanning-tree root and relevant instances on both Cores, including other possible lower bridge IDs.')));
+   const evidence=E('details','');evidence.append(E('summary','',L('İlgili konfigürasyon kanıtı','Source configuration evidence')),E('p','',[...new Set(choice.refs)].join(' · ')));card.append(evidence);
+   sec.append(card);
+  }
+  if(!byIntention.size)sec.append(E('p','',L('Kök önceliği değerleri bulundu ancak ilişkili cihaz/VLAN grupları güvenilir şekilde çıkarılamadı.','Priority values were observed, but matching device/instance groups could not be reliably inferred.')));
+ }else sec.append(E('p','report-muted',L('İki Core üzerinde karşılaştırılabilir root priority tanımları bulunamadı.','Comparable bridge priorities were not supplied for both nodes.')));
  paper.append(sec);
  const risks=E('section','');risks.append(E('h2','',L('3 · Riskler ve Mühendislik Kararları','3 · Risks and Engineering Decisions')));
  if(!risk.length)risks.append(E('p','',L('Açık konfigürasyon tutarsızlığı bulunamadı; bu, ağın sağlıklı olduğu anlamına gelmez.','No explicit contradiction found; this does not establish network health.')));
  for(const item of risk){
   const r=records.get(cat[item.parameter]),card=E('div','decision');
   const head=A(E('div','cto-finding-head'),E('strong','',item.title),E('span','choice',item.severity.toUpperCase()));card.append(head);
-  card.append(E('p','',item.impact));
+  card.append(E('p','',item.parameter==='vtpPassword'?L('VTP Server/Client modunda kimlik doğrulama ayarının varlığı kanıtlanamadı. VTP alanına erişebilen bir cihazdan yanlış veya yetkisiz VLAN güncellemeleri yayılabilir; bu güvenlik ve servis sürekliliği açısından yüksek öncelikli doğrulama gerektirir. Ancak gizlenmiş parola satırını yok kabul etmiyoruz.','Authentication presence is not evidenced for VTP Server/Client. Without authentication, incorrect or unauthorized VLAN updates could propagate. A hidden password cannot be assumed absent.'):item.impact));
   if(r){
-   card.append(E('p','cto-context',L('Design know-how','Design know-how')+': '+r.context));
-   card.append(E('p','cto-action',L('Mühendislik aksiyonu','Engineering action')+': '+r.analysis));
+   card.append(E('p','cto-context',L('Design parametre gerekçesi','Design parameter rationale')+': '+r.context));
+   card.append(E('p','cto-action',L('Mühendislik kararı ve aksiyon','Engineering decision and action')+': '+r.analysis));
    const details=E('details','');details.append(E('summary','',L('Kanıt ve standart kaynaklar','Evidence and standards')));
    details.append(E('p','',item.evidence.join(' · ')||L('İlgili satır doğrulanmadı','Source line not verified')));
    for(const id of r.sources){const source=sources.get(id);if(!source)continue;const a=E('a','',source.title);a.href=source.url;a.target='_blank';a.rel='noopener noreferrer';details.append(a);}
