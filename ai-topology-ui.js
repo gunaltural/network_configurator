@@ -432,7 +432,7 @@ function render(){
   const checks=review.checks||null;
   $('designReviewSummary').textContent=
    'Imported '+review.parameters.length+' Design engineering parameters and '+workspace.configs.length+
-   ' configuration proposals. '+(checks?checks.evaluated+' original input checks · '+checks.errors+' errors · '+checks.warnings+' advisories.':'Original Design consistency checks not provided.')+
+   ' Design configuration proposals (not deployed). '+(checks?checks.evaluated+' original input checks · '+checks.errors+' errors · '+checks.warnings+' advisories.':'Original Design consistency checks not provided.')+
    (review.edited?' ATTENTION: Workspace changed after import; original Design checks are STALE.':' No network device has been verified.');
   $('designReviewIssues').replaceChildren();
   for(const issue of checks?.issues||[]){
@@ -477,7 +477,7 @@ function renderEvidenceDevices(){
   const item=document.createElement('div');item.className='evidence-device';item.setAttribute('role','listitem');
   const files=(workspace.showTech||[]).filter(c=>c.deviceId===device.id);
   const caption=document.createElement('span');
-  caption.textContent=device.hostname+' · '+(files.length?files.map(c=>c.filename+(c.synthetic?' [SYNTHETIC LAB]':'')).join(', '):'No operational CLI');
+  caption.textContent=device.hostname+' · '+(hasConfig(device.id)?'Design / attached configuration available':'Configuration missing')+' · '+(files.length?'Verification captures: '+files.map(c=>c.filename+(c.synthetic?' [SYNTHETIC LAB]':'')).join(', '):'No captured show output (optional; Design CLI already listed above)');
   item.append(caption);
   const button=document.createElement('button');button.type='button';button.textContent='Upload';button.dataset.evidenceDevice=device.id;
   button.onclick=()=>chooseEvidenceFile(device.id);item.append(button);
@@ -520,7 +520,7 @@ async function attachEvidenceBatch(files,deviceId){
  $('showTechDevice').value=deviceId;
  const host=workspace.nodes.find(n=>n.id===deviceId).hostname;
  $('showTechStatus').textContent=ready.map(x=>x.filename).join(', ')+' attached to '+host+'.';
- if(alreadyHadReport&&selectedModules().includes('STP')){
+ if(alreadyHadReport&&selectedModules().length===1&&selectedModules()[0]==='STP'){
   await $('runSTPCTO').onclick();
   $('stpCTOView').hidden=!wasVisible;
   $('viewSTPCTO').textContent=wasVisible?'Hide HTML View':'HTML View';
@@ -746,7 +746,7 @@ $('runSTPCTO').onclick=async()=>{
   $('exportSTPCTO').disabled=false;$('viewSTPCTO').disabled=false;
   $('downloadEngineeringPDF').disabled=false;$('downloadEngineeringWord').disabled=false;
   if(currentStep===3)navigateWorkflow(4);else{refreshWorkflow();if(currentStep===4)showGeneratedReport();}
- }catch(error){$('exportSTPCTO').disabled=true;$('viewSTPCTO').disabled=true;$('stpCTOView').replaceChildren();$('stpCTOStatus').textContent='CTO report error: '+error.message;message(error.message,true);}
+ }catch(error){invalidate();$('stpCTOStatus').textContent='CTO report error: '+error.message;message(error.message,true);}
 };
 $('viewSTPCTO').onclick=()=>{
  if($('viewSTPCTO').disabled)return;
