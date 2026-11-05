@@ -58,6 +58,15 @@ textarea{width:100%;min-height:140px;resize:vertical}pre{padding:12px;background
 <div class="control"><label>Technology module<select id="buildTechnology"></select></label><label>Vendor<select id="buildVendor"></select></label><label>Platform<select id="buildPlatform"></select></label></div>
 <div class="control"><label id="primaryCountLabel">Core / primary devices<input id="buildPrimaryCount" type="number" min="1" max="8" value="2"></label><label id="secondaryCountLabel">Access / secondary devices<input id="buildSecondaryCount" type="number" min="0" max="12" value="2"></label></div>
 <div class="control"><button id="applyTechnologyTemplate" type="button" class="primary">Create / update topology</button><span class="hint">Replacing a topology requires confirmation when devices or configurations exist.</span></div>
+<fieldset id="freeTopologyBuilder"><legend>New project · free topology (no technology restrictions)</legend>
+<div class="control"><label>Number of devices (1–32)<input type="number" id="aiNodeCount" min="1" max="32" step="1" value="4"></label>
+<label>Connection pattern<select id="aiTopologyPattern"><option value="none">No connections (manual)</option><option value="chain">Chain</option><option value="ring">Ring</option><option value="star">Star</option><option value="dual-hub">Dual hub</option><option value="mesh">Full mesh (up to 16)</option></select></label></div>
+<div class="control"><label>Initial vendor<select id="aiDefaultVendor"><option>Cisco NX-OS</option><option>Cisco IOS-XE</option><option>Arista EOS</option><option>Huawei_CE_SW</option><option>FortiGate</option><option>Juniper Junos</option><option selected>Other</option></select></label>
+<label>Initial device role<input id="aiDefaultRole" maxlength="80" value="network-node"></label></div>
+<button class="primary" id="aiBuildTopology" type="button">Create independent topology</button>
+<p class="hint">Choose any topology, then edit each device vendor, role, name and link freely below. This builder never generates a configuration or diagnoses a network.</p>
+</fieldset>
+
 <details id="legacyTemplates"><summary>Quick starter templates (optional)</summary>
 <div class="control"><label>Starting template<select id="template"><option value="blank">Blank topology</option><option value="vpc">Cisco vPC pair</option><option value="bgp">CE–ISP eBGP</option><option value="evpn">EVPN leaf–spine</option></select></label><button id="applyTemplate">Use template</button></div></details>
 <p class="hint">After building, use <strong>Per-device configuration / CLI capture</strong> below to choose a node and upload its TXT / CFG / LOG. Next, use <strong>Devices to analyze</strong> to select specific nodes or all devices.</p>
