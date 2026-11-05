@@ -58,6 +58,18 @@ designTrigger.onclick=()=>{
 };
 document.addEventListener('click',event=>{if(event.target.closest?.('[data-nc-ai-design]'))designTrigger.click();});
 document.addEventListener('nc-ai-import-design',()=>designTrigger.click());
+ // A user-selected saved Design can continue directly into this same AI Workspace.
+ // This is a local snapshot handoff; no model request is triggered automatically.
+ if(new URLSearchParams(location.search).get('aiImport')==='1'){
+  Promise.resolve(window.__workspaceRestoreReady).then(async()=>{
+   const requested=new URLSearchParams(location.search).get('workspace');
+   const active=window.NetworkWorkspaceProject?.diagnosticScope?.()?.module;
+   if(requested&&active!==requested&&window.NetworkWorkspaceProject?.activateModule)
+    await window.NetworkWorkspaceProject.activateModule(requested);
+   designTrigger.click();
+  }).catch(error=>{$('aiStatus').textContent='Saved Design import unavailable: '+error.message;dialog.showModal();});
+ }
+
 $('aiRun').onclick=async()=>{if(!context||busy)return;busy=true;$('aiRun').disabled=true;$('aiTask').disabled=true;$('aiCopy').disabled=true;$('aiDraft').value='';$('aiStatus').textContent='Analyzing…';
 try{if(['groq','openai'].includes(modelProvider)&&!window.confirm('The reviewed Design evidence will be sent to the external '+modelProvider+' AI provider. Confirm authorization to share this data. Continue?')){ $('aiStatus').textContent='External model transfer cancelled; no evidence sent.';return; }const r=await fetch('/api/ai/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...context,language,task:$('aiTask').value})});const data=await r.json();if(!r.ok)throw Error(typeof data.detail==='string'?data.detail:'AI request rejected.');$('aiDraft').value=data.text;$('aiCopy').disabled=false;$('aiStatus').textContent='Independent AI draft ready. No Module Report or Final Project Report was changed.';}catch(e){$('aiStatus').textContent=e.message;}finally{busy=false;$('aiRun').disabled=false;$('aiTask').disabled=false;}};
 $('aiCopy').onclick=async()=>{try{await navigator.clipboard.writeText($('aiDraft').value);$('aiStatus').textContent='Copied. Paste into the report section after review.';}catch{$('aiStatus').textContent='Select and copy the draft manually.';}};
