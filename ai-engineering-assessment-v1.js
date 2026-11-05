@@ -87,13 +87,36 @@ const KNOWLEDGE={
  }
 };
 function localized(record,field,language){return record?.[field]?.[language==='tr'?'tr':'en']||'';}
+
+/* A citation is valid only when its device/file/original line exists in the
+ * current independent Analysis workspace and the excerpt matches those bytes.
+ * A model-generated or stale adapter reference cannot silently become fact. */
+function validProof(workspace,nodes,selectedIds,proof){
+ if(!proof||!selectedIds.has(proof.deviceId)||!Number.isInteger(proof.line)||proof.line<1)return false;
+ const device=nodes.get(proof.deviceId);
+ if(!device||proof.device!==device.hostname||typeof proof.excerpt!=='string'||!proof.excerpt.trim()||proof.excerpt==='[REDACTED]')return false;
+ const excerpt=proof.excerpt,source=String(proof.source||'');
+ const configs=source==='Design/attached config'?
+  (workspace.configs||[]).filter(c=>c.deviceId===proof.deviceId):[];
+ const captures=source.startsWith('show: ')?(workspace.showTech||[]).filter(c=>
+  c.deviceId===proof.deviceId&&!c.synthetic&&c.filename===source.slice(6)):[];
+ return [...configs,...captures].some(item=>{
+  if(typeof item.text!=='string')return false;
+  const row=item.text.replace(/\r\n?/g,'\n').split('\n')[proof.line-1];
+  return row!==undefined&&row.trim().slice(0,220)===excerpt;
+ });
+}
+
 function evaluate({workspace,deviceIds,modules,correlation,language='en'}={}){
  if(!workspace||!Array.isArray(workspace.nodes))throw Error('Analysis workspace required');
  const all=new Map(workspace.nodes.map(node=>[node.id,node])),ids=new Set(deviceIds||[...all.keys()]);
  const scope=[...new Set((modules||[]).map(value=>String(value).toUpperCase()))];
  const real=(workspace.showTech||[]).filter(cap=>ids.has(cap.deviceId)&&!cap.synthetic);
  const captureCounts=new Map([...ids].map(id=>[id,real.filter(cap=>cap.deviceId===id).length]));
- const facts=Array.isArray(correlation?.findings)?correlation.findings:[];
+ const rawFacts=Array.isArray(correlation?.findings)?correlation.findings:[];
+ const facts=rawFacts.filter(f=>Array.isArray(f.evidence)&&f.evidence.length>0&&
+  f.evidence.every(p=>validProof(workspace,all,ids,p)));
+ const rejectedUnboundFindings=rawFacts.length-facts.length;
  const controls=scope.map(technology=>{
   const entry=KNOWLEDGE[technology];
   const observations=facts.filter(f=>f.technology===technology);
@@ -152,13 +175,14 @@ function evaluate({workspace,deviceIds,modules,correlation,language='en'}={}){
  for(const finding of findings)counts[finding.status]++;
  for(const item of controls)if(item.state==='NOT_VERIFIED')counts.NOT_VERIFIED++;
  return {schema:SCHEMA,version:VERSION,language,scope:{deviceIds:[...ids],modules:scope},
-  controls,findings,counts,
+  controls,findings,counts,rejectedUnboundFindings,
   evidenceCoverage:{scopedDevices:ids.size,realCaptureFiles:real.length,
    devicesWithRealCapture:[...ids].filter(id=>(captureCounts.get(id)||0)>0).length},
   limitations:[
    'Manufacturer documentation is contextual and release-scoped, not device compliance proof.',
    'Observed evidence, design intent, synthetic data and model draft are not interchangeable.',
    'Unobserved commands or unknown defaults never establish missing features or healthy state.',
+   'Unbound, fabricated or stale CLI line references are rejected from this matrix.',
    'This deterministic assessment matrix does not validate model engineering accuracy.'
   ]};
 }
