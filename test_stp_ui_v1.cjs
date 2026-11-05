@@ -26,6 +26,8 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{JSDOM}=require
  w.eval(fs.readFileSync('stp-knowledge-v1.js','utf8'));
  w.eval(fs.readFileSync('stp-engineering-v2.js','utf8'));
  w.eval(fs.readFileSync('stp-network-analysis-v2.js','utf8'));
+ w.eval(fs.readFileSync('stp-operational-evidence-v1.js','utf8'));
+ w.eval(fs.readFileSync('stp-synthetic-lab-v1.js','utf8'));
  w.eval(fs.readFileSync('stp-cto-report.js','utf8'));
  w.eval(fs.readFileSync('ai-topology-ui.js','utf8'));
  assert.equal($('stpV1Panel').hidden,false,'STP source activates preflight');
@@ -48,7 +50,10 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{JSDOM}=require
  assert.match($('stpCTOView').textContent,/End-to-end Network and Protocol Assessment/,'whole-network assessment is visible');
  assert.match($('stpCTOView').textContent,/Per-VLAN root candidate/,'per-VLAN cross-device comparison is rendered');
  assert.match($('stpCTOView').textContent,/CORE-1/,'matrix reports per selected device');
- assert.match($('stpCTOView').textContent,/NOT AUTOMATED/,'unsupported checks are explicitly identified');
+ assert.match($('stpCTOView').textContent,/Upload CLI/,'per-device verification evidence can be uploaded from matrix rows');
+ assert.equal($('viewSTPCTO').disabled,false,'HTML View is enabled after generating the report');
+ $('viewSTPCTO').click();
+ assert.equal($('stpCTOView').hidden,false,'HTML report is visible inside the application');
  assert.match($('stpCTOView').textContent,/OBSERVED/,'observed configuration is not mislabeled compliance');
  assert.doesNotMatch($('stpPreflightResult').textContent,/ACCESS-1/);
  $('preview').click();
