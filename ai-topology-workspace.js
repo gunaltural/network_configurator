@@ -25,7 +25,7 @@ function validate(workspace){
  const model=clone(workspace),ids=new Set(),linkIds=new Set();
  if(model.schema!=='ai-topology-workspace-v1'||!Array.isArray(model.nodes)||!Array.isArray(model.links)||!Array.isArray(model.configs))throw Error('Invalid workspace schema.');
  if(model.designReview&&(!Array.isArray(model.designReview.parameters)||typeof model.designReview.edited!=='boolean'))throw Error('Invalid Design review context.');
- for(const n of model.nodes){if(!identifier(n.id)||ids.has(n.id))throw Error('Duplicate or empty device id.');ids.add(n.id);}
+ for(const n of model.nodes){if(!identifier(n.id)||ids.has(n.id))throw Error('Duplicate or empty device id.');if(n.position&&(!Number.isFinite(n.position.x)||!Number.isFinite(n.position.y)||n.position.x<45||n.position.x>755||n.position.y<45||n.position.y>315))throw Error('Invalid device layout coordinates.');ids.add(n.id);}
  for(const l of model.links){if(!identifier(l.id)||linkIds.has(l.id)||!ids.has(l.a)||!ids.has(l.b)||l.a===l.b)throw Error('Invalid link or endpoint.');linkIds.add(l.id);}
  const configuredDevices=new Set();
  for(const c of model.configs){
@@ -38,6 +38,14 @@ function validate(workspace){
 function edited(next){if(next.designReview)next.designReview.edited=true;return next;}
 function addDevice(workspace,device){
  const next=validate(workspace);next.nodes.push({id:identifier(device.id),hostname:identifier(device.hostname||device.id),vendor:identifier(device.vendor),role:identifier(device.role),source:'user'});return validate(edited(next));
+}
+// Coordinates describe only the engineer's drawing layout, never operational topology.
+function moveDevice(workspace,id,x,y){
+ const next=validate(workspace),node=next.nodes.find(n=>n.id===id);
+ if(!node)throw Error('Unknown device.');
+ if(!Number.isFinite(x)||!Number.isFinite(y))throw Error('Invalid topology coordinates.');
+ node.position={x:Math.round(Math.max(45,Math.min(755,x))),y:Math.round(Math.max(45,Math.min(315,y)))};
+ return validate(next);
 }
 function addLink(workspace,link){
  const next=validate(workspace);next.links.push({id:identifier(link.id),a:identifier(link.a),b:identifier(link.b),aPort:identifier(link.aPort),bPort:identifier(link.bPort),kind:identifier(link.kind||'Connection'),logical:link.logical===true});return validate(edited(next));
@@ -150,5 +158,5 @@ function analysisEvidenceBatches(workspace){
  return batches;
 }
 
-root.NetworkAITopology={fromDesign,blank,template,validate,addDevice,updateDevice,addLink,updateLink,removeLink,removeDevice,setConfiguration,analysisManifest,analysisEvidenceBatches};
+root.NetworkAITopology={fromDesign,blank,template,validate,addDevice,moveDevice,updateDevice,addLink,updateLink,removeLink,removeDevice,setConfiguration,analysisManifest,analysisEvidenceBatches};
 })(typeof window==='undefined'?globalThis:window);
