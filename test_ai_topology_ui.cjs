@@ -22,6 +22,21 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  assert.ok([...$('savedDesignSelect').options].some(option=>/Campus STP/.test(option.textContent)),'browser-saved project is listed');
  $('savedDesignSelect').value='local:campus';$('savedDesignSelect').dispatchEvent(new w.Event('change'));
  assert.equal($('openSavedDesign').disabled,false,'saved Design import can be selected');
+ await $('refreshSavedDesign').onclick();
+ assert.equal($('savedDesignSelect').value,'local:campus','refresh preserves selected browser project');
+ assert.equal($('openSavedDesign').disabled,false,'refresh does not disable a valid selection');
+ assert.match($('savedDesignStatus').textContent,/browser Design source/,'unavailable server reports retained browser sources');
+ const oldFetch=w.fetch;
+ w.fetch=async(url)=>{
+  if(url==='/api/projects/status')return {ok:true,json:async()=>({configured:true,available:true})};
+  if(url==='/api/projects?offset=0')return {ok:true,json:async()=>({projects:[{id:'server-stp',name:'Campus Core',has_design:true}],total:1})};
+  return oldFetch(url);
+ };
+ await $('refreshSavedDesign').onclick();
+ assert.ok([...$('savedDesignSelect').options].some(option=>/Campus Core/.test(option.textContent)),'Project Library record is listed when database is available');
+ assert.equal($('savedDesignSelect').value,'local:campus','server list reload preserves local selection');
+ w.fetch=oldFetch;
+
  $('chooseSaved').click();assert.equal($('savedSource').hidden,false,'saved AI JSON entry is separate');
  assert.equal($('designSource').hidden,true,'saved workspace tab hides Design chooser');
  assert.equal($('chooseSaved').getAttribute('aria-pressed'),'true','saved workspace tab is active');
