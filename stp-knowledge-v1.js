@@ -111,7 +111,7 @@ function review(workspace,ids){
   if(modes.some(x=>x==='server'||x==='client')&&!o.vtpDomain.length)
    add('vtpDomain','review',d.hostname+': VTP domain not observed','Verify intended domain and operational state; missing config lines alone cannot prove the domain is absent.',o.vtpMode.map(v=>ref(d,v)),'vtp');
   if(modes.some(x=>x==='server'||x==='client')&&!o.vtpPassword.length)
-   add('vtpPassword','review',d.hostname+': VTP password not observed','Review VTP authentication controls and primary takeover privileges; running configuration may omit or protect credentials.',o.vtpMode.map(v=>ref(d,v)),'vtp');
+   add('vtpPassword','review',d.hostname+': VTP authentication is not evidenced','For VTP server/client participation, absent evidence of VTP password/authentication is a high-priority security validation gap. If authentication is truly absent, devices with domain/trunk access could influence VLAN database integrity; accidental or unauthorized changes could propagate. Treat this as an unverified critical exposure rather than a confirmed vulnerability until the operational password state is checked.',o.vtpMode.map(v=>ref(d,v)),'vtp','Password may be hidden or omitted in captured config. Validate show vtp password (do not record the secret), show vtp status and VTPv3 primary role.');
   for(const v of o.nativeVlan)if(v.value==='1')add('nativeVlan','review',d.hostname+': native VLAN 1 on '+v.iface,'Using VLAN 1 as native can enlarge exposure to unintended untagged traffic and, under particular access/trunk/tagging conditions, double-tagging VLAN hopping. Do not claim an exploitable attack from this line alone.',[ref(d,v)],'trunk','Check peer native VLAN, user VLAN membership, trunk allowed list and native tagging.');
   for(const v of o.allowedVlans)if(/^(?:all|1-4094)$/i.test(v.value))
    add('allowedVlans','review',d.hostname+': broad allowed VLAN set on '+v.iface,'Broad trunk VLAN scope can extend unnecessary broadcast/unknown-unicast flooding and failure domains. Prune according to actual downstream VLAN requirements.',[ref(d,v)],'trunk','Allowed-list changes must preserve required control and service VLANs.');
@@ -203,9 +203,23 @@ function format(r,language){
    mstRegion:'Compare MST name, revision and instance-to-VLAN maps on both peers.',
    default:'Validate actual interface roles and live STP state before suggesting a configuration change.'}
  };
+ // RFC 4188 and 4318 are actionable only as requested operational measurements.
+ // A missing SNMP/MIB data set must never be rendered as a configured vulnerability.
+ const checks=tr?[
+  {need:'Root bridge ve kök portun gerçekten beklendiği gibi çalışması',source:'RFC 4188 — dot1dStpDesignatedRoot, dot1dStpRootPort, dot1dStpPriority; CLI: show spanning-tree root/detail',interpret:'Konfigüre priority root seçiminin niyetini gösterir; mevcut root ve root-port değerlerini cihazdan okuyarak doğrulayın.'},
+  {need:'Topology change yoğunluğu ve kararsızlık',source:'RFC 4188 — dot1dStpTopChanges, dot1dStpTimeSinceTopologyChange, dot1dStpPortForwardTransitions',interpret:'Sayaçların zaman içindeki artışını izleyin. Tek sayaç örneği anormal yakınsama veya loop kanıtı değildir.'},
+  {need:'Rapid STP edge/p2p çalışma durumu',source:'RFC 4318 — dot1dStpPortAdminEdgePort, dot1dStpPortOperEdgePort, dot1dStpPortOperPointToPoint, dot1dStpPortProtocolMigration',interpret:'PortFast/edge ve point-to-point idari ayarlarını gerçek port oper durumuyla karşılaştırın; çalışır RSTP davranışını konfigürasyondan tahmin etmeyin.'},
+  {need:'Yönetim yüzeyi güvenliği',source:'RFC 4188 / RFC 4318 Security Considerations',interpret:'SNMP write yetkileri STP priority, path cost veya protokol durumunu değiştirebilir. SNMPv3 authPriv ve erişim kontrolü gibi önlemleri ayrıca doğrulayın; yapılandırma kanıtı olmadan açıklık ilan etmeyin.'}
+ ]:[
+  {need:'Actual root/port state',source:'RFC 4188 — dot1dStpDesignatedRoot, dot1dStpRootPort, dot1dStpPriority; CLI: show spanning-tree root/detail',interpret:'Configured bridge priority expresses intent; confirm observed root IDs and root ports.'},
+  {need:'Topology instability',source:'RFC 4188 — dot1dStpTopChanges, dot1dStpTimeSinceTopologyChange, dot1dStpPortForwardTransitions',interpret:'Check counter deltas over time; one reading does not prove a loop.'},
+  {need:'RSTP edge and point-to-point state',source:'RFC 4318 — dot1dStpPortAdminEdgePort, dot1dStpPortOperEdgePort, dot1dStpPortOperPointToPoint, dot1dStpPortProtocolMigration',interpret:'Compare administrative intent with operative port state.'},
+  {need:'Management plane exposure',source:'RFC 4188/4318 Security Considerations',interpret:'Writable MIB objects can alter bridge priority and path cost; audit SNMP write access without claiming an unobserved vulnerability.'}
+ ];
  const turkishFinding=e=>{
   const host=e.title.split(':')[0];
   const has=s=>e.title.toLowerCase().includes(s);
+  if(e.parameter==='vtpPassword')return {title:host+': VTP kimlik doğrulaması kanıtlanamadı — YÜKSEK ÖNCELİKLİ DOĞRULAMA',impact:'VTP server/client katılımında parola veya kimlik doğrulama yapılandırıldığına ilişkin kanıt yok. Gerçekte koruma yoksa VTP alanına erişen cihazlardan gelen hatalı veya yetkisiz VLAN değişiklikleri VLAN veritabanını etkileyebilir; erişim kesintisi ve segmentasyon hataları oluşabilir. Ancak gizlenmiş parolayı running-config üzerinden yok saymak yanlış olur.',limit:'Bu henüz doğrulanmış açıklık değil. show vtp password çıktısında parolanın varlığını kontrol edin, değerini rapora almayın; show vtp status ve VTPv3 primary-server durumunu karşılaştırın.'};
   if(e.parameter==='vtpMode'){
    if(has('modes differ'))return {title:host+': VTP yönetim modları farklı',impact:'Core cihazlarında VTP çalışma biçimleri farklı. Bu durum tek başına arıza değildir; ancak VLAN oluşturma ve değişiklik yayılımı farklı şekilde yönetileceğinden VLAN veritabanlarının ve trunk kapsamlarının tutarlılığı kontrol edilmelidir.',limit:'Mevcut VLAN veritabanının farklı olduğunu veya kesinti yaşandığını kanıtlamaz.'};
    if(has('transparent'))return {title:host+': VTP transparent',impact:'VLAN veritabanı yerel olarak yönetilir. VTPv2/v3 duyuruları uygun trunk bağlantılarında iletilebilir; transparent modu duyuruları her koşulda durdurmaz. Merkezî VLAN değişiklikleri bu cihazın VLAN listesini otomatik eşitlemez.',limit:'VTP sürümü ve operasyonel trunk durumu doğrulanmalıdır.'};
@@ -254,6 +268,7 @@ function format(r,language){
  }
  out.push('');
  out.push('## '+labels.checks);
+ for(const check of checks)out.push('- '+check.need+'\n  '+check.source+'\n  '+check.interpret);
  for(const line of r.furtherEvidence)out.push('- '+line);
  out.push('', '## '+labels.standards);
  const relevant=new Map();
