@@ -502,8 +502,10 @@ $('runSTPCTO').onclick=async()=>{
   const review=stpKnowledgeV1Review(),preflight=stpV1Review();
   if(!window.NetworkSTPEngineeringV2)throw Error('STP V2 configuration reasoning engine is unavailable.');
   const engineering=window.NetworkSTPEngineeringV2.assess(workspace,selected);
-  const result=window.NetworkSTPCTOReport.build($('stpCTOView'),review,preflight,db,$('language').value,engineering);
-  $('stpCTOStatus').textContent='STP Engineering V2 · '+engineering.devices.reduce((total,d)=>total+d.summary.trunkCount,0)+' parsed trunks · '+engineering.findings.length+' configuration review findings · '+result.deviceCount+' devices; AI model not run.';
+  if(!window.NetworkSTPNetworkV2)throw Error('Multi-device STP correlation engine unavailable.');
+  const network=window.NetworkSTPNetworkV2.analyze(workspace,selected);
+  const result=window.NetworkSTPCTOReport.build($('stpCTOView'),review,preflight,db,$('language').value,engineering,network);
+  $('stpCTOStatus').textContent='STP Engineering V2 · '+network.deviceCount+' analyzed devices · '+network.modeledLinkCount+' modeled links · '+network.vlans.length+' VLAN design decisions · '+network.findings.length+' cross-device findings · AI model not run.';
   $('stpCTOView').scrollIntoView?.({block:'nearest',behavior:'smooth'});
   $('stpKnowledgeDetails').open=true;
   $('exportSTPCTO').disabled=false;
