@@ -219,7 +219,139 @@ function assess(workspace,ids){
     if(row){row.analysis+=' '+pri.value.scope+' '+pri.value.instance+': '+decision;row.evidence.push(ref(a,pri),ref(b,partner));}}
   }
  }
- return {kind:'stp-engineering-v2-deterministic-not-ai',devices:reports,findings,sources:SOURCES,
+
+ // Interpret the selected devices as a correlated design. Never assume that
+ // a similarly-named device or an un-mapped trunk is physically adjacent.
+ const correlations=[];
+ const priorityIndex=d=>{
+  const out=new Map();
+  for(const row of d.priorities)out.set(row.value.scope+':'+row.value.instance,row);
+  return out;
+ };
+ const displayedKey=key=>key.replace(':',' ');
+ const readAllowed=record=>{
+  if(!record||!record.value)return null;
+  const value=record.value.trim();
+  if(value.toLowerCase()==='all')return 'all';
+  if(!/^[\d,\s-]+$/.test(value))return null;
+  return vlanList(value).join(',');
+ };
+ for(let i=0;i<parsed.length;i++)for(let j=i+1;j<parsed.length;j++){
+  const a=parsed[i],b=parsed[j];
+  const pair={devices:[a.hostname,b.hostname],status:'UNVERIFIED',mode:'',rootDecisions:[],vlans:[],
+   interconnects:[],redundancy:'',evidence:[],limitations:[]};
+  if(!a.hasConfig||!b.hasConfig){
+   pair.status='BLOCKED';
+   pair.redundancy='Both device configurations are required for meaningful mutual assessment.';
+   pair.limitations.push('A missing configuration blocks comparison; missing is not a failure finding.');
+   correlations.push(pair);continue;
+  }
+  pair.status='CONFIG_COMPARISON';
+  pair.mode=a.mode&&b.mode?(a.mode.value===b.mode.value?
+   'Both devices configure '+a.mode.value+'. Live interoperation remains unverified.':
+   'Configured STP modes differ: '+a.mode.value+' vs '+b.mode.value+'. Boundary behavior requires neighbor/port evidence.'):
+   'At least one device STP mode is not explicitly captured; do not assume default.';
+  pair.evidence.push(...[ref(a,a.mode),ref(b,b.mode)].filter(Boolean));
+  const ai=priorityIndex(a),bi=priorityIndex(b);
+  const all=new Set([...ai.keys(),...bi.keys()]);
+  for(const key of [...all].sort((x,y)=>x.localeCompare(y,undefined,{numeric:true}))){
+   const av=ai.get(key),bv=bi.get(key);
+   if(av&&bv){
+    const va=av.value.priority,vb=bv.value.priority;
+    const preferred=va===vb?null:va<vb?a.hostname:b.hostname;
+    const decision={
+     instance:displayedKey(key),first:{hostname:a.hostname,priority:va},second:{hostname:b.hostname,priority:vb},
+     preferred,assessment:va===vb?
+      'Equal configured priority. Root winner requires bridge MAC/system-ID and operational root evidence. No deterministic preferred core.':
+      preferred+' has lower configured priority than the other selected device. This is a relative root preference, not proof of actual root; other switches may win.',
+     evidence:[ref(a,av),ref(b,bv)]
+    };
+    pair.rootDecisions.push(decision);
+    pair.evidence.push(...decision.evidence);
+   }else pair.rootDecisions.push({
+    instance:displayedKey(key),first:{hostname:a.hostname,priority:av?.value.priority??null},
+    second:{hostname:b.hostname,priority:bv?.value.priority??null},preferred:null,
+    assessment:'Explicit priority exists on only one device. Peer defaults, MAC and other bridges are unverified; root preference cannot be safely concluded.',
+    evidence:[ref(a,av),ref(b,bv)].filter(Boolean)
+   });
+  }
+  const definedA=new Set(a.vlans),definedB=new Set(b.vlans);
+  if(definedA.size||definedB.size){
+   const onlyA=[...definedA].filter(v=>!definedB.has(v)),onlyB=[...definedB].filter(v=>!definedA.has(v));
+   pair.vlans.push({kind:'CONFIGURED_VLAN_DEFINITIONS',onlyFirst:onlyA,onlySecond:onlyB,
+    assessment:onlyA.length||onlyB.length?
+     'Explicit VLAN declarations differ. Running-config may omit VLAN database or receive it from another mechanism: check show vlan brief before declaring an actual service mismatch.':
+     'Explicit VLAN declarations align in supplied captures; actual VLAN databases and trunk forwarding remain unverified.'});
+  }
+  const mapped=(workspace.links||[]).filter(link=>
+   (link.a===a.id&&link.b===b.id)||(link.a===b.id&&link.b===a.id));
+  for(const link of mapped){
+   const aPort=link.a===a.id?link.aPort:link.bPort;
+   const bPort=link.a===a.id?link.bPort:link.aPort;
+   const connection={firstPort:aPort||'',secondPort:bPort||'',status:'PORT_MAPPING_REQUIRED',
+    assessment:'Topology declares a relationship, but exact port endpoints are absent. Physical adjacency and trunk equality cannot be established.',evidence:[]};
+   if(aPort&&bPort){
+    const pa=a.interfaces.find(p=>p.name.toLowerCase()===String(aPort).toLowerCase());
+    const pb=b.interfaces.find(p=>p.name.toLowerCase()===String(bPort).toLowerCase());
+    if(pa&&pb){
+     connection.status='ENDPOINTS_MAPPED';
+     const notes=[];
+     if(pa.trunk&&pb.trunk)notes.push('Both mapped endpoints explicitly configure trunk mode.');
+     else notes.push('Trunk mode not explicitly confirmed at both mapped endpoints.');
+     connection.native=[pa.native?.value??null,pb.native?.value??null];
+     connection.allowed=[readAllowed(pa.allowed),readAllowed(pb.allowed)];
+     if(pa.native&&pb.native){
+      if(pa.native.value!==pb.native.value)notes.push('Native VLAN mismatch on mapped endpoints; review untagged traffic and STP consistency.');
+      else notes.push('Native VLANs agree: '+pa.native.value+'.');
+     }else notes.push('Native VLAN at one or both ports is not explicitly evidenced; cannot infer defaults.');
+     if(connection.allowed[0]!==null&&connection.allowed[1]!==null){
+      if(connection.allowed[0]!==connection.allowed[1])notes.push('Allowed VLAN sets differ across mapped endpoints; evaluate service VLAN intersection and pruning.');
+      else notes.push('Allowed VLAN sets agree: '+connection.allowed[0]+'.');
+     }else notes.push('Allowed VLANs not explicitly evidenced at both ports.');
+     if(pa.rootGuard||pb.rootGuard){
+      const conditions=[];
+      for(const [host,p,peer,peername] of [[a.hostname,pa,a,b.hostname],[b.hostname,pb,b,a.hostname]]){
+       if(!p.rootGuard)continue;
+       const potentiallyPreferred=pair.rootDecisions.filter(x=>x.preferred===peername).map(x=>x.instance);
+       if(potentiallyPreferred.length)conditions.push(host+' Root Guard is facing '+peername+
+        ', the lower-priority candidate for '+potentiallyPreferred.join(', ')+'. If that peer actually sends superior BPDUs and this interface is expected to be the root port, Root Guard may cause root-inconsistent blocking. Confirm port roles before making a config change.');
+       else conditions.push(host+' Root Guard is configured toward '+peername+
+        '. Verify this is a downstream designated-facing boundary per VLAN.');
+      }
+      notes.push(...conditions);
+     }
+     for(const [hostname,p] of [[a.hostname,pa],[b.hostname,pb]]){
+      if(p.portfast)notes.push(hostname+' PortFast is configured on a mapped switch-to-switch link; review edge designation and topology-loop exposure.');
+      if(p.loopGuard)notes.push(hostname+' Loop Guard is configured; check whether this port is root/alternate for the relevant VLANs.');
+     }
+     connection.assessment=notes.join(' ');
+     connection.evidence=[pa.trunk,pa.native,pa.allowed,pa.rootGuard,pa.loopGuard,pa.portfast].filter(Boolean).map(x=>ref(a,x,pa.name))
+      .concat([pb.trunk,pb.native,pb.allowed,pb.rootGuard,pb.loopGuard,pb.portfast].filter(Boolean).map(x=>ref(b,x,pb.name)));
+    }else{
+     connection.status='ENDPOINT_CONFIG_NOT_FOUND';
+     connection.assessment='Topology maps ports but at least one mapped interface cannot be found in the captured configurations. Do not claim peer consistency.';
+    }
+   }
+   pair.interconnects.push(connection);
+  }
+  pair.redundancy=pair.interconnects.length?
+   'Mapped topology links exist, but root failover and convergence depend on actual forwarding, alternate paths and all connected switches. Show spanning-tree root/detail and physical link states are required.':
+   'No explicit port-to-port relationship was supplied for these two devices. Compare root intent, but do not infer direct adjacency, blocked/forwarding paths or failover behavior.';
+  if(pair.rootDecisions.length){
+   const winners=new Set(pair.rootDecisions.map(x=>x.preferred).filter(Boolean));
+   pair.rootStrategy=winners.size>1?'SPLIT_ROOT_INTENT':winners.size===1?'SINGLE_PREFERRED_CANDIDATE':'UNDETERMINED';
+   pair.rootStrategyAnalysis=winners.size>1?
+    'Different selected VLAN/instances prefer different devices by configured priority; this may express deliberate per-instance root distribution. Confirm with design intent and live state.':
+    winners.size===1?'The compared VLAN/instances point to one lower-priority root candidate. This may express intentional primary/secondary placement. Verify design intent and actual election.':
+    'Insufficient explicit comparison or equal priority to infer a per-instance root preference.';
+  }else{
+   pair.rootStrategy='UNDETERMINED';
+   pair.rootStrategyAnalysis='No comparable explicit per-VLAN/instance priorities; do not infer an active/standby root architecture from device naming.';
+  }
+  correlations.push(pair);
+ }
+
+ return {kind:'stp-engineering-v2-deterministic-not-ai',devices:reports,findings,correlations,sources:SOURCES,
   limitations:['Only captured configuration and explicitly modeled topology were used.','Configuration presence is evidence of intent, not operational health, compliance or failover timing.','Root/alternate/designated port roles require per-VLAN operational output.','Exact Cisco OS/platform release is required before applying platform-specific defaults.']};
 }
 root.NetworkSTPEngineeringV2={parse,assess,vlanList,sources:SOURCES};
