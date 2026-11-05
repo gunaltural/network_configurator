@@ -1740,6 +1740,14 @@ def stp_analysis_v1_script():
 def stp_knowledge_v1_script():
     return FileResponse(BASE_DIR / 'stp-knowledge-v1.js', media_type='application/javascript')
 
+@app.get('/stp-engineering-v2.js')
+def stp_engineering_v2_script():
+    return FileResponse(BASE_DIR / 'stp-engineering-v2.js', media_type='application/javascript')
+
+@app.get('/stp-network-analysis-v2.js')
+def stp_network_analysis_v2_script():
+    return FileResponse(BASE_DIR / 'stp-network-analysis-v2.js', media_type='application/javascript')
+
 @app.get('/stp-cto-report.js')
 def stp_cto_report_script():
     return FileResponse(BASE_DIR / 'stp-cto-report.js', media_type='application/javascript')
