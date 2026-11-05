@@ -40,7 +40,7 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  const output=$('stpCTOView');
  assert.match(output.textContent,/NO AI MODEL EXECUTED/,'No-AI state is disclosed');
  assert.match(output.textContent,/6 \/ 6/);
- assert.match(output.textContent,/35 input checks/);
+ assert.match(output.textContent,/35 Design checks/);
  assert.match(output.textContent,/Zero input errors do not imply zero network risk/);
  assert.match(output.textContent,/200 \/ 150/,'Original Design engineering choices are present');
  assert.match(output.textContent,/CORE-01/);
