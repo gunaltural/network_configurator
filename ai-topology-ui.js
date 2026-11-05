@@ -367,6 +367,17 @@ function fromHandoff(){
   message('Imported '+workspace.nodes.length+' Design devices, '+workspace.configs.length+' generated configuration proposals and '+(workspace.designReview?.parameters.length||0)+' engineering parameters. Review redacted evidence before AI analysis.');
  }catch(e){message('Could not import Design snapshot: '+e.message,true);}
 }
+$('aiBuildTopology').onclick=()=>{
+ if((workspace.nodes.length||workspace.links.length||workspace.configs.length)&&
+    !window.confirm('Replace the current topology and its attached configurations with a new, independent network?'))return;
+ try{
+  workspace=api.buildFreeTopology({deviceCount:Number($('aiNodeCount').value),
+   layout:$('aiTopologyPattern').value,vendor:$('aiDefaultVendor').value,role:clean($('aiDefaultRole').value)});
+  $('sourceLabel').textContent='New independent topology';
+  changed('Created '+workspace.nodes.length+' devices and '+workspace.links.length+' links.');
+  loadDevice();loadLink();loadConfig();
+ }catch(e){message(e.message,true);}
+};
 $('applyTemplate').onclick=()=>{
  if((workspace.nodes.length||workspace.configs.length)&&!window.confirm('Replace your current topology and attached configurations?'))return;
  try{workspace=api.template($('template').value);originalMode=false;const module=String(workspace.sourceModule||'').toUpperCase();const choice=[...document.querySelectorAll('#moduleChoices input')].find(el=>el.value===module);if(choice)choice.checked=true;$('sourceLabel').textContent='Template · independent copy';changed('Template loaded.');loadDevice();loadLink();loadConfig();}
@@ -431,6 +442,24 @@ $('importWorkspace').onchange=async()=>{
   if((workspace.nodes.length||workspace.configs.length)&&!window.confirm('Replace the current AI workspace?'))return;
   workspace=api.validate(input);$('sourceLabel').textContent='Imported saved AI workspace';changed('Saved AI workspace imported.');loadDevice();loadLink();loadConfig();
  }catch(e){message('JSON import failed: '+e.message,true);}
+};
+$('assessStructure').onclick=()=>{
+ try{
+  const result=api.structuralAssessment(workspace);
+  const lines=[
+   'Source: planned graph only; not observed operational reachability',
+   'Devices: '+result.devices+' · physical links: '+result.physicalLinks+
+     ' · logical links: '+result.logicalLinks,
+   'Physical components: '+result.components.length+
+     ' ('+result.components.map(x=>x.length).join(', ')+' device(s))',
+   'Isolated in drawn physical graph: '+(result.isolatedDevices.join(', ')||'none'),
+   'Potential transit dependencies: '+(result.potentialTransitDependencies.join(', ')||'none'),
+   'Potential single-path links: '+(result.potentialSinglePathLinks.join(', ')||'none'),
+   'Devices without attached configurations: '+(result.configurationMissing.join(', ')||'none'),
+   result.caveat
+  ];
+  $('structuralResult').textContent=lines.join('\n');
+ }catch(e){message(e.message,true);}
 };
 $('preview').onclick=()=>{
  try{
