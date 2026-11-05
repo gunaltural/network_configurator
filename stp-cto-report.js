@@ -14,8 +14,13 @@ function build(container,review,preflight,db,language){
  hdr.append(E('p','report-meta',L('Konfigürasyon bazlı inceleme — AI modeli çalıştırılmadı; operasyonel root ve port durumları doğrulanmadı.','Configuration-only assessment — AI model was not run; live root and port states unverified.')));
  paper.append(hdr);
  const risk=review.entries.filter(x=>x.severity==='warning'||x.severity==='review');
+ // When VTP authentication cannot be evidenced, domain/mode checks belong to
+ // the same governance decision, not three repetitive low-value paragraphs.
+ const hostsWithAuthGap=new Set(risk.filter(x=>x.parameter==='vtpPassword').map(x=>x.title.split(':')[0]));
+ const decisions=risk.filter(x=>!(['vtpMode','vtpDomain'].includes(x.parameter)&&hostsWithAuthGap.has(x.title.split(':')[0])));
+ decisions.sort((x,y)=>Number(y.parameter==='vtpPassword')-Number(x.parameter==='vtpPassword')||Number(y.severity==='warning')-Number(x.severity==='warning'));
  const kpis=E('div','summary-grid');
- for(const [title,val] of [[L('Cihazlar','Devices'),review.devices.length],[L('Öncelikli incelemeler','Risk reviews'),risk.length],[L('Design bilgi kayıtları','Design knowledge rules'),db.records.length],[L('Operasyonel durum','Operational state'),L('Doğrulanmadı','Not verified')]]){
+ for(const [title,val] of [[L('Cihazlar','Devices'),review.devices.length],[L('Öncelikli incelemeler','Risk reviews'),decisions.length],[L('Design bilgi kayıtları','Design knowledge rules'),db.records.length],[L('Operasyonel durum','Operational state'),L('Doğrulanmadı','Not verified')]]){
   kpis.append(A(E('div','metric'),E('b','',val),E('span','',title)));
  }
  paper.append(E('h2','',L('1 · Yönetici özeti','1 · Executive summary')));
@@ -53,10 +58,10 @@ function build(container,review,preflight,db,language){
  }else sec.append(E('p','report-muted',L('İki Core üzerinde karşılaştırılabilir root priority tanımları bulunamadı.','Comparable bridge priorities were not supplied for both nodes.')));
  paper.append(sec);
  const risks=E('section','');risks.append(E('h2','',L('3 · Riskler ve Mühendislik Kararları','3 · Risks and Engineering Decisions')));
- if(!risk.length)risks.append(E('p','',L('Açık konfigürasyon tutarsızlığı bulunamadı; bu, ağın sağlıklı olduğu anlamına gelmez.','No explicit contradiction found; this does not establish network health.')));
- for(const item of risk){
+ if(!decisions.length)risks.append(E('p','',L('Açık konfigürasyon tutarsızlığı bulunamadı; bu, ağın sağlıklı olduğu anlamına gelmez.','No explicit contradiction found; this does not establish network health.')));
+ for(const item of decisions){
   const r=records.get(cat[item.parameter]),card=E('div','decision');
-  const head=A(E('div','cto-finding-head'),E('strong','',item.title),E('span','choice',item.severity.toUpperCase()));card.append(head);
+  const head=A(E('div','cto-finding-head'),E('strong','',item.parameter==='vtpPassword'?L(item.title.split(':')[0]+': VTP kimlik doğrulaması doğrulanamadı',item.title):item.title),E('span','choice',item.parameter==='vtpPassword'?L('YÜKSEK ÖNCELİKLİ KONTROL','HIGH-PRIORITY CHECK'):item.severity.toUpperCase()));card.append(head);
   card.append(E('p','',item.parameter==='vtpPassword'?L('VTP Server/Client modunda kimlik doğrulama ayarının varlığı kanıtlanamadı. VTP alanına erişebilen bir cihazdan yanlış veya yetkisiz VLAN güncellemeleri yayılabilir; bu güvenlik ve servis sürekliliği açısından yüksek öncelikli doğrulama gerektirir. Ancak gizlenmiş parola satırını yok kabul etmiyoruz.','Authentication presence is not evidenced for VTP Server/Client. Without authentication, incorrect or unauthorized VLAN updates could propagate. A hidden password cannot be assumed absent.'):item.impact));
   if(r){
    card.append(E('p','cto-context',L('Design parametre gerekçesi','Design parameter rationale')+': '+(tr?r.contextTr||r.context:r.context)));
@@ -73,7 +78,7 @@ function build(container,review,preflight,db,language){
  const verify=E('section','');verify.append(E('h2','',L('4 · Doğrulama ve Kabul Planı','4 · Verification and Acceptance')));
  const ol=E('ol','');for(const x of [...new Set([...preflight.missing,...review.furtherEvidence])].slice(0,12))ol.append(E('li','',x));verify.append(ol);paper.append(verify);
  paper.append(E('footer','report-footer',L('Kaynak:','Source:')+' Design parameter know-how · SQLite knowledge v'+db.version+' · '+db.signature.slice(0,12)+' · '+L('AI çalıştırılmadı','No AI executed')));
- return {deviceCount:review.devices.length,riskCount:risk.length,ruleCount:db.records.length};
+ return {deviceCount:review.devices.length,riskCount:decisions.length,ruleCount:db.records.length};
 }
 root.NetworkSTPCTOReport={build};
 })(typeof window==='undefined'?globalThis:window);
