@@ -82,7 +82,7 @@ try{
  assert.match(labReport,/LAB-CORE-A/);
  assert.match(labReport,/LAB-CORE-B/);
  assert.match(labReport,/LAB-ACCESS-A/);
- assert.match(labReport,/ROOT_ID_MATCH/);
+ assert.match(await page.locator('#stpCTOView').textContent(),/ROOT_ID_MATCH/,'Collapsed operational root correlation remains available in report details');
  assert.match(labReport,/STP-018/);
  assert.equal(await page.locator('[data-evidence-upload="lab-core-a"]').count(),18);
  // Every criterion uploads to the owning device. Genuine evidence supersedes synthetic fixtures.
