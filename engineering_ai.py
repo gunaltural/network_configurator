@@ -45,6 +45,17 @@ def configured():
     return enabled and provider == 'local' and url.scheme in ('http', 'https') and bool(url.hostname) and not url.username and not url.password and not url.query and not url.fragment
 
 
+def external_data_transfer():
+    """Conservatively flag provider calls that may leave the local host."""
+    provider = os.getenv('AI_PROVIDER', 'local')
+    if provider in ('groq', 'openai'):
+        return True
+    if provider != 'local':
+        return False
+    host = (urlparse(os.getenv('AI_BASE_URL', '')).hostname or '').lower()
+    return bool(host and host not in ('localhost', '127.0.0.1', '::1'))
+
+
 _SENSITIVE_CLI_LINE = re.compile(
     r'(?im)^(?P<line>L\d+:\s*)?.*(?:password|passwd|secret|snmp[-\s]?server\s+community|'
     r'snmp\s+community|community-string|private.key|api.key|authorization|crypto\s+isakmp\s+key|'
@@ -254,6 +265,7 @@ def install_engineering_ai(app):
         enabled = bool(configured())
         return {'available': enabled, 'readOnly': True,
                 'provider': os.getenv('AI_PROVIDER', 'local') if enabled else 'disabled',
+                'externalDataTransfer': bool(enabled and external_data_transfer()),
                 'reasoningVerified': False,
                 'knowledgeRetrieval': 'curated-versioned-source-metadata-not-full-text-RAG',
                 'note': 'Credentials configured; this endpoint does not verify model quality or live inference.'}
