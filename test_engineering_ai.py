@@ -51,9 +51,9 @@ class Tests(unittest.TestCase):
 
     def test_stp_v1_selected_core_comparison_uses_distinct_model_prompt_and_citations(self):
         capture = dict(module='STP_ANALYSIS', vendor='Cisco NX-OS', task='report', evidence=[
-            dict(id='core-1-config-0', text='Device: CORE-1\\nCommand: proposed configuration\\nL1: spanning-tree mode rapid-pvst\\nL2: spanning-tree vlan 10 priority 4096'),
-            dict(id='core-2-config-0', text='Device: CORE-2\\nCommand: proposed configuration\\nL1: spanning-tree mode rapid-pvst\\nL2: spanning-tree vlan 10 priority 8192'),
-            dict(id='stp-v1-preflight', text='Device: STP-V1-PREFLIGHT\\nL1: deterministic preflight, not an AI answer key')])
+            dict(id='core-1-config-0', text='Device: CORE-1\nCommand: proposed configuration\nL1: spanning-tree mode rapid-pvst\nL2: spanning-tree vlan 10 priority 4096'),
+            dict(id='core-2-config-0', text='Device: CORE-2\nCommand: proposed configuration\nL1: spanning-tree mode rapid-pvst\nL2: spanning-tree vlan 10 priority 8192'),
+            dict(id='stp-v1-preflight', text='Device: STP-V1-PREFLIGHT\nL1: deterministic preflight, not an AI answer key')])
         env = {'AI_PROVIDER':'local','AI_ENABLED':'1','AI_MODEL':'network-engineer',
                'AI_BASE_URL':'http://localhost:8080/v1'}
         observation = ('Core priority differs for VLAN10: CORE-1 has 4096 [core-1-config-0, L2] '
