@@ -56,7 +56,8 @@ designTrigger.onclick=()=>{
   window.location.assign('/ai-topology');
  }catch(e){$('aiStatus').textContent=e.message;dialog.showModal();}
 };
-document.querySelectorAll('[data-nc-ai-design]').forEach(button=>button.addEventListener('click',()=>designTrigger.click()));
+document.addEventListener('click',event=>{if(event.target.closest?.('[data-nc-ai-design]'))designTrigger.click();});
+document.addEventListener('nc-ai-import-design',()=>designTrigger.click());
 $('aiRun').onclick=async()=>{if(!context||busy)return;busy=true;$('aiRun').disabled=true;$('aiTask').disabled=true;$('aiCopy').disabled=true;$('aiDraft').value='';$('aiStatus').textContent='Analyzing…';
 try{if(['groq','openai'].includes(modelProvider)&&!window.confirm('The reviewed Design evidence will be sent to the external '+modelProvider+' AI provider. Confirm authorization to share this data. Continue?')){ $('aiStatus').textContent='External model transfer cancelled; no evidence sent.';return; }const r=await fetch('/api/ai/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...context,language,task:$('aiTask').value})});const data=await r.json();if(!r.ok)throw Error(typeof data.detail==='string'?data.detail:'AI request rejected.');$('aiDraft').value=data.text;$('aiCopy').disabled=false;$('aiStatus').textContent='Independent AI draft ready. No Module Report or Final Project Report was changed.';}catch(e){$('aiStatus').textContent=e.message;}finally{busy=false;$('aiRun').disabled=false;$('aiTask').disabled=false;}};
 $('aiCopy').onclick=async()=>{try{await navigator.clipboard.writeText($('aiDraft').value);$('aiStatus').textContent='Copied. Paste into the report section after review.';}catch{$('aiStatus').textContent='Select and copy the draft manually.';}};
