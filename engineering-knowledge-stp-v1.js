@@ -143,6 +143,11 @@ function run({workspace,deviceIds,technology='STP',engineering,network,operation
    recommendation:risks?'Validate intended Core root placement and designated ports; apply Root Guard to the appropriate downstream Core interfaces after checking STP roles.':'Verify no root-inconsistent states, root identity and actual designated role for each VLAN.',
    verification:['show spanning-tree root','show spanning-tree interface detail','show spanning-tree inconsistentports'],
    evidence:mappedDown.map(r=>portProof(r.core.data,r.core.port)).concat(configured.map(r=>idProof(r.core.data,r.core.port.rootGuard))),
+   deployment:{
+    configured:configured.map(r=>({device:r.core.node.hostname,interface:r.core.port.name,line:r.core.port.rootGuard.line,command:r.core.port.rootGuard.command,role:'Proposed downstream designated Core port'})),
+    missing:missing.filter(r=>complete(r.core.node.id)).map(r=>({device:r.core.node.hostname,interface:r.core.port.name,line:r.core.port.line,command:'interface '+r.core.port.name,note:'Root Guard not explicit in full design'})),
+    unknown:missing.filter(r=>!complete(r.core.node.id)).map(r=>({device:r.core.node.hostname,interface:r.core.port.name,line:r.core.port.line,command:'interface '+r.core.port.name,note:'Partial capture; role and coverage need verification'}))
+   },
    references:[REFS.root],confidence:certainty?'DESIGN_TOPOLOGY_CONFIG':'PARTIAL_CONFIG',
    limitations:unmappedDown.length?['Other '+unmappedDown.length+' Core–Access links lack comparable exact interface mapping.']:[]});
  }else if(downward.length){
@@ -245,6 +250,11 @@ function run({workspace,deviceIds,technology='STP',engineering,network,operation
    recommendation:'Identify uplink media, check peer support and verify live UDLD status before assigning compliance.',
    verification:['show interfaces status','show udld interface','show lldp neighbors detail'],
    evidence:endpoints.map(x=>portProof(x.d,x.p)).concat(endpoints.filter(x=>x.p.udld).map(x=>idProof(x.d,x.p.udld))),
+   deployment:{
+    configured:endpoints.filter(x=>x.p.udld).map(x=>({device:x.d.hostname,interface:x.p.name,line:x.p.udld.line,command:x.p.udld.command,role:'Inter-switch link endpoint'})),
+    missing:endpoints.filter(x=>!x.p.udld&&complete(x.d.id)).map(x=>({device:x.d.hostname,interface:x.p.name,line:x.p.line,command:'interface '+x.p.name,note:'No explicit UDLD command in complete design'})),
+    unknown:endpoints.filter(x=>!x.p.udld&&!complete(x.d.id)).map(x=>({device:x.d.hostname,interface:x.p.name,line:x.p.line,command:'interface '+x.p.name,note:'Partial configuration; missing command cannot be established'}))
+   },
    confidence:'MEDIA_UNVERIFIED',references:[REFS.loop]});
  }
  // Never normalize operational samples and generated design config as the same provenance.
