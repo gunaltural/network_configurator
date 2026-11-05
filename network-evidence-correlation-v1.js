@@ -6,6 +6,8 @@
 const VERSION='1.0.0';
 const SOURCES={
  BGP:{title:'Cisco BGP troubleshooting',url:'https://www.cisco.com/c/en/us/support/docs/ip/border-gateway-protocol-bgp/218027-troubleshoot-border-gateway-protocol-bas.html',scope:'Cisco IOS/IOS-XE; validate syntax and device release'},
+ ARISTA_BGP:{title:'Arista EOS BGP reference',url:'https://www.arista.com/en/um-eos/eos-border-gateway-protocol-bgp',scope:'Arista EOS online guide; confirm installed release'},
+ ARISTA_MLAG:{title:'Arista EOS MLAG verification',url:'https://www.arista.com/ko/um-eos/eos-multi-chassis-link-aggregation',scope:'Arista EOS online guide; confirm installed release'},
  OSPF:{title:'Cisco OSPF troubleshooting',url:'https://www.cisco.com/c/en/us/support/docs/ip/open-shortest-path-first-ospf/13699-29.html',scope:'Cisco IOS/IOS-XE; validate device release'},
  EVPN:{title:'Cisco NX-OS VXLAN EVPN verification',url:'https://www.cisco.com/c/en/us/td/docs/switches/datacenter/nexus9000/sw/7-x/vxlan/configuration/guide/b_Cisco_Nexus_9000_Series_NX-OS_VXLAN_Configuration_Guide_7x/b_Cisco_Nexus_9000_Series_NX-OS_VXLAN_Configuration_Guide_7x_chapter_0100.html',scope:'NX-OS 7.x; validate exact platform and release'},
  VPC:{title:'Cisco Nexus vPC guide',url:'https://www.cisco.com/c/en/us/td/docs/dcn/nx-os/nexus9000/102x/configuration/interfaces/cisco-nexus-9000-nx-os-interfaces-configuration-guide-102x.pdf',scope:'NX-OS 10.2(x); not equivalent to Arista MLAG'},
@@ -37,7 +39,15 @@ function assess(args){
  function add(item){
   findings.push(Object.assign({id:'XC-'+(findings.length+1),status:'REVIEW',confidence:'SOURCE_SCOPED',
    severity:'NONE',networkImpact:'No production service impact proven.',evidence:[],
-   source:item.technology&&SOURCES[item.technology]?[SOURCES[item.technology]]:[]},item));
+   source:(()=>{
+    const platforms=[...new Set((item.deviceIds||[]).map(id=>parsed.get(id)?.vendor).filter(Boolean))];
+    if(platforms.length!==1)return [];
+    const key=platforms[0]==='arista'&&item.technology==='BGP'?'ARISTA_BGP':
+     platforms[0]==='arista'&&item.technology==='VPC'?'ARISTA_MLAG':
+     platforms[0]==='cisco'&&item.technology!=='SDWAN'?item.technology:
+     platforms[0]==='fortinet'&&item.technology==='SDWAN'?'SDWAN':null;
+    return key&&SOURCES[key]?[SOURCES[key]]:[];
+   })()},item));
  }
  for(const node of selected){
   const vendor=platform(node),config=workspace.configs.find(c=>c.deviceId===node.id&&ok(c.text));
