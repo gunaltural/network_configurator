@@ -5,7 +5,9 @@ require('./engineering-knowledge-stp-v1.js');
 const knowledge=global.NetworkEngineeringFindingsV1;
 const stp=knowledge.describe('STP');
 assert.equal(stp.technology,'STP');
-assert.equal(stp.version,'1.1.0');
+assert.equal(stp.version,'1.2.0');
+assert.match(stp.controls.find(x=>x.id==='STP-ROOT-CONTAINMENT').purpose,/Root placement/i);
+assert.match(stp.controls.find(x=>x.id==='STP-UDLD-PHYSICAL').absenceImpact,/BPDU/i);
 assert.equal(stp.status,'IMPLEMENTED_BASELINE');
 assert.ok(stp.controls.length>=8);
 assert.ok(stp.vendors.includes('Cisco IOS-XE'));
@@ -21,7 +23,7 @@ assert.match(missing.findings[0].verificationTask.action,/Implement and test/);
 assert.match(missing.findings[0].explanation,/not prove/);
 assert.throws(()=>knowledge.register({technology:'STP',knowledgeVersion:'1.0.0',vendors:['Cisco IOS-XE'],controls:[{id:'TEST-A',family:'x',sources:['CONFIG']}],evaluate:()=>({findings:[]})}),/Duplicate/);
 const pack={technology:'BGP',knowledgeVersion:'0.1.0',vendors:['Cisco IOS-XE','Arista EOS'],status:'EXPERIMENTAL',
- controls:[{id:'BGP-FSM',family:'BGP session',sources:['CONFIG','OPERATIONAL'],verification:['show ip bgp summary']}],
+ controls:[{id:'BGP-FSM',family:'BGP session',sources:['CONFIG','OPERATIONAL'],verification:['show ip bgp summary'],purpose:'BGP exchanges reachable network prefixes between routing peers.',applicableWhen:'An established session is expected across approved AS boundaries.',absenceImpact:'A failed session can withdraw reachable routes or shift traffic to backup paths.',acceptance:'Operational neighbor state and permitted prefixes match policy.'}],
  evaluate:()=>({devices:1,findings:[{
  id:'BGP-FSM-CORE',title:'BGP peer FSM evidence',status:'VERIFY',severity:'NONE',confidence:'CONFIG_ONLY',
  devices:['CORE-1'],deviceIds:['core'],interfaces:[],expected:'Established BGP peer',
@@ -33,6 +35,8 @@ knowledge.register(pack);
 const bgpEvaluation=knowledge.run({workspace,deviceIds:['core'],technology:'BGP'});
 assert.equal(bgpEvaluation.counts.VERIFY,1,'New technology can be added without modifying the common engine');
 assert.equal(bgpEvaluation.findings[0].verificationTask.owner,'Network Operations');
+assert.match(bgpEvaluation.findings[0].context.purpose,/BGP exchanges/);
+assert.match(bgpEvaluation.findings[0].context.absenceImpact,/withdraw/);
 assert.equal(bgpEvaluation.findings[0].verificationTask.reviewer,'Network Engineering');
 assert.deepEqual(bgpEvaluation.findings[0].verificationTask.commands,['show ip bgp summary']);
 assert.equal(knowledge.describe('BGP').controls[0].id,'BGP-FSM');
