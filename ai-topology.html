@@ -33,9 +33,9 @@ textarea{width:100%;min-height:140px;resize:vertical}pre{padding:12px;background
 <button type="button" id="chooseBuild" class="entry-option" aria-pressed="false"><strong>3 · Build new topology</strong><span>Start blank or use a network template</span></button>
 </div>
 <section id="designSource" class="entry-detail" aria-label="Import from Design">
-<h3>Import from Design</h3><p class="hint">Choose a saved browser project or a Project Library record. Open its Design module to generate current device configurations, then select Analyze Design with AI. No incomplete configurations are invented.</p>
+<h3>Import from Design</h3><p class="hint">Choose a browser-saved Design or Project Library record. The original Design generator restores the project, produces its configurations and transfers a separate copy here automatically.</p>
 <label>Saved Design project<select id="savedDesignSelect"><option value="">Select a Design project</option></select></label>
-<div class="control"><button id="refreshSavedDesign" type="button">Refresh saved projects</button><button id="openSavedDesign" type="button" class="primary" disabled>Open Design for AI import</button></div>
+<div class="control"><button id="refreshSavedDesign" type="button">Refresh saved projects</button><button id="openSavedDesign" type="button" class="primary" disabled>Import selected Design</button></div>
 <p id="savedDesignStatus" class="hint" role="status"></p>
 </section>
 <section id="savedSource" class="entry-detail" aria-label="Open saved AI workspace" hidden>
