@@ -916,6 +916,14 @@ function buildGenericReport(options={}){
     });
     const panel=section(L('Mühendislik değerlendirme matrisi — kanıt ve karar','Engineering assessment matrix — evidence and decision'));
     panel.dataset.assessmentSchema=matrix.schema;
+    if(matrix.rejectedUnboundFindings>0){
+     const warning=E('p','report-muted',L(
+      'KANIT UYARI: '+matrix.rejectedUnboundFindings+' bulgu, cihaz/dosya/orijinal CLI satırıyla doğrulanamadığından rapordan çıkarıldı.',
+      'EVIDENCE WARNING: '+matrix.rejectedUnboundFindings+' finding(s) excluded because their device/file/original CLI line could not be verified.'
+     ));
+     warning.dataset.evidenceRejected=String(matrix.rejectedUnboundFindings);
+     panel.append(warning);
+    }
     panel.append(E('p','report-muted',L(
      'Ortak metodoloji: amaç → uygulanabilirlik → konfigürasyon niyeti → operasyonel gözlem → olası etki → audit → aksiyon → kabul kriteri. Bunlar otomatik PASS/FAIL veya doğrulanmış kök neden değildir.',
      'Shared methodology: purpose → applicability → configuration intent → operational observation → conditional impact → audit → action → acceptance. This is not an automatic PASS/FAIL or certified root cause.'
