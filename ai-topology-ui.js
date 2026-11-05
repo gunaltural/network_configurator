@@ -356,7 +356,7 @@ function fromHandoff(){
   const report=JSON.parse(handoffRaw);
   workspace=report?.schema==='ai-topology-workspace-v1'?api.validate(report):api.fromDesign(report);originalMode=true;
   chooseEntry('design');
-  $('sourceLabel').textContent='Imported Design snapshot · independent copy';
+  $('sourceLabel').textContent=(report?.source?.projectName?String(report.source.projectName).slice(0,120)+' · ':'')+(workspace.sourceModule||'Design')+' · independent Design copy';
   $('topologyEntryHint').textContent='Imported '+(workspace.sourceModule||'Design')+' topology and generated configurations from Design. The source is unchanged. You can edit this independent copy, review evidence and return to the source module.';
   const sourceModule=String(workspace.sourceModule||'').toUpperCase();
   const aliases={SYSTEM_MANAGEMENT:'SYSTEM',SYSTEM_MANAGEMENT_AND_SECURITY:'SYSTEM',MLAG:'VPC',VXLAN:'EVPN'};
@@ -364,7 +364,7 @@ function fromHandoff(){
   const sourceChoice=[...document.querySelectorAll('#moduleChoices input')].find(el=>el.value===chosen);
   if(sourceChoice)sourceChoice.checked=true;
   const returnLink=$('returnToDesign');if(returnLink){const module=String(workspace.sourceModule||'').toUpperCase();const supported=['BASIC','BGP','OSPF','STP','VPC','EVPN','SDWAN','QOS'];if(supported.includes(module)){returnLink.hidden=false;returnLink.textContent='Return to '+(module==='BASIC'?'System and Management':module)+' Design';returnLink.href='/?resume=1&workspace='+encodeURIComponent(module);}else{returnLink.hidden=true;}}
-  message('Imported '+workspace.nodes.length+' Design devices, '+workspace.configs.length+' generated configuration proposals and '+(workspace.designReview?.parameters.length||0)+' engineering parameters. Review redacted evidence before AI analysis.');
+  message('Design aktarıldı · Imported '+workspace.nodes.length+' Design devices, '+workspace.configs.length+' generated configuration proposals and '+(workspace.designReview?.parameters.length||0)+' engineering parameters. Review redacted evidence before AI analysis.');
  }catch(e){message('Could not import Design snapshot: '+e.message,true);}
 }
 $('aiBuildTopology').onclick=()=>{
