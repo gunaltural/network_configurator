@@ -48,6 +48,26 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{JSDOM}=require
  access.checked=true;access.dispatchEvent(new w.Event('change',{bubbles:true}));
  assert.equal($('analyze').disabled,true);
  assert.equal($('analysisResult').value,'');
+ // When Beta has no configured LLM, Analyze must produce an explicit non-AI STP
+ // configuration report rather than leaving the result blank.
+ access.checked=false;access.dispatchEvent(new w.Event('change',{bubbles:true}));
+ const earlierCalls=submitted.length;
+ w.fetch=async(url)=>{
+  if(url==='/api/ai/status')return {ok:true,json:async()=>({available:false,provider:'disabled'})};
+  if(url==='/api/projects/status')return {ok:true,json:async()=>({configured:false,available:false})};
+  throw Error('No model call is permitted for an unconfigured provider: '+url);
+ };
+ $('language').value='tr';
+ $('preview').click();
+ assert.equal($('analyze').disabled,false);
+ await $('analyze').onclick();
+ assert.equal(submitted.length,earlierCalls,'no provider request is sent when AI is disabled');
+ assert.match($('analysisResult').value,/AI modeli ÇALIŞTIRILMADI/);
+ assert.match($('analysisResult').value,/BRIDGE_PRIORITY_COMPARISON/);
+ assert.match($('analysisResult').value,/PARAMETER COVERAGE/);
+ assert.doesNotMatch($('analysisResult').value,/ACCESS-1/);
+ assert.equal($('downloadReport').disabled,false,'explicit offline report can be exported');
+ assert.match($('status').textContent,/AI çalıştırılmadı/);
  dom.window.close();
  console.log('STP V1 UI: selected 2 Core devices, preflight, redacted evidence, typed model call, stale review prevention passed');
 })().catch(error=>{console.error(error);process.exitCode=1;});
