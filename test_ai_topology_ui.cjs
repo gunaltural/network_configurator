@@ -23,12 +23,17 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  $('saveLink').click();assert.match($('overview').textContent,/3 links/);
  $('configDevice').value='fw-1';$('configuration').value='hostname FW-1\nsnmp-server community SecretRO RO\nset community 65000:1 additive';
  $('saveConfig').click();assert.match($('overview').textContent,/1 configurations/);
+ assert.equal(d.querySelector('#moduleChoices input[value="VPC"]').checked,true,'vPC example presets review scope');
+ d.querySelector('#moduleChoices input[value="SYSTEM"]').checked=true;
  $('preview').click();
  assert.equal($('analyze').disabled,false);
+ assert.match($('evidencePreview').textContent,/VPC, SYSTEM/,'multi-module review scope is visible');
  assert.ok($('evidencePreview').textContent.includes('65000:1 additive'));
  assert.ok(!$('evidencePreview').textContent.includes('SecretRO'));
  await $('analyze').onclick();
  assert.equal(sent.length,1);assert.equal(sent[0].module,'CLI_ANALYSIS');
+ assert.match(JSON.stringify(sent[0].evidence),/VPC, SYSTEM/,'model receives selected scope');
+ assert.match($('analysisResult').value,/Selected modules: VPC, SYSTEM/,'report identifies scope');
  assert.equal(sent[0].vendor,'Mixed','Mixed-vendor topology does not pretend to be homogeneous');
  assert.ok(!JSON.stringify(sent[0]).includes('SecretRO'));
  assert.match($('analysisResult').value,/engineer review required/i);
@@ -58,6 +63,8 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  t.eval(fs.readFileSync('ai-topology-ui.js','utf8'));
  assert.match(t.document.getElementById('overview').textContent,/2 devices · 1 links/);
  assert.equal(t.sessionStorage.getItem('networkConfigurator.aiTopology.pending'),null,'Handoff is consumed once');
+ assert.equal(t.document.querySelector('#moduleChoices input[value="VPC"]').checked,true,'Design module presets analysis scope');
+ assert.equal(t.document.getElementById('returnToDesign').hidden,false,'Return to Design link shown');
  designDom.window.close();
  console.log('AI topology UI: template, edits, safe preview, common AI API, stale-evidence safety, Design import passed');
 })().catch(e=>{console.error(e);process.exitCode=1;});
