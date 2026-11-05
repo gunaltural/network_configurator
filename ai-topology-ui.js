@@ -33,7 +33,7 @@ const selectedModules=()=>{
 };
 const clean=x=>String(x??'').trim(),snapshot=()=>JSON.stringify({workspace,modules:selectedModules(),devices:scopedDeviceIds()}),isReviewed=()=>reviewedSignature===snapshot();
 function message(value,error=false){$('status').textContent=value;$('status').dataset.error=String(error);}
-function updateScopeCount(){const n=selectedModules().length;$('scopeCount').textContent=n?n+' engineering module'+(n===1?'':'s')+' selected':'No modules selected';}
+function updateScopeCount(){const modules=selectedModules(),n=modules.length;$('scopeCount').textContent=n?n+' engineering module'+(n===1?'':'s')+' selected':'No modules selected';$('stpV1Panel').hidden=!modules.includes('STP');}
 function selectTopologyMode(original){
  originalMode=original;
  const hasOriginal=!!workspace.originalDesignSvg;
@@ -207,7 +207,7 @@ function populate(select,values,preserve,blank){
  for(const [id,label] of values)select.append(makeOption(id,label));
  select.value=values.some(x=>x[0]===preserve)?preserve:(blank?'':values[0]?.[0]||'');
 }
-function invalidate(){reviewedSignature=null;pendingBatches=null;runState=null;$('analyze').disabled=true;$('downloadReport').disabled=true;$('evidencePreview').textContent='';$('analysisResult').value='';}
+function invalidate(){reviewedSignature=null;pendingBatches=null;runState=null;$('analyze').disabled=true;$('downloadReport').disabled=true;$('evidencePreview').textContent='';$('analysisResult').value='';$('stpPreflightResult').textContent='STP V1 preflight not run for the current configuration and selected devices.';}
 function draw(){
  const svg=$('topologyCanvas');svg.replaceChildren();
  const NS='http://www.w3.org/2000/svg',points=new Map(),n=workspace.nodes.length;
@@ -467,11 +467,30 @@ $('assessStructure').onclick=()=>{
   $('structuralResult').textContent=lines.join('\n');
  }catch(e){message(e.message,true);}
 };
+function stpV1Review(){
+ if(!window.NetworkSTPV1)throw Error('STP V1 parser is unavailable.');
+ return window.NetworkSTPV1.assess(workspace,scopedDeviceIds());
+}
+$('runSTPPreflight').onclick=()=>{
+ try{
+  if(!selectedModules().includes('STP'))throw Error('Select STP engineering scope first.');
+  const review=stpV1Review();
+  $('stpPreflightResult').textContent=window.NetworkSTPV1.format(review);
+  message('STP V1 local preflight complete. Operational state and AI reasoning remain unverified.');
+ }catch(error){message('STP V1: '+error.message,true);}
+};
 $('preview').onclick=()=>{
  try{
   const modules=selectedModules();if(!modules.length)throw Error('Select at least one analysis module.');
   const devices=scopedDeviceIds();if(!devices.length)throw Error('Select at least one device to analyze.');
   pendingBatches=api.analysisEvidenceBatches(workspace,devices);
+  if(modules.includes('STP')){
+   const review=stpV1Review();
+   $('stpPreflightResult').textContent=window.NetworkSTPV1.format(review);
+   const evidence=window.NetworkSTPV1.evidence(review).slice(0,20);
+   const lines=evidence.map((line,i)=>'L'+(i+1)+': '+line.slice(0,160));
+   pendingBatches[0].unshift({id:'stp-v1-preflight',text:'Device: STP-V1-PREFLIGHT\nCommand: deterministic cross-configuration comparison (not operational proof or an AI answer key)\n'+lines.join('\n')});
+  }
   pendingBatches[0].unshift({id:'analysis-scope',text:'Device: ANALYSIS-SCOPE\nCommand: user-selected engineering review scope (intent, not operational evidence)\nL1: Analyze ONLY these engineering modules: '+modules.join(', ')+'\nL2: Analyze ONLY device IDs: '+devices.join(', ')+'; do not infer findings for unselected devices.\nL3: Do not perform unrelated module audits. Cross-module facts may be mentioned only when directly relevant to selected scope.\nL4: Assess proposed configurations as design intent, not deployed operational state.'});
   reviewedSignature=snapshot();runState={batches:pendingBatches,reports:[],modes:[],index:0,signature:reviewedSignature,synthesis:''};
   const previewText=pendingBatches.flat().map(e=>'## '+e.id+'\n'+e.text).join('\n\n');
@@ -501,7 +520,7 @@ $('analyze').onclick=async()=>{
   for(;runState.index<stop;){
    const i=runState.index;
    message('Analyzing batch '+(i+1)+' of '+runState.batches.length+'…');
-   const response=await fetch('/api/ai/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({module:'CLI_ANALYSIS',vendor,language:$('language').value,task:'report',evidence:runState.batches[i]})});
+   const response=await fetch('/api/ai/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({module:selectedModules().length===1&&selectedModules()[0]==='STP'?'STP_ANALYSIS':'CLI_ANALYSIS',vendor,language:$('language').value,task:'report',evidence:runState.batches[i]})});
    const result=await response.json();if(!response.ok)throw Error('Batch '+(i+1)+': '+(result.detail||'model request failed'));
    const unverified=result.mode!=='model-evidence-cited-draft';
    runState.reports.push('## Batch '+(i+1)+' — '+(unverified?'NOT VERIFIED / EVIDENCE ONLY':'Citations syntactically checked; engineering claims unverified')+'\n'+result.text);
