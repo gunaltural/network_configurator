@@ -4,6 +4,7 @@ require('./ai-evidence.js');require('./ai-topology-workspace.js');require('./des
 const E=global.NetworkAIEvidence,W=global.NetworkAITopology,C=global.NetworkDesignChecks;
 const report={
  source:{module:'VPC',generatedAt:'2026-11-03T00:00:00Z'},vendor:'Cisco NX-OS',
+ topologySvg:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 950 420"><text x="355" y="112">N9K-A</text><text x="595" y="112">N9K-B</text></svg>',
  devices:[{id:'upper-1',hostname:'N9K-A',tier:'upper'},{id:'upper-2',hostname:'N9K-B',tier:'upper'}],
  links:[{id:'peer',a:'upper-1',b:'upper-2',upperPort:'Eth1/1',lowerPort:'Eth1/1',kind:'peer-link'}],
  parameters:[{label:'vPC Domain',value:'100',impact:'Shared domain identifier'},
@@ -16,6 +17,7 @@ const report={
 const validation=C.evaluate({module:'VPC',platform:'Cisco NX-OS',fields:{vpcDomain:'100'}});
 const handoff=E.designHandoff(report,validation);
 assert.equal(handoff.configurations.length,2);
+assert.equal(handoff.topologySvg,report.topologySvg,'Original Design SVG is transferred unchanged');
 assert.equal(handoff.parameters.length,2);
 assert.equal(handoff.designChecks.source,'existing-design-checks');
 assert.equal(handoff.designChecks.evaluated,validation.evaluated);
@@ -23,6 +25,8 @@ assert.ok(!JSON.stringify(handoff).includes('TopSecret')&&!JSON.stringify(handof
 assert.ok(JSON.stringify(handoff).includes('65000:1 additive'),'Routing communities are not SNMP secrets');
 const workspace=W.fromDesign(handoff);
 assert.equal(workspace.configs.length,2);
+assert.equal(workspace.originalDesignSvg,report.topologySvg,'Design drawing retained as a visual snapshot');
+assert.deepEqual(workspace.nodes.map(n=>n.position.y),[105,105],'Upper-tier network layout is preserved in editable view');
 assert.equal(workspace.designReview.parameters.length,2);
 assert.equal(workspace.designReview.edited,false);
 assert.equal(workspace.designReview.checks.evaluated,validation.evaluated);
@@ -33,6 +37,7 @@ assert.ok(input.some(x=>x.id.startsWith('design-check')),'Existing checker findi
 assert.ok(input.some(x=>x.id.startsWith('config-')),'Generated configuration is included in AI evidence');
 assert.ok(joined.includes('L4:  set community 65000:1 additive'),'CLI line number is preserved after secret redaction');
 assert.ok(!joined.includes('TopSecret')&&!joined.includes('MoreSecret'));
+assert.ok(!joined.includes('xmlns'),'The original SVG is never sent as engineering evidence');
 assert.ok(joined.includes('NOT deployed'),'Generator output cannot be mistaken for operational evidence');
 const altered=W.addDevice(workspace,{id:'firewall',hostname:'FW-1',vendor:'FortiGate'});
 assert.equal(altered.designReview.edited,true);
