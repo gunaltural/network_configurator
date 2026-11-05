@@ -32,12 +32,12 @@ def catalog() -> dict:
     return obj
 
 _TECH_CONTEXT_PATTERNS = {
-    "BGP": re.compile(r"(?i)\\bbgp\\b|\\bremote-as\\b|\\bpeer\\s+\\S+\\s+as-number\\b"),
-    "OSPF": re.compile(r"(?i)\\bospf\\b|\\bexstart\\b|\\bexchange\\b(?=/|\\s|$)"),
-    "EVPN": re.compile(r"(?i)\\bevpn\\b|\\bvxlan\\b|\\bvni\\b|\\bnve\\b|route-target|route[ -]?type\\s*[:= -]?\\s*[25]\\b"),
-    "VPC": re.compile(r"(?i)\\bvpc\\b|\\bmlag\\b|peer-link|peer-gateway"),
-    "SDWAN": re.compile(r"(?i)\\bsdwan\\b|\\bsd-wan\\b|health-check|\\bservice4\\b"),
-    "STP": re.compile(r"(?i)\\bstp\\b|spanning-tree|\\bbpdu\\b|loop-guard|root-guard"),
+    "BGP": re.compile(r"(?i)\bbgp\b|\bremote-as\b|\bpeer\s+\S+\s+as-number\b"),
+    "OSPF": re.compile(r"(?i)\bospf\b|\bexstart\b|\bexchange\b(?=/|\s|$)"),
+    "EVPN": re.compile(r"(?i)\bevpn\b|\bvxlan\b|\bvni\b|\bnve\b|route-target|route[ -]?type\s*[:= -]?\s*[25]\b"),
+    "VPC": re.compile(r"(?i)\bvpc\b|\bmlag\b|peer-link|peer-gateway"),
+    "SDWAN": re.compile(r"(?i)\bsdwan\b|\bsd-wan\b|health-check|\bservice4\b"),
+    "STP": re.compile(r"(?i)\bstp\b|spanning-tree|\bbpdu\b|loop-guard|root-guard"),
 }
 
 def evidence_technologies(text: str) -> set[str]:
