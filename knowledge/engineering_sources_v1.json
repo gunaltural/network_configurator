@@ -1,0 +1,199 @@
+{
+  "schema": "network-configurator-source-index-v1",
+  "version": "1.0.0",
+  "curatedAt": "2026-11-05",
+  "provenancePolicy": "Manually curated metadata and engineering review questions; NOT downloaded/full-text RAG, not evidence that a device is compliant.",
+  "sources": [
+    {
+      "id": "cisco-bgp-basic-2026",
+      "technology": "BGP",
+      "vendor": "Cisco",
+      "platforms": [
+        "Cisco IOS",
+        "Cisco IOS-XE",
+        "Cisco NX-OS"
+      ],
+      "releaseScope": "Version-specific commands must be checked against installed software",
+      "title": "Troubleshoot Border Gateway Protocol Basic Issues",
+      "url": "https://www.cisco.com/c/en/us/support/docs/ip/border-gateway-protocol-bgp/218027-troubleshoot-border-gateway-protocol-bas.html",
+      "keywords": [
+        "bgp",
+        "neighbor",
+        "idle",
+        "active",
+        "established",
+        "prefix",
+        "fsm",
+        "route-map"
+      ],
+      "questions": [
+        "Does an observed non-Established FSM align with source-address, TCP/179, authentication and address-family evidence?",
+        "If Established, distinguish prefix reception from best-path and data-plane reachability."
+      ]
+    },
+    {
+      "id": "arista-eos-bgp-437",
+      "technology": "BGP",
+      "vendor": "Arista",
+      "platforms": [
+        "Arista EOS"
+      ],
+      "releaseScope": "EOS 4.37.x; confirm exact device release",
+      "title": "Arista EOS Border Gateway Protocol",
+      "url": "https://www.arista.com/en/um-eos/eos-border-gateway-protocol-bgp",
+      "keywords": [
+        "bgp",
+        "neighbor",
+        "prefix",
+        "policy",
+        "as-path",
+        "route-map"
+      ],
+      "questions": [
+        "Do neighbor FSM and route-map/route-map application match the intended VRF/AFI-SAFI?",
+        "Check advertised/received prefix evidence without assuming a route-map not shown is absent."
+      ]
+    },
+    {
+      "id": "cisco-ospf-exstart-2024",
+      "technology": "OSPF",
+      "vendor": "Cisco",
+      "platforms": [
+        "Cisco IOS",
+        "Cisco IOS-XE"
+      ],
+      "releaseScope": "Cisco 2024 advisory (historical lab platforms); verify current platform applicability",
+      "title": "Troubleshoot OSPF Neighbors Stuck in Exstart/Exchange State",
+      "url": "https://www.cisco.com/c/en/us/support/docs/ip/open-shortest-path-first-ospf/13684-12.html",
+      "keywords": [
+        "ospf",
+        "exstart",
+        "exchange",
+        "mtu",
+        "neighbor",
+        "adjacency"
+      ],
+      "questions": [
+        "Does the captured neighbor really remain in EXSTART/EXCHANGE over time?",
+        "Can interface MTU, area, router ID, ACL, and DBD behavior distinguish competing explanations?"
+      ]
+    },
+    {
+      "id": "cisco-nxos-evpn-7x",
+      "technology": "EVPN",
+      "vendor": "Cisco",
+      "platforms": [
+        "Cisco NX-OS"
+      ],
+      "releaseScope": "Cisco Nexus 9000 NX-OS 7.x examples; verify current NX-OS release",
+      "title": "Cisco Nexus 9000 VXLAN EVPN Verification",
+      "url": "https://www.cisco.com/c/en/us/td/docs/switches/datacenter/nexus9000/sw/7-x/vxlan/configuration/guide/b_Cisco_Nexus_9000_Series_NX-OS_VXLAN_Configuration_Guide_7x/b_Cisco_Nexus_9000_Series_NX-OS_VXLAN_Configuration_Guide_7x_chapter_0100.html",
+      "keywords": [
+        "evpn",
+        "vxlan",
+        "vni",
+        "nve",
+        "route-target",
+        "type-2",
+        "type-5"
+      ],
+      "questions": [
+        "What L2/L3 VNI and route-target mappings are explicitly configured?",
+        "Do observed Type-2/Type-5 routes, VTEP peers and L2RIB forwarding entries agree?"
+      ]
+    },
+    {
+      "id": "cisco-nxos-vpc-102",
+      "technology": "VPC",
+      "vendor": "Cisco",
+      "platforms": [
+        "Cisco NX-OS"
+      ],
+      "releaseScope": "Nexus 9000 NX-OS 10.2.x, feature applicability must be verified",
+      "title": "Cisco NX-OS Nexus 9000 vPC Interfaces Guide",
+      "url": "https://www.cisco.com/c/en/us/td/docs/dcn/nx-os/nexus9000/102x/configuration/interfaces/cisco-nexus-9000-nx-os-interfaces-configuration-guide-102x.pdf",
+      "keywords": [
+        "vpc",
+        "peer",
+        "peer-link",
+        "keepalive",
+        "peer-gateway"
+      ],
+      "questions": [
+        "Separate observed peer-gateway enabled state from configuration display scope.",
+        "Can both sides substantiate peer-link/keepalive and consistency state at the same capture time?"
+      ]
+    },
+    {
+      "id": "arista-eos-mlag-437",
+      "technology": "VPC",
+      "vendor": "Arista",
+      "platforms": [
+        "Arista EOS"
+      ],
+      "releaseScope": "Arista EOS 4.37.x current online manual; confirm release",
+      "title": "Arista EOS Multi-Chassis Link Aggregation",
+      "url": "https://www.arista.com/ko/um-eos/eos-multi-chassis-link-aggregation",
+      "keywords": [
+        "mlag",
+        "peer",
+        "peer-link",
+        "heartbeat",
+        "domain-id"
+      ],
+      "questions": [
+        "Check show mlag and config-sanity from both peers.",
+        "Is a port intentionally disabled or affected by peer-link and reload-delay state?"
+      ]
+    },
+    {
+      "id": "fortinet-fortios-sdwan-748",
+      "technology": "SDWAN",
+      "vendor": "Fortinet",
+      "platforms": [
+        "FortiGate",
+        "Fortinet FortiOS"
+      ],
+      "releaseScope": "FortiOS 7.4.8; service4 is applicable for 7.4.4+, older releases differ",
+      "title": "Fortinet FortiOS SD-WAN Related Diagnose Commands",
+      "url": "https://docs.fortinet.com/document/fortigate/7.4.8/administration-guide/818746/sd-wan-related-diagnose-commands",
+      "keywords": [
+        "sdwan",
+        "sd-wan",
+        "sla",
+        "health-check",
+        "member",
+        "service4",
+        "dead",
+        "alive"
+      ],
+      "questions": [
+        "Separate probe state, SLA thresholds and selected service path.",
+        "Correlate BGP overlay state with transport reachability only if observed at comparable times."
+      ]
+    },
+    {
+      "id": "cisco-campus-stp-ha",
+      "technology": "STP",
+      "vendor": "Cisco",
+      "platforms": [
+        "Cisco IOS-XE",
+        "Cisco NX-OS"
+      ],
+      "releaseScope": "Architecture-level guidance; platform feature syntax is release scoped",
+      "title": "Cisco Campus Network for High Availability",
+      "url": "https://www.cisco.com/c/en/us/td/docs/solutions/Enterprise/Campus/HA_campus_DG/hacampusdg.html",
+      "keywords": [
+        "stp",
+        "spanning-tree",
+        "root",
+        "loop-guard",
+        "bpdu"
+      ],
+      "questions": [
+        "Does root placement match VLAN role and fault domains?",
+        "Are access and uplink protection features applied to evidenced port roles?"
+      ]
+    }
+  ]
+}
