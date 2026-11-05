@@ -69,6 +69,11 @@ on:
       - ".github/workflows/simulation-regression.yml"
   push:
     branches: ["feature/vendor-failure-simulation-v5-44", "fix/v5-44-2-simulation-docker-packaging", "feature/render-live-deployment-verification", "main"]
+# Run only the newest simulation suite for the same PR/branch. Older
+# browser runs otherwise compete for runner resources after each code fix.
+concurrency:
+  group: simulation-regression-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   simulation-and-workspaces:
     runs-on: ubuntu-24.04
