@@ -144,6 +144,12 @@ function appendUnifiedFindings(paper,assessment,tr){
   tag.style.cssText='font-weight:700;background:'+({GOOD:'#e7f5ea',RISK:'#fbe9eb',VERIFY:'#fff2d9',NA:'#eff1f3'}[f.status])+
    ';color:'+({GOOD:'#17643a',RISK:'#9b1f2a',VERIFY:'#75520e',NA:'#505a65'}[f.status])+';padding:5px 9px;border-radius:6px';
   head.append(title,tag);box.append(head);
+  // Meaning and applicability come from the versioned technology knowledge
+  // package; the report renderer is not allowed to invent the technology rules.
+  if(f.context?.purpose)box.append(A(E('p','engineering-purpose'),E('strong','',L('Teknoloji ne sağlar? ','Purpose: ')),document.createTextNode(f.context.purpose)));
+  if(f.context?.applicableWhen)box.append(A(E('p','engineering-applicability'),E('strong','',L('Nerede gerekli? ','Applicable when: ')),document.createTextNode(f.context.applicableWhen)));
+  if(f.context?.absenceImpact)box.append(A(E('p','engineering-absence-impact'),E('strong','',L('Eksik olduğunda olası sonuç: ','If absent: ')),document.createTextNode(f.context.absenceImpact)));
+
   const where=[f.devices.length?f.devices.join(' · '):'',
    f.interfaces.length?L('İlgili portlar: ','Relevant ports: ')+f.interfaces.join(' · '):''].filter(Boolean);
   if(where.length)box.append(E('p','report-meta',where.join(' | ')));
@@ -156,6 +162,29 @@ function appendUnifiedFindings(paper,assessment,tr){
   ];
   for(const [label,value] of fields){if(!value)continue;const row=E('p','');
    const key=E('strong','',label+': ');row.append(key,document.createTextNode(String(value)));box.append(row);}
+  const mapping=f.deployment||{};
+  const configured=(mapping.configured||[]),missing=(mapping.missing||[]),unknown=(mapping.unknown||[]);
+  if(configured.length||missing.length||unknown.length){
+   const summary=E('p','engineering-coverage');
+   summary.append(E('strong','',L('Bu ağda uygulama kapsamı: ','Application in this network: ')));
+   summary.append(document.createTextNode(configured.length+' '+L('kanıtlı uygulama, ','configured with evidence, ')+missing.length+' '+L('tasarımda eksik, ','design gaps, ')+unknown.length+' '+L('belirsiz bağlantı.','unverified connections.')));
+   box.append(summary);
+  }
+  // CLI provenance is always inspectable, but keeping long output collapsed
+  // prevents a six-device design review from becoming a port-by-port dump.
+  if(configured.length||missing.length){
+   const locations=E('details','engineering-deployment-evidence');
+   locations.append(E('summary','',L('Cihaz / arayüz / CLI satırı','Device / interface / CLI evidence')));
+   for(const [items,caption] of [[configured,L('Uygulandı','Configured')],[missing,L('Eksik / doğrulanacak','Missing / to verify')]]){
+    if(!items.length)continue;
+    locations.append(E('strong','',caption));
+    for(const item of items.slice(0,65)){
+     const display=[item.device,item.interface,item.line?'L'+item.line:'',item.command].filter(Boolean).join(' · ');
+     locations.append(E('p','report-meta',display));
+    }
+   }
+   box.append(locations);
+  }
   if(f.status==='VERIFY'&&f.verificationTask){
    const task=f.verificationTask;
    const next=E('div','verification-next-step');
