@@ -1131,7 +1131,7 @@ $('preview').onclick=()=>{
  try{
   const modules=selectedModules();if(!modules.length)throw Error('Select at least one analysis module.');
   const devices=scopedDeviceIds();if(!devices.length)throw Error('Select at least one device to analyze.');
-  pendingBatches=api.analysisEvidenceBatches(workspace,devices);
+  pendingBatches=api.analysisEvidenceBatches(workspace,devices,modules);
   if(modules.includes('STP')){
    const review=stpV1Review();
    $('stpPreflightResult').textContent=window.NetworkSTPV1.format(review);
