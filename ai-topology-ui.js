@@ -839,7 +839,20 @@ function buildGenericReport(options={}){
   const pre=E('pre','',$('analysisResult').value);pre.dataset.editableDraft='true';pre.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;max-height:none';output.append(pre);
  }else output.append(E('p','report-muted',L('AI modeli çalıştırılmadı. Protokole özgü teknik uygunluk veya kök neden kararı üretilmedi.','No AI model was run. No protocol-specific technical compliance or root-cause decision was produced.')));
  output.append(E('p','report-meta',L('Metodoloji: Tasarım → konfigürasyon → operasyonel kanıt → mühendislik değerlendirmesi → doğrulama.','Method: Design → configuration → operational evidence → engineering evaluation → verification.')));
- for(const [name,url] of [['Cisco Campus HA Design','https://www.cisco.com/c/en/us/td/docs/solutions/Enterprise/Campus/HA_campus_DG/hacampusdg.html'],['CIS Cisco Benchmarks','https://www.cisecurity.org/benchmark/cisco']]){
+ output.append(E('p','report-muted',L('Üretici dokümanları teknoloji ve sürüm özelidir; aşağıdaki kaynaklar seçili cihazlarda otomatik uyumluluk kanıtı değildir.',
+  'Manufacturer references are technology- and release-scoped; they are not automatic compliance proof for the selected devices.')));
+ const references=[['CIS — Cisco configuration benchmarks','https://www.cisecurity.org/benchmark/cisco']];
+ const byModule={
+  STP:[['Cisco — Campus high-availability design (STP)','https://www.cisco.com/c/en/us/td/docs/solutions/Enterprise/Campus/HA_campus_DG/hacampusdg.html']],
+  BGP:[['Cisco — IOS/IOS-XE BGP neighbor troubleshooting (updated 2026-09-02)','https://www.cisco.com/c/en/us/support/docs/ip/border-gateway-protocol-bgp/218027-troubleshoot-border-gateway-protocol-bas.html']],
+  OSPF:[['Cisco — IOS OSPF adjacency troubleshooting','https://www.cisco.com/c/en/us/support/docs/ip/open-shortest-path-first-ospf/13699-29.html']],
+  EVPN:[['Cisco — NX-OS 10.5(x) VXLAN BGP EVPN configuration','https://www.cisco.com/c/en/us/td/docs/dcn/nx-os/nexus9000/105x/configuration/vxlan/cisco-nexus-9000-series-nx-os-vxlan-configuration-guide-release-105x/m_configuring_vxlan_bgp_evpn.html']],
+  VPC:[['Cisco — NX-OS 10.5(x) vPC and keepalive behavior','https://www.cisco.com/c/en/us/td/docs/dcn/nx-os/nexus9000/105x/configuration/interfaces/cisco-nexus-9000-series-nx-os-interfaces-configuration-guide-release-105x/m_configuring_vpcs_9x.html']],
+  SDWAN:[['Fortinet — FortiOS 7.4 SD-WAN / BGP SLA routing','https://docs.fortinet.com/document/fortigate/7.4.0/administration-guide/256748']]
+ };
+ for(const module of modules)for(const reference of byModule[module]||[])references.push(reference);
+ if(modules.includes('EVPN')||modules.includes('DCI'))references.push(['Arista — EOS EVPN user manual (verify release)','https://www.arista.com/en/assets/data/pdf/user-manual/um-books/EOS-User-Manual.pdf']);
+ for(const [name,url] of references){
   const p=E('p',''),link=E('a','',name);link.href=url;link.rel='noopener noreferrer';link.target='_blank';p.append(link);output.append(p);
  }
  $('stpCTOView').replaceChildren(article);$('stpCTOView').hidden=true;
