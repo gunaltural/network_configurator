@@ -12,7 +12,7 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
    {label:'failover design',value:'dual core',impact:'No live failure convergence measured'}],
   configurations:devices.map((hostname,i)=>({deviceId:'node-'+i,text:'hostname '+hostname+
    '\nrouter bgp 65001\n neighbor 192.0.2.'+(i+1)+' remote-as 65002'+
-   '\nusername admin secret PrivateSecretValue'})),
+   '\nusername admin secret PrivateSecretValue\nset psksecret MySecretPSKData\ncrypto isakmp key DeviceIsakmpValue address 192.0.2.6'})),
   designChecks:{evaluated:35,errors:0,warnings:0,issues:[]}
  };
  w.sessionStorage.setItem('networkConfigurator.aiTopology.pending',JSON.stringify(report));
@@ -53,6 +53,8 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  assert.match(output.textContent,/router bgp, neighbor address families/,'Evidence and CLI method provided for BGP');
  assert.match(output.textContent,/L2: router bgp 65001/,'Line-addressed device CLI shown');
  assert.doesNotMatch(output.textContent,/PrivateSecretValue/,'Credentials never appear in report');
+ assert.doesNotMatch(output.textContent,/MySecretPSKData|DeviceIsakmpValue/,'PSK and ISAKMP keys never appear in reports or their export source');
+ assert.match(output.textContent,/\[REDACTED\]/,'Redacted CLI lines remain locatable');
  assert.equal(output.querySelectorAll('.engineering-deployment-evidence').length,6);
  assert.equal($('downloadEngineeringPDF').disabled,false);
  assert.equal($('downloadEngineeringWord').disabled,false);
