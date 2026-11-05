@@ -38,6 +38,10 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  $('configDevice').value='fw-1';$('configuration').value='hostname FW-1\nsnmp-server community SecretRO RO\nset community 65000:1 additive';
  $('saveConfig').click();assert.match($('overview').textContent,/1 configurations/);
  assert.equal(d.querySelector('#moduleChoices input[value="VPC"]').checked,true,'vPC example presets review scope');
+ $('moduleSearch').value='management';$('moduleSearch').dispatchEvent(new w.Event('input',{bubbles:true}));
+ assert.equal(d.querySelector('#moduleChoices input[value="SYSTEM"]').closest('label').hidden,false,'matching technology remains visible');
+ assert.equal(d.querySelector('#moduleChoices input[value="VPC"]').closest('label').hidden,true,'filter hides unmatched technology');
+ $('moduleSearch').value='';$('moduleSearch').dispatchEvent(new w.Event('input',{bubbles:true}));
  d.querySelector('#moduleChoices input[value="SYSTEM"]').checked=true;
  $('preview').click();
  assert.equal($('analyze').disabled,false);
@@ -71,7 +75,8 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  dom.window.close();
  const designDom=new JSDOM(html,{runScripts:'outside-only',url:'https://test.invalid/ai-topology'});
  const t=designDom.window;
- const handoff={vendor:'Cisco NX-OS',source:{module:'VPC'},devices:[{id:'a',hostname:'SW-A'},{id:'b',hostname:'SW-B'}],links:[{id:'peer',a:'a',b:'b',kind:'peer-link'}],specialLinks:[]};
+ const originalSvg='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 950 420"><text>ORIGINAL-DESIGN</text></svg>';
+ const handoff={vendor:'Cisco NX-OS',source:{module:'VPC'},devices:[{id:'a',hostname:'SW-A',tier:'upper'},{id:'b',hostname:'SW-B',tier:'upper'}],links:[{id:'peer',a:'a',b:'b',kind:'peer-link'}],specialLinks:[],topologySvg:originalSvg};
  t.sessionStorage.setItem('networkConfigurator.aiTopology.pending',JSON.stringify(handoff));
  t.eval(fs.readFileSync('ai-topology-workspace.js','utf8'));
  t.eval(fs.readFileSync('ai-topology-ui.js','utf8'));
@@ -79,6 +84,11 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  assert.equal(t.sessionStorage.getItem('networkConfigurator.aiTopology.pending'),null,'Handoff is consumed once');
  assert.equal(t.document.querySelector('#moduleChoices input[value="VPC"]').checked,true,'Design module presets analysis scope');
  assert.equal(t.document.getElementById('returnToDesign').hidden,false,'Return to Design link shown');
+ assert.equal(t.document.getElementById('showOriginalDesign').hidden,false,'Original Design preview tab is visible');
+ assert.match(t.document.getElementById('originalDesignImage').src,/ORIGINAL-DESIGN/,'Source SVG is preserved as image');
+ assert.equal(t.document.getElementById('editableTopologyPane').hidden,true,'Original view is initially shown');
+ t.document.getElementById('showEditableTopology').click();
+ assert.equal(t.document.getElementById('editableTopologyPane').hidden,false,'User can switch to draggable editor');
  designDom.window.close();
  console.log('AI topology UI: draggable layout, templates, imports, multi-module evidence and report, Design return passed');
 })().catch(e=>{console.error(e);process.exitCode=1;});
