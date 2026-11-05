@@ -37,6 +37,11 @@ function setupWorkflow(){
  reportHelp.textContent='Run analysis in step 3 to generate a report.';
  const controls=document.createElement('div');controls.className='report-tools';
  controls.append($('viewSTPCTO'),$('exportSTPCTO'));
+ $('exportSTPCTO').textContent='Download HTML';
+ for(const [id,label] of [['downloadEngineeringPDF','Download PDF'],['downloadEngineeringWord','Download Word']]){
+  const action=document.createElement('button');action.type='button';action.id=id;action.textContent=label;action.disabled=true;
+  controls.append(action);
+ }
  for(const [id,label] of [['saveEngineeringReport','Save Report (browser)'],['editEngineeringReport','Edit Report']]){
   const b=document.createElement('button');b.type='button';b.id=id;b.textContent=label;b.disabled=true;controls.append(b);
  }
@@ -320,7 +325,7 @@ function populate(select,values,preserve,blank){
  for(const [id,label] of values)select.append(makeOption(id,label));
  select.value=values.some(x=>x[0]===preserve)?preserve:(blank?'':values[0]?.[0]||'');
 }
-function invalidate(){if(currentStep===4)currentStep=3;reportGenerated=false;activeSavedReport=null;$('saveEngineeringReport').disabled=true;$('editEngineeringReport').disabled=true;$('reportEditPanel').hidden=true;$('savedReportPreview').hidden=true;$('savedReportPreview').srcdoc='';$('reviewExecutiveComment').value='';$('reviewEngineeringNotes').value='';reviewedSignature=null;pendingBatches=null;runState=null;$('analyze').disabled=true;$('downloadReport').disabled=true;$('evidencePreview').textContent='';$('analysisResult').value='';$('stpPreflightResult').textContent='STP V1 preflight not run for the current device selection.';$('stpKnowledgeResult').textContent='Knowledge review not run for this device selection.';$('stpCTOView').replaceChildren();$('stpCTOStatus').textContent='';$('exportSTPCTO').disabled=true;$('viewSTPCTO').disabled=true;$('stpCTOView').hidden=true;refreshWorkflow();}
+function invalidate(){if(currentStep===4)currentStep=3;reportGenerated=false;activeSavedReport=null;$('downloadEngineeringPDF').disabled=true;$('downloadEngineeringWord').disabled=true;$('saveEngineeringReport').disabled=true;$('editEngineeringReport').disabled=true;$('reportEditPanel').hidden=true;$('savedReportPreview').hidden=true;$('savedReportPreview').srcdoc='';$('reviewExecutiveComment').value='';$('reviewEngineeringNotes').value='';reviewedSignature=null;pendingBatches=null;runState=null;$('analyze').disabled=true;$('downloadReport').disabled=true;$('evidencePreview').textContent='';$('analysisResult').value='';$('stpPreflightResult').textContent='STP V1 preflight not run for the current device selection.';$('stpKnowledgeResult').textContent='Knowledge review not run for this device selection.';$('stpCTOView').replaceChildren();$('stpCTOStatus').textContent='';$('exportSTPCTO').disabled=true;$('viewSTPCTO').disabled=true;$('stpCTOView').hidden=true;refreshWorkflow();}
 function draw(){
  const svg=$('topologyCanvas');svg.replaceChildren();
  const NS='http://www.w3.org/2000/svg',points=new Map(),n=workspace.nodes.length;
@@ -727,6 +732,7 @@ $('runSTPCTO').onclick=async()=>{
   $('saveEngineeringReport').disabled=false;$('editEngineeringReport').disabled=false;
   $('reportStageStatus').textContent='Analysis complete. Open HTML View, export, edit reviewer notes, or save.';
   $('exportSTPCTO').disabled=false;$('viewSTPCTO').disabled=false;
+  $('downloadEngineeringPDF').disabled=false;$('downloadEngineeringWord').disabled=false;
   if(currentStep===3)navigateWorkflow(4);else refreshWorkflow();
  }catch(error){$('exportSTPCTO').disabled=true;$('viewSTPCTO').disabled=true;$('stpCTOView').replaceChildren();$('stpCTOStatus').textContent='CTO report error: '+error.message;message(error.message,true);}
 };
@@ -751,6 +757,7 @@ function buildGenericReport(){
  $('stpCTOView').hidden=true;
  $('viewSTPCTO').textContent='HTML View';
  $('viewSTPCTO').disabled=false;$('exportSTPCTO').disabled=false;
+ $('downloadEngineeringPDF').disabled=false;$('downloadEngineeringWord').disabled=false;
 }
 $('analysisResult').addEventListener('input',()=>{
  const preview=$('stpCTOView').querySelector('[data-editable-draft]');
@@ -771,6 +778,30 @@ function getReportDocument(){
  }
  return '<!doctype html><html lang="'+($('language').value==='tr'?'tr':'en')+'"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Network Engineering Assessment</title><style>'+css+'</style></head><body>'+reportHtml+'</body></html>';
 }
+async function downloadDocument(format){
+ const button=$(format==='pdf'?'downloadEngineeringPDF':'downloadEngineeringWord');
+ if(button.disabled||!reportAvailable())return;
+ const html=activeSavedReport?.html||getReportDocument();
+ if(!html.trim())return;
+ button.disabled=true;
+ try{
+  const response=await fetch('/api/ai/engineering-report/'+format,{
+   method:'POST',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({html,title:'Network Engineering Assessment'})
+  });
+  if(!response.ok){
+   const data=await response.json().catch(()=>({}));
+   throw Error(data.detail||'Document export failed with status '+response.status);
+  }
+  const blob=await response.blob();
+  const ext=format==='pdf'?'pdf':'docx';
+  saveFile('network-engineering-assessment.'+ext,blob,format==='pdf'?'application/pdf':'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+  $('reportStageStatus').textContent=ext.toUpperCase()+' report downloaded. HTML report source remains unchanged.';
+ }catch(error){message('Download '+format.toUpperCase()+': '+error.message,true);}
+ finally{button.disabled=!reportAvailable();}
+}
+$('downloadEngineeringPDF').onclick=()=>downloadDocument('pdf');
+$('downloadEngineeringWord').onclick=()=>downloadDocument('word');
 $('exportSTPCTO').onclick=()=>{
  if(activeSavedReport){saveFile('network-assessment-saved.html',activeSavedReport.html,'text/html;charset=utf-8');return;}
  if($('exportSTPCTO').disabled||(!reportGenerated&&!$('stpCTOView').children.length))return;
@@ -844,7 +875,7 @@ $('openSavedReport').onclick=()=>{
  const frame=$('savedReportPreview');frame.srcdoc=record.html;frame.hidden=false;
  $('stpCTOView').hidden=true;
  $('viewSTPCTO').disabled=false;$('viewSTPCTO').textContent='Hide HTML View';
- $('exportSTPCTO').disabled=false;
+ $('exportSTPCTO').disabled=false;$('downloadEngineeringPDF').disabled=false;$('downloadEngineeringWord').disabled=false;
  $('saveEngineeringReport').disabled=true;$('editEngineeringReport').disabled=true;$('reportEditPanel').hidden=true;
  $('reportStageStatus').textContent='Saved report · '+record.title+' · read-only snapshot; CLI evidence cannot be changed.';
  navigateWorkflow(4);
