@@ -38,7 +38,8 @@ function register(packageSpec){
   vendors:freeze(uniq(packageSpec.vendors.map(toString))),
   description:toString(packageSpec.description),controls:freeze(controls),
   references:freeze((packageSpec.references||[]).map(r=>freeze({title:toString(r.title),url:toString(r.url)}))),
-  evaluate:packageSpec.evaluate});
+  evaluate:packageSpec.evaluate,
+  planVerification:typeof packageSpec.planVerification==='function'?packageSpec.planVerification:null});
  byTechnology.set(technology,descriptor);
  return describe(technology);
 }
@@ -65,7 +66,10 @@ function unsupported(technology,workspace,deviceIds){
    explanation:'Selecting a module does not prove that its engineering controls have been evaluated.',
    networkImpact:'Cannot conclude technology design compliance or operational health.',
    recommendation:'Install and test a vendor-specific knowledge package before making a compliance decision.',
-   verification:[],evidence:[],references:[],limitations:[],provenance:'MISSING_ENGINE'}],
+   verification:[],evidence:[],references:[],limitations:[],provenance:'MISSING_ENGINE',
+   verificationTask:{owner:'Network Engineering',reviewer:'Knowledge Maintainer',
+    action:'Implement and test the technology-specific engineering knowledge package before rerunning this assessment.',
+    acceptance:'The registered vendor-specific adapter parses the selected configs and its regression tests pass.',commands:[]}}],
   counts:{GOOD:0,RISK:0,VERIFY:1,NA:0},
   limitations:['Technology-specific deterministic evaluation is not available. No positive assessment generated.']};
 }
@@ -97,6 +101,14 @@ function run(args){
    limitations:(raw.limitations||[]).map(toString),provenance:toString(raw.provenance||'DESIGN_CONFIG')
   };
   if(!finding.expected||!finding.observed||!finding.explanation||!finding.recommendation)throw Error('Incomplete engineering finding: '+finding.id);
+  if(finding.status==='VERIFY'){
+   const planned=pack.planVerification?.(finding)||{};
+   finding.verificationTask={owner:toString(planned.owner||'Network Operations'),
+    reviewer:toString(planned.reviewer||'Network Engineering'),
+    action:toString(planned.action||finding.recommendation),
+    acceptance:toString(planned.acceptance||finding.expected),
+    commands:[...finding.verification]};
+  }
   counts[finding.status]++;
   return finding;
  });
