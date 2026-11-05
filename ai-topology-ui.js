@@ -3,8 +3,29 @@ const $=id=>document.getElementById(id),api=window.NetworkAITopology;
 if(!api)return;
 const handoff='networkConfigurator.aiTopology.pending';
 let workspace=api.blank(),pendingBatches=null,reviewedSignature=null,runState=null,busy=false,originalMode=true;
+const selectedDeviceIds=new Set();
+const scopedDeviceIds=()=>workspace.nodes.map(node=>node.id).filter(id=>selectedDeviceIds.has(id));
+function syncDeviceChoices(){
+ const known=new Set(workspace.nodes.map(n=>n.id));
+ for(const id of selectedDeviceIds)if(!known.has(id))selectedDeviceIds.delete(id);
+ for(const node of workspace.nodes)if(!selectedDeviceIds.has(node.id)&&!document.querySelector('#deviceAnalysisChoices [data-device-id="'+node.id+'"]'))selectedDeviceIds.add(node.id);
+ const root=$('deviceAnalysisChoices');root.replaceChildren();
+ for(const node of workspace.nodes){
+  const label=document.createElement('label'),input=document.createElement('input'),name=document.createElement('span');
+  input.type='checkbox';input.dataset.deviceId=node.id;input.checked=selectedDeviceIds.has(node.id);
+  input.onchange=()=>{if(input.checked)selectedDeviceIds.add(node.id);else selectedDeviceIds.delete(node.id);invalidate();updateDeviceCount();};
+  name.textContent=node.hostname+' · '+(node.vendor||'Unknown vendor');label.append(input,name);root.append(label);
+ }
+ updateDeviceCount();
+}
+function updateDeviceCount(){
+ const count=scopedDeviceIds().length;
+ $('deviceScopeCount').textContent=count+' / '+workspace.nodes.length+' devices selected';
+}
+$('selectAllDevices').onclick=()=>{for(const n of workspace.nodes)selectedDeviceIds.add(n.id);syncDeviceChoices();invalidate();};
+$('clearSelectedDevices').onclick=()=>{selectedDeviceIds.clear();for(const input of document.querySelectorAll('#deviceAnalysisChoices input'))input.checked=false;updateDeviceCount();invalidate();};
 const selectedModules=()=>[...document.querySelectorAll('#moduleChoices input:checked')].map(el=>el.value);
-const clean=x=>String(x??'').trim(),snapshot=()=>JSON.stringify({workspace,modules:selectedModules()}),isReviewed=()=>reviewedSignature===snapshot();
+const clean=x=>String(x??'').trim(),snapshot=()=>JSON.stringify({workspace,modules:selectedModules(),devices:scopedDeviceIds()}),isReviewed=()=>reviewedSignature===snapshot();
 function message(value,error=false){$('status').textContent=value;$('status').dataset.error=String(error);}
 function updateScopeCount(){const n=selectedModules().length;$('scopeCount').textContent=n?n+' engineering module'+(n===1?'':'s')+' selected':'No modules selected';}
 function selectTopologyMode(original){
@@ -159,6 +180,7 @@ $('topologyCanvas').addEventListener('pointerup',finishDrag);
 $('topologyCanvas').addEventListener('pointercancel',finishDrag);
 $('topologyCanvas').addEventListener('lostpointercapture',finishDrag);
 function render(){
+ syncDeviceChoices();
  updateScopeCount();
  renderOriginalDesign();
  const devs=workspace.nodes.map(n=>[n.id,n.hostname||n.id]),links=workspace.links.map(l=>[l.id,l.id+' · '+l.kind]);
@@ -305,8 +327,9 @@ $('importWorkspace').onchange=async()=>{
 $('preview').onclick=()=>{
  try{
   const modules=selectedModules();if(!modules.length)throw Error('Select at least one analysis module.');
-  pendingBatches=api.analysisEvidenceBatches(workspace);
-  pendingBatches[0].unshift({id:'analysis-scope',text:'Device: ANALYSIS-SCOPE\nCommand: user-selected engineering review scope (intent, not operational evidence)\nL1: Analyze ONLY these engineering modules: '+modules.join(', ')+'\nL2: Do not perform unrelated module audits. Cross-module facts may be mentioned only when directly relevant to selected scope.\nL3: Assess proposed configurations as design intent, not deployed operational state.'});
+  const devices=scopedDeviceIds();if(!devices.length)throw Error('Select at least one device to analyze.');
+  pendingBatches=api.analysisEvidenceBatches(workspace,devices);
+  pendingBatches[0].unshift({id:'analysis-scope',text:'Device: ANALYSIS-SCOPE\nCommand: user-selected engineering review scope (intent, not operational evidence)\nL1: Analyze ONLY these engineering modules: '+modules.join(', ')+'\nL2: Analyze ONLY device IDs: '+devices.join(', ')+'; do not infer findings for unselected devices.\nL3: Do not perform unrelated module audits. Cross-module facts may be mentioned only when directly relevant to selected scope.\nL4: Assess proposed configurations as design intent, not deployed operational state.'});
   reviewedSignature=snapshot();runState={batches:pendingBatches,reports:[],modes:[],index:0,signature:reviewedSignature,synthesis:''};
   const previewText=pendingBatches.flat().map(e=>'## '+e.id+'\n'+e.text).join('\n\n');
   $('evidencePreview').textContent=previewText;$('evidenceDetails').open=true;
@@ -316,7 +339,7 @@ $('preview').onclick=()=>{
 };
 function reportText(){
  const reports=runState?.reports||[];
- return '# AI Topology Engineering Analysis\n\nSelected modules: '+selectedModules().join(', ')+'\nStatus: Unverified AI-assisted draft; engineer review required\nTopology: '+workspace.nodes.length+' devices / '+workspace.links.length+' connections\nBatches: '+reports.length+' / '+(runState?.batches.length||0)+'\n\n'+reports.join('\n\n')+(runState?.synthesis?'\n\n## Cross-batch synthesis — UNVERIFIED\n'+runState.synthesis:'');
+ return '# AI Topology Engineering Analysis\n\nSelected modules: '+selectedModules().join(', ')+'\nSelected devices: '+scopedDeviceIds().map(id=>workspace.nodes.find(n=>n.id===id)?.hostname||id).join(', ')+'\nStatus: Unverified AI-assisted draft; engineer review required\nTopology: '+workspace.nodes.length+' devices / '+workspace.links.length+' connections\nBatches: '+reports.length+' / '+(runState?.batches.length||0)+'\n\n'+reports.join('\n\n')+(runState?.synthesis?'\n\n## Cross-batch synthesis — UNVERIFIED\n'+runState.synthesis:'');
 }
 $('analyze').onclick=async()=>{
  if(busy)return;
@@ -330,7 +353,7 @@ $('analyze').onclick=async()=>{
     message('External model transfer cancelled. No evidence was submitted.');
     return;
   }
-  const vendors=[...new Set(workspace.nodes.map(n=>n.vendor).filter(Boolean))],vendor=vendors.length===1?vendors[0]:'Mixed';
+  const vendors=[...new Set(workspace.nodes.filter(n=>selectedDeviceIds.has(n.id)).map(n=>n.vendor).filter(Boolean))],vendor=vendors.length===1?vendors[0]:'Mixed';
   const stop=Math.min(runState.batches.length,runState.index+12);
   for(;runState.index<stop;){
    const i=runState.index;
