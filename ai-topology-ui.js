@@ -925,7 +925,9 @@ function buildGenericReport(options={}){
       L('Operasyonel durum','Operational state'),L('Doğrulama amacı','Audit objective')],
      matrix.controls.map(control=>[control.technology,control.purpose,
       control.state==='EVIDENCE_OBSERVED'?
-       control.findings+' '+L('kaynaklı bulgu · inceleme gerekli','source-scoped facts · engineering review required'):
+       control.findings+' '+L('operasyonel gözlem · inceleme gerekli','operational facts · engineering review required'):
+       control.state==='CONFIG_ONLY_REVIEW'?
+       control.findings+' '+L('yalnız konfigürasyon / niyet; operasyonel durum doğrulanmadı','configuration/intent only; operation not verified'):
        L('DOĞRULANMADI · kapsam/kanıt eksik olabilir','NOT VERIFIED · evidence may be missing or unsupported'),
       control.audit])
     ));
