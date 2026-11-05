@@ -718,7 +718,9 @@ $('runSTPCTO').onclick=async()=>{
   window.NetworkSTPOperationalV1.augment(engineering,operational);
   if(!window.NetworkSTPNetworkV2)throw Error('Multi-device STP correlation engine unavailable.');
   const network=window.NetworkSTPNetworkV2.analyze(workspace,selected);
-  const result=window.NetworkSTPCTOReport.build($('stpCTOView'),review,preflight,db,$('language').value,engineering,network,operational);
+  if(!window.NetworkEngineeringFindingsV1)throw Error('Evidence-based engineering finding engine is unavailable.');
+  const unified=window.NetworkEngineeringFindingsV1.run({workspace,deviceIds:selected,technology:'STP',engineering,network,operational});
+  const result=window.NetworkSTPCTOReport.build($('stpCTOView'),review,preflight,db,$('language').value,engineering,network,operational,unified);
   $('stpCTOStatus').textContent='STP V2 · '+network.deviceCount+' devices · '+operational.devices.filter(x=>x.present).length+' with verification CLI · '+network.findings.length+' network findings'+(operational.devices.some(x=>x.syntheticOnly)?' · SYNTHETIC LAB':'')+'.';
   activeSavedReport=null;reportGenerated=true;$('savedReportPreview').hidden=true;
   $('saveEngineeringReport').disabled=false;$('editEngineeringReport').disabled=false;
