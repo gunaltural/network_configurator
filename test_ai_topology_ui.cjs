@@ -16,12 +16,17 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  w.eval(fs.readFileSync('ai-topology-workspace.js','utf8'));
  w.eval(fs.readFileSync('ai-topology-ui.js','utf8'));
  assert.equal($('chooseDesign').getAttribute('aria-pressed'),'true','Import from Design is the default Dashboard entry');
+ assert.equal($('designSource').hidden,false,'Design tab content initially visible');
  assert.ok([...$('savedDesignSelect').options].some(option=>/Campus STP/.test(option.textContent)),'browser-saved project is listed');
  $('savedDesignSelect').value='local:campus';$('savedDesignSelect').dispatchEvent(new w.Event('change'));
  assert.equal($('openSavedDesign').disabled,false,'saved Design import can be selected');
  $('chooseSaved').click();assert.equal($('savedSource').hidden,false,'saved AI JSON entry is separate');
+ assert.equal($('designSource').hidden,true,'saved workspace tab hides Design chooser');
+ assert.equal($('chooseSaved').getAttribute('aria-pressed'),'true','saved workspace tab is active');
+ assert.ok($('importWorkspace'),'saved workspace file input exists');
  $('chooseBuild').click();assert.equal($('buildSource').hidden,false,'build topology entry is separate');
  $('chooseDesign').click();assert.equal($('designSource').hidden,false,'Design import entry can be restored');
+ assert.equal($('savedSource').hidden,true,'Design tab hides saved workspace form');
  assert.match($('overview').textContent,/0 devices/);
  assert.match($('topologyEntryHint').textContent,/Choose a source below/,'Dashboard opens the same workspace with source options');
  assert.match(fs.readFileSync('ai-topology-ui.js','utf8'),/aiImport=1/,'saved Design selection restores source into AI import');
@@ -30,6 +35,7 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  assert.match(shell,/CLI \/ Show-Tech Analysis[^\n]*\/analysis/,'Legacy CLI analysis remains separately accessible');
  $('template').value='vpc';$('applyTemplate').click();
  assert.match($('overview').textContent,/2 devices · 2 links/);
+ assert.equal(d.querySelectorAll('#deviceAnalysisChoices input:checked').length,2,'all template devices selected by default');
  // Drag a node, ensure its location changes and the connecting SVG line follows.
  const svg=d.getElementById('topologyCanvas');
  svg.getBoundingClientRect=()=>({left:0,top:0,width:800,height:360});
@@ -59,8 +65,12 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  assert.equal(d.querySelector('#moduleChoices input[value="VPC"]').closest('label').hidden,true,'filter hides unmatched technology');
  $('moduleSearch').value='';$('moduleSearch').dispatchEvent(new w.Event('input',{bubbles:true}));
  d.querySelector('#moduleChoices input[value="SYSTEM"]').checked=true;
+ const second=d.querySelectorAll('#deviceAnalysisChoices input')[1];
+ second.checked=false;second.dispatchEvent(new w.Event('change',{bubbles:true}));
+ assert.equal(d.querySelectorAll('#deviceAnalysisChoices input:checked').length,2,'device scope can exclude one of three devices');
  $('preview').click();
  assert.equal($('analyze').disabled,false);
+ assert.doesNotMatch($('evidencePreview').textContent,/Device: n9k-b\\nVendor:/,'unselected device configuration is excluded');
  assert.match($('evidencePreview').textContent,/VPC, SYSTEM/,'multi-module review scope is visible');
  assert.ok($('evidencePreview').textContent.includes('65000:1 additive'));
  assert.ok(!$('evidencePreview').textContent.includes('SecretRO'));
