@@ -13,15 +13,15 @@ const PARAMETERS=[
  {id:'vtpDomain',label:'VTP domain',design:'campusVtpDomain',source:'vtp'},
  {id:'vtpPassword',label:'VTP authentication',design:'campusVtp',source:'vtp'},
  {id:'nativeVlan',label:'Native VLAN',design:'campusNativeVlan',source:'trunk'},
- {id:'allowedVlans',label:'Trunk allowed VLANs',design:'campusVlans',source:'trunk'},
+ {id:'allowedVlans',label:'Trunk allowed VLANs',design:'stpVlans',source:'trunk'},
  {id:'dtp',label:'Dynamic Trunking Protocol',design:'campusNoDtp',source:'trunk'},
  {id:'stpMode',label:'STP mode',design:'stpMode',source:'stp'},
- {id:'bridgePriority',label:'Bridge/root priority',design:'stpRoot',source:'stp'},
+ {id:'bridgePriority',label:'Bridge/root priority',design:'stpRootPri',source:'stp'},
  {id:'bpduGuard',label:'BPDU Guard',design:'bpduguard',source:'stp'},
  {id:'rootGuard',label:'Root Guard',design:'rootguard',source:'stp'},
  {id:'portfast',label:'PortFast / edge ports',design:'portfast',source:'stp'},
- {id:'loopGuard',label:'Loop Guard',design:'swvLoop',source:'stp'},
- {id:'mstRegion',label:'MST region / instance mapping',design:'stpMode',source:'stp'}
+ {id:'loopGuard',label:'Loop Guard',design:'loopguard',source:'stp'},
+ {id:'mstRegion',label:'MST region / instance mapping',design:'campusMstName',source:'stp'}
 ];
 function parse(node,raw){
  const text=String(raw||''),rows=text.replace(/\r\n?/g,'\n').split('\n');
@@ -32,7 +32,7 @@ function parse(node,raw){
   if(/^interface\s+\S+/i.test(t)){iface=t.replace(/^interface\s+/i,'');mst=false;}
   else if(/^spanning-tree mst configuration$/i.test(t)){mst=true;iface=null;}
   else if(/^(?:!|end|exit)$/.test(t)){iface=null;mst=false;}
-  const hit=(key,re,val)=>{const m=t.match(re);if(m)observed[key].push({value:val?val(m):m[1],line:number,iface,command:t});};
+  const hit=(key,re,val)=>{const m=t.match(re);if(m)observed[key].push({value:val?val(m):m[1],line:number,iface,command:key==='vtpPassword'?'vtp password [REDACTED]':t});};
   hit('vtpMode',/^vtp mode\s+(server|client|transparent|off)/i,m=>m[1].toLowerCase());
   hit('vtpVersion',/^vtp version\s+([123])/i,m=>m[1]);
   hit('vtpDomain',/^vtp domain\s+(.+)$/i,m=>m[1].trim());
