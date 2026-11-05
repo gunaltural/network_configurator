@@ -358,26 +358,57 @@ function renderEvidenceDevices(){
 let pendingEvidenceDevice=null;
 function chooseEvidenceFile(deviceId){
  if(!workspace.nodes.some(n=>n.id===deviceId))return message('Select a valid device.',true);
- pendingEvidenceDevice=deviceId;$('showTechDevice').value=deviceId;$('showTechFile').value='';$('showTechFile').click();
-}
-async function addEvidenceFile(file,deviceId){
- if(!file||!deviceId)return;
- if(file.size>8000000)throw Error('Verification CLI capture exceeds 8 MB limit.');
- const text=await file.text();
- const alreadyHadReport=!$('exportSTPCTO').disabled,wasVisible=!$('stpCTOView').hidden;
- workspace=api.addShowTech(workspace,deviceId,text,file.name,false);
- changed('Verification CLI uploaded for '+(workspace.nodes.find(n=>n.id===deviceId)?.hostname||deviceId)+'.');
+ pendingEvidenceDevice=deviceId;
  $('showTechDevice').value=deviceId;
- $('showTechStatus').textContent=file.name+' attached to '+(workspace.nodes.find(n=>n.id===deviceId)?.hostname||deviceId)+'.';
+ $('showTechFile').value='';
+ $('showTechFile').click();
+}
+function evidenceText(file,text){
+ if(!text.trim())throw Error(file+' is empty.');
+ const probe=text.slice(0,16000);
+ if(probe.includes('\u0000')||((probe.match(/\uFFFD/g)||[]).length>24))throw Error(file+' does not appear to be a plain text CLI capture. Extract text from ZIP or binary archive first.');
+ return text;
+}
+async function attachEvidenceBatch(files,deviceId){
+ if(!deviceId||!workspace.nodes.some(n=>n.id===deviceId))throw Error('Choose a device for the CLI evidence.');
+ if(!files.length)return;
+ const ready=[];
+ for(const file of files){
+  if(file.size>8000000)throw Error(file.name+' exceeds 8 MB. Split the CLI capture.');
+  const contents=evidenceText(file.name,await file.text());
+  ready.push({filename:file.name||'verification.out',text:contents});
+ }
+ let next=workspace;
+ for(const entry of ready)next=api.addShowTech(next,deviceId,entry.text,entry.filename,false);
+ const wasVisible=!$('stpCTOView').hidden,alreadyHadReport=!$('exportSTPCTO').disabled;
+ workspace=next;
+ changed(ready.length+' CLI capture'+(ready.length===1?'':'s')+' uploaded.');
+ $('showTechDevice').value=deviceId;
+ const host=workspace.nodes.find(n=>n.id===deviceId).hostname;
+ $('showTechStatus').textContent=ready.map(x=>x.filename).join(', ')+' attached to '+host+'.';
  if(alreadyHadReport&&selectedModules().includes('STP')){
-  await $('runSTPCTO').onclick();$('stpCTOView').hidden=!wasVisible;
+  await $('runSTPCTO').onclick();
+  $('stpCTOView').hidden=!wasVisible;
   $('viewSTPCTO').textContent=wasVisible?'Hide HTML View':'HTML View';
  }
 }
+$('showTechDevice').onchange=()=>{pendingEvidenceDevice=null;};
+$('showTechFile').onpointerdown=()=>{pendingEvidenceDevice=null;};
+$('showTechFile').onkeydown=()=>{pendingEvidenceDevice=null;};
 $('showTechFile').onchange=async()=>{
- const file=$('showTechFile').files?.[0],deviceId=pendingEvidenceDevice||$('showTechDevice').value;
+ const files=[...($('showTechFile').files||[])],deviceId=pendingEvidenceDevice||$('showTechDevice').value;
  pendingEvidenceDevice=null;
- try{await addEvidenceFile(file,deviceId);}catch(e){message('Show Tech: '+e.message,true);}
+ try{await attachEvidenceBatch(files,deviceId);}
+ catch(e){$('showTechStatus').textContent=e.message;message('Show Tech: '+e.message,true);}
+ finally{$('showTechFile').value='';}
+};
+$('attachShowTechPaste').onclick=async()=>{
+ const deviceId=$('showTechDevice').value,text=$('showTechPasteText').value;
+ const filename=$('showTechPasteName').value.trim()||'pasted-verification.out';
+ try{
+  await attachEvidenceBatch([{name:filename,size:new Blob([text]).size,text:async()=>text}],deviceId);
+  $('showTechPasteText').value='';$('showTechPasteName').value='';
+ }catch(e){$('showTechStatus').textContent=e.message;message('Show Tech: '+e.message,true);}
 };
 $('stpCTOView').addEventListener('click',event=>{
  const upload=event.target.closest?.('[data-evidence-upload]');
