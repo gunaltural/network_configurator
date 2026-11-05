@@ -7,7 +7,7 @@ function parse(text,source){
  const ref=i=>source+' L'+(i+1)+': '+lines[i].trim().slice(0,200);
  for(let i=0;i<lines.length;i++){
   const s=lines[i].trim();if(!s)continue;
-  let m=s.match(/^(?:[-=#>* ]{2,}\s*)?(show\s+(?:version|spanning-tree(?:\s+\S+){0,5}|interfaces\s+trunk|udld(?:\s+\S+){0,2}|etherchannel\s+summary)|display\s+(?:version|stp(?:\s+\S+){0,4}))\s*[-=# ]*$/i);
+  let m=s.match(/^(?:[-=#>* ]{2,}\s*)?(show\s+(?:version|spanning-tree(?:\s+\S+){0,5}|interfaces\s+(?:trunk|status)|udld(?:\s+\S+){0,2}|etherchannel\s+summary)|display\s+(?:version|stp(?:\s+\S+){0,4}))\s*[-=# ]*$/i);
   if(m){section=m[1].toLowerCase();commands.push({name:section,line:ref(i)});if(/spanning-tree|stp/.test(section)){vlan=null;part='';}continue;}
   m=s.match(/^(?:Cisco IOS XE Software|Cisco IOS Software(?:\s*\[[^\]]+\])?(?:,\s*[^,]+)?|Cisco NX-OS Software)[,\s]+Version\s+([^\s,]+)/i)
    ||s.match(/^(?:NXOS|system):\s*version\s+([^\s,]+)/i)||s.match(/^Software version\s*:\s*([^\s,]+)/i);
