@@ -48,6 +48,9 @@ designTrigger.onclick=()=>{
   // Reuse the Design module's own SVG, rather than reconstructing its layout from device counts.
   // This is a visual-only snapshot; it is never included in the model evidence batches.
   try{report.topologySvg=window.NetworkWorkspaceProject?.simulationTopologySvg?.()||'';}catch{report.topologySvg='';}
+  // Preserve the exact Design workspace for Return to <module>, including Quick Design.
+  // Same-tab session only; this never mutates Module Report or uploads the project.
+  if(project?.schema==='network-configurator-v3')window.sessionStorage.setItem('networkConfigurator.workflow.design',JSON.stringify(project));
   const subset=window.NetworkAIEvidence.designHandoff(report,validation);
   window.sessionStorage.setItem('networkConfigurator.aiTopology.pending',JSON.stringify(subset));
   window.location.assign('/ai-topology');
