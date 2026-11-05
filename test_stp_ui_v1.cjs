@@ -76,13 +76,11 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{JSDOM}=require
  assert.match($('evidencePreview').textContent,/CORE-2/);
  assert.doesNotMatch($('evidencePreview').textContent,/Device ACCESS-1 hostname/);
  await $('analyze').onclick();
- assert.ok(submitted.length>0);
- assert.equal(submitted[0].module,'STP_ANALYSIS','STP-only scope uses dedicated prompt');
- assert.match($('analysisResult').value,/engineer review required/i);
- assert.match($('analysisResult').value,/STP comparison/);
+ assert.equal(submitted.length,0,'STP-only scope runs locally without submitting to a model');
+ assert.match($('stpCTOView').textContent,/Technology-level Engineering Findings/,'Single Analyze directly produces HTML report');
  // Altering device selection invalidates prior review and prevents stale submission.
  access.checked=true;access.dispatchEvent(new w.Event('change',{bubbles:true}));
- assert.equal($('analyze').disabled,true);
+ assert.equal($('analyze').disabled,false,'Changed selection remains ready for direct reanalysis');
  assert.equal($('analysisResult').value,'');
  assert.equal($('exportSTPCTO').disabled,true,'stale executive report must not be exportable');
  // When Beta has no configured LLM, Analyze must produce an explicit non-AI STP
@@ -100,14 +98,12 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{JSDOM}=require
  assert.equal($('analyze').disabled,false);
  await $('analyze').onclick();
  assert.equal(submitted.length,earlierCalls,'no provider request is sent when AI is disabled');
- assert.match($('analysisResult').value,/AI modeli ÇALIŞTIRILMADI/);
- assert.match($('analysisResult').value,/VLAN 10: CORE-1 4096 vs CORE-2 8192/,'Human-readable bridge-priority evidence is included');
- assert.match($('analysisResult').value,/ÖNCELİKLİ BULGULAR/);
- assert.doesNotMatch($('analysisResult').value,/ACCESS-1/);
- assert.equal($('downloadReport').disabled,false,'explicit offline report can be exported');
- assert.match($('status').textContent,/AI çalıştırılmadı/);
+ assert.equal($('analysisResult').value,'','Internal model draft is unused for local STP');
+ assert.match($('stpCTOView').textContent,/CORE-1/,'Core root comparison remains in HTML report');
+ assert.doesNotMatch($('stpCTOView').textContent,/ACCESS-1/,'Unselected device is absent from analysis');
+ assert.match($('status').textContent,/no external model call/);
  assert.match($('stpCTOView').textContent,/STP Mühendislik Analiz Raporu/,'offline Analyze shows CTO dashboard');
  assert.equal($('exportSTPCTO').disabled,false);
  dom.window.close();
- console.log('STP V1 UI: selected 2 Core devices, preflight, redacted evidence, typed model call, stale review prevention passed');
+ console.log('STP V1 UI: selected 2 Core devices, preflight, redacted evidence, one-click local STP, no external model call, stale report invalidation passed');
 })().catch(error=>{console.error(error);process.exitCode=1;});
