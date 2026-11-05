@@ -728,13 +728,101 @@ $('viewSTPCTO').onclick=()=>{
  $('viewSTPCTO').textContent=$('stpCTOView').hidden?'HTML View':'Hide HTML View';
  if(!$('stpCTOView').hidden)$('stpCTOView').scrollIntoView?.({block:'nearest',behavior:'smooth'});
 };
-$('exportSTPCTO').onclick=()=>{
- if($('exportSTPCTO').disabled||!$('stpCTOView').children.length)return;
+
+function getReportDocument(){
  const css="body{font-family:Arial,system-ui,sans-serif;color:#1b2933;background:#f0f3f6;max-width:1080px;margin:25px auto;padding:0 20px}.paper{background:white;border-radius:5px;padding:34px;box-shadow:0 10px 28px #0002;min-height:500px}.paper h1{font-size:26px;margin:8px 0}.paper h2{font-size:17px;border-bottom:1px solid #cad5dd;padding:0 0 5px;margin:26px 0 8px}.paper p,.paper li{font-size:12px;line-height:1.6}.report-meta{color:#506779;font-size:11px}.report-tag{color:#186595;font-weight:800;text-transform:uppercase;letter-spacing:.12em;font-size:10px}.summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin:18px 0}.metric{border:1px solid #cad6df;border-radius:7px;padding:10px}.metric b{display:block;font-size:20px}.metric span{display:block;font-size:10px;color:#586d79}.decision{border-left:3px solid #80abc4;background:#f5f9fc;padding:12px 14px;margin:12px 0;break-inside:avoid}.decision strong{font-size:13px;color:#153e58}.decision .choice{display:inline-block;margin-left:7px;color:#215f83;font-size:11px;font-weight:700}.decision p{margin:7px 0;color:#354e5e}.decision details{margin-top:9px;font-size:11px}.decision details a{display:block;padding:3px 0;overflow-wrap:anywhere}.report-footer{font-size:10px;color:#6c7c87;margin-top:30px}.cto-action{border-top:1px solid #d8e4ea;padding-top:8px}.cto-muted{color:#5f798b;font-size:11px}@media print{body{background:white;padding:0;margin:0}.paper{box-shadow:none;padding:12px}}";
- const report=$('stpCTOView').cloneNode(true);report.hidden=false;report.querySelectorAll('[data-evidence-upload]').forEach(button=>button.remove());
- const html='<!doctype html><html lang="'+($('language').value==='tr'?'tr':'en')+'"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>STP Engineering Assessment</title><style>'+css+'</style></head><body>'+report.outerHTML+'</body></html>';
- saveFile('network-configurator-stp-cto-assessment.html',html,'text/html;charset=utf-8');
+ let reportHtml='';
+ if($('stpCTOView').children.length){
+  const report=$('stpCTOView').cloneNode(true);report.hidden=false;
+  report.querySelectorAll('[data-evidence-upload]').forEach(button=>button.remove());
+  reportHtml=report.outerHTML;
+ }else{
+  const section=document.createElement('section');section.className='paper';
+  const title=document.createElement('h1');title.textContent='Network Engineering Analysis';section.append(title);
+  const output=document.createElement('pre');output.textContent=$('analysisResult').value;section.append(output);
+  reportHtml=section.outerHTML;
+ }
+ return '<!doctype html><html lang="'+($('language').value==='tr'?'tr':'en')+'"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Network Engineering Assessment</title><style>'+css+'</style></head><body>'+reportHtml+'</body></html>';
+}
+$('exportSTPCTO').onclick=()=>{
+ if(activeSavedReport){saveFile('network-assessment-saved.html',activeSavedReport.html,'text/html;charset=utf-8');return;}
+ if($('exportSTPCTO').disabled||(!reportGenerated&&!$('stpCTOView').children.length))return;
+ saveFile('network-configurator-engineering-assessment.html',getReportDocument(),'text/html;charset=utf-8');
 };
+function applyReviewerNotes(){
+ if(!reportGenerated)return;
+ const comment=$('reviewExecutiveComment').value.trim(),notes=$('reviewEngineeringNotes').value.trim();
+ const current=$('stpCTOView').querySelector('[data-reviewer-notes]');
+ if(current)current.remove();
+ if(comment||notes){
+  const paper=$('stpCTOView').querySelector('.stp-design-paper')||$('stpCTOView').firstElementChild;
+  if(paper){
+   const section=document.createElement('section');section.dataset.reviewerNotes='true';
+   const head=document.createElement('h2');head.textContent='Reviewer Commentary (human-authored)';section.append(head);
+   for(const [label,value] of [['Executive commentary',comment],['Engineering notes',notes]]){
+    if(!value)continue;
+    const title=document.createElement('strong');title.textContent=label;
+    const text=document.createElement('p');text.textContent=value;
+    text.style.whiteSpace='pre-wrap';section.append(title,text);
+   }
+   paper.append(section);
+  }
+ }
+ $('reportEditPanel').hidden=true;
+ $('reportStageStatus').textContent='Reviewer notes updated. Automated analysis and CLI evidence remain unchanged.';
+}
+$('editEngineeringReport').onclick=()=>{
+ if($('editEngineeringReport').disabled||activeSavedReport)return;
+ $('reportEditPanel').hidden=!$('reportEditPanel').hidden;
+};
+$('applyReportEdits').onclick=applyReviewerNotes;
+const REPORT_KEY='networkConfigurator.aiAnalysis.savedReports.v1';
+function savedReportRecords(){
+ try{
+  const raw=JSON.parse(localStorage.getItem(REPORT_KEY)||'[]');
+  return Array.isArray(raw)?raw.filter(r=>typeof r.id==='string'&&typeof r.html==='string').slice(0,8):[];
+ }catch{return [];}
+}
+function refreshSavedReports(){
+ const target=$('reportSavedList'),before=target.value;
+ target.replaceChildren();
+ for(const item of savedReportRecords()){
+  const opt=document.createElement('option');opt.value=item.id;opt.textContent=item.title;target.append(opt);
+ }
+ if([...target.options].some(o=>o.value===before))target.value=before;
+ $('openSavedReport').disabled=!target.options.length;
+}
+$('saveEngineeringReport').onclick=()=>{
+ if(!reportGenerated||activeSavedReport)return;
+ if(!window.confirm('Save a report that may contain device topology and CLI evidence in this browser? This is local storage, not Project Library or the main application.'))return;
+ applyReviewerNotes();
+ try{
+  const html=getReportDocument();
+  if(html.length>1700000)throw Error('Report is too large for browser storage. Download HTML instead.');
+  const title='Network Assessment · '+new Date().toLocaleString()+' · '+scopedDeviceIds().length+' devices';
+  const record={id:'analysis-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),
+   title,created:new Date().toISOString(),html,
+   draft:$('analysisResult').value.slice(0,160000),
+   module:selectedModules().join(', '),devices:scopedDeviceIds().map(id=>workspace.nodes.find(n=>n.id===id)?.hostname||id),
+   notes:{executive:$('reviewExecutiveComment').value,engineering:$('reviewEngineeringNotes').value}};
+  localStorage.setItem(REPORT_KEY,JSON.stringify([record,...savedReportRecords()].slice(0,5)));
+  refreshSavedReports();$('reportSavedList').value=record.id;
+  $('reportStageStatus').textContent='Report saved to this browser. It is available in Saved reports. Use Download HTML for a portable copy.';
+ }catch(e){message('Could not save report: '+e.message,true);}
+};
+$('openSavedReport').onclick=()=>{
+ const record=savedReportRecords().find(r=>r.id===$('reportSavedList').value);
+ if(!record)return message('Select a saved report.',true);
+ activeSavedReport=record;
+ const frame=$('savedReportPreview');frame.srcdoc=record.html;frame.hidden=false;
+ $('stpCTOView').hidden=true;
+ $('viewSTPCTO').disabled=false;$('viewSTPCTO').textContent='Hide HTML View';
+ $('exportSTPCTO').disabled=false;
+ $('saveEngineeringReport').disabled=true;$('editEngineeringReport').disabled=true;$('reportEditPanel').hidden=true;
+ $('reportStageStatus').textContent='Saved report · '+record.title+' · read-only snapshot; CLI evidence cannot be changed.';
+ navigateWorkflow(4);
+};
+refreshSavedReports();
 function stpV1Review(){
  if(!window.NetworkSTPV1)throw Error('STP V1 parser is unavailable.');
  return window.NetworkSTPV1.assess(workspace,scopedDeviceIds());
