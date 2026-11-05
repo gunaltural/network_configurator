@@ -112,14 +112,18 @@ function removeLink(workspace,id){
 }
 const sensitive=/(?:password|passwd|secret|snmp[-\s]?server\s+community|snmp\s+community|community-string|private.?key|api.?key|authorization|sk-[A-Za-z0-9_-]+)/i;
 function safeLine(line){return sensitive.test(line)?'[REDACTED]':line.replace(/[\r\n\t]/g,' ');}
-function analysisEvidenceBatches(workspace){
+function analysisEvidenceBatches(workspace,selectedDeviceIds){
  const model=validate(workspace),items=[];
+ const allIds=new Set(model.nodes.map(n=>n.id));
+ const chosen=selectedDeviceIds==null?allIds:new Set(selectedDeviceIds);
+ if(!chosen.size||[...chosen].some(id=>!allIds.has(id)))throw Error('Select one or more valid devices before analysis.');
  if(!model.nodes.length)throw Error('Add at least one device before analysis.');
  // Every topology and configuration fact is line-addressed. No fabricated CLI
  // commands, and no rule-derived conclusion is passed off as an observation.
  const topology=['Workspace topology: user-edited (not verified operational state)'];
- for(const n of model.nodes)topology.push('Device '+n.id+' hostname='+n.hostname+' vendor='+n.vendor+' role='+n.role);
- for(const l of model.links)topology.push('Link '+l.id+' '+l.a+'['+l.aPort+'] to '+l.b+'['+l.bPort+'] kind='+l.kind+' logical='+!!l.logical);
+ topology.push('Selected devices: '+[...chosen].join(', '));
+ for(const n of model.nodes.filter(n=>chosen.has(n.id)))topology.push('Device '+n.id+' hostname='+n.hostname+' vendor='+n.vendor+' role='+n.role);
+ for(const l of model.links.filter(l=>chosen.has(l.a)&&chosen.has(l.b)))topology.push('Link '+l.id+' '+l.a+'['+l.aPort+'] to '+l.b+'['+l.bPort+'] kind='+l.kind+' logical='+!!l.logical);
  const addChunks=(idPrefix,header,lines)=>{
   let chunk=[],size=header.length+15,part=0;
   function flush(){if(!chunk.length)return;items.push({id:idPrefix+'-'+part++,text:header+'\n'+chunk.join('\n')});chunk=[];size=header.length+15;}
@@ -134,13 +138,13 @@ function analysisEvidenceBatches(workspace){
  addChunks('topology','Device: WORKSPACE\nCommand: user topology manifest (design intent, not operational proof)',topology);
  if(model.designReview){
   const source=model.designReview.edited?'Original Design parameters (workspace has since been edited)':'Original Design parameters (intent; not operational proof)';
-  const params=['Source: '+source,...model.designReview.parameters.map(p=>
+  const params=['Source: '+source,'Scope: these parameters describe the complete original Design, not just the selected devices',...model.designReview.parameters.map(p=>
    'Parameter '+p.label+' | selected='+p.value+' | engineering rationale='+p.impact
   )];
   addChunks('design-intent','Device: ORIGINAL-DESIGN\nCommand: parameter choices and engineering rationale',params);
   const checks=model.designReview.checks;
   if(checks){
-   const observations=['Source: existing Design consistency checker; this is not AI reasoning or deployed configuration verification',
+   const observations=['Source: existing Design consistency checker; this is not AI reasoning or deployed configuration verification','Scope: whole original Design; checker issues are not automatically attributed to selected devices',
     'Evaluated '+checks.evaluated+' inputs; '+checks.errors+' errors; '+checks.warnings+' warnings',
     'Original Design status: '+(model.designReview.edited?'STALE AFTER WORKSPACE EDITS':'snapshot at import')];
    for(const issue of checks.issues||[])observations.push(safeLine('Design check '+issue.code+' '+issue.severity+': '+issue.message));
@@ -149,7 +153,7 @@ function analysisEvidenceBatches(workspace){
  }
  for(const [index,c]of model.configs.entries()){
   const node=model.nodes.find(n=>n.id===c.deviceId);
-  if(!node)continue;
+  if(!node||!chosen.has(c.deviceId))continue;
   if(c.text.length>150000)throw Error('Device configuration exceeds 150 KB. Use CLI Analysis for large captures.');
   addChunks('config-'+index,'Device: '+identifier(node.hostname).replace(/[\r\n]/g,' ')+'\nVendor: '+identifier(node.vendor).replace(/[\r\n]/g,' ')+'\nCommand: proposed configuration (generated Design or manually attached; NOT deployed)',c.text.replace(/\r\n?/g,'\n').split('\n'));
  }
