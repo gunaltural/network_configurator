@@ -25,7 +25,7 @@ textarea{width:100%;min-height:140px;resize:vertical}pre{padding:12px;background
 #deviceAnalysisChoices label{display:flex;align-items:center;gap:9px;border:1px solid #cfdee7;border-radius:8px;padding:10px;background:#f8fbfd;min-width:0;margin:0;cursor:pointer}
 #deviceAnalysisChoices label:has(input:checked){background:#e5f3fb;border-color:#277ea7}
 #deviceAnalysisChoices input{flex:0 0 18px;width:18px;height:18px;margin:0;accent-color:#186b9a}
-#deviceAnalysisChoices span{min-width:0;overflow-wrap:anywhere}
+#showTechDeviceList{display:grid;gap:7px;margin-top:12px}#showTechDeviceList .evidence-device{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:7px;padding:9px;border:1px solid #d1dfe9;border-radius:8px}#showTechDeviceList .evidence-device button{font-size:12px;padding:5px 9px}#deviceAnalysisChoices span{min-width:0;overflow-wrap:anywhere}
 #deviceScopeCount{font-size:.86rem;color:#476579}
 .entry-option:focus-visible{outline:3px solid #3186cc}
 #buildSource .control{margin:10px 0}#buildPrimaryCount,#buildSecondaryCount{max-width:130px}#legacyTemplates{margin-top:10px}#topologyCanvas [data-device-id]{cursor:pointer}.cto-view{margin-top:16px;max-width:100%;overflow-wrap:anywhere}.cto-head{border-radius:13px;padding:24px;background:#103a56;color:#fff}.cto-head h2{margin:8px 0;font-size:24px}.cto-head p{color:#d1e4f2}.cto-kicker{font-size:11px;letter-spacing:1.3px}.cto-notice{margin-top:12px;padding:10px;background:#285570;border-radius:8px;font-size:12px}.cto-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:16px 0}.cto-kpi{padding:15px;border:1px solid #cfdfea;border-radius:10px;background:#f8fbfd;color:#173f5d;display:grid;gap:7px}.cto-kpi strong{font-size:18px}.cto-section{padding:19px;margin:13px 0;border:1px solid #d7e3ed;border-radius:12px;background:#fff;color:#173d55}.cto-section h3{margin:0 0 15px}.cto-finding{border-left:4px solid #db9c40;background:#f9fbfe;padding:15px;border-radius:8px;margin:10px 0}.cto-finding-head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}.cto-tag{background:#fff1df;color:#875519;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700}.cto-context,.cto-action{padding:10px;background:#edf4f9;border-radius:7px}.cto-action{background:#edf6ed}.cto-finding details a{display:block;margin:5px 0;overflow-wrap:anywhere}.cto-muted{color:#5f798b;font-size:12px}.cto-view ol li{padding:4px 0}.cto-view footer{padding:10px 0}@media(max-width:500px){.cto-head{padding:14px}.cto-head h2{font-size:19px}}
@@ -56,31 +56,31 @@ textarea{width:100%;min-height:140px;resize:vertical}pre{padding:12px;background
 @media(max-width:600px){.stp-design-paper{padding:15px}.stp-design-paper h1{font-size:21px}}
 </style></head>
 <body><main>
-<header><div><a href="/">Network Configurator</a> / AI Analysis <a id="returnToDesign" href="/" hidden>Return to Design</a> <h1>AI Topology Workspace</h1><p class="muted">Start from a design or template. Edit devices, links and configurations without changing the original Design project.</p></div><span id="sourceLabel">Independent workspace</span></header>
+<header><div><a href="/">Network Configurator</a> / AI Analysis <a id="returnToDesign" href="/" hidden>Return to Design</a> <h1>AI Analysis Workspace</h1></div><span id="sourceLabel">Independent workspace</span></header>
 <div class="grid"><section class="panel" aria-label="Topology editor">
 <h2>1 · Build or import topology</h2>
-<p id="topologyEntryHint" class="hint">Choose a source below. This independent workspace does not change your saved Design project.</p>
+<p id="topologyEntryHint" class="hint" hidden></p>
 <div class="entry-options" role="group" aria-label="Topology source">
 <button type="button" id="chooseDesign" class="entry-option" aria-pressed="true"><strong>1 · Import from Design</strong><span>New Project, Quick Design or saved project</span></button>
 <button type="button" id="chooseSaved" class="entry-option" aria-pressed="false"><strong>2 · Open saved workspace</strong><span>Load a previously exported AI workspace JSON</span></button>
 <button type="button" id="chooseBuild" class="entry-option" aria-pressed="false"><strong>3 · Build new topology</strong><span>Start blank or use a network template</span></button>
 </div>
 <section id="designSource" class="entry-detail" aria-label="Import from Design">
-<h3>Import from Design</h3><p class="hint">Choose a browser-saved Design or Project Library record. The original Design generator restores the project, produces its configurations and transfers a separate copy here automatically.</p>
+<h3>Import from Design</h3>
 <label>Saved Design project<select id="savedDesignSelect"><option value="">Select a Design project</option></select></label>
 <label>Or import a Design project JSON from your computer<input type="file" id="importDesignFile" accept=".json,application/json"></label>
-<p class="hint">Supports Network Configurator full-project exports and Design workspace JSON. This differs from an AI Workspace JSON file.</p>
+
 <div class="control"><button id="refreshSavedDesign" type="button">Refresh saved projects</button><button id="openSavedDesign" type="button" class="primary" disabled>Import selected Design</button></div>
 <p id="savedDesignStatus" class="hint" role="status"></p>
-<p id="savedDesignHelp" class="hint">Browser-saved projects belong to this Beta website. Projects saved only on the main Network Configurator website are not automatically visible here. <a href="https://network-configurator.onrender.com/?section=projects" target="_blank" rel="noopener noreferrer">Open main Project Library</a> to export a full project, then import its Design JSON above.</p>
+<details><summary>Import help</summary><p id="savedDesignHelp" class="hint">For main-site projects, export JSON from <a href="https://network-configurator.onrender.com/?section=projects" target="_blank" rel="noopener noreferrer">Project Library</a> and upload it here.</p></details>
 </section>
 <section id="savedSource" class="entry-detail" aria-label="Open saved AI workspace" hidden>
 <h3>Open saved AI workspace</h3><label>Workspace JSON<input type="file" id="importWorkspace" accept=".json,application/json"></label>
-<p class="hint">Only AI Workspace JSON files exported from this page are accepted here. For Design project JSON files, choose Import from Design instead.</p>
+
 </section>
 <section id="buildSource" class="entry-detail" aria-label="Build new topology" hidden>
 <h3>Build new topology</h3>
-<p class="hint">Build a topology based on an existing Design technology. Choose platform and adjust network device counts. Topology presets do not create or validate real device configurations.</p>
+
 <div class="control"><label>Technology module<select id="buildTechnology"></select></label><label>Vendor<select id="buildVendor"></select></label><label>Platform<select id="buildPlatform"></select></label></div>
 <div class="control"><label id="primaryCountLabel">Core / primary devices<input id="buildPrimaryCount" type="number" min="1" max="8" value="2"></label><label id="secondaryCountLabel">Access / secondary devices<input id="buildSecondaryCount" type="number" min="0" max="12" value="2"></label></div>
 <div class="control"><button id="applyTechnologyTemplate" type="button" class="primary">Create / update topology</button><span class="hint">Replacing a topology requires confirmation when devices or configurations exist.</span></div>
@@ -90,15 +90,15 @@ textarea{width:100%;min-height:140px;resize:vertical}pre{padding:12px;background
 <div class="control"><label>Initial vendor<select id="aiDefaultVendor"><option>Cisco NX-OS</option><option>Cisco IOS-XE</option><option>Arista EOS</option><option>Huawei_CE_SW</option><option>FortiGate</option><option>Juniper Junos</option><option selected>Other</option></select></label>
 <label>Initial device role<input id="aiDefaultRole" maxlength="80" value="network-node"></label></div>
 <button class="primary" id="aiBuildTopology" type="button">Create independent topology</button>
-<p class="hint">Choose any topology, then edit each device vendor, role, name and link freely below. This builder never generates a configuration or diagnoses a network.</p>
+
 </fieldset>
 
 <details id="legacyTemplates"><summary>Quick starter templates (optional)</summary>
 <div class="control"><label>Starting template<select id="template"><option value="blank">Blank topology</option><option value="vpc">Cisco vPC pair</option><option value="bgp">CE–ISP eBGP</option><option value="evpn">EVPN leaf–spine</option></select></label><button id="applyTemplate">Use template</button></div></details>
-<p class="hint">After building, use <strong>Per-device configuration / CLI capture</strong> below to choose a node and upload its TXT / CFG / LOG. Next, use <strong>Devices to analyze</strong> to select specific nodes or all devices.</p>
+
 </section>
-<div class="control"><button id="exportWorkspace">Save AI workspace (.json)</button></div>
-<p class="hint">Saved AI workspace files contain device configurations and can contain secrets. Review before sharing.</p>
+<div class="control"><button id="exportWorkspace">Save AI workspace (.json)</button></div><details id="syntheticLabEntry"><summary>Optional synthetic LAB</summary><button id="loadSTPLab" type="button">Load 2 Core + 1 Access STP LAB</button><p class="hint">Replaces this workspace. All LAB CLI is synthetic.</p></details>
+
 <fieldset><legend>Devices</legend>
 <div class="control"><label>Selected device<select id="deviceSelect"><option value="">New device</option></select></label><button id="newDevice">New</button></div>
 <div class="control"><label>ID<input id="deviceId" placeholder="fw-1" maxlength="64"></label><label>Hostname<input id="hostname" placeholder="FW-1" maxlength="80"></label></div>
@@ -113,47 +113,47 @@ textarea{width:100%;min-height:140px;resize:vertical}pre{padding:12px;background
 <label><input type="checkbox" id="linkLogical"> Logical / control-plane link</label>
 <div class="control"><button id="saveLink" class="primary">Add / update connection</button><button id="deleteLink">Remove connection</button></div>
 </fieldset></details>
-<fieldset id="perDeviceConfiguration"><legend>Per-device configuration / CLI capture</legend><p class="hint">Select a topology node to attach its observed configuration or CLI output. No configurations are generated by the topology builder.</p>
+<fieldset id="perDeviceConfiguration"><legend>Design / Running Configuration</legend>
 <label>Device<select id="configDevice"></select></label>
-<label>Paste configuration or outputs<textarea id="configuration" spellcheck="false" placeholder="show running-config / show tech / display current-configuration …"></textarea></label>
+<label>Paste Design / running config<textarea id="configuration" spellcheck="false" placeholder="show running-config / display current-configuration"></textarea></label>
 <div class="control"><label>Load local TXT / CFG<input type="file" id="configFile" accept=".txt,.log,.cfg,text/plain"></label><button id="saveConfig">Attach to selected device</button></div>
-<p class="hint">Files stay local until you explicitly run analysis. Analysis sends the reviewed, redacted evidence to the configured model provider. For captures exceeding 150 KB per device, use <a href="/analysis">CLI Analysis</a>.</p>
+
+</fieldset>
+<fieldset id="showTechEvidence"><legend>Show Tech / Verification CLI (optional)</legend>
+<label>Device<select id="showTechDevice" aria-label="Show Tech device"></select></label>
+<div class="control"><label>Upload TXT / LOG / CFG<input id="showTechFile" type="file" accept=".txt,.log,.cfg,text/plain"></label></div>
+<div id="showTechDeviceList" role="list" aria-label="Per-device operational evidence"></div>
+<p id="showTechStatus" role="status" class="hint"></p>
 </fieldset>
 </section>
 <div><section class="panel" aria-label="Topology overview">
-<h2>2 · Network topology</h2><p id="overview">No devices yet.</p><div id="topologyMode"><button type="button" id="showOriginalDesign" hidden aria-pressed="false">Original Design view</button><button type="button" id="showEditableTopology" aria-pressed="true">Edit topology</button></div><div id="originalDesignPane" hidden><p class="hint">Exact original Design drawing, imported as a visual snapshot. Changes are made in Edit topology; original Design is not modified.</p><img id="originalDesignImage" alt="Original Design network topology diagram"></div><div id="editableTopologyPane"><p class="hint">Drag a device to reposition it. Connections follow, and the saved workspace retains your layout.</p><svg id="topologyCanvas" viewBox="0 0 800 360" role="img" aria-label="Editable network topology preview"></svg></div>
+<h2>2 · Network topology</h2><p id="overview">No devices yet.</p><div id="topologyMode"><button type="button" id="showOriginalDesign" hidden aria-pressed="false">Original Design view</button><button type="button" id="showEditableTopology" aria-pressed="true">Edit topology</button></div><div id="originalDesignPane" hidden><img id="originalDesignImage" alt="Original Design network topology diagram"></div><div id="editableTopologyPane"><p class="hint">Drag a device to reposition it. Connections follow, and the saved workspace retains your layout.</p><svg id="topologyCanvas" viewBox="0 0 800 360" role="img" aria-label="Editable network topology preview"></svg></div>
 <h3>Devices</h3><ul id="devicesList"></ul><details><summary>Link inventory (advanced)</summary><ul id="linksList"></ul></details>
 </section>
-<section class="panel" aria-label="AI analysis"><h2>3 · Review and analyze</h2><section id="structuralReview"><h3>Structural dependency analysis · deterministic, not AI</h3>
+<section class="panel" aria-label="Engineering analysis"><h2>3 · Engineering assessment</h2><section id="structuralReview" hidden><h3>Structural dependency analysis · deterministic, not AI</h3>
 <button id="assessStructure" type="button">Inspect connectivity and single-path dependencies</button>
 <pre id="structuralResult" aria-live="polite">Not yet assessed. Only modeled physical links are considered.</pre>
-<p class="hint">A bridge or transit node is a possible dependency in the drawn graph. It does not prove production outages or operational reachability; logical overlay links are analyzed separately.</p></section><section id="designReviewPanel" hidden>
+</section><section id="designReviewPanel" hidden>
 <h3>Imported Design baseline — deterministic checks</h3>
 <p id="designReviewSummary"></p><ul id="designReviewIssues"></ul>
-<p class="hint">Existing Design checks validate selected inputs. They do not prove deployment or independent correctness of every generated configuration. AI reviews these as context, not as a precomputed answer.</p>
-</section>
-<section id="stpV1Panel" hidden><h3>STP Analysis V1 · Core configuration comparison</h3>
-<p class="hint">Compares only selected device configurations and explicitly configured STP values. This deterministic preflight is not an AI diagnosis or proof of live root roles.</p>
-<button type="button" id="runSTPPreflight">Compare selected STP configurations (local)</button>
-<pre id="stpPreflightResult" aria-live="polite">Select STP and devices, then compare their configurations.</pre>
-<button id="runSTPCTO" type="button" class="primary">Generate CTO Engineering Dashboard (Design knowledge DB)</button><button id="exportSTPCTO" type="button" disabled>Export CTO report (.html)</button>
-<div id="stpCTOStatus" role="status" class="hint"></div>
-<div id="stpCTOView" class="cto-view" aria-live="polite"></div>
-<details id="stpKnowledgeDetails"><summary>STP Engineering Knowledge Catalog V1 · vendor references</summary>
-<p class="hint">Scoped configuration findings with Cisco reference links. Absent commands are NOT proof of disabled features. Non-Cisco configurations require platform-specific references.</p>
-<button type="button" id="runSTPKnowledge">Evaluate selected device configs against STP Design parameters</button>
-<pre id="stpKnowledgeResult" aria-live="polite">Knowledge review not run.</pre>
 
-<div id="stpKnowledgeSources" class="hint" aria-label="Official vendor source links"></div>
-</details>
 </section>
-<p>AI runs only when you explicitly press Analyze. Review the exact redacted evidence before sending it. A citation-valid draft is <strong>not</strong> a verified root-cause diagnosis.</p>
+<section id="stpV1Panel" hidden>
+<div class="control"><button id="runSTPCTO" type="button" class="primary">Generate Engineering Report</button><button id="viewSTPCTO" type="button" disabled>HTML View</button><button id="exportSTPCTO" type="button" disabled>Export HTML</button></div>
+<div id="stpCTOStatus" role="status" class="hint"></div>
+<div id="stpCTOView" class="cto-view" aria-live="polite" hidden></div>
+<section id="stpLegacyTools" hidden>
+<button type="button" id="runSTPPreflight">Compare selected STP configurations (local)</button>
+<pre id="stpPreflightResult">Not analyzed</pre>
+<details id="stpKnowledgeDetails"><summary>STP reference catalog</summary><button id="runSTPKnowledge">Evaluate selected device configs</button><pre id="stpKnowledgeResult">Not analyzed</pre><div id="stpKnowledgeSources"></div></details>
+</section>
+</section>
 <fieldset id="deviceAnalysisScope"><legend>Devices to analyze</legend>
-<p class="hint">Choose all devices or only the endpoints you want reviewed (for example CORE-01 + ACCESS-01). Only selected device configurations and links between selected endpoints are included in the AI evidence.</p>
+
 <div class="control" id="deviceScopeActions"><button type="button" id="selectAllDevices">Select all devices</button><button type="button" id="clearSelectedDevices">Clear selection</button><span id="deviceScopeCount" role="status">No devices available</span></div>
 <div id="deviceAnalysisChoices" aria-label="Devices to analyze"></div>
 </fieldset>
-<fieldset id="analysisScope"><legend>Engineering analysis scope</legend><p class="hint">Select one or more technology modules. Additional modules can be added without changing this layout.</p><p id="scopeCount" role="status">No modules selected</p><div class="control" id="scopeTools"><label>Find module<input id="moduleSearch" type="search" placeholder="Search technology modules" autocomplete="off"></label><button type="button" id="clearModules">Clear selection</button></div><div id="moduleChoices" aria-label="Engineering modules"><label><input type="checkbox" value="STP"><span>STP</span></label><label><input type="checkbox" value="SYSTEM"><span>System Management</span></label><label><input type="checkbox" value="BGP"><span>BGP</span></label><label><input type="checkbox" value="VPC"><span>vPC / MLAG</span></label><label><input type="checkbox" value="EVPN"><span>EVPN / VXLAN</span></label><label><input type="checkbox" value="OSPF"><span>OSPF</span></label><label><input type="checkbox" value="SDWAN"><span>SD-WAN</span></label><label><input type="checkbox" value="DCI"><span>DCI</span></label></div></fieldset>
+<fieldset id="analysisScope"><legend>Engineering analysis scope</legend><p id="scopeCount" role="status">No modules selected</p><div class="control" id="scopeTools"><label>Find module<input id="moduleSearch" type="search" placeholder="Search technology modules" autocomplete="off"></label><button type="button" id="clearModules">Clear selection</button></div><div id="moduleChoices" aria-label="Engineering modules"><label><input type="checkbox" value="STP"><span>STP</span></label><label><input type="checkbox" value="SYSTEM"><span>System Management</span></label><label><input type="checkbox" value="BGP"><span>BGP</span></label><label><input type="checkbox" value="VPC"><span>vPC / MLAG</span></label><label><input type="checkbox" value="EVPN"><span>EVPN / VXLAN</span></label><label><input type="checkbox" value="OSPF"><span>OSPF</span></label><label><input type="checkbox" value="SDWAN"><span>SD-WAN</span></label><label><input type="checkbox" value="DCI"><span>DCI</span></label></div></fieldset>
 <div class="control"><label>Report language<select id="language"><option value="en">English</option><option value="tr">Türkçe</option></select></label><button id="preview">Review evidence to send</button><button id="analyze" class="primary" disabled>Analyze reviewed evidence</button></div>
 <details id="evidenceDetails"><summary>Evidence preview (sanitized)</summary><pre id="evidencePreview"></pre></details>
 <p id="status" role="status"></p>
