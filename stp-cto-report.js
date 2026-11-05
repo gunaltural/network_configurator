@@ -309,11 +309,13 @@ function appendEngineeringReadout(paper,assessment,tr){
 function appendEngineeringMatrix(paper,assessment,tr,operational){
  const L=(a,b)=>tr?a:b,section=E('section','stp-assessment-matrix');
  section.append(E('h2','',L('5 · Cihaz Bazlı Mühendislik Kriterleri','5 · Per-device Engineering Criteria')));
+ section.append(E('p','report-muted',L(assessment.devices.length+' cihazın tamamı ayrı ayrı gösteriliyor. CLI kanıt detayları kapalı tutulur.',
+  'All '+assessment.devices.length+' selected devices are shown individually. Detailed CLI evidence remains collapsed.')));
  let observed=0,review=0,verify=0;
  for(const [index,device] of assessment.devices.entries()){
   const op=operational?.devices.find(x=>x.deviceId===device.id);
   const hasEvidence=!!op?.present;
-  const group=E('details','stp-device-criteria');group.open=index===0;
+  const group=E('details','stp-device-criteria');group.open=true;group.dataset.deviceId=device.id;
   const heading=device.hostname+' · '+device.controls.length+' '+L('kriter','controls')+' · '+(hasEvidence?op.syntheticOnly?'SYNTHETIC LAB':L('CLI yüklü','CLI attached'):L('Show Tech yok','Show Tech missing'));
   group.append(E('summary','',heading));
   const tip=E('p','report-meta',hasEvidence?
