@@ -487,7 +487,7 @@ $('preview').onclick=()=>{
   if(modules.includes('STP')){
    const review=stpV1Review();
    $('stpPreflightResult').textContent=window.NetworkSTPV1.format(review);
-   const evidence=window.NetworkSTPV1.evidence(review).slice(0,20);
+   const evidence=window.NetworkSTPV1.evidence(review).slice(0,12);
    const lines=evidence.map((line,i)=>'L'+(i+1)+': '+line.slice(0,160));
    pendingBatches[0].unshift({id:'stp-v1-preflight',text:'Device: STP-V1-PREFLIGHT\nCommand: deterministic cross-configuration comparison (not operational proof or an AI answer key)\n'+lines.join('\n')});
   }
