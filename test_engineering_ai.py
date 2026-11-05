@@ -134,6 +134,7 @@ class Tests(unittest.TestCase):
             self.assertIn('retrieved_knowledge', payload['input'])
             self.assertIn('manufacturer_source_metadata', payload['input'])
             self.assertIn('cisco-bgp-basic-2026', draft['sourceIndexIds'])
+            self.assertNotIn('cisco-ospf-exstart-2024', draft['sourceIndexIds'])
             self.assertIn('L3:', payload['input'])
             self.assertIn('Design as intent and Simulation as hypothetical', payload['instructions'])
             self.assertIn('common evidence-based matrix', payload['instructions'])
