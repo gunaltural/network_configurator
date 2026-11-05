@@ -79,7 +79,7 @@ function renderReadiness(){
   const tr=document.createElement('tr');
   const fields=[
    node.hostname+' · '+(node.vendor||'Unknown'),
-   isReady?(node.source==='design'?'Design configuration':'Configuration attached'):'Missing — attach configuration',
+   isReady?((workspace.configs.find(c=>c.deviceId===node.id)?.source==='design')?'Design generator':(workspace.configs.find(c=>c.deviceId===node.id)?.source==='user')?'User attached':'Saved configuration'):'Missing — attach configuration',
    files.length?files.length+' captured file(s)':'Optional · not uploaded'
   ];
   fields.forEach((value,i)=>{const td=document.createElement('td');td.textContent=value;if(i===1)td.className='readiness-state '+(isReady?'good':'missing');tr.append(td);});
