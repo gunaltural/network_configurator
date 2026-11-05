@@ -97,16 +97,19 @@ function evaluate({workspace,deviceIds,modules,correlation,language='en'}={}){
  const controls=scope.map(technology=>{
   const entry=KNOWLEDGE[technology];
   const observations=facts.filter(f=>f.technology===technology);
+  const hasOperational=observations.some(f=>(f.evidence||[]).some(x=>/^show:/i.test(x.source||'')));
+  const state=hasOperational?'EVIDENCE_OBSERVED':observations.length?'CONFIG_ONLY_REVIEW':'NOT_VERIFIED';
   return {technology,
    applicability:entry?'CONTEXTUAL':'UNSUPPORTED_TECHNOLOGY',
-   state:observations.length?'EVIDENCE_OBSERVED':'NOT_VERIFIED',
+   state,
    findings:observations.length,
    realCaptures:real.length,
    purpose:localized(entry,'purpose',language),
    conditionalRisk:localized(entry,'risk',language),
    audit:localized(entry,'requirements',language),
    acceptance:localized(entry,'acceptance',language),
-   limitation:observations.length?'Observed facts are not certification, root cause or proven impact.':
+   limitation:hasOperational?'Operational observations are not certification, root cause or proven impact.':
+    observations.length?'Only configuration/intent discrepancies are reported; operational state not proven.':
     'No matching source-scoped operational fact was observed; evidence may be incomplete or unsupported.'
   };
  });
@@ -125,9 +128,14 @@ function evaluate({workspace,deviceIds,modules,correlation,language='en'}={}){
    configured:design.length?'Configuration/intent evidence attached; deployment not independently verified.':
     'Configuration applicability not proven from this finding.',
    observed:f.observed||'',hypothesis:f.explanation||'',
-   counterevidence:language==='tr'?
-    'Yeterli karşıt kanıt veya eş zamanlı karşı cihaz bilgisi sunulmadıysa kesin neden çıkarılamaz.':
-    'No causal conclusion is supported without considering contrary and time-aligned peer evidence.',
+   counterevidence:f.confidence==='CAPTURE_TIMING_UNVERIFIED'
+    ?(language==='tr'?'Sağlanan yakalamalarda aynı BGP komşusu farklı durumlar bildiriyor; zaman sırası bilinmiyor.':
+       'Supplied captures report different states for the same BGP peer; chronological order is unverified.')
+    :f.confidence==='CONFIG_IP_AND_AS_EXPLICIT'
+    ?(language==='tr'?'İki cihazın ASN ve IP konfigürasyonları farklı; gerçek VRF, oturum bağlamı ve çalışan konfigürasyon doğrulanmalı.':
+       'Two configured ASN/IP facts disagree; actual VRF, peer context and running state remain unverified.')
+    :(language==='tr'?'Karşıt kanıt veya eş zamanlı karşı cihaz bilgisi doğrulanmadı; kesin neden çıkarılamaz.':
+       'No contrary and time-aligned peer evidence has been verified; a causal conclusion is not supported.'),
    conditionalImpact:f.networkImpact||localized(control,'conditionalRisk',language),
    audit:Array.isArray(f.verification)?f.verification:[],
    remediation:language==='tr'?
