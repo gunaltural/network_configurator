@@ -52,7 +52,7 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{JSDOM}=require
  assert.match($('stpCTOView').textContent,/Applicable when:/,'Technology applicability is explained conditionally');
  assert.match($('stpCTOView').textContent,/If absent:/,'Plausible failure exposure is explained');
  assert.ok($('stpCTOView').querySelector('.engineering-priority-table'),'Prioritized management table is shown before technical evidence');
- assert.ok($('stpCTOView').querySelector('.engineering-deployment-evidence'),'Exact CLI evidence mapping is inspectable without flooding the executive view');
+ assert.equal($('stpCTOView').querySelectorAll('.engineering-deployment-evidence').length,0,'Without modeled links, no unsupported port-level CLI mapping is fabricated');
  assert.match($('stpCTOView').textContent,/Verification task/,'VERIFY shows a concise accountable next step');
  assert.match($('stpCTOView').textContent,/Accept when:/,'VERIFY shows explicit acceptance conditions');
  assert.equal(d.querySelector('label #analysisResult'),null,'Legacy editable analysis draft is removed');
