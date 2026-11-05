@@ -65,6 +65,40 @@ function setConfiguration(workspace,deviceId,text){
  next.configs=next.configs.filter(c=>c.deviceId!==deviceId);
  next.configs.push({deviceId,text});return validate(edited(next));
 }
+function structuralAssessment(workspace){
+ const model=validate(workspace),physical=model.links.filter(l=>!l.logical);
+ const adjacency=new Map(model.nodes.map(n=>[n.id,[]]));
+ for(const l of physical){adjacency.get(l.a).push([l.b,l.id]);adjacency.get(l.b).push([l.a,l.id]);}
+ const visited=new Set(),disc=new Map(),low=new Map(),parents=new Map(),articulation=new Set(),bridges=[],components=[];
+ let tick=0;
+ function visit(u,component,parentEdge=null){
+  visited.add(u);disc.set(u,++tick);low.set(u,disc.get(u));component.push(u);
+  let children=0;
+  for(const [v,edge]of adjacency.get(u)){
+   if(!visited.has(v)){
+    parents.set(v,u);children++;visit(v,component,edge);
+    low.set(u,Math.min(low.get(u),low.get(v)));
+    if(parents.has(u)&&low.get(v)>=disc.get(u))articulation.add(u);
+    if(low.get(v)>disc.get(u))bridges.push(edge);
+   }else if(edge!==parentEdge)low.set(u,Math.min(low.get(u),disc.get(v)));
+  }
+  if(!parents.has(u)&&children>1)articulation.add(u);
+ }
+ for(const node of model.nodes){
+  if(visited.has(node.id))continue;
+  const component=[];visit(node.id,component);components.push(component);
+ }
+ return {
+  evidenceType:'planned-graph-structure-not-operational',
+  devices:model.nodes.length,physicalLinks:physical.length,
+  logicalLinks:model.links.length-physical.length,components,
+  isolatedDevices:model.nodes.filter(n=>adjacency.get(n.id).length===0).map(n=>n.id),
+  potentialTransitDependencies:[...articulation].sort(),
+  potentialSinglePathLinks:[...new Set(bridges)].sort(),
+  configurationMissing:model.nodes.filter(n=>!model.configs.some(c=>c.deviceId===n.id)).map(n=>n.id),
+  caveat:'Graph dependencies are conditional. Missing links/configurations may be outside the modeled scope; no failure, outage, traffic path or vendor compliance is proven.'
+ };
+}
 function analysisManifest(workspace){
  const model=validate(workspace);
  // Never include raw configuration in a manifest destined for the AI provider.
@@ -138,6 +172,37 @@ function buildTechnologyTopology(module,platform,primaryCount,secondaryCount){
  else if(key==='OSPF'||key==='QOS')link(a[0],b[0],key==='OSPF'?'OSPF adjacency candidate':'QoS path');
  // A template is a planning graph, not a claim that peering or physical links exist.
  return validate({...blank(),sourceModule:key,nodes,links,templateInfo:{module:key,platform,primaryCount:p,secondaryCount:q,intentOnly:true}});
+}
+function buildFreeTopology(options={}){
+ const count=Number(options.deviceCount);
+ if(!Number.isInteger(count)||count<1||count>32)throw Error('Device count must be between 1 and 32.');
+ const layout=identifier(options.layout||'none');
+ if(!['none','chain','ring','star','dual-hub','mesh'].includes(layout))throw Error('Unknown topology pattern.');
+ if(layout==='mesh'&&count>16)throw Error('Full mesh is limited to 16 devices (120 links).');
+ const vendor=identifier(options.vendor||'Other'),role=identifier(options.role||'network-node');
+ if(!vendor||!role||vendor.length>80||role.length>80)throw Error('Vendor and role must be provided (max 80 characters).');
+ const nodes=Array.from({length:count},(_,i)=>{
+  const name='NODE-'+String(i+1).padStart(2,'0');
+  return {id:'node-'+String(i+1),hostname:name,vendor,role,source:'user'};
+ });
+ const links=[],pairs=new Set();
+ function connect(i,j){
+  if(i===j)return;
+  const a=Math.min(i,j),b=Math.max(i,j),key=a+':'+b;
+  if(pairs.has(key))return;
+  pairs.add(key);
+  links.push({id:'link-'+(links.length+1),a:nodes[a].id,b:nodes[b].id,
+   kind:'physical connection (planned)',aPort:'',bPort:'',logical:false});
+ }
+ if(layout==='chain')for(let i=1;i<count;i++)connect(i-1,i);
+ if(layout==='ring'&&count>1)for(let i=0;i<count;i++)connect(i,(i+1)%count);
+ if(layout==='star')for(let i=1;i<count;i++)connect(0,i);
+ if(layout==='dual-hub'&&count>1){
+  connect(0,1);
+  for(let i=2;i<count;i++){connect(0,i);connect(1,i);}
+ }
+ if(layout==='mesh')for(let i=0;i<count;i++)for(let j=i+1;j<count;j++)connect(i,j);
+ return validate({...blank(),nodes,links,configs:[]});
 }
 function updateDevice(workspace,id,changes){
  const next=validate(workspace),device=next.nodes.find(n=>n.id===id);
@@ -213,5 +278,5 @@ function analysisEvidenceBatches(workspace,selectedDeviceIds){
  return batches;
 }
 
-root.NetworkAITopology={fromDesign,blank,template,technologyCatalog,buildTechnologyTopology,validate,addDevice,moveDevice,updateDevice,addLink,updateLink,removeLink,removeDevice,setConfiguration,analysisManifest,analysisEvidenceBatches};
+root.NetworkAITopology={fromDesign,blank,template,technologyCatalog,buildTechnologyTopology,buildFreeTopology,structuralAssessment,validate,addDevice,moveDevice,updateDevice,addLink,updateLink,removeLink,removeDevice,setConfiguration,analysisManifest,analysisEvidenceBatches};
 })(typeof window==='undefined'?globalThis:window);
