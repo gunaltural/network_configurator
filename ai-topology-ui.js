@@ -24,7 +24,13 @@ function updateDeviceCount(){
 }
 $('selectAllDevices').onclick=()=>{for(const n of workspace.nodes)selectedDeviceIds.add(n.id);syncDeviceChoices();invalidate();};
 $('clearSelectedDevices').onclick=()=>{selectedDeviceIds.clear();for(const input of document.querySelectorAll('#deviceAnalysisChoices input'))input.checked=false;updateDeviceCount();invalidate();};
-const selectedModules=()=>[...document.querySelectorAll('#moduleChoices input:checked')].map(el=>el.value);
+const selectedModules=()=>{
+ const selected=[...document.querySelectorAll('#moduleChoices input:checked')].map(el=>el.value);
+ const source=String(workspace.sourceModule||'').toUpperCase();
+ const aliases={BASIC:'SYSTEM',SYSTEM_MANAGEMENT:'SYSTEM',MLAG:'VPC',VXLAN:'EVPN'};
+ const primary=aliases[source]||source;
+ return selected.includes(primary)?[primary,...selected.filter(x=>x!==primary)]:selected;
+};
 const clean=x=>String(x??'').trim(),snapshot=()=>JSON.stringify({workspace,modules:selectedModules(),devices:scopedDeviceIds()}),isReviewed=()=>reviewedSignature===snapshot();
 function message(value,error=false){$('status').textContent=value;$('status').dataset.error=String(error);}
 function updateScopeCount(){const n=selectedModules().length;$('scopeCount').textContent=n?n+' engineering module'+(n===1?'':'s')+' selected':'No modules selected';}
