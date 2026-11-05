@@ -13,7 +13,7 @@ fieldset{border:1px solid #d2dde5;border-radius:8px;margin:14px 0;padding:12px;m
 label{display:block;font-weight:600;font-size:.9rem;margin:8px 0}input,select,button,textarea{font:inherit;border:1px solid #a9bbc9;border-radius:7px;padding:8px;background:white;color:#162c3d;max-width:100%}
 label>input,label>select,label>textarea{display:block;width:100%;margin-top:3px}button{cursor:pointer}button.primary{background:#174e76;color:#fff;border-color:#174e76}
 button:disabled{opacity:.55;cursor:not-allowed}button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #3186cc;outline-offset:2px}
-#topologyCanvas{display:block;width:100%;height:340px;border:1px solid #d5dfe7;border-radius:9px;background:#f8fbfd}#topologyCanvas text{font:13px system-ui,sans-serif;fill:#18374e}#topologyCanvas .node{fill:#e0eff8;stroke:#266b93;stroke-width:2}#topologyCanvas .link{stroke:#648ba8;stroke-width:3}
+#topologyCanvas{display:block;width:100%;height:340px;border:1px solid #d5dfe7;border-radius:9px;background:#f8fbfd}#topologyCanvas text{font:13px system-ui,sans-serif;fill:#18374e}#topologyCanvas .node{fill:#e0eff8;stroke:#266b93;stroke-width:2}#topologyCanvas .link{stroke:#648ba8;stroke-width:3}#topologyCanvas [data-device-id]{cursor:grab;touch-action:none}#topologyCanvas [data-device-id]:active{cursor:grabbing}
 #devicesList,#linksList{list-style:none;padding:0;margin:8px 0;display:flex;flex-wrap:wrap;gap:8px}#devicesList button,#linksList button{background:#f1f7fa}
 textarea{width:100%;min-height:140px;resize:vertical}pre{padding:12px;background:#f1f6fa;border:1px solid #d4e1eb;border-radius:8px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;max-height:250px}
 #analysisResult{min-height:340px}#status{min-height:1.5em;font-weight:600;color:#174e76}
@@ -49,7 +49,7 @@ textarea{width:100%;min-height:140px;resize:vertical}pre{padding:12px;background
 </fieldset>
 </section>
 <div><section class="panel" aria-label="Topology overview">
-<h2>2 · Inspect network topology</h2><p id="overview">No devices yet.</p>
+<h2>2 · Edit network topology</h2><p class="hint">Drag any device node to change its position. Connections follow automatically; Save workspace preserves the layout.</p><p id="overview">No devices yet.</p>
 <svg id="topologyCanvas" viewBox="0 0 800 360" role="img" aria-label="Editable network topology preview"></svg>
 <h3>Devices</h3><ul id="devicesList"></ul><h3>Connections</h3><ul id="linksList"></ul>
 </section>
