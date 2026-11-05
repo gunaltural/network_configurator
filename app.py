@@ -1748,6 +1748,14 @@ def stp_engineering_v2_script():
 def stp_network_analysis_v2_script():
     return FileResponse(BASE_DIR / 'stp-network-analysis-v2.js', media_type='application/javascript')
 
+@app.get('/stp-operational-evidence-v1.js')
+def stp_operational_evidence_v1_script():
+    return FileResponse(BASE_DIR / 'stp-operational-evidence-v1.js', media_type='application/javascript')
+
+@app.get('/stp-synthetic-lab-v1.js')
+def stp_synthetic_lab_v1_script():
+    return FileResponse(BASE_DIR / 'stp-synthetic-lab-v1.js', media_type='application/javascript')
+
 @app.get('/stp-cto-report.js')
 def stp_cto_report_script():
     return FileResponse(BASE_DIR / 'stp-cto-report.js', media_type='application/javascript')
