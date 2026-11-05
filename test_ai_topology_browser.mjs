@@ -129,6 +129,29 @@ try{
  await page.waitForFunction(()=>document.getElementById('showTechStatus')?.textContent.includes('show-spanning-tree-root'),{timeout:12000});
  assert.match(await page.locator('#showTechDeviceList').textContent(),/show-spanning-tree-root/,'CLI can be pasted for a specific device');
 
+
+ // End-to-end acceptance of the Report stage: HTML, reviewer notes, local save and read-only reopen.
+ await page.locator('#workflowNav [data-workflow-step="3"]').click();
+ await page.locator('#runSTPCTO').click();
+ await page.waitForFunction(()=>document.getElementById('workflowStep4')?.hidden===false,{timeout:12000});
+ assert.equal(await page.locator('#workflowStep4').isVisible(),true);
+ assert.equal(await page.locator('#editEngineeringReport').isEnabled(),true);
+ assert.equal(await page.locator('#saveEngineeringReport').isEnabled(),true);
+ await page.locator('#viewSTPCTO').click();
+ await page.locator('#editEngineeringReport').click();
+ await page.locator('#reviewExecutiveComment').fill('Executive note authored by reviewer: confirm upstream failover.');
+ await page.locator('#reviewEngineeringNotes').fill('Engineering recommendation: validate root port role per VLAN.');
+ await page.locator('#applyReportEdits').click();
+ assert.match(await page.locator('#stpCTOView').textContent(),/Executive note authored by reviewer/);
+ assert.match(await page.locator('#stpCTOView').textContent(),/Engineering recommendation/);
+ page.once('dialog',dialog=>dialog.accept());
+ await page.locator('#saveEngineeringReport').click();
+ assert.ok(await page.locator('#reportSavedList option').count()>0,'Report is saved in local browser list');
+ await page.locator('#openSavedReport').click();
+ assert.equal(await page.locator('#savedReportPreview').isVisible(),true,'Saved HTML is displayed as a read-only snapshot');
+ assert.equal(await page.locator('#savedReportPreview').getAttribute('sandbox'),'');
+ assert.match(await page.locator('#savedReportPreview').getAttribute('srcdoc'),/Executive note authored by reviewer/);
+
  assert.ok(!errors.length,'No UI script errors after synthetic LAB and operational upload: '+errors.join(','));
  console.log('AI topology Chromium: templates, mixed-vendor edits, link, configuration, reviewed evidence and routes passed.');
 }finally{await browser.close();}
