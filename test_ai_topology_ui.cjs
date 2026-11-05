@@ -17,6 +17,8 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  w.eval(fs.readFileSync('ai-topology-ui.js','utf8'));
  assert.equal($('chooseDesign').getAttribute('aria-pressed'),'true','Import from Design is the default Dashboard entry');
  assert.equal($('designSource').hidden,false,'Design tab content initially visible');
+ assert.ok($('importDesignFile'),'Design project file import exists');
+ assert.match(fs.readFileSync('ai-topology-ui.js','utf8'),/network-configurator-project-v1/,'full project JSON import supported');
  assert.ok([...$('savedDesignSelect').options].some(option=>/Campus STP/.test(option.textContent)),'browser-saved project is listed');
  $('savedDesignSelect').value='local:campus';$('savedDesignSelect').dispatchEvent(new w.Event('change'));
  assert.equal($('openSavedDesign').disabled,false,'saved Design import can be selected');
@@ -26,6 +28,10 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  assert.ok($('importWorkspace'),'saved workspace file input exists');
  $('chooseBuild').click();assert.equal($('buildSource').hidden,false,'build topology entry is separate');
  $('chooseDesign').click();assert.equal($('designSource').hidden,false,'Design import entry can be restored');
+ Object.defineProperty($('importDesignFile'),'files',{configurable:true,value:[{name:'Design-test.json',size:100,text:async()=>JSON.stringify({schema:'network-configurator-project-v1',name:'Campus STP',design:savedBrowserDesign})}]});
+ await $('importDesignFile').onchange();
+ assert.equal(JSON.parse(w.sessionStorage.getItem('networkConfigurator.workflow.design')).project.id,'saved-stp','Design project file restores the original Design snapshot');
+
  assert.equal($('savedSource').hidden,true,'Design tab hides saved workspace form');
  assert.match($('overview').textContent,/0 devices/);
  assert.match($('topologyEntryHint').textContent,/Choose a source below/,'Dashboard opens the same workspace with source options');
