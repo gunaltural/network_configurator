@@ -57,7 +57,7 @@ function setupWorkflow(){
  row.append(list,open);saved.append(title,row);
  const frame=document.createElement('iframe');frame.id='savedReportPreview';frame.title='Read-only saved report';frame.setAttribute('sandbox','');frame.hidden=true;
  report.append(reportHelp,controls,$('stpCTOStatus'),edits,$('stpCTOView'),frame,
-  $('analysisResult').closest('label'),$('downloadReport'),saved);
+  $('internalAnalysisCapture'),saved);
  fourth.append(report);
  $('workflowStages').before($('status'));old.remove();
  $('runSTPCTO').textContent='Run STP Engineering Analysis';
