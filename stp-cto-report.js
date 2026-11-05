@@ -26,9 +26,10 @@ function build(container,review,preflight,db,language,engineering,network,operat
  for(const [title,val] of [[L('Cihazlar','Devices'),review.devices.length],[L('Tasarım riski','Design risks'),nRisk],[L('Uygun kontrol','Good checks'),nGood],[L('Ek doğrulama','Verification needed'),nVerify]]){
   kpis.append(A(E('div','metric'),E('b','',val),E('span','',title)));
  }
- paper.append(E('h2','',L('1 · Yönetici özeti','1 · Executive summary')));
+ paper.append(E('h2','',L('Yönetici Özeti ve Öncelikli Öneriler','Executive Summary & Prioritized Recommendations')));
  paper.append(E('p','',L('Tasarım konfigürasyonları, mevcut topoloji ve sağlanan operasyonel kanıtlar değerlendirilmiştir. Yapılandırılmamış korumalar, bağlantı rolü kanıtlandığında tasarım riski olarak işaretlenir; gerçek kesinti iddia edilmez.','Selected configurations, modeled topology and supplied operational evidence were assessed. Missing protections become design risks when link context is evidenced; no live outage is asserted.')));
  paper.append(kpis);
+ if(unified)appendPriorityRecommendations(paper,unified,tr);
  if(unified)appendUnifiedFindings(paper,unified,tr);
  appendNetworkReadout(paper,network,tr,operational);
  appendEngineeringReadout(paper,engineering,tr);
@@ -92,6 +93,37 @@ function build(container,review,preflight,db,language,engineering,network,operat
 
 
 /* Common evidence-first findings: one methodology for every technology adapter. */
+
+/* Cisco-style issue priority table, fed by the vendor-agnostic report model.
+ * VERIFY is a review task, not an automatically invented production failure.
+ */
+function appendPriorityRecommendations(paper,assessment,tr){
+ const review=root.NetworkEngineeringReviewV1?.build(assessment);
+ if(!review)return;
+ const L=(a,b)=>tr?a:b,section=E('section','management-recommendations');
+ const h=E('h3','',L('Öncelikli Bulgu ve Öneriler','Issue / Recommendation Priorities'));section.append(h);
+ const table=E('table','engineering-priority-table'),head=E('thead',''),hdr=E('tr','');
+ for(const name of [L('Öncelik','Priority'),L('Konu','Issue'),L('Kapsam','Scope'),L('Karar / Sonraki işlem','Recommended decision')])hdr.append(E('th','',name));
+ head.append(hdr);table.append(head);
+ const body=E('tbody',''),rows=review.actionable.slice(0,12);
+ for(const entry of rows){
+  const trw=E('tr','');trw.dataset.findingId=entry.id;
+  const pri=E('td',''),badge=E('span','choice',entry.priority);pri.append(badge);
+  badge.style.cssText='font-weight:700;padding:3px 6px;border-radius:4px;background:'+
+   ({HIGH:'#fbe9eb',MEDIUM:'#fff2d9',LOW:'#ecf7ef',REVIEW:'#edf2f6'}[entry.priority])+
+   ';color:'+({HIGH:'#9c2636',MEDIUM:'#78510c',LOW:'#236b41',REVIEW:'#4b6073'}[entry.priority]);
+  const subject=E('td','',entry.technology+' · '+entry.title);
+  const scope=E('td','',entry.devices.slice(0,3).join(' · ')+(entry.devices.length>3?' +'+(entry.devices.length-3):''));
+  const next=E('td','',entry.action);
+  trw.append(pri,subject,scope,next);body.append(trw);
+ }
+ if(rows.length) table.append(body);else section.append(E('p','report-muted',L('Öncelikli açık bulgu yok. Bu, kanıtı eksik alanların otomatik olarak uygun olduğu anlamına gelmez.','No prioritized open finding. This does not establish compliance for any unassessed area.')));
+ if(rows.length)section.append(table);
+ if(review.actionable.length>rows.length)section.append(E('p','report-muted',L('Ek '+(review.actionable.length-rows.length)+' bulgu aşağıdaki teknoloji analizinde yer alır.','Further '+(review.actionable.length-rows.length)+' findings appear in the technology assessment below.')));
+ section.append(E('p','report-muted',L('HIGH/MEDIUM/LOW: kanıtlanmış tasarım maruziyetinin önem düzeyi. REVIEW: değerlendirme için eksik kanıt, otomatik risk sınıflandırması değildir.','HIGH/MEDIUM/LOW: severity of an evidenced design exposure. REVIEW: evidence still needed, not an automatically assigned risk severity.')));
+ paper.append(section);
+}
+
 function appendUnifiedFindings(paper,assessment,tr){
  const L=(a,b)=>tr?a:b,section=E('section','network-engineering-findings-v1');
  section.append(E('h2','',L('1 · Teknoloji Bazlı Mühendislik Bulguları','1 · Technology-level Engineering Findings')));
