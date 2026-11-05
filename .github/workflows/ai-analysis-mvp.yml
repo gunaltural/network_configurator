@@ -25,6 +25,8 @@ on:
       - 'stp-engineering-v2.js'
       - 'stp-network-analysis-v2.js'
       - 'network-engineering-findings-v1.js'
+      - 'engineering-knowledge-stp-v1.js'
+      - 'test_engineering_knowledge_registry_v1.cjs'
       - 'test_network_engineering_findings_v1.cjs'
       - 'test_ai_stp_disabled_design_browser.mjs'
       - 'stp-operational-evidence-v1.js'
@@ -117,11 +119,11 @@ jobs:
       - name: TAC overview test_no_cross_router_or_unscoped_security_finding
         run: python -m unittest -v test_tac_overview.OverviewTests.test_no_cross_router_or_unscoped_security_finding
       - name: Validate browser JavaScript syntax
-        run: node --check analysis-ui.js && node --check show-analysis.js && node --check ai-topology-workspace.js && node --check ai-topology-ui.js && node --check stp-analysis-v1.js && node --check stp-knowledge-v1.js && node --check stp-cto-report.js && node --check stp-engineering-v2.js && node --check stp-network-analysis-v2.js && node --check network-engineering-findings-v1.js && node --check stp-operational-evidence-v1.js && node --check stp-synthetic-lab-v1.js && node --check engineering-ai.js && node --check ai-evidence.js && node --check project-workflow.js
+        run: node --check analysis-ui.js && node --check show-analysis.js && node --check ai-topology-workspace.js && node --check ai-topology-ui.js && node --check stp-analysis-v1.js && node --check stp-knowledge-v1.js && node --check stp-cto-report.js && node --check stp-engineering-v2.js && node --check stp-network-analysis-v2.js && node --check network-engineering-findings-v1.js && node --check engineering-knowledge-stp-v1.js && node --check stp-operational-evidence-v1.js && node --check stp-synthetic-lab-v1.js && node --check engineering-ai.js && node --check ai-evidence.js && node --check project-workflow.js
       - name: Install browser DOM test dependency
         run: npm install --no-save --ignore-scripts jsdom@30.1.1 playwright
       - name: Test editable AI topology and Design import contracts
-        run: node test_ai_topology_workspace.cjs && node test_ai_design_handoff.cjs && node test_ai_topology_ui.cjs && node test_ai_panel.cjs && node test_stp_analysis_v1.cjs && node test_stp_ui_v1.cjs && node test_stp_knowledge_v1.cjs && node test_stp_network_v2.cjs && node test_network_engineering_findings_v1.cjs && node test_stp_operational_v1.cjs
+        run: node test_ai_topology_workspace.cjs && node test_ai_design_handoff.cjs && node test_ai_topology_ui.cjs && node test_ai_panel.cjs && node test_stp_analysis_v1.cjs && node test_stp_ui_v1.cjs && node test_stp_knowledge_v1.cjs && node test_stp_network_v2.cjs && node test_engineering_knowledge_registry_v1.cjs && node test_network_engineering_findings_v1.cjs && node test_stp_operational_v1.cjs
       - name: Run isolated Chromium AI Analysis UI smoke
         env:
           AUTH_ENABLED: '0'
