@@ -68,6 +68,7 @@ function addProjectSource(id,label,source){
  sourceProjects.set(id,source);$('savedDesignSelect').append(makeOption(id,label));
 }
 function refreshBrowserProjects(){
+ const previousSelection=$('savedDesignSelect').value;
  sourceProjects.clear();
  $('savedDesignSelect').replaceChildren(makeOption('','Select a Design project'));
  const read=(storage,key)=>{try{return JSON.parse(storage.getItem(key)||'null');}catch{return null;}};
@@ -80,25 +81,44 @@ function refreshBrowserProjects(){
   if(design?.schema!=='network-configurator-v3'||!design.workspace?.technology)continue;
   addProjectSource('local:'+key,String(design.project?.name||key)+' · browser saved',{kind:'browser',design});
  }
- $('openSavedDesign').disabled=true;
- projectStatus(sourceProjects.size?sourceProjects.size+' browser Design source(s) found. Select one to continue.':'No saved browser Design found. You can create one from Quick Design or New Project.');
+ $('savedDesignSelect').value=sourceProjects.has(previousSelection)?previousSelection:'';
+ $('openSavedDesign').disabled=!sourceProjects.has($('savedDesignSelect').value);
+ projectStatus(sourceProjects.size?sourceProjects.size+' browser Design source(s) on this Beta address.':'No browser Design sources saved on this Beta address.');
 }
 $('savedDesignSelect').onchange=()=>{$('openSavedDesign').disabled=!sourceProjects.has($('savedDesignSelect').value);};
+let refreshCounter=0;
 $('refreshSavedDesign').onclick=async()=>{
+ const refreshId=++refreshCounter;
  refreshBrowserProjects();
- // Server Project Library may be unavailable on free previews or without login.
- // An unavailable endpoint must not hide local browser-saved projects.
+ const browserCount=sourceProjects.size;
+ projectStatus('Checking Beta Project Library… '+browserCount+' browser source(s) found.');
  try{
-  const response=await fetch('/api/projects?offset=0');
-  if(!response.ok)throw Error('Project Library unavailable');
-  const data=await response.json();
-  for(const item of data.projects||[]){
-   if(!item.has_design)continue;
-   addProjectSource('library:'+item.id,String(item.name||item.id)+' · Project Library',{kind:'library',id:item.id});
+  const statusResponse=await fetch('/api/projects/status');
+  if(!statusResponse.ok){
+   if(statusResponse.status===401||statusResponse.status===403)throw Error('Beta Project Library requires sign-in. Your main website session does not transfer to this Beta website.');
+   throw Error('Beta Project Library status could not be checked (HTTP '+statusResponse.status+').');
   }
-  projectStatus(sourceProjects.size+' Design source(s) available in this browser and Project Library.');
- }catch{
-  projectStatus(sourceProjects.size+' browser Design source(s) available. Server Project Library is unavailable here; saved local projects remain selectable.');
+  const status=await statusResponse.json();
+  if(!status.available)throw Error(status.configured?'Beta Project Library database is not responding.':'Beta Project Library database is not configured.');
+  let offset=0,loaded=0;
+  while(offset<500){
+   const response=await fetch('/api/projects?offset='+offset);
+   if(!response.ok)throw Error('Project Library list failed (HTTP '+response.status+').');
+   const data=await response.json();if(refreshId!==refreshCounter)return;
+   const projects=Array.isArray(data.projects)?data.projects:[];
+   for(const item of projects){
+    if(!item.has_design)continue;
+    addProjectSource('library:'+item.id,String(item.name||item.id)+' · Project Library',{kind:'library',id:item.id});
+    loaded++;
+   }
+   offset+=projects.length;
+   if(!projects.length||offset>=(Number(data.total)||0))break;
+  }
+  if(refreshId!==refreshCounter)return;
+  projectStatus(browserCount+' browser Design source(s) + '+loaded+' Beta Project Library record(s).'+(offset>=500?' Showing the first 500 records.':''));
+ }catch(error){
+  if(refreshId!==refreshCounter)return;
+  projectStatus(browserCount+' browser Design source(s). '+error.message+' Main website saved projects must be exported or imported through their original Design source.');
  }
 };
 function designFromJson(input){
