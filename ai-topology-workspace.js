@@ -5,6 +5,11 @@ const identifier=x=>String(x??'').trim();
 function fromDesign(report){
  if(!report||!Array.isArray(report.devices))throw Error('A design with devices is required.');
  const nodes=report.devices.filter(d=>!d.inventoryOnly).map(d=>({id:identifier(d.id),hostname:identifier(d.hostname||d.id),vendor:identifier(d.vendor||report.vendor),role:identifier(d.tier||d.role),source:'design'}));
+ // The editable graph follows the same hierarchical network tiers as Design,
+ // instead of using a generic circular layout. The imported SVG remains exact.
+ const upper=nodes.filter(n=>n.role==='upper'),lower=nodes.filter(n=>n.role==='lower');
+ const distribute=(members,y)=>members.forEach((n,i)=>{n.position={x:Math.round(400+(i-(members.length-1)/2)*Math.min(235,620/Math.max(1,members.length-1))),y};});
+ if(upper.length||lower.length){distribute(upper,105);distribute(lower,265);}
  const links=[...(report.links||[]),...(report.specialLinks||[])].filter(l=>l.enabled!==false).map((l,i)=>({id:identifier(l.id||'link-'+i),a:identifier(l.a),b:identifier(l.b),aPort:identifier(l.aPort||l.upperPort),bPort:identifier(l.bPort||l.lowerPort),kind:identifier(l.kind||'Connection'),logical:l.logical===true}));
  const ids=new Set(nodes.map(n=>n.id));
  const configs=(report.configurations||[]).filter(c=>ids.has(identifier(c.deviceId))&&typeof c.text==='string').map(c=>({
