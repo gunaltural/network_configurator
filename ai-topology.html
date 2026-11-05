@@ -21,6 +21,13 @@ textarea{width:100%;min-height:140px;resize:vertical}pre{padding:12px;background
 #status[data-error="true"]{color:#a12828}#sourceLabel{font-size:.9rem}
 @media(max-width:900px){.grid{grid-template-columns:1fr}main{padding:12px}#topologyCanvas{height:290px}}
 #analysisScope{margin-top:14px}#moduleChoices{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:9px}#moduleChoices label{display:flex;align-items:center;gap:10px;margin:0;padding:11px 12px;border:1px solid #cbdbe6;background:#f8fbfd;border-radius:9px;cursor:pointer;min-height:48px;font-size:.91rem;font-weight:600;line-height:1.25}#moduleChoices label:has(input:checked){background:#e4f2fa;border-color:#2c83ac;color:#124968}#moduleChoices input{width:17px;height:17px;flex:0 0 17px;margin:0;accent-color:#186b9a}#scopeCount{font-size:.83rem;color:#496778;font-weight:650}#originalDesignImage{display:block;width:100%;height:auto;max-height:500px;object-fit:contain;background:#f8fbfd;border:1px solid #d5dfe7;border-radius:9px}#topologyMode{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}#topologyMode button[aria-pressed="true"]{background:#174e76;color:#fff}#originalDesignPane[hidden],#editableTopologyPane[hidden]{display:none}#moduleChoices label[hidden]{display:none}#scopeTools{margin:10px 0 14px}#scopeTools label{flex:1 1 220px}#scopeTools button{flex:0 0 auto}
+#deviceAnalysisChoices{display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:8px;margin-top:10px}
+#deviceAnalysisChoices label{display:flex;align-items:center;gap:9px;border:1px solid #cfdee7;border-radius:8px;padding:10px;background:#f8fbfd;min-width:0;margin:0;cursor:pointer}
+#deviceAnalysisChoices label:has(input:checked){background:#e5f3fb;border-color:#277ea7}
+#deviceAnalysisChoices input{flex:0 0 18px;width:18px;height:18px;margin:0;accent-color:#186b9a}
+#deviceAnalysisChoices span{min-width:0;overflow-wrap:anywhere}
+#deviceScopeCount{font-size:.86rem;color:#476579}
+.entry-option:focus-visible{outline:3px solid #3186cc}
 </style></head>
 <body><main>
 <header><div><a href="/">Network Configurator</a> / AI Analysis <a id="returnToDesign" href="/" hidden>Return to Design</a> <h1>AI Topology Workspace</h1><p class="muted">Start from a design or template. Edit devices, links and configurations without changing the original Design project.</p></div><span id="sourceLabel">Independent workspace</span></header>
@@ -79,6 +86,11 @@ textarea{width:100%;min-height:140px;resize:vertical}pre{padding:12px;background
 <p class="hint">Existing Design checks validate selected inputs. They do not prove deployment or independent correctness of every generated configuration. AI reviews these as context, not as a precomputed answer.</p>
 </section>
 <p>AI runs only when you explicitly press Analyze. Review the exact redacted evidence before sending it. A citation-valid draft is <strong>not</strong> a verified root-cause diagnosis.</p>
+<fieldset id="deviceAnalysisScope"><legend>Devices to analyze</legend>
+<p class="hint">Choose all devices or only the endpoints you want reviewed (for example CORE-01 + ACCESS-01). Only selected device configurations and links between selected endpoints are included in the AI evidence.</p>
+<div class="control" id="deviceScopeActions"><button type="button" id="selectAllDevices">Select all devices</button><button type="button" id="clearSelectedDevices">Clear selection</button><span id="deviceScopeCount" role="status">No devices available</span></div>
+<div id="deviceAnalysisChoices" aria-label="Devices to analyze"></div>
+</fieldset>
 <fieldset id="analysisScope"><legend>Engineering analysis scope</legend><p class="hint">Select one or more technology modules. Additional modules can be added without changing this layout.</p><p id="scopeCount" role="status">No modules selected</p><div class="control" id="scopeTools"><label>Find module<input id="moduleSearch" type="search" placeholder="Search technology modules" autocomplete="off"></label><button type="button" id="clearModules">Clear selection</button></div><div id="moduleChoices" aria-label="Engineering modules"><label><input type="checkbox" value="STP"><span>STP</span></label><label><input type="checkbox" value="SYSTEM"><span>System Management</span></label><label><input type="checkbox" value="BGP"><span>BGP</span></label><label><input type="checkbox" value="VPC"><span>vPC / MLAG</span></label><label><input type="checkbox" value="EVPN"><span>EVPN / VXLAN</span></label><label><input type="checkbox" value="OSPF"><span>OSPF</span></label><label><input type="checkbox" value="SDWAN"><span>SD-WAN</span></label><label><input type="checkbox" value="DCI"><span>DCI</span></label></div></fieldset>
 <div class="control"><label>Report language<select id="language"><option value="en">English</option><option value="tr">Türkçe</option></select></label><button id="preview">Review evidence to send</button><button id="analyze" class="primary" disabled>Analyze reviewed evidence</button></div>
 <details id="evidenceDetails"><summary>Evidence preview (sanitized)</summary><pre id="evidencePreview"></pre></details>
