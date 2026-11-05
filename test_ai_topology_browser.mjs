@@ -34,8 +34,10 @@ try{
  await page.locator('#saveConfig').click();
  await page.locator('#wizardNext').click();
  assert.equal(await page.locator('#workflowStep3').isVisible(),true,'Analysis follows configuration');
- await page.locator('#preview').click();
- const review=await page.locator('#evidencePreview').innerText();
+ assert.equal(await page.locator('#preview').isVisible(),false,'Internal prepare button is hidden');
+ assert.equal(await page.locator('#evidenceDetails').isVisible(),false,'Internal evidence preview is hidden');
+ await page.locator('#preview').evaluate(x=>x.click());
+ const review=await page.locator('#evidencePreview').textContent();
  assert.ok(review.includes('65000:1 additive'),'Routing community survives client redaction');
  assert.ok(!review.includes('dont-send-me'),'Credentials are not present in review payload');
  assert.equal(await page.locator('#analyze').isDisabled(),false);
@@ -63,8 +65,8 @@ try{
   assert.ok(!(await designPage.locator('#designReviewPanel').isHidden()),'Original checks shown separately from AI output');
   assert.equal(await designPage.locator('#workflowStep2').isVisible(),true,'Imported Design enters evidence review stage');
   await designPage.locator('#wizardNext').click();
-  await designPage.locator('#preview').click();
-  const evidence=await designPage.locator('#evidencePreview').innerText();
+  await designPage.locator('#preview').evaluate(x=>x.click());
+  const evidence=await designPage.locator('#evidencePreview').textContent();
   assert.ok(evidence.includes('Command: proposed configuration'),'Generated configs clearly labeled as proposals');
   assert.ok(evidence.includes('Command: deterministic input checks'),'Deterministic controls are reused, not copied as AI findings');
   assert.ok(evidence.includes('Command: parameter choices'),'Design parameters feed AI review');
@@ -81,7 +83,8 @@ try{
  assert.match(await page.locator('#showTechDeviceList').innerText(),/SYNTHETIC LAB/);
  assert.equal(await page.locator('#workflowStep2').isVisible(),true,'LAB lands in per-device config / verification stage');
  await page.locator('#wizardNext').click();
- await page.locator('#runSTPCTO').click();
+ assert.equal(await page.locator('#analyze').isVisible(),true,'Single Analyze Selected Devices button is visible');
+ await page.locator('#analyze').click();
  await page.waitForFunction(()=>!document.getElementById('viewSTPCTO').disabled,{timeout:12000});
  await page.locator('#viewSTPCTO').click();
  assert.equal(await page.locator('#stpCTOView').isVisible(),true);
@@ -132,15 +135,30 @@ try{
 
  // End-to-end acceptance of the Report stage: HTML, reviewer notes, local save and read-only reopen.
  await page.locator('#workflowNav [data-workflow-step="3"]').click();
- await page.locator('#runSTPCTO').click();
+ await page.locator('#analyze').click();
  await page.waitForFunction(()=>document.getElementById('workflowStep4')?.hidden===false,{timeout:12000});
  assert.equal(await page.locator('#workflowStep4').isVisible(),true);
  assert.equal(await page.getByText('Editable engineering draft').count(),0,'No legacy draft field in report flow');
  assert.equal(await page.locator('#internalAnalysisCapture').isVisible(),false,'Internal model text stays hidden');
  assert.match(await page.locator('#stpCTOView').textContent(),/Verification task/,'VERIFY next steps remain visible inside existing findings');
+ assert.equal(await page.locator('#downloadEngineeringPDF').isEnabled(),true,'PDF download is enabled after analysis');
+ assert.equal(await page.locator('#downloadEngineeringWord').isEnabled(),true,'Word download is enabled after analysis');
  assert.equal(await page.locator('#editEngineeringReport').isEnabled(),true);
  assert.equal(await page.locator('#saveEngineeringReport').isEnabled(),true);
  await page.locator('#viewSTPCTO').click();
+ const pdfDownload=page.waitForEvent('download');
+ await page.locator('#downloadEngineeringPDF').click();
+ const pdf=await pdfDownload;
+ assert.match(pdf.suggestedFilename(),/\.pdf$/,'PDF is downloadable');
+ const pdfBytes=await (await import('node:fs/promises')).readFile(await pdf.path());
+ assert.equal(pdfBytes.subarray(0,4).toString('utf8'),'%PDF','Export is an actual PDF');
+ const wordDownload=page.waitForEvent('download');
+ await page.locator('#downloadEngineeringWord').click();
+ const word=await wordDownload;
+ assert.match(word.suggestedFilename(),/\.docx$/,'Word is downloadable');
+ const wordBytes=await (await import('node:fs/promises')).readFile(await word.path());
+ assert.equal(wordBytes.subarray(0,2).toString('utf8'),'PK','Export is a real DOCX archive');
+
  await page.locator('#editEngineeringReport').click();
  await page.locator('#reviewExecutiveComment').fill('Executive note authored by reviewer: confirm upstream failover.');
  await page.locator('#reviewEngineeringNotes').fill('Engineering recommendation: validate root port role per VLAN.');
