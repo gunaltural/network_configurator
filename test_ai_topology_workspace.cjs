@@ -16,6 +16,15 @@ assert.equal(initial.links.length,2);
 assert.equal(initial.links.find(l=>l.id==='keepalive').logical,true);
 assert.equal(initial.links.find(l=>l.id==='peer').aPort,'Eth1/1');
 assert.equal(design.devices[0].source,undefined,'Design source must not be mutated');
+
+const privateImport=api.fromDesign({...design,configurations:[{
+ deviceId:'a',text:'hostname N9K-A\n-----BEGIN RSA PRIVATE KEY-----\nVERY_PRIVATE_KEY_BODY\n-----END RSA PRIVATE KEY-----\nrouter bgp 65001'
+}]});
+const safeImported=privateImport.configs.find(x=>x.deviceId==='a').text;
+assert.ok(!safeImported.includes('VERY_PRIVATE_KEY_BODY'),'Private key body must be masked at Design import, before report or AI analysis');
+assert.ok(safeImported.includes('router bgp 65001'),'Nonsecret Design CLI must survive import');
+assert.equal(safeImported.split('\n').length,5,'Original Design CLI line count is preserved for citations');
+
 let modified=api.addDevice(initial,{id:'fw',hostname:'Firewall',vendor:'Fortinet',role:'security'});
 modified=api.addLink(modified,{id:'uplink',a:'a',b:'fw',aPort:'Eth1/10',bPort:'port1'});
 modified=api.setConfiguration(modified,'fw','config system interface\nedit port1\nnext\nend');
