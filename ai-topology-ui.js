@@ -910,7 +910,7 @@ function buildGenericReport(options={}){
  }
  const detail=section(L('Teknik kanıt ve satır referansları','Technical evidence and line references'));
  detail.append(E('p','report-muted',L('Her cihazın ilk 80 CLI satırı (gizli bilgiler maskeli); tam konfigürasyon 2. adımda görülebilir.','First 80 configuration CLI lines per device (secrets redacted); full configurations are accessible in Step 2.')));
- const secret=/(?:\bpassword\b|\bpasswd\b|\bsecret\b|snmp[-\s]?server\s+community|snmp\s+community|community-string|private.?key|api.?key|\bauthorization\b|sk-[A-Za-z0-9_-]+)/i;
+ const secret=/(?:\bpassword\b|\bpasswd\b|\bsecret\b|snmp[-\s]?server\s+community|snmp\s+community|community-string|private.?key|api.?key|\bauthorization\b|crypto\s+isakmp\s+key|pre-shared-key|shared-secret|set\s+psksecret|set\s+enc-password|BEGIN [A-Z ]*PRIVATE KEY|sk-[A-Za-z0-9_-]+)/i;
  nodes.forEach(n=>{
   const c=workspace.configs.find(x=>x.deviceId===n.id&&typeof x.text==='string'&&x.text.trim());
   const box=E('details','engineering-deployment-evidence');box.append(E('summary','',n.hostname+' · '+(c?L('Design/ekli CLI mevcut','CLI available'):L('CLI eksik','CLI missing'))));
