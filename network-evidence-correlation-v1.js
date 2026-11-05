@@ -6,6 +6,7 @@
 const VERSION='1.0.0';
 const SOURCES={
  BGP:{title:'Cisco BGP troubleshooting',url:'https://www.cisco.com/c/en/us/support/docs/ip/border-gateway-protocol-bgp/218027-troubleshoot-border-gateway-protocol-bas.html',scope:'Cisco IOS/IOS-XE; validate syntax and device release'},
+HUAWEI_BGP:{title:'Huawei CloudEngine BGP peer verification',url:'https://info.support.huawei.com/network/ptmngsys/Web/tsrev_ce/en/content/ce/18_edesk_dc_failed_to_forward_evpn_unicast_traffic/edesk_dc_failed_to_forward_evpn_unicast_traffic_edesk001.html',scope:'Huawei CloudEngine, supported firmware release must be confirmed'},
  ARISTA_BGP:{title:'Arista EOS BGP reference',url:'https://www.arista.com/en/um-eos/eos-border-gateway-protocol-bgp',scope:'Arista EOS online guide; confirm installed release'},
  ARISTA_MLAG:{title:'Arista EOS MLAG verification',url:'https://www.arista.com/ko/um-eos/eos-multi-chassis-link-aggregation',scope:'Arista EOS online guide; confirm installed release'},
  OSPF:{title:'Cisco OSPF troubleshooting',url:'https://www.cisco.com/c/en/us/support/docs/ip/open-shortest-path-first-ospf/13699-29.html',scope:'Cisco IOS/IOS-XE; validate device release'},
@@ -33,11 +34,11 @@ function proof(node,kind,index,text){
  * Bind observations to the ACTIVE command section; never treat a whole file as
  * one command or let a BGP table bleed into later OSPF/EVPN output. */
 function commandSection(line){
- const m=String(line).match(/^\s*(?:[\w.:-]+[>#]\s*|[-=#*]{3,}\s*)?(show|display|diagnose|get)\s+(.+?)\s*(?:[-=#*]{3,})?\s*$/i);
+ const m=String(line).match(/^\s*(?:<[^>]{1,80}>\s*|[\w.:-]+[>#]\s*|[-=#*]{3,}\s*)?(show|display|diagnose|get)\s+(.+?)\s*(?:[-=#*]{3,})?\s*$/i);
  if(!m)return undefined;
  const cmd=(m[1]+' '+m[2]).toLowerCase().trim();
  if(/\b(?:show bgp l2vpn evpn|show evpn route|display bgp evpn routing-table)\b/.test(cmd))return 'EVPN';
- if(/\b(?:show (?:ip |ipv6 )?bgp (?:all )?summary|get router info bgp summary)\b/.test(cmd))return 'BGP';
+ if(/\b(?:show (?:ip |ipv6 )?bgp (?:all )?summary|get router info bgp summary|display bgp (?:vpnv4 all )?peer(?:\s|$))/.test(cmd))return 'BGP';
  if(/\b(?:show (?:ip )?ospf neighbor(?:s)?|display ospf peer)\b/.test(cmd))return 'OSPF';
  if(/\b(?:show vpc(?: brief)?|show mlag(?: detail)?|display dfs-group)\b/.test(cmd))return 'VPC';
  if(/\b(?:diagnose sys sdwan health-check|diagnose sys virtual-wan-link health-check)\b/.test(cmd))return 'SDWAN';
@@ -59,7 +60,8 @@ function assess(args){
     const same=pattern=>selectedNodes.every(node=>pattern.test(String(node.vendor||'')));
     // Documentation for Cisco IOS/IOS-XE does not automatically apply to NX-OS,
     // and Nexus EVPN/vPC references do not automatically apply to IOS-XE.
-    const key=same(/Arista|EOS/i)&&item.technology==='BGP'?'ARISTA_BGP':
+    const key=same(/Huawei|VRP|CloudEngine/i)&&item.technology==='BGP'?'HUAWEI_BGP':
+     same(/Arista|EOS/i)&&item.technology==='BGP'?'ARISTA_BGP':
      same(/Arista|EOS/i)&&item.technology==='VPC'?'ARISTA_MLAG':
      same(/Cisco IOS(?:-XE)?|IOS XE/i)&&['BGP','OSPF'].includes(item.technology)?item.technology:
      same(/Cisco NX-OS|NX.OS/i)&&['EVPN','VPC'].includes(item.technology)?item.technology:
@@ -91,27 +93,32 @@ function assess(args){
   }
   for(const capture of real){
    const raw=lines(capture.text);
-   let active=null,bgpTable=false,mlagStatus=false,sdwanCheck='';
+   let active=null,bgpTable=false,bgpFormat='',mlagStatus=false,sdwanCheck='';
    const source='show: '+capture.filename;
    for(const [i,line] of raw.entries()){
     const command=commandSection(line);
     if(command!==undefined){
-     active=command;bgpTable=false;mlagStatus=false;sdwanCheck='';
+     active=command;bgpTable=false;bgpFormat='';mlagStatus=false;sdwanCheck='';
      continue;
     }
     // Some real captures start with just a BGP table and no prompt/command.
     if(/^\s*Neighbor\s+V\s+AS\s+MsgRcvd.*State\/PfxRcd\b/i.test(line)){
-     active='BGP';bgpTable=true;mlagStatus=false;sdwanCheck='';
+     active='BGP';bgpTable=true;bgpFormat='cisco';mlagStatus=false;sdwanCheck='';
+     continue;
+    }
+    if(/^\s*Peer\s+V\s+AS\s+MsgRcvd.*\bState\s+PrefRcv\b/i.test(line)){
+     active='BGP';bgpTable=true;bgpFormat='huawei';mlagStatus=false;sdwanCheck='';
      continue;
     }
     if(scope.has('BGP')&&active==='BGP'&&bgpTable){
      const p=line.trim().split(/\s+/);
-     if(p.length>=10&&ip.test(p[0])&&p[1]==='4'&&/^\d+$/.test(p[2])){
-      const last=p[p.length-1],admin=last==='(Admin)'&&/^Idle$/i.test(p[p.length-2]||'');
-      const state=admin?'Idle (Admin)':/^\d+$/.test(last)?'Established':last;
+     if(p.length>=(bgpFormat==='huawei'?9:10)&&ip.test(p[0])&&p[1]==='4'&&/^\d+$/.test(p[2])){
+      const last=p[p.length-1],admin=bgpFormat!=='huawei'&&last==='(Admin)'&&/^Idle$/i.test(p[p.length-2]||'');
+      const state=bgpFormat==='huawei'?p[7]:admin?'Idle (Admin)':/^\d+$/.test(last)?'Established':last;
+      const count=bgpFormat==='huawei'?(/^\d+$/.test(p[8])?Number(p[8]):null):/^\d+$/.test(last)?Number(last):null;
       if(/^(?:Idle(?: \(Admin\))?|Active|Connect|OpenSent|OpenConfirm|Established|Shutdown)$/i.test(state)){
        if(!bgp.states.has(p[0]))bgp.states.set(p[0],[]);
-       bgp.states.get(p[0]).push({state,prefixCount:/^\d+$/.test(last)?Number(last):null,
+       bgp.states.get(p[0]).push({state,prefixCount:state==='Established'?count:null,
         proof:proof(node,source,i,line)});
       }
      }
