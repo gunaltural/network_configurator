@@ -27,20 +27,20 @@ class EngineeringSourceIndexTests(unittest.TestCase):
         self.assertFalse(any(x["technology"]=="BGP" for x in sources))
     def test_mixed_vendors_do_not_borrow_keywords_across_devices(self):
         evidence = [
-            {"id":"arista-bgp","text":"Device: LEAF-01\\nVendor: Arista EOS\\nCommand: show ip bgp summary\\nL1: BGP Neighbor Active"},
-            {"id":"cisco-stp","text":"Device: CORE-01\\nVendor: Cisco IOS-XE\\nCommand: show spanning-tree\\nL1: root bridge priority 4096"},
+            {"id":"arista-bgp","text":"Device: LEAF-01\nVendor: Arista EOS\nCommand: show ip bgp summary\nL1: BGP Neighbor Active"},
+            {"id":"cisco-stp","text":"Device: CORE-01\nVendor: Cisco IOS-XE\nCommand: show spanning-tree\nL1: root bridge priority 4096"},
         ]
         retrieved = retrieve_sources(evidence,"Mixed")
         ids = [x["id"] for x in retrieved]
         self.assertIn("arista-eos-bgp-437",ids)
         self.assertIn("cisco-campus-stp-ha",ids)
         self.assertNotIn("cisco-bgp-basic-2026",ids)
-        evidence[0]["text"] = "Device: LEAF-01\\nVendor: Arista EOS\\nCommand: show ip bgp summary\\nL1: BGP Neighbor Active"
+        evidence[0]["text"] = "Device: LEAF-01\nVendor: Arista EOS\nCommand: show ip bgp summary\nL1: BGP Neighbor Active"
         retrieved = retrieve_sources(evidence,"Cisco IOS-XE")
         self.assertNotIn("cisco-bgp-basic-2026",[x["id"] for x in retrieved])
 
     def test_ambiguous_multi_vendor_evidence_is_not_mapped_to_one_platform(self):
-        evidence = [{"id":"topology","text":"Device: A\\nVendor: Cisco IOS-XE\\nDevice: B\\nVendor: Arista EOS\\nBGP summary Neighbor Active"}]
+        evidence = [{"id":"topology","text":"Device: A\nVendor: Cisco IOS-XE\nDevice: B\nVendor: Arista EOS\nBGP summary Neighbor Active"}]
         self.assertEqual(retrieve_sources(evidence,"Mixed"),[])
 
     def test_software_module_not_inferred_from_missing_vendor(self):
