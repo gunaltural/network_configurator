@@ -41,6 +41,8 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{JSDOM}=require
  assert.match($('stpKnowledgeResult').textContent,/PRIORITIZED ENGINEERING FINDINGS/,'Knowledge catalog is visible independently of model');
  assert.match($('stpKnowledgeResult').textContent,/PRIORITIZED ENGINEERING FINDINGS/,'Prioritized findings are visible even when no risk requires a source reference');
 
+ $('workflowNav').querySelector('[data-workflow-step="3"]').click();
+ assert.equal($('workflowStep3').hidden,false,'STP report is launched from Analysis stage');
  await $('runSTPCTO').onclick();
  assert.match($('stpCTOView').textContent,/STP Engineering Assessment/);
  assert.match($('stpCTOView').textContent,/Technology-level Engineering Findings/,'New common findings appear in the STP report');
