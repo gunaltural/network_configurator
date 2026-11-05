@@ -44,7 +44,7 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{JSDOM}=require
  assert.match($('stpCTOView').textContent,/STP Engineering Assessment/);
  assert.match($('stpCTOView').textContent,/Technology-level Engineering Findings/,'New common findings appear in the STP report');
  assert.ok($('stpCTOView').querySelector('[data-finding-id="STP-MODE-CONSISTENCY"]'),'Technology compatibility finding is evidence-based');
- assert.match($('stpCTOView').textContent,/Design knowledge rules/);
+ assert.match($('stpCTOView').textContent,/Design risks/,'Executive KPI reports actual evidence-based risk count');
  assert.match($('stpCTOView').textContent,/CORE-1/);
  assert.match($('stpCTOView').textContent,/CORE-2/);
  assert.doesNotMatch($('stpCTOView').textContent,/ACCESS-1/);
