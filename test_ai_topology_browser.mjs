@@ -43,7 +43,9 @@ try{
  await page.setViewportSize({width:390,height:844});
  const mobileLayout=await page.evaluate(()=>({
   width:window.innerWidth,scrollWidth:document.documentElement.scrollWidth,
-  offenders:[...document.querySelectorAll('body *')].filter(el=>el.getClientRects().length&&el.getBoundingClientRect().right>window.innerWidth+2).slice(0,8).map(el=>({tag:el.tagName,id:el.id,cls:String(el.className).slice(0,55),right:Math.round(el.getBoundingClientRect().right)}))
+  offenders:[...document.querySelectorAll('body *')].filter(el=>el.getClientRects().length&&(el.getBoundingClientRect().right>window.innerWidth+2||el.scrollWidth>el.clientWidth+3&&getComputedStyle(el).overflowX==='visible')).slice(0,12).map(el=>({tag:el.tagName,id:el.id,cls:String(el.className).slice(0,55),right:Math.round(el.getBoundingClientRect().right),scroll:el.scrollWidth,client:el.clientWidth,overflow:getComputedStyle(el).overflowX})),
+  focus:document.activeElement?.id,
+  bodyScroll:document.body.scrollWidth,mainScroll:document.querySelector('main')?.scrollWidth
  }));
  assert.equal(mobileLayout.scrollWidth<=mobileLayout.width+2,true,'AI Analysis mobile editor must not overflow viewport: '+JSON.stringify(mobileLayout));
  await page.setViewportSize({width:1280,height:900});
