@@ -22,12 +22,17 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{JSDOM}=require
  w.sessionStorage.setItem('networkConfigurator.aiTopology.pending',JSON.stringify(raw));
  w.eval(fs.readFileSync('ai-topology-workspace.js','utf8'));
  w.eval(fs.readFileSync('stp-analysis-v1.js','utf8'));
+ w.eval(fs.readFileSync('stp-knowledge-v1.js','utf8'));
  w.eval(fs.readFileSync('ai-topology-ui.js','utf8'));
  assert.equal($('stpV1Panel').hidden,false,'STP source activates preflight');
  const access=[...d.querySelectorAll('#deviceAnalysisChoices input')].find(x=>x.dataset.deviceId==='access');
  assert.ok(access);access.checked=false;access.dispatchEvent(new w.Event('change',{bubbles:true}));
  $('runSTPPreflight').click();
  assert.match($('stpPreflightResult').textContent,/BRIDGE_PRIORITY_COMPARISON/);
+ $('runSTPKnowledge').click();
+ assert.match($('stpKnowledgeResult').textContent,/PARAMETER COVERAGE/,'Knowledge catalog is visible independently of model');
+ assert.match($('stpKnowledgeResult').textContent,/Cisco Catalyst/,'Source references are reported');
+
  assert.doesNotMatch($('stpPreflightResult').textContent,/ACCESS-1/);
  $('preview').click();
  assert.equal($('analyze').disabled,false);
