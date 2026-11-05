@@ -52,15 +52,15 @@ function parse(node,input){
    else if(/^(?:no )?shutdown$/i.test(cmd))current.shutdown=record(cmd==='shutdown',line,cmd);
    return;
   }
-  if((m=cmd.match(/^hostname\s+(\S+)/i))){result.configHostname=record(m[1],line,cmd);continue;}
-  if((m=cmd.match(/^vtp mode\s+(off|transparent|server|client)/i))){result.vtp=record(m[1].toLowerCase(),line,cmd);continue;}
-  if((m=cmd.match(/^vlan\s+([\d,\s-]+)$/i))){result.vlans.push(...vlanList(m[1]));continue;}
-  if((m=cmd.match(/^spanning-tree mode\s+([\w-]+)/i))){result.mode=record(m[1].toLowerCase(),line,cmd);continue;}
+  if((m=cmd.match(/^hostname\s+(\S+)/i))){result.configHostname=record(m[1],line,cmd);return;}
+  if((m=cmd.match(/^vtp mode\s+(off|transparent|server|client)/i))){result.vtp=record(m[1].toLowerCase(),line,cmd);return;}
+  if((m=cmd.match(/^vlan\s+([\d,\s-]+)$/i))){result.vlans.push(...vlanList(m[1]));return;}
+  if((m=cmd.match(/^spanning-tree mode\s+([\w-]+)/i))){result.mode=record(m[1].toLowerCase(),line,cmd);return;}
   if((m=cmd.match(/^spanning-tree (vlan|mst)\s+([\d,\s-]+)\s+priority\s+(\d+)$/i))){
-   for(const v of vlanList(m[2]))result.priorities.push(record({scope:m[1].toUpperCase(),instance:v,priority:+m[3]},line,cmd));continue;
+   for(const v of vlanList(m[2]))result.priorities.push(record({scope:m[1].toUpperCase(),instance:v,priority:+m[3]},line,cmd));return;
   }
   if((m=cmd.match(/^spanning-tree vlan\s+([\d,\s-]+)\s+root\s+(primary|secondary)/i))){
-   result.rootMacros.push(record({instances:vlanList(m[1]),role:m[2].toLowerCase()},line,cmd));continue;
+   result.rootMacros.push(record({instances:vlanList(m[1]),role:m[2].toLowerCase()},line,cmd));return;
   }
   if(/^(?:spanning-tree portfast(?: edge)? default|spanning-tree portfast(?: edge)? bpduguard default|spanning-tree loopguard default|udld aggressive|udld enable)$/i.test(cmd))result.global.push(record(cmd,line,cmd));
  });
