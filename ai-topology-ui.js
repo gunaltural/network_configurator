@@ -3,7 +3,8 @@ const $=id=>document.getElementById(id),api=window.NetworkAITopology;
 if(!api)return;
 const handoff='networkConfigurator.aiTopology.pending';
 let workspace=api.blank(),pendingBatches=null,reviewedSignature=null,runState=null,busy=false;
-const clean=x=>String(x??'').trim(),snapshot=()=>JSON.stringify(workspace),isReviewed=()=>reviewedSignature===snapshot();
+const selectedModules=()=>[...document.querySelectorAll('#moduleChoices input:checked')].map(el=>el.value);
+const clean=x=>String(x??'').trim(),snapshot=()=>JSON.stringify({workspace,modules:selectedModules()}),isReviewed=()=>reviewedSignature===snapshot();
 function message(value,error=false){$('status').textContent=value;$('status').dataset.error=String(error);}
 function makeOption(id,name){const opt=document.createElement('option');opt.value=id;opt.textContent=name;return opt;}
 function populate(select,values,preserve,blank){
@@ -86,6 +87,7 @@ function saveFile(name,text,type){
  const blob=new Blob([text],{type}),url=URL.createObjectURL(blob),a=document.createElement('a');
  a.href=url;a.download=name;document.body.append(a);a.click();a.remove();URL.revokeObjectURL(url);
 }
+document.querySelectorAll('#moduleChoices input').forEach(input=>input.addEventListener('change',()=>{invalidate();message('Analysis scope changed. Review evidence again before sending.');}));
 function fromHandoff(){
  const handoffRaw=sessionStorage.getItem(handoff);if(!handoffRaw)return;
  sessionStorage.removeItem(handoff);
@@ -93,6 +95,11 @@ function fromHandoff(){
   const report=JSON.parse(handoffRaw);
   workspace=report?.schema==='ai-topology-workspace-v1'?api.validate(report):api.fromDesign(report);
   $('sourceLabel').textContent='Imported Design snapshot · independent copy';
+  const sourceModule=String(workspace.sourceModule||'').toUpperCase();
+  const aliases={SYSTEM_MANAGEMENT:'SYSTEM',SYSTEM_MANAGEMENT_AND_SECURITY:'SYSTEM',MLAG:'VPC',VXLAN:'EVPN'};
+  const chosen=aliases[sourceModule]||sourceModule;
+  const sourceChoice=[...document.querySelectorAll('#moduleChoices input')].find(el=>el.value===chosen);
+  if(sourceChoice)sourceChoice.checked=true;
   message('Imported '+workspace.nodes.length+' Design devices, '+workspace.configs.length+' generated configuration proposals and '+(workspace.designReview?.parameters.length||0)+' engineering parameters. Review redacted evidence before AI analysis.');
  }catch(e){message('Could not import Design snapshot: '+e.message,true);}
 }
@@ -156,7 +163,9 @@ $('importWorkspace').onchange=async()=>{
 };
 $('preview').onclick=()=>{
  try{
+  const modules=selectedModules();if(!modules.length)throw Error('Select at least one analysis module.');
   pendingBatches=api.analysisEvidenceBatches(workspace);
+  pendingBatches[0].unshift({id:'analysis-scope',text:'Device: ANALYSIS-SCOPE\nCommand: user-selected engineering review scope (intent, not operational evidence)\nL1: Analyze ONLY these engineering modules: '+modules.join(', ')+'\nL2: Do not perform unrelated module audits. Cross-module facts may be mentioned only when directly relevant to selected scope.\nL3: Assess proposed configurations as design intent, not deployed operational state.'});
   reviewedSignature=snapshot();runState={batches:pendingBatches,reports:[],modes:[],index:0,signature:reviewedSignature,synthesis:''};
   const previewText=pendingBatches.flat().map(e=>'## '+e.id+'\n'+e.text).join('\n\n');
   $('evidencePreview').textContent=previewText;$('evidenceDetails').open=true;
@@ -166,7 +175,7 @@ $('preview').onclick=()=>{
 };
 function reportText(){
  const reports=runState?.reports||[];
- return '# AI Topology Engineering Analysis\n\nStatus: Unverified AI-assisted draft; engineer review required\nTopology: '+workspace.nodes.length+' devices / '+workspace.links.length+' connections\nBatches: '+reports.length+' / '+(runState?.batches.length||0)+'\n\n'+reports.join('\n\n')+(runState?.synthesis?'\n\n## Cross-batch synthesis — UNVERIFIED\n'+runState.synthesis:'');
+ return '# AI Topology Engineering Analysis\n\nSelected modules: '+selectedModules().join(', ')+'\nStatus: Unverified AI-assisted draft; engineer review required\nTopology: '+workspace.nodes.length+' devices / '+workspace.links.length+' connections\nBatches: '+reports.length+' / '+(runState?.batches.length||0)+'\n\n'+reports.join('\n\n')+(runState?.synthesis?'\n\n## Cross-batch synthesis — UNVERIFIED\n'+runState.synthesis:'');
 }
 $('analyze').onclick=async()=>{
  if(busy)return;
