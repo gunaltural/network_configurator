@@ -40,6 +40,7 @@ from fastapi.responses import HTMLResponse, StreamingResponse, Response, JSONRes
 from pydantic import model_validator, BaseModel, Field
 import uvicorn
 from report_docx import build_report_docx
+from ai_engineering_report_export import export_report
 from simulation_report import SimulationScenario
 from docx.image.exceptions import UnrecognizedImageError
 from authentication import install_authentication
@@ -1719,6 +1720,28 @@ def ai_evidence_script():
 @app.get('/engineering-ai.js')
 def ai_panel_script():
     return FileResponse(BASE_DIR / 'engineering-ai.js', media_type='application/javascript')
+
+class AIEngineeringExportRequest(BaseModel):
+    html: str = Field(min_length=40, max_length=1_500_000)
+    title: str = Field(default="Network Engineering Assessment", max_length=200)
+
+
+@app.post('/api/ai/engineering-report/{export_format}')
+def ai_engineering_report_export(export_format: str, request: AIEngineeringExportRequest):
+    if export_format not in ('pdf', 'word'):
+        raise HTTPException(status_code=400, detail='Choose PDF or Word.')
+    try:
+        content = export_report(request.html, export_format, request.title)
+    except (ValueError, RuntimeError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    extension = 'pdf' if export_format == 'pdf' else 'docx'
+    mime = 'application/pdf' if export_format == 'pdf' else 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    return Response(content, media_type=mime, headers={
+        'Content-Disposition': f'attachment; filename="network-engineering-assessment.{extension}"',
+        'Cache-Control': 'no-store',
+        'X-Content-Type-Options': 'nosniff',
+    })
+
 
 @app.get('/ai-topology')
 def ai_topology_page():
