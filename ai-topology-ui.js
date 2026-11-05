@@ -371,6 +371,7 @@ async function addEvidenceFile(file,deviceId){
  $('showTechStatus').textContent=file.name+' attached to '+(workspace.nodes.find(n=>n.id===deviceId)?.hostname||deviceId)+'.';
  if(alreadyHadReport&&selectedModules().includes('STP')){
   await $('runSTPCTO').onclick();$('stpCTOView').hidden=!wasVisible;
+  $('viewSTPCTO').textContent=wasVisible?'Hide HTML View':'HTML View';
  }
 }
 $('showTechFile').onchange=async()=>{
@@ -483,7 +484,7 @@ $('saveConfig').onclick=()=>{
  catch(e){message(e.message,true);}
 };
 $('exportWorkspace').onclick=()=>{
- if(workspace.configs.some(c=>c.text)&&!window.confirm('Saved JSON includes raw configurations and may contain credentials. Download it to your device?'))return;
+ if((workspace.configs.some(c=>c.text)||(workspace.showTech||[]).some(c=>c.text))&&!window.confirm('Workspace JSON contains raw Design and verification CLI; it may include credentials. Download to this device?'))return;
  saveFile('network-ai-topology.json',JSON.stringify(workspace,null,2),'application/json');
  message('Workspace downloaded to this device. No cloud project was changed.');
 };
