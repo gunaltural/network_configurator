@@ -39,6 +39,32 @@ for(const name of ['blank','vpc','bgp','evpn']){
  if(name!=='blank')assert.ok(created.nodes.length>=2);
  assert.equal(created.schema,'ai-topology-workspace-v1');
 }
+const catalog=api.technologyCatalog();
+assert.deepEqual(Object.keys(catalog),['BASIC','BGP','OSPF','STP','VPC','EVPN','SDWAN','QOS']);
+for(const [module,definition] of Object.entries(catalog)){
+ const generated=api.buildTechnologyTopology(module,definition.platforms[0],definition.primaryCount,definition.secondaryCount);
+ assert.equal(generated.sourceModule,module,'Generated topology technology matches selection');
+ assert.equal(generated.nodes.length,definition.primaryCount+definition.secondaryCount,'Dynamic count matches requested nodes for '+module);
+ assert.equal(generated.nodes.every(n=>n.vendor===definition.platforms[0]||n.vendor.startsWith('External')) ,true,'Selected platform is assigned to managed nodes');
+ assert.equal(generated.configs.length,0,'Template must never manufacture real device configurations');
+ assert.equal(generated.templateInfo.intentOnly,true,'Template must be marked as design intent');
+ assert.equal(generated.nodes.every(n=>n.position&&Number.isFinite(n.position.x)),true,'Generated devices have editable positions');
+ assert.deepEqual(api.validate(JSON.parse(JSON.stringify(generated))),generated,'Saved workspace roundtrip retains topology');
+}
+const dynamicBgp=api.buildTechnologyTopology('BGP','Cisco IOS-XE',3,2);
+assert.equal(dynamicBgp.nodes.filter(n=>n.role==='CE router').length,3,'Add CE count');
+assert.equal(dynamicBgp.links.length,6,'eBGP candidate links connect selected CE and ISP endpoints');
+const dynamicStp=api.buildTechnologyTopology('STP','Arista EOS',2,4);
+assert.equal(dynamicStp.nodes.length,6,'Add access switches');
+assert.equal(dynamicStp.links.length,9,'Two core switches and four dual uplinks form STP planning graph');
+const dynamicEvpn=api.buildTechnologyTopology('EVPN','Huawei_CE_SW',2,5);
+assert.equal(dynamicEvpn.nodes.filter(n=>n.role==='leaf').length,5,'Add leaf switches');
+assert.equal(dynamicEvpn.links.length,10,'Leaf/spine underlay candidate graph');
+const dynamicVpc=api.buildTechnologyTopology('VPC','Arista EOS',2,3);
+assert.equal(dynamicVpc.links.some(l=>l.kind==='peer-keepalive'&&l.logical),true,'vPC/MLAG template preserves control-plane keepalive context');
+assert.throws(()=>api.buildTechnologyTopology('EVPN','FortiGate',2,2),/Platform is unavailable/,'Incompatible technology/vendor is rejected');
+assert.throws(()=>api.buildTechnologyTopology('STP','Cisco NX-OS',3,2),/requires two/,'Unsupported core topology is rejected');
+assert.throws(()=>api.buildTechnologyTopology('BGP','Cisco IOS-XE',0,2),/Invalid device counts/,'Zero CE is rejected');
 assert.throws(()=>api.template('not-a-template'),/Unknown topology template/);
 assert.throws(()=>api.analysisEvidenceBatches(api.blank()),/at least one device/);
 const edited=api.updateDevice(modified,'fw',{hostname:'FGT-1',vendor:'FortiGate',role:'hub'});
