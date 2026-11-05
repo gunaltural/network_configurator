@@ -16,6 +16,20 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  assert.match($('overview').textContent,/0 devices/);
  $('template').value='vpc';$('applyTemplate').click();
  assert.match($('overview').textContent,/2 devices · 2 links/);
+ // Drag a node, ensure its location changes and the connecting SVG line follows.
+ const svg=d.getElementById('topologyCanvas');
+ svg.getBoundingClientRect=()=>({left:0,top:0,width:800,height:360});
+ const node=svg.querySelector('[data-device-id="n9k-a"]');
+ const x=Number(node.getAttribute('cx')),y=Number(node.getAttribute('cy'));
+ const mouse=(name,cx,cy)=>new w.MouseEvent(name,{bubbles:true,button:0,clientX:cx,clientY:cy});
+ node.dispatchEvent(mouse('pointerdown',x,y));
+ svg.dispatchEvent(mouse('pointermove',x+70,y+45));
+ svg.dispatchEvent(mouse('pointerup',x+70,y+45));
+ const moved=svg.querySelector('[data-device-id="n9k-a"]');
+ assert.equal(Number(moved.getAttribute('cx')),x+70,'drag updates node X');
+ assert.equal(Number(moved.getAttribute('cy')),y+45,'drag updates node Y');
+ assert.equal(svg.querySelectorAll('line').length,2,'links remain visible after drag');
+
  $('deviceId').value='fw-1';$('hostname').value='FW-1';$('vendor').value='FortiGate';$('role').value='edge';
  $('saveDevice').click();assert.match($('overview').textContent,/3 devices/);
  $('linkId').value='fw-link';$('linkKind').value='Ethernet';
@@ -66,5 +80,5 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  assert.equal(t.document.querySelector('#moduleChoices input[value="VPC"]').checked,true,'Design module presets analysis scope');
  assert.equal(t.document.getElementById('returnToDesign').hidden,false,'Return to Design link shown');
  designDom.window.close();
- console.log('AI topology UI: template, edits, safe preview, common AI API, stale-evidence safety, Design import passed');
+ console.log('AI topology UI: draggable layout, templates, imports, multi-module evidence and report, Design return passed');
 })().catch(e=>{console.error(e);process.exitCode=1;});
