@@ -39,7 +39,8 @@ function register(packageSpec){
   description:toString(packageSpec.description),controls:freeze(controls),
   references:freeze((packageSpec.references||[]).map(r=>freeze({title:toString(r.title),url:toString(r.url)}))),
   evaluate:packageSpec.evaluate,
-  planVerification:typeof packageSpec.planVerification==='function'?packageSpec.planVerification:null});
+  planVerification:typeof packageSpec.planVerification==='function'?packageSpec.planVerification:null,
+  resolveVerification:typeof packageSpec.resolveVerification==='function'?packageSpec.resolveVerification:null});
  byTechnology.set(technology,descriptor);
  return describe(technology);
 }
@@ -81,7 +82,8 @@ function run(args){
  const result=pack.evaluate({...args,technology});
  if(!result||!Array.isArray(result.findings)||result.findings.length>LIMITS.findings)throw Error(technology+' adapter must return a bounded list of evidence-based findings');
  const ids=new Set(),counts={GOOD:0,RISK:0,VERIFY:0,NA:0};
- const findings=result.findings.map(raw=>{
+ const findings=result.findings.map(original=>{
+  const raw=pack.resolveVerification?pack.resolveVerification(original,{...args,technology}):original;
   if(!raw||typeof raw!=='object'||!raw.id||!statuses.includes(raw.status))throw Error(technology+' adapter emitted invalid finding');
   if(ids.has(raw.id))throw Error(technology+' adapter emitted duplicate finding '+raw.id);
   ids.add(raw.id);
