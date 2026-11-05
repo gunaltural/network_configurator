@@ -5,7 +5,7 @@ require('./engineering-knowledge-stp-v1.js');
 const knowledge=global.NetworkEngineeringFindingsV1;
 const stp=knowledge.describe('STP');
 assert.equal(stp.technology,'STP');
-assert.equal(stp.version,'1.0.0');
+assert.equal(stp.version,'1.1.0');
 assert.equal(stp.status,'IMPLEMENTED_BASELINE');
 assert.ok(stp.controls.length>=8);
 assert.ok(stp.vendors.includes('Cisco IOS-XE'));
@@ -16,6 +16,8 @@ const missing=knowledge.run({workspace,deviceIds:['core'],technology:'BGP'});
 assert.equal(missing.counts.GOOD,0);
 assert.equal(missing.counts.VERIFY,1);
 assert.equal(missing.moduleStatus,'NOT_IMPLEMENTED');
+assert.equal(missing.findings[0].verificationTask.owner,'Network Engineering');
+assert.match(missing.findings[0].verificationTask.action,/Implement and test/);
 assert.match(missing.findings[0].explanation,/not prove/);
 assert.throws(()=>knowledge.register({technology:'STP',knowledgeVersion:'1.0.0',vendors:['Cisco IOS-XE'],controls:[{id:'TEST-A',family:'x',sources:['CONFIG']}],evaluate:()=>({findings:[]})}),/Duplicate/);
 const pack={technology:'BGP',knowledgeVersion:'0.1.0',vendors:['Cisco IOS-XE','Arista EOS'],status:'EXPERIMENTAL',
@@ -28,7 +30,11 @@ const pack={technology:'BGP',knowledgeVersion:'0.1.0',vendors:['Cisco IOS-XE','A
  evidence:[],verification:['show ip bgp summary'],references:[],limitations:[],provenance:'MISSING_OPERATIONAL'
  }]})};
 knowledge.register(pack);
-assert.equal(knowledge.run({workspace,deviceIds:['core'],technology:'BGP'}).counts.VERIFY,1,'New technology can be added without modifying the common engine');
+const bgpEvaluation=knowledge.run({workspace,deviceIds:['core'],technology:'BGP'});
+assert.equal(bgpEvaluation.counts.VERIFY,1,'New technology can be added without modifying the common engine');
+assert.equal(bgpEvaluation.findings[0].verificationTask.owner,'Network Operations');
+assert.equal(bgpEvaluation.findings[0].verificationTask.reviewer,'Network Engineering');
+assert.deepEqual(bgpEvaluation.findings[0].verificationTask.commands,['show ip bgp summary']);
 assert.equal(knowledge.describe('BGP').controls[0].id,'BGP-FSM');
 assert.throws(()=>knowledge.register({...pack,technology:'OSPF',controls:[...pack.controls,...pack.controls]}),/Duplicate\/invalid control/);
 knowledge.register({...pack,technology:'OSPF',controls:[{id:'OSPF-ADJ',family:'OSPF adjacency',sources:['OPERATIONAL']}],
