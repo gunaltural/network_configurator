@@ -264,6 +264,88 @@ function run({workspace,deviceIds,technology='STP',engineering,network,operation
  }
  return finalize();
 }
+// Technology-specific evidence resolver. The registry does not know STP syntax.
+// Only REAL CLI observations are allowed to close VERIFY. Synthetic LAB stays VERIFY.
+function resolveVerification(finding,{workspace,deviceIds,operational}){
+ if(finding.status!=='VERIFY'||!operational)return finding;
+ const wanted=new Set(deviceIds||[]),nodes=(workspace.nodes||[]).filter(n=>wanted.has(n.id));
+ const evidenceDevices=operational.devices||[],byId=new Map(evidenceDevices.map(x=>[x.deviceId,x]));
+ const real=d=>d&&d.present&&!d.syntheticOnly&&d.parsed?.some(x=>!x.synthetic);
+ const additions=[];
+ if(finding.id==='STP-OBSERVED-COVERAGE'){
+  if(!nodes.length||nodes.some(n=>!real(byId.get(n.id))))return finding;
+  const vlanSets=nodes.map(n=>new Map((byId.get(n.id).vlans||[]).map(v=>[v.vlan,v])));
+  if(vlanSets.some(v=>!v.size||![...v.values()].some(x=>x.root?.address&&x.bridge?.address&&x.ports.length)))return finding;
+  // Consistency is asserted only for VLANs actually observed on both
+  // endpoints of the supplied physical topology, not across isolated domains.
+  const compared=(operational.relationships||[]).filter(r=>!r.synthetic);
+  if(compared.some(r=>r.status==='CONFLICTING_ROOT_EVIDENCE')){
+   const refs=compared.filter(r=>r.status==='CONFLICTING_ROOT_EVIDENCE');
+   return {...finding,status:'RISK',severity:'HIGH',confidence:'OPERATIONAL_CONFLICT',
+    observed:refs.map(r=>'VLAN '+r.vlan+' '+r.devices.join(' / ')+' report conflicting root IDs').join('; '),
+    explanation:'Real per-device CLI captures conflict on the observed root bridge for a modeled Layer-2 link. Check capture times and STP domain boundaries.',
+    networkImpact:'Unexpected STP root disagreement can indicate inconsistent forwarding domain boundaries or stale captures.',
+    recommendation:'Recollect time-aligned show spanning-tree root and interface detail on both peers; validate domain boundaries.',
+    provenance:'OBSERVED_CLI',evidence:[...finding.evidence,...refs.flatMap(r=>r.evidence)]};
+  }
+  for(const n of nodes){
+   const capture=byId.get(n.id);
+   for(const v of capture.vlans){
+    if(!v.root?.address||!v.bridge?.address||!v.ports.length)continue;
+    additions.push(n.hostname+' VLAN '+v.vlan+' Root '+v.root.address+' / Local '+v.bridge.address+' / '+v.ports.length+' ports',
+     v.root.line,v.bridge.line,...v.ports.map(p=>p.line));
+   }
+  }
+  if(!additions.length)return finding;
+  return {...finding,status:'GOOD',severity:'NONE',confidence:'OPERATIONAL_CROSS_DEVICE',
+   observed:'Real CLI captures from '+nodes.length+'/'+nodes.length+' selected devices include per-VLAN Root ID, Bridge ID and port roles; '+compared.length+' mapped peer/VLAN comparisons have no root-ID conflict.',
+   explanation:'Available operational root and port-role evidence was parsed and checked between modeled peers. It confirms reported state only at capture time; failure recovery is not exercised.',
+   recommendation:'Keep timestamped CLI evidence for audits; repeat checks after topology changes or maintenance.',
+   provenance:'OBSERVED_CLI',evidence:[...finding.evidence,...additions].slice(0,150),
+   limitations:[...finding.limitations,'Successful CLI parsing does not prove convergence timing or future behavior.']};
+ }
+ if(finding.id==='STP-UDLD-PHYSICAL'){
+  const pairs=(workspace.links||[]).filter(l=>!l.logical&&wanted.has(l.a)&&wanted.has(l.b)&&l.aPort&&l.bPort);
+  if(!pairs.length)return finding;
+  const observations=[];
+  let missing=false,unidirectional=false,mediaMissing=false;
+  for(const l of pairs){
+   for(const [id,ifName] of [[l.a,l.aPort],[l.b,l.bPort]]){
+    const d=byId.get(id);
+    if(!real(d)){missing=true;continue;}
+    const matching=d.parsed.flatMap(c=>c.synthetic?[]:c.udld)
+     .find(p=>p.name.toLowerCase()===String(ifName).toLowerCase());
+    const status=d.parsed.flatMap(c=>c.synthetic?[]:c.interfaceMedia||[])
+     .find(p=>p.name.toLowerCase()===String(ifName).toLowerCase());
+    if(!matching){missing=true;continue;}
+    const state=matching.state.toLowerCase();
+    observations.push({id,ifName,line:matching.line,state});
+    if(!/\bbidirectional\b/.test(state)||/\b(?:down|disabled|undetermined|unidirectional)\b/.test(state))unidirectional=true;
+    if(!status||!/(sfp|fiber|fibre|optic)/i.test(status.type))mediaMissing=true;
+  }}
+  if(!observations.length)return finding;
+  const refs=observations.map(x=>x.line);
+  if(unidirectional){
+   return {...finding,status:'RISK',severity:'HIGH',confidence:'OPERATIONAL_UDLD',
+    observed:observations.map(x=>x.id+' '+x.ifName+' '+x.state).join('; '),
+    explanation:'One or more observed mapped network links do not show an operational bidirectional UDLD state.',
+    networkImpact:'A unidirectional failure may compromise Layer-2 forwarding and STP protection.',
+    recommendation:'Inspect affected cabling/optics and peer UDLD state before accepting the link.',
+    provenance:'OBSERVED_CLI',evidence:[...finding.evidence,...refs]};
+  }
+  if(missing||mediaMissing)return {...finding,confidence:'PARTIAL_OPERATIONAL',
+   observed:finding.observed+' Operational UDLD evidence: '+observations.length+' mapped port(s) bidirectional; remaining port or media evidence missing.',
+   evidence:[...finding.evidence,...refs],
+   limitations:[...finding.limitations,'Both ends and physical media must be verified before closing this check.']};
+  return {...finding,status:'GOOD',severity:'NONE',confidence:'OPERATIONAL_UDLD',
+   observed:observations.length+' mapped physical link endpoints show bidirectional UDLD and optical media in real CLI.',
+   explanation:'All mapped, selected physical uplinks were observed with bidirectional UDLD and optical port evidence at capture time.',
+   recommendation:'Repeat UDLD peer verification after maintenance; record real capture timestamps.',
+   provenance:'OBSERVED_CLI',evidence:[...finding.evidence,...refs]};
+ }
+ return finding;
+}
+
 // Compact verification guidance owned by the STP knowledge package, not the UI.
 function planVerification(f){
  const guidance={
@@ -306,6 +388,7 @@ root.NetworkEngineeringFindingsV1.register({
  ],
  references:Object.values(REFS),
  planVerification,
+ resolveVerification,
  evaluate:run
 });
 root.NetworkSTPKnowledgePackageV1={version:'1.1.0',sources:REFS,planVerification};
