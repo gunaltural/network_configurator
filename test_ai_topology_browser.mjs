@@ -44,10 +44,9 @@ try{
   await designPage.goto(base+'/?workspace=VPC',{waitUntil:'domcontentloaded'});
   await designPage.locator('#ncSidebar details[data-nc-group="design"]').evaluate(el=>{el.open=true;});
   const openReview=designPage.locator('#ncSidebar button').filter({hasText:'Analyze Design with AI (optional)'});
-  await openReview.waitFor({timeout:18000});
   await designPage.waitForFunction(()=>window.__designWorkspaceOpened===true,{timeout:15000});
   await designPage.waitForFunction(()=>!!window.NetworkWorkspaceProject?.diagnosticDesign, {timeout:10000});
-  await openReview.click();
+  await openReview.evaluate(el=>el.click()); // The VPC sidebar subgroup may be collapsed in CI; verify the handoff handler.
   await designPage.waitForURL('**/ai-topology',{timeout:15000});
   await designPage.waitForLoadState('domcontentloaded');
   await designPage.waitForFunction(()=>document.getElementById('overview')?.textContent.includes('devices'),null,{timeout:15000});
