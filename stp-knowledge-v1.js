@@ -101,7 +101,7 @@ function review(workspace,ids){
   // device-running-configuration requirements or proof of operational state.
   for(const v of o.vtpMode){
    const val=v.value;
-   if(val==='transparent')add('vtpMode','info',d.hostname+': VTP transparent','VLAN database changes remain local; VTPv2/v3 advertisements can still transit trunks. Central VLAN changes will not synchronize this device.',[ref(d,v)],'vtp','VTP version and trunk connectivity must be verified for forwarding behavior.');
+   if(val==='transparent')add('vtpMode','info',d.hostname+': VTP transparent','VLAN database changes remain local; VTPv2/v3 advertisements can still be forwarded across trunks. Central VLAN changes will not synchronize this device.',[ref(d,v)],'vtp','VTP version and trunk connectivity must be verified for forwarding behavior.');
    if(val==='off')add('vtpMode','info',d.hostname+': VTP off','Local VLAN management without forwarding VTP advertisements; reduces VTP propagation but introduces manual VLAN lifecycle work.',[ref(d,v)],'vtp');
    if(val==='server'||val==='client')add('vtpMode','review',d.hostname+': VTP '+val,'A shared VTP domain can synchronize VLAN changes across trunks. Validate authorized primary/servers, domain/version, change control and revision before onboarding devices.',[ref(d,v)],'vtp','The running configuration alone does not prove operational primary status or authentication.');
   }
