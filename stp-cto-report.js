@@ -78,7 +78,71 @@ function build(container,review,preflight,db,language){
  const verify=E('section','');verify.append(E('h2','',L('4 · Doğrulama ve Kabul Planı','4 · Verification and Acceptance')));
  const ol=E('ol','');for(const x of [...new Set([...preflight.missing,...review.furtherEvidence])].slice(0,12))ol.append(E('li','',x));verify.append(ol);paper.append(verify);
  paper.append(E('footer','report-footer',L('Kaynak:','Source:')+' Design parameter know-how · SQLite knowledge v'+db.version+' · '+db.signature.slice(0,12)+' · '+L('AI çalıştırılmadı','No AI executed')));
- return {deviceCount:review.devices.length,riskCount:decisions.length,ruleCount:db.records.length};
+ const parameterCoverage=appendDecisionMatrix(paper,review,preflight,db,tr);
+ return {deviceCount:review.devices.length,riskCount:decisions.length,ruleCount:db.records.length,parameterCoverage};
 }
+
+/* Auditable engineering parameter matrix — evidence presence is NOT compliance. */
+function appendDecisionMatrix(paper,review,preflight,db,tr){
+ const L=(a,b)=>tr?a:b;
+ const matrix=E('section','stp-assessment-matrix');
+ matrix.append(E('h2','',L('5 · Cihaz Bazlı Parametre Matrisi ve Kanıt Kapsamı','5 · Device Parameter Matrix and Evidence Coverage')));
+ matrix.append(E('p','report-muted',L(
+ 'Bu matris kontrol envanteridir; satır bulunması uyumluluk kanıtı değildir. Konfigürasyon satırı bulunmadığında platform varsayılanları ve running-state bilinmiyor kabul edilir. Manuel inceleme gerektiren başlıklar otomatik olarak PASS sayılmaz.',
+ 'This is a control inventory, not a compliance certificate. Missing statements do not prove disabled features; vendor defaults and operational state remain unknown. Non-automated controls are never marked PASS.')));
+ const specifications=[
+ ['STP-001',L('Platform ve sürüm','Platform and version'),null,'show version'],
+ ['STP-002',L('Cihaz / port rolü','Device and port role'),null,'show cdp neighbors detail / show lldp neighbors detail'],
+ ['STP-003',L('STP protokol modu','STP protocol mode'),'stpMode','show spanning-tree summary'],
+ ['STP-004',L('Root yerleşimi','Root placement'),'bridgePriority','show spanning-tree root'],
+ ['STP-005',L('Bridge priority / ID','Bridge priority / ID'),'bridgePriority','show spanning-tree detail'],
+ ['STP-006',L('Root yedekliliği','Root redundancy'),'bridgePriority','show spanning-tree root'],
+ ['STP-007',L('MST bölge tutarlılığı','MST region consistency'),'mstRegion','show spanning-tree mst configuration'],
+ ['STP-008',L('PortFast / edge uygunluğu','PortFast / edge role'),'portfast','show spanning-tree interface detail'],
+ ['STP-009',L('BPDU Guard','BPDU Guard'),'bpduGuard','show spanning-tree summary'],
+ ['STP-010',L('Root Guard','Root Guard'),'rootGuard','show spanning-tree inconsistentports'],
+ ['STP-011',L('Loop Guard','Loop Guard'),'loopGuard','show spanning-tree inconsistentports'],
+ ['STP-012',L('UDLD link koruması','UDLD protection'),null,'show udld interface'],
+ ['STP-013',L('EtherChannel / LACP','EtherChannel / LACP'),null,'show etherchannel summary'],
+ ['STP-014',L('Native / Allowed VLAN','Native / allowed VLAN'),'nativeVlan','show interfaces trunk'],
+ ['STP-015',L('Topology change davranışı','Topology changes'),null,'show spanning-tree detail'],
+ ['STP-016',L('Core / uplink arıza etkisi','Core / uplink failure impact'),null,'show spanning-tree detail'],
+ ['STP-017',L('vPC / MLAG / Stack uyumu','vPC / MLAG / Stack context'),null,'show vpc / show mlag / show switch virtual'],
+ ['STP-018',L('Üretici referansı / sürüm','Vendor and release reference'),null,'show version']
+ ];
+ const rows=E('table','stp-matrix-table');rows.style.width='100%';rows.style.borderCollapse='collapse';rows.style.fontSize='12px';
+ const header=E('thead','');const hr=E('tr','');
+ for(const label of ['ID',L('Kontrol','Control'),L('Cihaz','Device'),L('Kapsam / durum','Evidence status'),L('Kanıt','Evidence'),L('Sonraki doğrulama','Verification')]){
+  const th=E('th','',label);th.style.cssText='padding:8px;text-align:left;border-bottom:2px solid #cbd5e1';hr.append(th);
+ }
+ header.append(hr);rows.append(header);
+ const body=E('tbody',''),catalog=new Map((review.coverage||[]).map(x=>[x.id,x]));
+ const hosts=review.devices||[],results={observed:0,unverified:0,notAutomated:0,issues:0};
+ for(const [id,label,param,verify] of specifications){
+  const c=param?catalog.get(param):null;
+  for(const hostname of hosts){
+   const matching=c?.devices?.find(d=>d.hostname===hostname),refs=matching?.refs||[];
+   const findings=(review.entries||[]).filter(x=>x.parameter===param&&x.title?.includes(hostname)&&['warning','review'].includes(x.severity));
+   let status,meaning;
+   if(!c){status=L('OTOMATİK ANALİZ YOK','NOT AUTOMATED');meaning=L('Manuel / operasyonel kanıt gerekli','Manual or operational evidence required');results.notAutomated++;}
+   else if(findings.length){status=L('İNCELEME GEREKLİ','REVIEW REQUIRED');meaning=findings.map(x=>x.title).join(' · ');results.issues++;}
+   else if(refs.length){status=L('GÖZLENDİ · UYGUNLUK DOĞRULANMADI','OBSERVED · NOT COMPLIANCE');meaning=L('Konfigürasyon satırı var; davranış doğrulanmadı','Configuration observed; behavior unverified');results.observed++;}
+   else {status=L('KANIT YETERSİZ','INSUFFICIENT EVIDENCE');meaning=L('Ayar yokluğu/varsayılanı belirlenemedi','Absence or default cannot be determined');results.unverified++;}
+   const row=E('tr','');for(const value of [id,label,hostname,status,(refs.slice(0,3).join(' · ')||meaning),verify]){
+    const td=E('td','',value);td.style.cssText='padding:7px;border-bottom:1px solid #e2e8f0;vertical-align:top;overflow-wrap:anywhere';row.append(td);
+   }body.append(row);
+  }
+ }
+ rows.append(body);
+ const summary=E('p','report-muted',L('Toplam ','Total ')+specifications.length+L(' kontrol / cihaz. Kanıtlı satır: ',' controls / device. Observed: ')+results.observed+L(' · İnceleme: ',' · Review: ')+results.issues+L(' · Kanıt yetersiz: ',' · Unverified: ')+results.unverified+L(' · Henüz otomatik değil: ',' · Not automated: ')+results.notAutomated+'.');
+ matrix.append(summary);
+ const detail=E('details','');detail.open=true;detail.append(E('summary','',L('Tüm cihazlar ve 18 kontrolü göster','Show all devices and 18 controls')),rows);
+ matrix.append(detail);
+ matrix.append(E('p','report-muted',L('Yöntem: Kontrol kapsamı = gözlemlenen konfigürasyon / karşılaştırma / eksik kanıt. Risk sınıfı ayrı, güven düzeyi ayrı belirlenmelidir. Gerçek root rolü, arıza yakınsaması ve güvenlik uygunluğu sadece config üzerinden doğrulanmaz.',
+ 'Method: parameter coverage is observed configuration, cross-device comparison and missing evidence; risk and confidence are separate. Live root role, failover convergence and security compliance are not proven by config.')));
+ paper.append(matrix);
+ return results;
+}
+
 root.NetworkSTPCTOReport={build};
 })(typeof window==='undefined'?globalThis:window);
