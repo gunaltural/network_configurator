@@ -55,7 +55,7 @@ textarea{width:100%;min-height:140px;resize:vertical}pre{padding:12px;background
 <section id="buildSource" class="entry-detail" aria-label="Build new topology" hidden>
 <h3>Build new topology</h3>
 <p class="hint">Build a topology based on an existing Design technology. Choose platform and adjust network device counts. Topology presets do not create or validate real device configurations.</p>
-<div class="control"><label>Technology module<select id="buildTechnology"></select></label><label>Vendor / platform<select id="buildPlatform"></select></label></div>
+<div class="control"><label>Technology module<select id="buildTechnology"></select></label><label>Vendor<select id="buildVendor"></select></label><label>Platform<select id="buildPlatform"></select></label></div>
 <div class="control"><label id="primaryCountLabel">Core / primary devices<input id="buildPrimaryCount" type="number" min="1" max="8" value="2"></label><label id="secondaryCountLabel">Access / secondary devices<input id="buildSecondaryCount" type="number" min="0" max="12" value="2"></label></div>
 <div class="control"><button id="applyTechnologyTemplate" type="button" class="primary">Create / update topology</button><span class="hint">Replacing a topology requires confirmation when devices or configurations exist.</span></div>
 <details id="legacyTemplates"><summary>Quick starter templates (optional)</summary>
