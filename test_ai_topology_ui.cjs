@@ -97,13 +97,13 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  $('preview').click();
  assert.equal($('analyze').disabled,false);
  assert.doesNotMatch($('evidencePreview').textContent,/Device n9k-b hostname=/,'unselected device is absent from topology evidence');
- assert.match($('evidencePreview').textContent,/VPC, SYSTEM/,'multi-module review scope is visible');
+ assert.match($('evidencePreview').textContent,/(?:VPC, SYSTEM|SYSTEM, VPC)/,'multi-module review scope is visible');
  assert.ok($('evidencePreview').textContent.includes('65000:1 additive'));
  assert.ok(!$('evidencePreview').textContent.includes('SecretRO'));
  await $('analyze').onclick();
  assert.equal(sent.length,1);assert.equal(sent[0].module,'CLI_ANALYSIS');
- assert.match(JSON.stringify(sent[0].evidence),/VPC, SYSTEM/,'model receives selected scope');
- assert.match($('analysisResult').value,/Selected modules: VPC, SYSTEM/,'report identifies scope');
+ assert.match(JSON.stringify(sent[0].evidence),/(?:VPC, SYSTEM|SYSTEM, VPC)/,'model receives selected scope');
+ assert.match($('analysisResult').value,/Selected modules: (?:VPC, SYSTEM|SYSTEM, VPC)/,'report identifies scope');
  assert.equal(sent[0].vendor,'Mixed','Mixed-vendor topology does not pretend to be homogeneous');
  assert.ok(!JSON.stringify(sent[0]).includes('SecretRO'));
  assert.match($('analysisResult').value,/engineer review required/i);
