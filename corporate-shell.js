@@ -87,7 +87,7 @@
    link.innerHTML='<span class="nc-step">0'+(index+1)+'</span><span><strong>'+label+'</strong><small data-nc-flow-status></small></span>';
    link.addEventListener('click',e=>{if(e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;if(key==='network'&&main){e.preventDefault();startDesign();}else if(reporting&&key!=='network'){e.preventDefault();openView(key);}});nav.append(link);
   });
-  const detail=document.createElement('div');detail.className='nc-flow-detail';detail.innerHTML='<div><strong data-nc-flow-title></strong><p data-nc-flow-purpose></p><small data-nc-flow-output></small></div><a class="nc-flow-next"></a>';
+  const detail=document.createElement('div');detail.className='nc-flow-detail';detail.innerHTML='<div><strong data-nc-flow-title></strong><p data-nc-flow-purpose></p><small data-nc-flow-output></small></div><a class="nc-flow-next"></a><button type="button" class="nc-flow-next" data-nc-ai-design>Analyze Design with AI →</button>';
   panel.append(heading,nav,detail);workflowPanels.push(panel);return panel;
  }
  let startGuidance=false;
