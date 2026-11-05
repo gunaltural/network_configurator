@@ -14,6 +14,7 @@ try{
  await page.locator('#aiTopologyPattern').selectOption('ring');
  await page.locator('#aiDefaultVendor').selectOption('Arista EOS');
  await page.locator('#aiDefaultRole').fill('fabric-node');
+ await page.locator('#chooseBuild').click();
  await page.locator('#aiBuildTopology').click();
  assert.match(await page.locator('#overview').innerText(),/7 devices · 7 links · 0 configurations/);
  assert.ok((await page.locator('#devicesList').innerText()).includes('Arista EOS'));
@@ -45,6 +46,20 @@ try{
  assert.ok(review.includes('65000:1 additive'),'Routing community survives client redaction');
  assert.ok(!review.includes('dont-send-me'),'Credentials are not present in review payload');
  assert.equal(await page.locator('#analyze').isDisabled(),false);
+ // Dynamic Design-style topology and scoped device selection must work in a real browser.
+ await page.locator('#buildTechnology').selectOption('BGP');
+ await page.locator('#buildVendor').selectOption('Cisco');
+ await page.locator('#buildPlatform').selectOption('Cisco IOS-XE');
+ await page.locator('#buildPrimaryCount').fill('3');
+ await page.locator('#buildSecondaryCount').fill('2');
+ await page.locator('#applyTechnologyTemplate').click();
+ assert.match(await page.locator('#overview').innerText(),/5 devices · 6 links/);
+ assert.equal(await page.locator('#topologyCanvas rect.node').count(),5,'Design-style device cards created');
+ assert.equal(await page.locator('#deviceAnalysisChoices input:checked').count(),5,'all devices available for scoped analysis');
+ await page.locator('#deviceAnalysisChoices input').nth(1).uncheck();
+ assert.equal(await page.locator('#deviceAnalysisChoices input:checked').count(),4,'per-device scope can be narrowed');
+ await page.locator('#deviceAnalysisChoices input').nth(1).check();
+
  assert.ok(!errors.length,'No browser JS errors: '+errors.join(','));
 
  // Real application-to-AI bridge: consume the existing current Design report,
