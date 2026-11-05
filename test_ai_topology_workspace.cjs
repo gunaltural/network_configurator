@@ -127,6 +127,13 @@ const selectedBgp=api.analysisEvidenceBatches(lateCapture,['fw'],['BGP']).flat()
 assert.ok(selectedBgp.some(x=>x.text.includes('L403: 198.51.100.2 4 65002')),'Late BGP section found after line 400 with ORIGINAL line number');
 assert.ok(selectedBgp.some(x=>x.text.includes('L401: FGT-1#show ip bgp summary')),'Technology-aware retrieval preserves command context');
 
+const noisyOspf=Array.from({length:300},(_,i)=>'OSPF neighbor '+i+' state FULL/DR').join('\n')+
+ '\nFGT-1#show ip bgp summary\nNeighbor V AS MsgRcvd MsgSent TblVer InQ OutQ Up/Down State/PfxRcd\n198.51.100.3 4 65003 0 0 1 0 0 never Active';
+const noiseCapture=api.addShowTech(withCapture,'fw',noisyOspf,'noisy-ospf-then-bgp.txt');
+const bOnly=api.analysisEvidenceBatches(noiseCapture,['fw'],['BGP']).flat().filter(x=>x.id.startsWith('show-tech-'));
+assert.ok(bOnly.some(x=>x.text.includes('L303: 198.51.100.3')),'Unrelated OSPF neighbor lines cannot crowd out late BGP peer state');
+
+
 
 assert.throws(()=>api.analysisEvidenceBatches(api.setConfiguration(withCapture,'fw','x'.repeat(3100))),/too long/);
 
