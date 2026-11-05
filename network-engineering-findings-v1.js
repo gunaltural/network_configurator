@@ -163,14 +163,19 @@ function run({workspace,deviceIds,technology='STP',engineering,network,operation
   const candidates=redundant.flatMap(arr=>arr.map(r=>r.access)),total=candidates.length;
   const guard=candidates.filter(x=>x.port.loopGuard).length;
   const missing=candidates.filter(x=>!x.port.loopGuard);
-  const certainty=actualMissing(missing.map(x=>x.node.id));
+  const unprotectedGroups=redundant.filter(arr=>arr.every(r=>!r.access.port.loopGuard));
+  const certainty=actualMissing(unprotectedGroups.flatMap(arr=>arr.map(r=>r.access.node.id)));
+  // The Design generator enables Loop Guard on the alternate-candidate uplink,
+  // not universally on every trunk. One protected candidate is partial (VERIFY);
+  // no protected uplink in a dual-homed group is a conditional design RISK.
+  const state=unprotectedGroups.length?(certainty?'RISK':'VERIFY'):missing.length?'VERIFY':'GOOD';
   add({id:'STP-LOOP-RESILIENCE',title:'STP alternate/root-port BPDU-loss protection',
-   status:missing.length?(certainty?'RISK':'VERIFY'):'GOOD',severity:missing.length&&certainty?'HIGH':'NONE',
+   status:state,severity:state==='RISK'?'HIGH':'NONE',
    deviceIds:[...new Set(redundant.flatMap(arr=>arr.flatMap(r=>[r.access.node.id,r.core.node.id])))],
    interfaces:missing.map(x=>x.node.hostname+' '+x.port.name),
    expected:'Potential root/alternate uplinks in redundant Layer-2 topology need a documented protection policy against lost BPDUs.',
    observed:guard+'/'+total+' mapped redundant Access uplinks configure Loop Guard; missing: '+(missing.map(x=>x.node.hostname+' '+x.port.name).join(', ')||'none')+'.',
-   explanation:missing.length?'The proposed design does not demonstrate Loop Guard on all candidate root/alternate uplinks. Exact effective role can differ by VLAN and failover scenario.':
+   explanation:missing.length?'The proposed design does not demonstrate complete Loop Guard coverage for potential root/alternate uplinks. A redundant Access switch with no protected uplink is a design exposure; VLAN and failover roles still require operational checks.':
     'Loop Guard is present on mapped candidate redundant uplinks; verify active roles and platform support.',
    networkImpact:missing.length?'An alternate/root port that stops receiving BPDUs could transition incorrectly to forwarding, potentially causing a Layer-2 loop.':
     'The configuration includes BPDU-loss protection on candidate ports.',
