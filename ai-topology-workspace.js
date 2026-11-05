@@ -78,7 +78,7 @@ function setShowTech(workspace,deviceId,text,filename){
  if(typeof text!=='string'||text.length>8000000)throw Error('Show tech capture is invalid or exceeds 8 MB.');
  next.showTech=next.showTech.filter(c=>c.deviceId!==deviceId);
  if(text.trim())next.showTech.push({deviceId,text,filename:String(filename||'show-tech.txt').slice(0,255)});
- return validate(edited(next));
+ return validate(next);
 }
 function addShowTech(workspace,deviceId,text,filename,synthetic=false){
  const next=validate(workspace);
@@ -87,11 +87,11 @@ function addShowTech(workspace,deviceId,text,filename,synthetic=false){
  filename=String(filename||'verification.txt').trim().slice(0,255);
  next.showTech=next.showTech.filter(c=>!(c.deviceId===deviceId&&(c.filename===filename||(!synthetic&&c.synthetic))));
  next.showTech.push({deviceId,text,filename,synthetic:synthetic===true});
- return validate(edited(next));
+ return validate(next);
 }
 function removeShowTech(workspace,deviceId,filename){
  const next=validate(workspace);next.showTech=next.showTech.filter(c=>!(c.deviceId===deviceId&&c.filename===filename));
- return validate(edited(next));
+ return validate(next);
 }
 function structuralAssessment(workspace){
  const model=validate(workspace),physical=model.links.filter(l=>!l.logical);
