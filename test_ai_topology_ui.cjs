@@ -70,7 +70,7 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  assert.equal(d.querySelectorAll('#deviceAnalysisChoices input:checked').length,2,'device scope can exclude one of three devices');
  $('preview').click();
  assert.equal($('analyze').disabled,false);
- assert.doesNotMatch($('evidencePreview').textContent,/Device: n9k-b\\nVendor:/,'unselected device configuration is excluded');
+ assert.doesNotMatch($('evidencePreview').textContent,/Device n9k-b hostname=/,'unselected device is absent from topology evidence');
  assert.match($('evidencePreview').textContent,/VPC, SYSTEM/,'multi-module review scope is visible');
  assert.ok($('evidencePreview').textContent.includes('65000:1 additive'));
  assert.ok(!$('evidencePreview').textContent.includes('SecretRO'));
