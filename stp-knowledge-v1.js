@@ -203,22 +203,56 @@ function format(r,language){
    mstRegion:'Compare MST name, revision and instance-to-VLAN maps on both peers.',
    default:'Validate actual interface roles and live STP state before suggesting a configuration change.'}
  };
+ const turkishFinding=e=>{
+  const host=e.title.split(':')[0];
+  const has=s=>e.title.toLowerCase().includes(s);
+  if(e.parameter==='vtpMode'){
+   if(has('modes differ'))return {title:host+': VTP yönetim modları farklı',impact:'Core cihazlarında VTP çalışma biçimleri farklı. Bu durum tek başına arıza değildir; ancak VLAN oluşturma ve değişiklik yayılımı farklı şekilde yönetileceğinden VLAN veritabanlarının ve trunk kapsamlarının tutarlılığı kontrol edilmelidir.',limit:'Mevcut VLAN veritabanının farklı olduğunu veya kesinti yaşandığını kanıtlamaz.'};
+   if(has('transparent'))return {title:host+': VTP transparent',impact:'VLAN veritabanı yerel olarak yönetilir. VTPv2/v3 duyuruları uygun trunk bağlantılarında iletilebilir; transparent modu duyuruları her koşulda durdurmaz. Merkezî VLAN değişiklikleri bu cihazın VLAN listesini otomatik eşitlemez.',limit:'VTP sürümü ve operasyonel trunk durumu doğrulanmalıdır.'};
+   if(has('vtp off'))return {title:host+': VTP off',impact:'VLAN tanımları yerel yönetilir ve VTP duyurularının yayılması engellenir. Bu, istenmeyen merkezî VLAN değişikliği riskini azaltırken Core cihazlarında VLAN envanteri tutarlılığının manuel veya otomasyonla sağlanmasını gerektirir.',limit:'VLAN 999 oluşturulmuş olması onu native VLAN yapmaz; switchport trunk native vlan komutu veya show interfaces trunk gerekir.'};
+   if(has('server')||has('client'))return {title:host+': VTP server/client',impact:'VLAN değişiklikleri alan içinde yayılabilir. VTP sürümü, domain, primary-server yetkisi ve değişiklik prosedürü yanlış yönetilirse istenmeyen VLAN güncellemeleri etkili olabilir.',limit:'Konfigürasyondan primary-server etkinliği veya canlı VLAN senkronizasyonu kanıtlanmaz.'};
+  }
+  if(e.parameter==='vtpVersion')return {title:host+': VTPv3',impact:'VTPv3 primary-server kontrolü ve geliştirilmiş kimlik doğrulama özellikleri sağlar; tek başına güvenlik açığı değildir. Yetkili ancak hatalı bir değişiklik veya zayıf yetki yönetimi yine VLAN dağıtımını etkileyebilir.',limit:'Primary-server rolü ve çalışma durumu show vtp status ile doğrulanmalıdır.'};
+  if(e.parameter==='vtpDomain'||e.parameter==='vtpPassword')return {title:host+': VTP ayarları ayrıca doğrulanmalı',impact:'Aktarılan konfigürasyonda VTP domain veya kimlik doğrulama bilgisi açıkça görünmüyor. Bu tek başına hatalı yapılandırma ispatı değildir.',limit:'İlgili operasyonel VTP bilgisi ve güvenli yetki kontrolü gereklidir.'};
+  if(e.parameter==='stpMode'){
+   if(has('mode differs'))return {title:host+': STP çalışma modları uyuşmuyor',impact:'Core cihazlarında konfigüre edilen STP modları farklı. Bağlantı üzerinde RSTP/MST sınır davranışı ve beklenen root/topoloji işleyişi kontrol edilmelidir.',limit:'Mevcut portların forwarding/blocking durumu konfigürasyondan bilinemez.'};
+   if(has('rapid'))return {title:host+': Rapid STP etkin',impact:'Rapid-PVST/RSTP, uyumlu nokta-nokta bağlantılarda daha hızlı port rol geçişi ve proposal/agreement mekanizması kullanır. Gerçek yakınsama süresi, port türü ve komşunun protokolüne bağlıdır.',limit:'Konfigürasyondan saniye cinsinden gerçek convergence süresi hesaplanamaz.'};
+   if(has('mst'))return {title:host+': MSTP seçilmiş',impact:'VLAN grupları farklı MST instance’larına bağlanarak CIST/MSTI forwarding tasarımı yapılabilir. Bölge adı, revision ve VLAN-instance eşleştirmesi komşularda aynı olmalıdır.',limit:'MST mode seçimi tek başına load balancing gerçekleştiğini kanıtlamaz.'};
+   return {title:host+': Klasik STP modu',impact:'Klasik STP yaklaşımında yakınsama RSTP’ye göre daha yavaş olabilir. Vendor PVST uzantıları IEEE 802.1D tek ağaç modeline birebir eşdeğer değildir.',limit:'Canlı yakınsama veya performans iddiası için operasyonel kanıt gereklidir.'};
+  }
+  if(e.parameter==='nativeVlan'){
+   if(has('mismatch'))return {title:host+': Native VLAN uyuşmazlığı',impact:'Topoloji üzerinde eşleştirilen iki trunk ucundaki native VLAN değerleri farklı. Untagged trafiğin yanlış VLAN’a sınıflandırılması ve STP tutarsızlığı riski oluşabilir.',limit:'Fiziksel bağlantı ve trunk çalışma durumu henüz cihaz üzerinde doğrulanmadı.'};
+   return {title:host+': Native VLAN 1 kullanılıyor',impact:'Untagged trafiğin kullanıcı VLAN’larıyla paylaşılması ve belirli trunk/tagging koşulları double-tagging VLAN hopping maruziyetine katkıda bulunabilir. Kullanılmayan ayrılmış native VLAN ve VLAN pruning gözden geçirilmelidir.',limit:'Bu satır tek başına başarılı bir saldırı veya açıklık ispatlamaz.'};
+  }
+  if(e.parameter==='allowedVlans')return {title:host+': Trunk VLAN kapsamı geniş',impact:'Gereksiz VLAN’ların trunk üzerinden taşınması broadcast/unknown unicast yayılım alanını büyütebilir; gerekli servis VLAN’larını koruyarak allowed VLAN listesini daraltmak değerlendirilmelidir.',limit:'Pruning öncesi gerçekten kullanılan VLAN’lar teyit edilmelidir.'};
+  if(e.parameter==='dtp')return {title:host+': Dinamik trunk pazarlığı',impact:'DTP ile trunk rolü komşu yapılandırmasına bağlıdır; bağlantı tipi önceden belliyse statik port modu ve uygun nonegotiate değerlendirilmelidir.',limit:'DTP gecikmesi veya güvenlik olayı bu konfigürasyondan ölçülmüş değildir.'};
+  if(e.parameter==='mstRegion')return {title:host+': MST bölge parametreleri',impact:'MST name, revision ve instance/VLAN mapping komşularla tutarlı olmalıdır; farklar sınır bağlantısı davranışını değiştirebilir.',limit:'Aktif CIST/MST root ve port rolleri gözlenmedi.'};
+  return {title:e.title,impact:e.impact,limit:e.limitation};
+ };
  const sorted=[...r.entries].sort((a,b)=>({warning:0,review:1,missing:2,info:3}[a.severity]??4)-({warning:0,review:1,missing:2,info:3}[b.severity]??4));
  const counts={warning:sorted.filter(x=>x.severity==='warning').length,review:sorted.filter(x=>x.severity==='review').length,info:sorted.filter(x=>x.severity==='info').length};
+ const important=sorted.filter(e=>e.severity!=='info'),informational=sorted.filter(e=>e.severity==='info');
  const out=['# '+labels.title,labels.status,'',labels.devices+': '+r.devices.join(' ↔ '),
   '', '## '+labels.summary,
   tr?'Konfigürasyondan '+counts.warning+' yüksek öncelikli, '+counts.review+' inceleme gerektiren bulgu ve '+counts.info+' bilgi notu çıkarıldı. Öncelik canlı kesinti kanıtı değildir.'
     :counts.warning+' high-priority, '+counts.review+' review-required and '+counts.info+' informational observations from supplied configuration; priority is not proof of impact.',
   labels.noFault,labels.absence,'','## '+labels.findings];
- if(!sorted.length)out.push(labels.noFindings);
- for(const [i,e] of sorted.entries()){
-  out.push((i+1)+'. ['+e.severity.toUpperCase()+'] '+e.title,
+ if(!important.length)out.push(labels.noFindings);
+ for(const [i,e] of important.entries()){
+  const result=tr?turkishFinding(e):{title:e.title,impact:e.impact,limit:e.limitation};
+  out.push((i+1)+'. ['+e.severity.toUpperCase()+'] '+result.title,
    '   '+labels.observed+': '+(e.evidence.join(' | ')||labels.missing),
-   '   '+labels.behavior+': '+e.impact,
+   '   '+labels.behavior+': '+result.impact,
    '   '+labels.action+': '+(labels.actions[e.parameter]||labels.actions.default),
-   '   '+labels.limit+': '+(e.limitation||labels.missing),
+   '   '+labels.limit+': '+(result.limit||labels.missing),
    '   '+labels.source+': '+e.source.title+' — '+e.source.url,'');
  }
+ out.push('## '+(tr?'DOĞRULANAN TASARIM SEÇİMLERİ':'OBSERVED DESIGN CHOICES'));
+ for(const e of informational){
+  const result=tr?turkishFinding(e):{title:e.title,impact:e.impact};
+  out.push('- '+result.title+' — '+result.impact+' ('+e.evidence.join(' | ')+')');
+ }
+ out.push('');
  out.push('## '+labels.checks);
  for(const line of r.furtherEvidence)out.push('- '+line);
  out.push('', '## '+labels.standards);
