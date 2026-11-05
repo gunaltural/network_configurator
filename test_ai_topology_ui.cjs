@@ -29,6 +29,8 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  assert.equal(Number(moved.getAttribute('cx')),x+70,'drag updates node X');
  assert.equal(Number(moved.getAttribute('cy')),y+45,'drag updates node Y');
  assert.equal(svg.querySelectorAll('line').length,2,'links remain visible after drag');
+ assert.equal(svg.querySelectorAll('text').length,4,'no redundant Connection text is rendered on lines');
+ assert.equal(d.getElementById('connectionEditor').open,false,'advanced link editor stays collapsed by default');
 
  $('deviceId').value='fw-1';$('hostname').value='FW-1';$('vendor').value='FortiGate';$('role').value='edge';
  $('saveDevice').click();assert.match($('overview').textContent,/3 devices/);
@@ -84,6 +86,7 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  assert.equal(t.sessionStorage.getItem('networkConfigurator.aiTopology.pending'),null,'Handoff is consumed once');
  assert.equal(t.document.querySelector('#moduleChoices input[value="VPC"]').checked,true,'Design module presets analysis scope');
  assert.equal(t.document.getElementById('returnToDesign').hidden,false,'Return to Design link shown');
+ assert.equal(t.document.getElementById('returnToDesign').getAttribute('href'),'/?resume=1&workspace=VPC','Return link points to source module with restored workspace');
  assert.equal(t.document.getElementById('showOriginalDesign').hidden,false,'Original Design preview tab is visible');
  assert.match(t.document.getElementById('originalDesignImage').src,/ORIGINAL-DESIGN/,'Source SVG is preserved as image');
  assert.equal(t.document.getElementById('editableTopologyPane').hidden,true,'Original view is initially shown');
