@@ -1,0 +1,44 @@
+'use strict';
+const assert=require('node:assert/strict');
+require('./ai-topology-workspace.js');
+require('./stp-engineering-v2.js');
+require('./stp-network-analysis-v2.js');
+require('./stp-operational-evidence-v1.js');
+require('./stp-synthetic-lab-v1.js');
+require('./network-engineering-findings-v1.js');
+require('./engineering-knowledge-stp-v1.js');
+const S=global.NetworkSTPLabV1, E=global.NetworkSTPEngineeringV2,N=global.NetworkSTPNetworkV2,
+ O=global.NetworkSTPOperationalV1,A=global.NetworkEngineeringFindingsV1;
+const base=S.create(),ids=base.nodes.map(x=>x.id);
+const assess=(w)=>{
+ const op=O.assess(w,ids),report=A.run({workspace:w,deviceIds:ids,technology:'STP',
+  engineering:E.assess(w,ids),network:N.analyze(w,ids),operational:op});
+ return {op,report,find:id=>report.findings.find(x=>x.id===id)};
+};
+const synthetic=assess(base);
+assert.equal(synthetic.find('STP-OBSERVED-COVERAGE').status,'VERIFY','Synthetic LAB cannot close operational evidence');
+assert.equal(synthetic.find('STP-UDLD-PHYSICAL').status,'VERIFY','Synthetic UDLD cannot be a production GOOD');
+assert.ok(synthetic.find('STP-OBSERVED-COVERAGE').verificationTask);
+const partial=structuredClone(base);
+partial.showTech=partial.showTech.map((c,i)=>({...c,synthetic:i!==0}));
+const p=assess(partial);
+assert.equal(p.find('STP-OBSERVED-COVERAGE').status,'VERIFY','One real device cannot verify three-device root state');
+assert.equal(p.find('STP-UDLD-PHYSICAL').status,'VERIFY','A partial capture cannot verify peer UDLD');
+const real=structuredClone(base);real.showTech=real.showTech.map(c=>({...c,synthetic:false,filename:c.filename.replace('synthetic','observed')}));
+const r=assess(real);
+assert.equal(r.find('STP-OBSERVED-COVERAGE').status,'GOOD','Real root, bridge and port states close verification');
+assert.equal(r.find('STP-OBSERVED-COVERAGE').confidence,'OPERATIONAL_CROSS_DEVICE');
+assert.equal(r.find('STP-OBSERVED-COVERAGE').verificationTask,undefined,'Closed finding no longer requests verification');
+assert.ok(r.find('STP-OBSERVED-COVERAGE').evidence.some(x=>x.includes('CAPTURE:')));
+assert.equal(r.find('STP-UDLD-PHYSICAL').status,'GOOD','Real operational bidirectional UDLD and optical media close verification');
+assert.equal(r.find('STP-UDLD-PHYSICAL').provenance,'OBSERVED_CLI');
+const noMedia=structuredClone(real);
+noMedia.showTech=noMedia.showTech.map(c=>({...c,text:c.text.replace(/===== show interfaces status =====[\s\S]*?(?===== show vlan brief =====)/,'')}));
+assert.equal(assess(noMedia).find('STP-UDLD-PHYSICAL').status,'VERIFY','Without media evidence UDLD remains open');
+const down=structuredClone(real);
+down.showTech=down.showTech.map((c,i)=>i===0?{...c,text:c.text.replace('TenGigabitEthernet1/0/48 aggressive bidirectional','TenGigabitEthernet1/0/48 aggressive down')}:c);
+assert.equal(assess(down).find('STP-UDLD-PHYSICAL').status,'RISK','Actual UDLD down is a risk, not missing evidence');
+const conflict=structuredClone(real);
+conflict.showTech=conflict.showTech.map((c,i)=>i===1?{...c,text:c.text.replace('Address     0011.2200.0001','Address     00aa.00bb.00cc')}:c);
+assert.equal(assess(conflict).find('STP-OBSERVED-COVERAGE').status,'RISK','Conflicting operational root IDs are escalated');
+console.log('STP verified closure: lab remains open, partial remains open, real root and UDLD close, missing media remains open, down and conflict escalate PASS');
