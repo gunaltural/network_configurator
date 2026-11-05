@@ -5,6 +5,7 @@ require('./stp-engineering-v2.js');
 require('./stp-network-analysis-v2.js');
 require('./stp-synthetic-lab-v1.js');
 require('./network-engineering-findings-v1.js');
+require('./engineering-knowledge-stp-v1.js');
 const W=global.NetworkAITopology,L=global.NetworkSTPLabV1,E=global.NetworkSTPEngineeringV2,N=global.NetworkSTPNetworkV2,A=global.NetworkEngineeringFindingsV1;
 const baseline=L.create();
 const evaluate=ws=>{
