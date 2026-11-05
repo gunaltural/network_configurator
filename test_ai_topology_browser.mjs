@@ -86,8 +86,10 @@ try{
  assert.equal(await page.locator('#analyze').isVisible(),true,'Single Analyze Selected Devices button is visible');
  await page.locator('#analyze').click();
  await page.waitForFunction(()=>!document.getElementById('viewSTPCTO').disabled,{timeout:12000});
- await page.locator('#viewSTPCTO').click();
- assert.equal(await page.locator('#stpCTOView').isVisible(),true);
+ assert.equal(await page.locator('#workflowStep4').isVisible(),true,'Analyze opens Report stage automatically');
+ assert.equal(await page.locator('#stpCTOView').isVisible(),true,'Analyze displays HTML report automatically');
+ assert.equal(await page.locator('#wizardNext').isVisible(),false,'No empty Continue button at final workflow step');
+ assert.equal(await page.locator('#viewSTPCTO').innerText(),'Hide HTML View','HTML toggle reflects visible report');
  const labReport=await page.locator('#stpCTOView').innerText();
  assert.match(labReport,/SYNTHETIC LAB/);
  assert.match(labReport,/17\.12\.04/);
@@ -145,7 +147,8 @@ try{
  assert.equal(await page.locator('#downloadEngineeringWord').isEnabled(),true,'Word download is enabled after analysis');
  assert.equal(await page.locator('#editEngineeringReport').isEnabled(),true);
  assert.equal(await page.locator('#saveEngineeringReport').isEnabled(),true);
- await page.locator('#viewSTPCTO').click();
+ assert.equal(await page.locator('#stpCTOView').isVisible(),true,'Reanalysis displays HTML automatically, no second click');
+ assert.equal(await page.locator('#wizardNext').isVisible(),false,'No last-stage phantom navigation');
  const pdfDownload=page.waitForEvent('download');
  await page.locator('#downloadEngineeringPDF').click();
  const pdf=await pdfDownload;
