@@ -2,6 +2,7 @@
 from bgp_cli_evidence import summarize_capture, correlate
 from tac_overview import overview
 from engineering_knowledge import retrieve_knowledge
+from engineering_source_index import retrieve_sources
 import json
 import os
 import re
@@ -252,6 +253,7 @@ def install_engineering_ai(app):
         return {'available': enabled, 'readOnly': True,
                 'provider': os.getenv('AI_PROVIDER', 'local') if enabled else 'disabled',
                 'reasoningVerified': False,
+                'knowledgeRetrieval': 'curated-versioned-source-metadata-not-full-text-RAG',
                 'note': 'Credentials configured; this endpoint does not verify model quality or live inference.'}
 
     @app.post('/api/ai/analyze')
@@ -272,13 +274,15 @@ def install_engineering_ai(app):
                 observed = overview(content['evidence'], body.vendor, body.language)
                 context = observed[0][:550] if observed else ''
                 knowledge = retrieve_knowledge(content['evidence'], body.vendor)
+                source_index = retrieve_sources(content['evidence'], body.vendor)
                 # Prompt stays within the bundled small-model context window.
                 # The full local evidence is retained for independent citation validation.
                 compact_knowledge = ([{**item, 'questions': item['questions'][:2]} for item in knowledge[:2]]
                     if os.getenv('AI_PROVIDER', 'local') == 'local' and os.getenv('AI_LOCAL_REASONING_PROFILE') != 'full' else knowledge)
                 inputs = {'vendor': body.vendor, 'language': body.language,
                     'evidence': content['evidence'], 'observed_context': context,
-                    'retrieved_knowledge': compact_knowledge}
+                    'retrieved_knowledge': compact_knowledge,
+                    'manufacturer_source_metadata': source_index}
                 try:
                     # Bound full-profile reasoning to concise, verifiable findings.
                     # Long free-form generations frequently exhaust the local model
@@ -308,7 +312,8 @@ def install_engineering_ai(app):
                     return {'text': heading + '\n\n' + detail,
                         'mode': 'evidence-only-provider-fallback',
                         'reviewRequired': True, 'evidenceIds': [e.id for e in body.evidence],
-                        'knowledgeIds': [k['id'] for k in knowledge]}
+                        'knowledgeIds': [k['id'] for k in knowledge],
+                        'sourceIndexIds': [k['id'] for k in source_index]}
                 valid, ids = validate_evidence_citations(draft, content['evidence'])
                 if not valid and (os.getenv('AI_PROVIDER', 'local') != 'local' or
                                   os.getenv('AI_LOCAL_REASONING_PROFILE') == 'full'):
@@ -339,7 +344,8 @@ def install_engineering_ai(app):
                 if valid:
                     return {'text': draft, 'mode': 'model-evidence-cited-draft',
                         'reviewRequired': True, 'engineeringVerified': False, 'evidenceIds': ids,
-                        'knowledgeIds': [k['id'] for k in knowledge]}
+                        'knowledgeIds': [k['id'] for k in knowledge],
+                        'sourceIndexIds': [k['id'] for k in source_index]}
                 # Fail closed: do not publish a speculative engineering claim when
                 # its supporting observation cannot be checked in the capture.
                 # Retain only an evidence excerpt and an explicit review warning.
@@ -355,7 +361,8 @@ def install_engineering_ai(app):
                     excerpts.append('### ' + item['id'] + '\n' + '\n'.join(lines[:4]))
                 return {'text': warning + '\n\n' + '\n\n'.join(excerpts),
                     'mode': 'model-unverified-draft', 'reviewRequired': True,
-                    'evidenceIds': [], 'knowledgeIds': [k['id'] for k in knowledge]}
+                    'evidenceIds': [], 'knowledgeIds': [k['id'] for k in knowledge],
+                        'sourceIndexIds': [k['id'] for k in source_index]}
             if body.module == 'CLI_SYNTHESIS':
                 draft = generate({'model': os.environ['AI_MODEL'], 'store': False,
                     'max_output_tokens': 1800, 'instructions': INSTRUCTIONS + _SYNTHESIS,
