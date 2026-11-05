@@ -25,6 +25,7 @@ on:
       - 'test_network_evidence_correlation_v1.cjs'
       - 'test_ai_topology*'
       - 'test_ai_analysis_evidence_report.cjs'
+      - 'test_ai_analysis_generic_browser.mjs'
       - 'stp-analysis-v1.js'
       - 'stp-knowledge-v1.js'
       - 'stp-cto-report.js'
@@ -78,6 +79,7 @@ on:
       - 'test_network_evidence_correlation_v1.cjs'
       - 'test_ai_topology*'
       - 'test_ai_analysis_evidence_report.cjs'
+      - 'test_ai_analysis_generic_browser.mjs'
       - 'stp-analysis-v1.js'
       - 'stp-knowledge-v1.js'
       - 'stp-cto-report.js'
@@ -164,6 +166,7 @@ jobs:
           curl -fsS http://127.0.0.1:8125/ai-topology-ui.js | grep -q 'configDevice'
           node test_analysis_browser.mjs
           node test_ai_topology_browser.mjs
+          node test_ai_analysis_generic_browser.mjs
           node test_ai_stp_disabled_design_browser.mjs
       - name: Build hosted production profile without local model or secret
         run: |
