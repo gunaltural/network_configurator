@@ -44,8 +44,8 @@ class EngineeringSourceIndexTests(unittest.TestCase):
         self.assertEqual(retrieve_sources(evidence,"Mixed"),[])
 
     def test_huawei_bgp_document_not_attributed_to_cisco(self):
-        evidence=[{"id":"ce-bgp","text":"Device: CE6865-A\\nVendor: Huawei CloudEngine VRP8\\n"
-            "Command: display bgp peer\\nL2: Peer V AS MsgRcvd MsgSent OutQ Up/Down State PrefRcv\\n"
+        evidence=[{"id":"ce-bgp","text":"Device: CE6865-A\nVendor: Huawei CloudEngine VRP8\n"
+            "Command: display bgp peer\nL2: Peer V AS MsgRcvd MsgSent OutQ Up/Down State PrefRcv\n"
             "L3: 192.0.2.2 4 64513 1 1 0 00:00:11 Established 62"}]
         found=retrieve_sources(evidence,"Mixed")
         ids=[item["id"] for item in found]
