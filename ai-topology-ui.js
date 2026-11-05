@@ -17,7 +17,7 @@ function invalidate(){reviewedSignature=null;pendingBatches=null;runState=null;$
 function draw(){
  const svg=$('topologyCanvas');svg.replaceChildren();
  const NS='http://www.w3.org/2000/svg',points=new Map(),n=workspace.nodes.length;
- workspace.nodes.forEach((node,i)=>{const angle=-Math.PI/2+i*2*Math.PI/Math.max(n,1),radius=n===1?0:Math.min(145,65+n*12);points.set(node.id,{x:400+Math.cos(angle)*radius*1.65,y:180+Math.sin(angle)*radius});});
+ workspace.nodes.forEach((node,i)=>{const angle=-Math.PI/2+i*2*Math.PI/Math.max(n,1),radius=n===1?0:Math.min(145,65+n*12);points.set(node.id,node.position||{x:400+Math.cos(angle)*radius*1.65,y:180+Math.sin(angle)*radius});});
  function element(tag,attrs){const x=document.createElementNS(NS,tag);for(const [k,v]of Object.entries(attrs))x.setAttribute(k,String(v));svg.append(x);return x;}
  for(const link of workspace.links){
   const a=points.get(link.a),b=points.get(link.b);if(!a||!b)continue;
@@ -26,11 +26,42 @@ function draw(){
   const label=element('text',{x:(a.x+b.x)/2,y:(a.y+b.y)/2-10,'text-anchor':'middle'});label.textContent=link.kind||link.id;
  }
  for(const node of workspace.nodes){
-  const p=points.get(node.id);element('circle',{cx:p.x,cy:p.y,r:41,class:'node'});
+  const p=points.get(node.id);element('circle',{cx:p.x,cy:p.y,r:41,class:'node','data-device-id':node.id,tabindex:0,role:'button','aria-label':'Drag '+node.hostname+' to reposition'});
   const name=element('text',{x:p.x,y:p.y-2,'text-anchor':'middle'});name.textContent=node.hostname.slice(0,18);
   const vendor=element('text',{x:p.x,y:p.y+15,'text-anchor':'middle'});vendor.textContent=node.vendor.slice(0,20);vendor.setAttribute('font-size','11');
  }
 }
+// SVG pointer interactions update drawing coordinates only; config and Design remain intact.
+let draggingNode=null;
+function pointerLocation(event){
+ const svg=$('topologyCanvas'),rect=svg.getBoundingClientRect();
+ if(!rect.width||!rect.height)return null;
+ return {x:(event.clientX-rect.left)*800/rect.width,y:(event.clientY-rect.top)*360/rect.height};
+}
+$('topologyCanvas').addEventListener('pointerdown',event=>{
+ const target=event.target.closest?.('[data-device-id]');
+ if(!target||event.button!==0)return;
+ const start=pointerLocation(event);if(!start)return;
+ const node=workspace.nodes.find(n=>n.id===target.dataset.deviceId);if(!node)return;
+ const i=workspace.nodes.indexOf(node),angle=-Math.PI/2+i*2*Math.PI/Math.max(workspace.nodes.length,1);
+ const radius=workspace.nodes.length===1?0:Math.min(145,65+workspace.nodes.length*12);
+ const current=node.position||{x:400+Math.cos(angle)*radius*1.65,y:180+Math.sin(angle)*radius};
+ draggingNode={id:node.id,offsetX:current.x-start.x,offsetY:current.y-start.y,moved:false};
+ $('topologyCanvas').setPointerCapture?.(event.pointerId);event.preventDefault();
+});
+$('topologyCanvas').addEventListener('pointermove',event=>{
+ if(!draggingNode)return;const point=pointerLocation(event);if(!point)return;
+ workspace=api.moveDevice(workspace,draggingNode.id,point.x+draggingNode.offsetX,point.y+draggingNode.offsetY);
+ draggingNode.moved=true;draw();
+});
+function finishDrag(){
+ if(!draggingNode)return;
+ const moved=draggingNode.moved;draggingNode=null;
+ if(moved)changed('Node position updated.');
+}
+$('topologyCanvas').addEventListener('pointerup',finishDrag);
+$('topologyCanvas').addEventListener('pointercancel',finishDrag);
+$('topologyCanvas').addEventListener('lostpointercapture',finishDrag);
 function render(){
  const devs=workspace.nodes.map(n=>[n.id,n.hostname||n.id]),links=workspace.links.map(l=>[l.id,l.id+' · '+l.kind]);
  populate($('deviceSelect'),devs,$('deviceSelect').value,true);
