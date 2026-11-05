@@ -64,5 +64,39 @@ try{
   assert.ok(evidence.includes('Command: parameter choices'),'Design parameters feed AI review');
  }finally{await designPage.close();}
 
+
+ // Optional 2 Core + 1 Access fixture uses the same browser, parser and report pipeline.
+ await page.locator('#syntheticLabEntry').evaluate(el=>{el.open=true;});
+ page.once('dialog',dialog=>dialog.accept());
+ await page.locator('#loadSTPLab').click();
+ assert.match(await page.locator('#overview').innerText(),/3 devices · 3 links/);
+ assert.equal(await page.locator('#showTechDeviceList .evidence-device').count(),3);
+ assert.match(await page.locator('#showTechDeviceList').innerText(),/SYNTHETIC LAB/);
+ await page.locator('#runSTPCTO').click();
+ await page.waitForFunction(()=>!document.getElementById('viewSTPCTO').disabled,{timeout:12000});
+ await page.locator('#viewSTPCTO').click();
+ assert.equal(await page.locator('#stpCTOView').isVisible(),true);
+ const labReport=await page.locator('#stpCTOView').innerText();
+ assert.match(labReport,/SYNTHETIC LAB/);
+ assert.match(labReport,/17\.12\.04/);
+ assert.match(labReport,/LAB-CORE-A/);
+ assert.match(labReport,/LAB-CORE-B/);
+ assert.match(labReport,/LAB-ACCESS-A/);
+ assert.match(labReport,/ROOT_ID_MATCH/);
+ assert.match(labReport,/STP-018/);
+ assert.equal(await page.locator('[data-evidence-upload="lab-core-a"]').count(),18);
+ // Every criterion uploads to the owning device. Genuine evidence supersedes synthetic fixtures.
+ const chooser=page.waitForEvent('filechooser');
+ await page.locator('[data-evidence-upload="lab-core-a"]').first().click();
+ const fileChooser=await chooser;
+ await fileChooser.setFiles({name:'live-core-a-show-version.txt',mimeType:'text/plain',
+  buffer:Buffer.from('===== show version =====\nCisco IOS XE Software, Version 17.15.07\nModel Number : C9500-24Y4C')});
+ await page.waitForFunction(()=>document.getElementById('showTechStatus')?.textContent.includes('live-core-a-show-version.txt'),{timeout:12000});
+ assert.match(await page.locator('#showTechDeviceList').innerText(),/live-core-a-show-version\.txt/);
+ assert.match(await page.locator('#showTechDeviceList').innerText(),/LAB-CORE-B/);
+ assert.ok(!(await page.locator('#showTechDeviceList').innerText()).includes('lab-core-a-synthetic-showtech.txt'),
+  'Real capture replaces that device synthetic evidence rather than mixing it');
+ assert.match(await page.locator('#stpCTOView').innerText(),/17\.15\.07/);
+ assert.ok(!errors.length,'No UI script errors after synthetic LAB and operational upload: '+errors.join(','));
  console.log('AI topology Chromium: templates, mixed-vendor edits, link, configuration, reviewed evidence and routes passed.');
 }finally{await browser.close();}
