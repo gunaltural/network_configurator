@@ -2,12 +2,13 @@
 const $=id=>document.getElementById(id),api=window.NetworkAITopology;
 if(!api)return;
 const handoff='networkConfigurator.aiTopology.pending';
-let workspace=api.blank(),pendingBatches=null,reviewedSignature=null,runState=null,busy=false;
+let workspace=api.blank(),pendingBatches=null,reviewedSignature=null,runState=null,busy=false,originalMode=true;
 const selectedModules=()=>[...document.querySelectorAll('#moduleChoices input:checked')].map(el=>el.value);
 const clean=x=>String(x??'').trim(),snapshot=()=>JSON.stringify({workspace,modules:selectedModules()}),isReviewed=()=>reviewedSignature===snapshot();
 function message(value,error=false){$('status').textContent=value;$('status').dataset.error=String(error);}
 function updateScopeCount(){const n=selectedModules().length;$('scopeCount').textContent=n?n+' engineering module'+(n===1?'':'s')+' selected':'No modules selected';}
 function selectTopologyMode(original){
+ originalMode=original;
  const hasOriginal=!!workspace.originalDesignSvg;
  $('originalDesignPane').hidden=!original||!hasOriginal;
  $('editableTopologyPane').hidden=original&&hasOriginal;
@@ -25,7 +26,7 @@ function renderOriginalDesign(){
   img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(workspace.originalDesignSvg);
   img.alt='Original '+(workspace.sourceModule||'Design')+' network topology';
  }else{img.removeAttribute('src');}
- selectTopologyMode(available);
+ selectTopologyMode(available&&originalMode);
 }
 
 function makeOption(id,name){const opt=document.createElement('option');opt.value=id;opt.textContent=name;return opt;}
@@ -148,7 +149,7 @@ function fromHandoff(){
  sessionStorage.removeItem(handoff);
  try{
   const report=JSON.parse(handoffRaw);
-  workspace=report?.schema==='ai-topology-workspace-v1'?api.validate(report):api.fromDesign(report);
+  workspace=report?.schema==='ai-topology-workspace-v1'?api.validate(report):api.fromDesign(report);originalMode=true;
   $('sourceLabel').textContent='Imported Design snapshot · independent copy';
   const sourceModule=String(workspace.sourceModule||'').toUpperCase();
   const aliases={SYSTEM_MANAGEMENT:'SYSTEM',SYSTEM_MANAGEMENT_AND_SECURITY:'SYSTEM',MLAG:'VPC',VXLAN:'EVPN'};
@@ -161,7 +162,7 @@ function fromHandoff(){
 }
 $('applyTemplate').onclick=()=>{
  if((workspace.nodes.length||workspace.configs.length)&&!window.confirm('Replace your current topology and attached configurations?'))return;
- try{workspace=api.template($('template').value);const module=String(workspace.sourceModule||'').toUpperCase();const choice=[...document.querySelectorAll('#moduleChoices input')].find(el=>el.value===module);if(choice)choice.checked=true;$('sourceLabel').textContent='Template · independent copy';changed('Template loaded.');loadDevice();loadLink();loadConfig();}
+ try{workspace=api.template($('template').value);originalMode=false;const module=String(workspace.sourceModule||'').toUpperCase();const choice=[...document.querySelectorAll('#moduleChoices input')].find(el=>el.value===module);if(choice)choice.checked=true;$('sourceLabel').textContent='Template · independent copy';changed('Template loaded.');loadDevice();loadLink();loadConfig();}
  catch(e){message(e.message,true);}
 };
 $('deviceSelect').onchange=loadDevice;
