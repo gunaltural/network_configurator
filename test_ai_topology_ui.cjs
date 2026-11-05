@@ -126,7 +126,8 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  assert.equal($('editEngineeringReport').disabled,false,'Reviewer notes can be edited');
  assert.equal($('saveEngineeringReport').disabled,false,'Report can be saved');
  $('configDevice').value='fw-1';$('configuration').value='hostname CHANGED';$('saveConfig').click();
- assert.equal($('analyze').disabled,true,'Changed evidence invalidates prior review');
+ assert.equal($('analyze').disabled,false,'Changed evidence can be re-analyzed using one button without a manual review step');
+ assert.equal($('exportSTPCTO').disabled,true,'Previous report is invalidated after config changes');
  assert.equal($('analysisResult').value,'','Stale analysis is cleared after changing the workspace');
  assert.equal($('workflowStep4').hidden,true,'Editing configuration exits stale Report step');
 
