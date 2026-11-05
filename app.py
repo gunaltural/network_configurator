@@ -1735,6 +1735,10 @@ def ai_topology_workspace_script():
 def stp_analysis_v1_script():
     return FileResponse(BASE_DIR / 'stp-analysis-v1.js', media_type='application/javascript')
 
+@app.get('/stp-knowledge-v1.js')
+def stp_knowledge_v1_script():
+    return FileResponse(BASE_DIR / 'stp-knowledge-v1.js', media_type='application/javascript')
+
 @app.get('/analysis')
 def cli_analysis_page():
     return FileResponse(BASE_DIR / 'analysis.html', media_type='text/html')
