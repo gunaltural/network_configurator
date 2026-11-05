@@ -20,6 +20,7 @@ on:
       - 'ai-topology*'
       - 'test_ai_topology*'
       - 'engineering-ai.js'
+      - 'project-workflow.js'
       - 'ai-evidence.js'
       - 'test_ai_design_handoff.cjs'
       - 'test_ai_panel.cjs'
@@ -44,6 +45,7 @@ on:
       - 'ai-topology*'
       - 'test_ai_topology*'
       - 'engineering-ai.js'
+      - 'project-workflow.js'
       - 'ai-evidence.js'
       - 'test_ai_design_handoff.cjs'
       - 'test_ai_panel.cjs'
@@ -91,7 +93,7 @@ jobs:
       - name: TAC overview test_no_cross_router_or_unscoped_security_finding
         run: python -m unittest -v test_tac_overview.OverviewTests.test_no_cross_router_or_unscoped_security_finding
       - name: Validate browser JavaScript syntax
-        run: node --check analysis-ui.js && node --check show-analysis.js && node --check ai-topology-workspace.js && node --check ai-topology-ui.js && node --check engineering-ai.js && node --check ai-evidence.js
+        run: node --check analysis-ui.js && node --check show-analysis.js && node --check ai-topology-workspace.js && node --check ai-topology-ui.js && node --check engineering-ai.js && node --check ai-evidence.js && node --check project-workflow.js
       - name: Install browser DOM test dependency
         run: npm install --no-save --ignore-scripts jsdom@30.1.1 playwright
       - name: Test editable AI topology and Design import contracts
