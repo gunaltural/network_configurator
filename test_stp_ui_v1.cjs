@@ -24,6 +24,8 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{JSDOM}=require
  w.eval(fs.readFileSync('ai-topology-workspace.js','utf8'));
  w.eval(fs.readFileSync('stp-analysis-v1.js','utf8'));
  w.eval(fs.readFileSync('stp-knowledge-v1.js','utf8'));
+ w.eval(fs.readFileSync('stp-engineering-v2.js','utf8'));
+ w.eval(fs.readFileSync('stp-network-analysis-v2.js','utf8'));
  w.eval(fs.readFileSync('stp-cto-report.js','utf8'));
  w.eval(fs.readFileSync('ai-topology-ui.js','utf8'));
  assert.equal($('stpV1Panel').hidden,false,'STP source activates preflight');
@@ -43,6 +45,8 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{JSDOM}=require
  assert.doesNotMatch($('stpCTOView').textContent,/ACCESS-1/);
  assert.equal($('exportSTPCTO').disabled,false,'styled HTML executive report available');
  assert.match($('stpCTOView').textContent,/STP-018/,'18-control engineering matrix is rendered');
+ assert.match($('stpCTOView').textContent,/End-to-end Network and Protocol Assessment/,'whole-network assessment is visible');
+ assert.match($('stpCTOView').textContent,/Per-VLAN root candidate/,'per-VLAN cross-device comparison is rendered');
  assert.match($('stpCTOView').textContent,/CORE-1/,'matrix reports per selected device');
  assert.match($('stpCTOView').textContent,/NOT AUTOMATED/,'unsupported checks are explicitly identified');
  assert.match($('stpCTOView').textContent,/OBSERVED/,'observed configuration is not mislabeled compliance');
