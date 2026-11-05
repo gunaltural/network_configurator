@@ -32,6 +32,9 @@ on:
       - 'stp-operational-evidence-v1.js'
       - 'stp-synthetic-lab-v1.js'
       - 'test_stp_operational_v1.cjs'
+      - 'test_stp_verification_resolution_v1.cjs'
+      - 'ai_engineering_report_export.py'
+      - 'test_ai_engineering_report_export.py'
       - 'knowledge/**'
       - 'knowledge_store.py'
       - 'test_knowledge_store.py'
@@ -95,7 +98,7 @@ jobs:
       - name: Install minimal Python dependencies
         run: python -m pip install 'fastapi>=0.110' 'httpx>=0.27'
       - name: Compile AI analysis Python modules before runtime tests
-        run: python -m py_compile engineering_ai.py engineering_knowledge.py test_engineering_ai.py test_engineering_knowledge.py
+        run: python -m py_compile engineering_ai.py engineering_knowledge.py test_engineering_ai.py test_engineering_knowledge.py ai_engineering_report_export.py
       - name: Independently regression-test existing Simulation engine (not an AI answer bank)
         run: node simulation/test_pair_behavior.cjs
       - name: Test hosted provider access probe fail-closed (offline; no API secret)
@@ -123,7 +126,7 @@ jobs:
       - name: Install browser DOM test dependency
         run: npm install --no-save --ignore-scripts jsdom@30.1.1 playwright
       - name: Test editable AI topology and Design import contracts
-        run: node test_ai_topology_workspace.cjs && node test_ai_design_handoff.cjs && node test_ai_topology_ui.cjs && node test_ai_panel.cjs && node test_stp_analysis_v1.cjs && node test_stp_ui_v1.cjs && node test_stp_knowledge_v1.cjs && node test_stp_network_v2.cjs && node test_engineering_knowledge_registry_v1.cjs && node test_network_engineering_findings_v1.cjs && node test_stp_operational_v1.cjs
+        run: node test_ai_topology_workspace.cjs && node test_ai_design_handoff.cjs && node test_ai_topology_ui.cjs && node test_ai_panel.cjs && node test_stp_analysis_v1.cjs && node test_stp_ui_v1.cjs && node test_stp_knowledge_v1.cjs && node test_stp_network_v2.cjs && node test_engineering_knowledge_registry_v1.cjs && node test_network_engineering_findings_v1.cjs && node test_stp_operational_v1.cjs && node test_stp_verification_resolution_v1.cjs
       - name: Run isolated Chromium AI Analysis UI smoke
         env:
           AUTH_ENABLED: '0'
@@ -132,6 +135,7 @@ jobs:
           npx playwright --version
           npx playwright install chromium
           python -m pip install -r requirements.txt
+          python -m unittest -v test_ai_engineering_report_export
           python -m uvicorn app:app --host 127.0.0.1 --port 8125 >/tmp/ai-analysis-app.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" || true' EXIT
