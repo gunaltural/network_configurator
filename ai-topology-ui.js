@@ -8,7 +8,7 @@ const scopedDeviceIds=()=>workspace.nodes.map(node=>node.id).filter(id=>selected
 function syncDeviceChoices(){
  const known=new Set(workspace.nodes.map(n=>n.id));
  for(const id of selectedDeviceIds)if(!known.has(id))selectedDeviceIds.delete(id);
- for(const node of workspace.nodes)if(!selectedDeviceIds.has(node.id)&&!document.querySelector('#deviceAnalysisChoices [data-device-id="'+node.id+'"]'))selectedDeviceIds.add(node.id);
+ for(const node of workspace.nodes)if(!selectedDeviceIds.has(node.id)&&![...document.querySelectorAll('#deviceAnalysisChoices input')].some(input=>input.dataset.deviceId===node.id))selectedDeviceIds.add(node.id);
  const root=$('deviceAnalysisChoices');root.replaceChildren();
  for(const node of workspace.nodes){
   const label=document.createElement('label'),input=document.createElement('input'),name=document.createElement('span');
