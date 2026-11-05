@@ -100,6 +100,7 @@ function fromHandoff(){
   const chosen=aliases[sourceModule]||sourceModule;
   const sourceChoice=[...document.querySelectorAll('#moduleChoices input')].find(el=>el.value===chosen);
   if(sourceChoice)sourceChoice.checked=true;
+  const returnLink=$('returnToDesign');if(returnLink){returnLink.hidden=false;returnLink.textContent='Return to '+(workspace.sourceModule||'selected')+' Design';}
   message('Imported '+workspace.nodes.length+' Design devices, '+workspace.configs.length+' generated configuration proposals and '+(workspace.designReview?.parameters.length||0)+' engineering parameters. Review redacted evidence before AI analysis.');
  }catch(e){message('Could not import Design snapshot: '+e.message,true);}
 }
