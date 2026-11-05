@@ -8,7 +8,8 @@ const base={nodes,links:[{id:'core',a:'a',b:'b',aPort:'Port-channel10',bPort:'Po
  {deviceId:'b',text:'vtp mode server\nvtp version 3\ninterface Port-channel10\n switchport mode trunk\n switchport trunk native vlan 999\n switchport trunk allowed vlan 10,20'},
  {deviceId:'c',text:'vtp mode off\ninterface Ethernet1/1\n switchport mode access'}
 ]};
-assert.equal(api.parameters.length,14,'Catalog covers initial 14 STP/L2 analysis parameter families');
+assert.equal(api.parameters.length,15,'Catalog includes per-interface UDLD and STP/L2 controls');
+assert.ok(api.parameters.some(x=>x.id==='udld'),'UDLD must be in the parser catalog');
 for(const id of ['ieee8021d','ieee8021w','ieee8021s','ieee8021q','rfc4188','rfc4318','rfc7727']){
  assert.ok(api.standards[id]&&api.standards[id].url.startsWith('https://'),'official standard '+id+' registered');
 }
