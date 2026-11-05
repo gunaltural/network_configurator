@@ -52,7 +52,9 @@ function describe(technology){
  if(!p)return {technology:checkTechnology(technology),status:'NOT_IMPLEMENTED',controls:[],vendors:[],references:[]};
  return {technology:p.technology,version:p.knowledgeVersion,status:p.status,
   vendors:[...p.vendors],description:p.description,
-  controls:p.controls.map(c=>({id:c.id,family:c.family,sources:[...c.sources],verification:[...c.verification]})),
+  controls:p.controls.map(c=>({id:c.id,family:c.family,sources:[...c.sources],verification:[...c.verification],
+    findingPrefixes:[...c.findingPrefixes],purpose:c.purpose,applicableWhen:c.applicableWhen,
+    absenceImpact:c.absenceImpact,acceptance:c.acceptance})),
   references:p.references.map(r=>({...r}))};
 }
 function list(){
