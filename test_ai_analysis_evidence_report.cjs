@@ -55,6 +55,10 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  assert.doesNotMatch(output.textContent,/PrivateSecretValue/,'Credentials never appear in report');
  assert.doesNotMatch(output.textContent,/MySecretPSKData|DeviceIsakmpValue/,'PSK and ISAKMP keys never appear in reports or their export source');
  assert.match(output.textContent,/\[REDACTED\]/,'Redacted CLI lines remain locatable');
+
+ // Multi-line key payloads must never appear in report/HTML/PDF/Word source DOM.
+ assert.doesNotMatch(output.textContent,/SENSITIVEPEM_PAYLOAD_123/);
+
  assert.equal(output.querySelectorAll('.engineering-deployment-evidence').length,6);
  assert.equal($('downloadEngineeringPDF').disabled,false);
  assert.equal($('downloadEngineeringWord').disabled,false);
