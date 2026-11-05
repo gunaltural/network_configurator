@@ -263,7 +263,7 @@ function appendEngineeringMatrix(paper,assessment,tr,operational){
   group.append(tip);
   const table=E('table','stp-compact-matrix');table.style.cssText='width:100%;border-collapse:collapse;font-size:11px';
   const header=E('tr','');
-  for(const x of ['ID',L('Kontrol','Control'),L('Sonuç','Result'),L('Kanıt ve doğrulama','Evidence / verification')]){
+  for(const x of ['ID',L('Kontrol','Control'),L('Sonuç','Result'),L('Doğrulama komutları','Verification commands'),L('Kanıt / detay','Evidence / details')]){
    const th=E('th','',x);th.style.cssText='padding:8px;text-align:left;border-bottom:2px solid #becbd5';header.append(th);
   }table.append(header);
   for(const c of device.controls){
@@ -275,13 +275,21 @@ function appendEngineeringMatrix(paper,assessment,tr,operational){
    action.append(upload);
    const info=E('details','');info.append(E('summary','',L('Detay / Kanıt','Details / Evidence')));
    info.append(E('p','',c.analysis||L('Mühendislik yorumu yok','No interpretation')));
-   info.append(E('p','',L('Doğrulama: ','Verify: ')+(c.verify||'-')));
+
    for(const evidence of c.evidence.slice(0,40))info.append(E('p','report-meta',evidence));
    if(c.evidence.length>40)info.append(E('p','report-meta',L('Ek kanıtlar kısaltıldı.','Additional evidence omitted from display.')));
    if(c.source){const link=E('a','',c.source.title);link.href=c.source.url;link.rel='noopener noreferrer';link.target='_blank';info.append(link);}
    action.append(info);
    const compact=String(c.observed||'-'),short=compact.length>180?compact.slice(0,177)+'…':compact;
-   const cells=[c.id,c.label,c.status+' · '+short,action];
+   const commandCell=E('div','verification-commands');
+   const commands=String(c.verify||'').split(/\s*;\s*/).filter(Boolean);
+   for(const command of commands){
+    const cli=E('code','',command);
+    cli.style.cssText='display:block;white-space:normal;overflow-wrap:anywhere;font:11px/1.6 ui-monospace,Consolas,monospace;background:#eff5f8;border:1px solid #dce8f0;border-radius:4px;padding:5px;margin:3px 0';
+    commandCell.append(cli);
+   }
+   if(!commands.length)commandCell.append(E('span','',L('Bu kontrol için ek CLI belirtilmedi.','No additional CLI specified.')));
+   const cells=[c.id,c.label,c.status+' · '+short,commandCell,action];
    for(const value of cells){const td=E('td','');td.style.cssText='padding:8px;vertical-align:top;border-bottom:1px solid #dbe5ec;overflow-wrap:anywhere';
     if(typeof value==='string')td.textContent=value;else td.append(value);row.append(td);}
    table.append(row);
