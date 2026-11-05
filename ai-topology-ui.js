@@ -735,6 +735,20 @@ $('viewSTPCTO').onclick=()=>{
  if(!view.hidden)view.scrollIntoView?.({block:'nearest',behavior:'smooth'});
 };
 
+function buildGenericReport(){
+ if(!$('analysisResult').value.trim())return;
+ const article=document.createElement('article');article.className='stp-design-paper';
+ const title=document.createElement('h1');title.textContent='Network Engineering Assessment';
+ const label=document.createElement('p');label.className='report-meta';
+ label.textContent='Unverified AI-assisted engineering draft. Engineer approval and independent operational verification are required.';
+ const body=document.createElement('pre');body.textContent=$('analysisResult').value;
+ body.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;max-height:none';
+ article.append(title,label,body);
+ $('stpCTOView').replaceChildren(article);
+ $('stpCTOView').hidden=true;
+ $('viewSTPCTO').textContent='HTML View';
+ $('viewSTPCTO').disabled=false;$('exportSTPCTO').disabled=false;
+}
 function getReportDocument(){
  const css="body{font-family:Arial,system-ui,sans-serif;color:#1b2933;background:#f0f3f6;max-width:1080px;margin:25px auto;padding:0 20px}.paper{background:white;border-radius:5px;padding:34px;box-shadow:0 10px 28px #0002;min-height:500px}.paper h1{font-size:26px;margin:8px 0}.paper h2{font-size:17px;border-bottom:1px solid #cad5dd;padding:0 0 5px;margin:26px 0 8px}.paper p,.paper li{font-size:12px;line-height:1.6}.report-meta{color:#506779;font-size:11px}.report-tag{color:#186595;font-weight:800;text-transform:uppercase;letter-spacing:.12em;font-size:10px}.summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin:18px 0}.metric{border:1px solid #cad6df;border-radius:7px;padding:10px}.metric b{display:block;font-size:20px}.metric span{display:block;font-size:10px;color:#586d79}.decision{border-left:3px solid #80abc4;background:#f5f9fc;padding:12px 14px;margin:12px 0;break-inside:avoid}.decision strong{font-size:13px;color:#153e58}.decision .choice{display:inline-block;margin-left:7px;color:#215f83;font-size:11px;font-weight:700}.decision p{margin:7px 0;color:#354e5e}.decision details{margin-top:9px;font-size:11px}.decision details a{display:block;padding:3px 0;overflow-wrap:anywhere}.report-footer{font-size:10px;color:#6c7c87;margin-top:30px}.cto-action{border-top:1px solid #d8e4ea;padding-top:8px}.cto-muted{color:#5f798b;font-size:11px}@media print{body{background:white;padding:0;margin:0}.paper{box-shadow:none;padding:12px}}";
  let reportHtml='';
@@ -953,7 +967,7 @@ $('analyze').onclick=async()=>{
   $('analyze').textContent=more?'Continue remaining batches':'Analyze reviewed evidence';
   $('downloadReport').disabled=false;
   if(runState.reports.length){
-   activeSavedReport=null;reportGenerated=true;$('saveEngineeringReport').disabled=false;$('editEngineeringReport').disabled=false;
+   activeSavedReport=null;reportGenerated=true;buildGenericReport();$('saveEngineeringReport').disabled=false;$('editEngineeringReport').disabled=false;
    $('reportStageStatus').textContent=more?'Partial analysis — additional batches remain.':'Analysis draft ready for engineering review.';
    if(!more&&currentStep===3)navigateWorkflow(4);else refreshWorkflow();
   }
