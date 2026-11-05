@@ -13,7 +13,7 @@ function fromDesign(report){
  const links=[...(report.links||[]),...(report.specialLinks||[])].filter(l=>l.enabled!==false).map((l,i)=>({id:identifier(l.id||'link-'+i),a:identifier(l.a),b:identifier(l.b),aPort:identifier(l.aPort||l.upperPort),bPort:identifier(l.bPort||l.lowerPort),kind:identifier(l.kind||'Connection'),logical:l.logical===true}));
  const ids=new Set(nodes.map(n=>n.id));
  const configs=(report.configurations||[]).filter(c=>ids.has(identifier(c.deviceId))&&typeof c.text==='string').map(c=>({
-  deviceId:identifier(c.deviceId),text:String(c.text).replace(/\r\n?/g,'\n').split('\n').map(safeLine).join('\n')
+  deviceId:identifier(c.deviceId),source:'design',text:String(c.text).replace(/\r\n?/g,'\n').split('\n').map(safeLine).join('\n')
  }));
  const designReview={
   origin:'original-design-snapshot',edited:false,
@@ -70,7 +70,7 @@ function setConfiguration(workspace,deviceId,text){
  const next=validate(workspace);if(!next.nodes.some(n=>n.id===deviceId))throw Error('Unknown device.');
  if(typeof text!=='string')throw Error('Configuration must be text.');
  next.configs=next.configs.filter(c=>c.deviceId!==deviceId);
- next.configs.push({deviceId,text});return validate(edited(next));
+ next.configs.push({deviceId,text,source:'user'});return validate(edited(next));
 }
 function setShowTech(workspace,deviceId,text,filename){
  const next=validate(workspace);
