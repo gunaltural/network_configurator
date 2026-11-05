@@ -20,12 +20,22 @@ function vlanList(spec){
 function parse(node,input){
  const lines=String(input||'').replace(/\r\n?/g,'\n').split('\n');
  const result={id:node.id,hostname:node.hostname,platform:node.vendor||'Unknown',hasConfig:!!String(input||'').trim(),
-  mode:null,vtp:null,vlans:[],priorities:[],rootMacros:[],interfaces:[],global:[],hasOperational:false};
+  model:null,softwareVersion:null,mode:null,vtp:null,vlans:[],priorities:[],rootMacros:[],interfaces:[],global:[],hasOperational:false};
  let current=null,mst=false;
  const record=(value,line,command)=>({value,line,command});
  lines.forEach((original,i)=>{
   const cmd=original.trim(),line=i+1;
   if(!cmd)return;
+  // show tech-support usually embeds show version; these are device observations,
+  // not workspace metadata and not running-config defaults.
+  let found=cmd.match(/^(?:Cisco IOS XE Software|Cisco IOS Software(?:\s*\[[^\]]+\])?(?:,\s*[^,]+)?|Cisco NX-OS Software|Cisco Nexus Operating System.*Software)[,\s]+Version\s+([^\s,]+)/i);
+  if(!found)found=cmd.match(/^\s*(?:NXOS|system):\s*version\s+([^\s,]+)/i);
+  if(!found)found=cmd.match(/^Software\s+version:\s*([^\s,]+)/i);
+  if(found&&!result.softwareVersion)result.softwareVersion=record(found[1],line,cmd.slice(0,240));
+  let model=cmd.match(/^Model\s+(?:Number|Name)\s*:\s*(\S+)/i);
+  if(!model)model=cmd.match(/^cisco\s+([A-Z][A-Z0-9-]{3,})\s+\([^)]+\)\s+processor/i);
+  if(!model)model=cmd.match(/^Hardware:\s+(?:cisco\s+)?(?:Nexus\s*\d+\s+)?([A-Z]\d[\w-]+)\s+Chassis/i);
+  if(model&&!result.model)result.model=record(model[1],line,cmd.slice(0,240));
   let m=cmd.match(/^interface\s+(\S+)/i);
   if(m){current={name:m[1],line,description:null,trunk:false,access:false,native:null,allowed:null,
    nonegotiate:false,portfast:null,bpduGuard:null,rootGuard:null,loopGuard:null,udld:null,channelGroup:null,shutdown:null,commands:[]};
@@ -130,7 +140,12 @@ function assess(workspace,ids){
   const haveConfig=d.hasConfig;
   const priEvidence=d.priorities.map(x=>ref(d,x));
   const priSummary=[...priGroup].map(([key,vlans])=>key.replace('VLAN ','VLAN priority ')+': '+vlans.map(v=>'VLAN '+v).join(', ')).join(' / ');
-  controls.push(c('STP-001','Platform / software version','VERIFY','Workspace: '+d.platform,'Exact model and OS version were not supplied by running-config. Vendor-default assumptions are not validated.','show version',[]));
+  controls.push(c('STP-001','Platform / software version',d.softwareVersion&&d.model?'OBSERVED':d.softwareVersion||d.model?'PARTIAL':'VERIFY',
+   [d.platform,d.model?'model '+d.model.value:null,d.softwareVersion?'version '+d.softwareVersion.value:null].filter(Boolean).join(' · '),
+   d.softwareVersion&&d.model?'Model and software version observed in supplied CLI/show tech-support capture. Confirm applicable release documentation.':
+    'Exact model or software release not identified in the supplied capture; no platform-specific default assumption is made.',
+   d.model&&d.softwareVersion?'Source: supplied show version / show tech-support':'show version or show tech-support',
+   [ref(d,d.model),ref(d,d.softwareVersion)]));
   controls.push(c('STP-002','Device and interface role','ROLE_DEPENDENT',trunks.length+' trunk(s) configured; topology describes design intent only.','Core / distribution / access role and each trunk peer must be verified from topology and LLDP/CDP before declaring safeguards wrong.','show cdp neighbors detail; show lldp neighbors detail',trunks.map(p=>ref(d,p.trunk,p.name))));
   controls.push(c('STP-003','STP protocol mode',d.mode?'OBSERVED':'VERIFY',d.mode?.value||'not explicitly stated',d.mode?.value==='rapid-pvst'?'Rapid-PVST configured; this alone does not measure convergence time.':'Verify protocol interoperability against adjacent switches.','show spanning-tree summary',[ref(d,d.mode)]));
   controls.push(c('STP-004','Root placement',d.priorities.length||d.rootMacros.length?'DESIGN_REVIEW':'VERIFY',priSummary||'No explicit priority observed','Configured lower bridge priority makes this device a preferred root candidate relative to higher-priority peers, not a proven operational root. Compare every relevant bridge per VLAN.','show spanning-tree root; '+instanceVerification,[...priEvidence,...d.rootMacros.map(x=>ref(d,x))],SOURCES.root));
