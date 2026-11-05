@@ -106,7 +106,7 @@ function fromHandoff(){
 }
 $('applyTemplate').onclick=()=>{
  if((workspace.nodes.length||workspace.configs.length)&&!window.confirm('Replace your current topology and attached configurations?'))return;
- try{workspace=api.template($('template').value);$('sourceLabel').textContent='Template · independent copy';changed('Template loaded.');loadDevice();loadLink();loadConfig();}
+ try{workspace=api.template($('template').value);const module=String(workspace.sourceModule||'').toUpperCase();const choice=[...document.querySelectorAll('#moduleChoices input')].find(el=>el.value===module);if(choice)choice.checked=true;$('sourceLabel').textContent='Template · independent copy';changed('Template loaded.');loadDevice();loadLink();loadConfig();}
  catch(e){message(e.message,true);}
 };
 $('deviceSelect').onchange=loadDevice;
