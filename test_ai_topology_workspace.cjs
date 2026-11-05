@@ -59,6 +59,17 @@ assert.ok(!sent.includes('DemoSecret')&&!sent.includes('HiddenPass'),'Mask crede
 assert.ok(sent.includes('65000:1 additive'),'Routing community must remain observable');
 assert.ok(sent.includes('L4:'),'Preserve original line number references');
 assert.ok(!JSON.stringify(api.analysisManifest(withCapture)).includes('DemoSecret'),'Manifest remains configuration-free');
+const bothConfigured=api.setConfiguration(withCapture,'a','hostname N9K-A\\nfeature vpc');
+const scopedToCore=api.analysisEvidenceBatches(bothConfigured,['a']).flat();
+const scopedEvidence=JSON.stringify(scopedToCore);
+assert.ok(scopedEvidence.includes('hostname N9K-A'),'Selected core configuration is included');
+assert.ok(!scopedEvidence.includes('hostname FGT-1'),'Unselected firewall configuration is excluded');
+assert.ok(!scopedEvidence.includes('Link uplink'),'Links to unselected endpoints do not leak into scope');
+assert.ok(scopedEvidence.includes('Selected devices: a'),'Selected device IDs appear explicitly');
+assert.throws(()=>api.analysisEvidenceBatches(bothConfigured,[]),/Select one or more valid devices/);
+assert.throws(()=>api.analysisEvidenceBatches(bothConfigured,['missing']),/Select one or more valid devices/);
+assert.equal(JSON.stringify(withCapture).includes('N9K-A'),false,'Original workspace remains unchanged by scoped analysis');
+
 const big=Array.from({length:320},(_,i)=>'interface Ethernet'+i+'\n description uplink-'+i).join('\n');
 const extended=api.setConfiguration(withCapture,'fw',big);
 const many=api.analysisEvidenceBatches(extended).flat();
