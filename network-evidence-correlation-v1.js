@@ -211,7 +211,10 @@ function assess(args){
    observed:d.node.hostname+' '+x.field+': '+x.value,
    explanation:'The observed command output is not overridden by assumptions about absent configuration lines; both peers are needed.',
    networkImpact:'Conditional forwarding exposure; actual fault domain is unverified.',
-   verification:['show vpc brief / show mlag','show port-channel summary','Inspect matching peer capture'],evidence:[x.proof]});
+   verification:d.vendor==='arista'
+    ?['show mlag','show mlag config-sanity','show port-channel summary','Compare both MLAG peer captures']
+    :['show vpc brief','show vpc peer-keepalive','show vpc consistency-parameters global','show port-channel summary','Compare both vPC peer captures'],
+   evidence:[x.proof]});
  }
  if(scope.has('SDWAN'))for(const [id,d] of parsed)for(const x of d.sdwan)
   add({technology:'SDWAN',status:x.state==='dead'?'REVIEW':'OBSERVED',confidence:'OPERATIONAL_SINGLE_DEVICE',
@@ -219,8 +222,8 @@ function assess(args){
    titleTr:'Gözlenen SD-WAN SLA sağlık kontrolü',
    observed:d.node.hostname+' check '+x.check+' member '+x.member+' state('+x.state+').',
    explanation:'Probe liveness is not the same as SLA compliance, service selection or end-user connectivity.',
-   networkImpact:'Conditional path-selection exposure.',verification:['diagnose sys sdwan health-check',
-    'diagnose sys sdwan service4 (FortiOS 7.4.4+)','get router info bgp summary'],evidence:[x.proof]});
+   networkImpact:'Conditional path-selection exposure.',verification:['diagnose sys sdwan health-check','diagnose sys sdwan neighbor',
+    'diagnose sys sdwan service (or service4 on supported FortiOS 7.4.x)','get router info bgp summary'],evidence:[x.proof]});
  if(scope.has('BGP')&&scope.has('SDWAN'))for(const [id,d] of parsed){
   const b=findings.find(x=>x.technology==='BGP'&&x.status==='REVIEW'&&x.deviceIds.length===1&&x.deviceIds[0]===id);
   const s=findings.find(x=>x.technology==='SDWAN'&&x.status==='REVIEW'&&x.deviceIds.length===1&&x.deviceIds[0]===id);
