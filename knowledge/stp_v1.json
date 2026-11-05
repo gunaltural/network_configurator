@@ -1,0 +1,397 @@
+{
+  "schema": "network-configurator-engineering-knowledge-v1",
+  "version": "1.0.0",
+  "module": "STP",
+  "authoritativeOrigin": "Design parameter IDs + Design Notes and Engineering Guide in web.html (main baseline)",
+  "method": "Curated paraphrased engineering implications; review vendor release before production use; not live RAG; no raw RFC text stored",
+  "sources": [
+    {
+      "id": "CISCO-VTP-17.15",
+      "title": "Cisco Catalyst 9300 IOS XE 17.15 Configuring VTP",
+      "url": "https://www.cisco.com/c/en/us/td/docs/switches/lan/catalyst9300/software/release/17-15/configuration_guide/vlan/b_1715_vlan_9300_cg.pdf",
+      "kind": "vendor",
+      "platform": "Cisco IOS-XE/Catalyst 9300",
+      "topics": [
+        "vtp mode",
+        "authentication",
+        "vtp v3 primary"
+      ]
+    },
+    {
+      "id": "CISCO-VTP-4500",
+      "title": "Cisco Catalyst 4500 legacy VTP guide",
+      "url": "https://www.cisco.com/c/en/us/td/docs/switches/lan/catalyst4500/12-2/31sg/configuration/guide/vtp.html",
+      "kind": "vendor-legacy",
+      "platform": "Catalyst 4500 IOS 12.2",
+      "topics": [
+        "legacy VTP",
+        "domain",
+        "authentication"
+      ]
+    },
+    {
+      "id": "CISCO-CAMPUS",
+      "title": "Cisco Campus LAN/WLAN Validated Design",
+      "url": "https://www.cisco.com/c/en/us/td/docs/solutions/CVD/Campus/cisco-campus-lan-wlan-design-guide.html",
+      "kind": "vendor",
+      "platform": "Cisco Campus LAN",
+      "topics": [
+        "campus design",
+        "STP",
+        "trunk"
+      ]
+    },
+    {
+      "id": "IEEE-802.1D",
+      "title": "IEEE 802.1D",
+      "url": "https://www.ieee802.org/1/pages/802.1D.html",
+      "kind": "standard",
+      "platform": "generic L2",
+      "topics": [
+        "STP",
+        "RSTP",
+        "MST"
+      ]
+    },
+    {
+      "id": "IEEE-802.1w",
+      "title": "IEEE 802.1w",
+      "url": "https://www.ieee802.org/1/pages/802.1w.html",
+      "kind": "standard",
+      "platform": "generic L2",
+      "topics": [
+        "STP",
+        "RSTP",
+        "MST"
+      ]
+    },
+    {
+      "id": "IEEE-802.1s",
+      "title": "IEEE 802.1s",
+      "url": "https://www.ieee802.org/1/pages/802.1s.html",
+      "kind": "standard",
+      "platform": "generic L2",
+      "topics": [
+        "STP",
+        "RSTP",
+        "MST"
+      ]
+    },
+    {
+      "id": "IEEE-802.1Q",
+      "title": "IEEE 802.1Q",
+      "url": "https://www.ieee802.org/1/pages/802.1Q.html",
+      "kind": "standard",
+      "platform": "generic L2",
+      "topics": [
+        "STP",
+        "RSTP",
+        "MST"
+      ]
+    },
+    {
+      "id": "RFC-4188",
+      "title": "RFC 4188",
+      "url": "https://www.rfc-editor.org/info/rfc4188",
+      "kind": "mib",
+      "platform": "conditional",
+      "topics": [
+        "STP"
+      ]
+    },
+    {
+      "id": "RFC-4318",
+      "title": "RFC 4318",
+      "url": "https://www.rfc-editor.org/info/rfc4318",
+      "kind": "mib",
+      "platform": "conditional",
+      "topics": [
+        "STP"
+      ]
+    },
+    {
+      "id": "RFC-7727",
+      "title": "RFC 7727",
+      "url": "https://www.rfc-editor.org/info/rfc7727",
+      "kind": "iccp-conditional",
+      "platform": "conditional",
+      "topics": [
+        "STP"
+      ]
+    }
+  ],
+  "records": [
+    {
+      "id": "stp.root_priority",
+      "designFields": [
+        "stpRoot",
+        "stpRootPri",
+        "stpSecPri",
+        "stpVlans"
+      ],
+      "origin": "web.html:3147-3173;6085-6093",
+      "context": "Core-1/Core-2 primary-secondary intent: lower priority is preferred for each VLAN. Bridge ID includes MAC; no live root election proof from configuration.",
+      "analysis": "Compare both cores and relevant VLAN instances once; discuss preferred root, standby behavior and intended active/standby versus VLAN load distribution.",
+      "severity": "review",
+      "verification": [
+        "show spanning-tree root",
+        "show spanning-tree vlan 10,20"
+      ],
+      "sources": [
+        "IEEE-802.1D",
+        "RFC-4188"
+      ]
+    },
+    {
+      "id": "stp.redundancy",
+      "designFields": [
+        "stpLeafCount",
+        "stpCoreLinkIf",
+        "stpLeafUp1",
+        "stpLeafUp2"
+      ],
+      "origin": "web.html:3166-3173;6086-6088",
+      "context": "Dual-attached access links in standalone STP create standby path capacity, not active-active multichassis LAG. Root/link failure requires topology recalculation.",
+      "analysis": "Evaluate topology path redundancy, designated/alternate ports and fault-domain assumptions. Never infer measured failover speed.",
+      "severity": "review",
+      "verification": [
+        "show spanning-tree detail",
+        "show interfaces trunk"
+      ],
+      "sources": [
+        "IEEE-802.1w"
+      ]
+    },
+    {
+      "id": "stp.mode",
+      "designFields": [
+        "stpMode",
+        "campusMstName",
+        "campusMstRevision",
+        "campusMstInstance"
+      ],
+      "origin": "web.html:908-911;3107-3110;6393-6397",
+      "context": "RSTP speeds eligible link transitions; MST region name, revision and VLAN-to-instance map must match to remain in same region; CIST still governs boundary paths.",
+      "analysis": "Compare protocol modes and MST parameters across nodes and interpret interoperability and CIST boundary implications.",
+      "severity": "review",
+      "verification": [
+        "show spanning-tree summary",
+        "show spanning-tree mst configuration"
+      ],
+      "sources": [
+        "IEEE-802.1w",
+        "IEEE-802.1s",
+        "IEEE-802.1Q"
+      ]
+    },
+    {
+      "id": "stp.edge_portfast",
+      "designFields": [
+        "portfast"
+      ],
+      "origin": "web.html:923-927;3171;6091-6092",
+      "context": "PortFast/edge fast forwarding is intended for true endpoints, not inter-switch redundancy. The actual port role must be known.",
+      "analysis": "Flag PortFast placement only where interface role is known and contradictory; absence in running config is not necessarily disablement.",
+      "severity": "review",
+      "verification": [
+        "show spanning-tree detail"
+      ],
+      "sources": [
+        "IEEE-802.1w",
+        "CISCO-CAMPUS"
+      ]
+    },
+    {
+      "id": "stp.bpdu_guard",
+      "designFields": [
+        "bpduguard"
+      ],
+      "origin": "web.html:925;3171;6091-6092",
+      "context": "BPDU Guard on endpoint edge ports protects against receiving unexpected BPDUs by moving ports into an error-disabled/inconsistent status depending on platform implementation.",
+      "analysis": "Check deployment on edge ports and protection against accidental switch connections, without implying it belongs on core trunks.",
+      "severity": "review",
+      "verification": [
+        "show spanning-tree inconsistentports",
+        "show interfaces status err-disabled"
+      ],
+      "sources": [
+        "CISCO-CAMPUS"
+      ]
+    },
+    {
+      "id": "stp.root_guard",
+      "designFields": [
+        "rootguard"
+      ],
+      "origin": "web.html:926;3170;6091-6092",
+      "context": "Root Guard on downstream designated-facing links prevents a leaf from becoming root after superior BPDUs; do not place on a root port.",
+      "analysis": "Check the actual interface's STP role before recommending changes; root-inconsistent state requires show evidence.",
+      "severity": "review",
+      "verification": [
+        "show spanning-tree inconsistentports"
+      ],
+      "sources": [
+        "CISCO-CAMPUS"
+      ]
+    },
+    {
+      "id": "stp.loop_guard",
+      "designFields": [
+        "loopguard"
+      ],
+      "origin": "web.html:927;3172;6091-6092",
+      "context": "Loop Guard protects eligible redundant links when expected BPDUs disappear, helping prevent unexpected forwarding transitions.",
+      "analysis": "Evaluate Loop Guard only on eligible network-side ports and in context with Root Guard and neighbor roles.",
+      "severity": "review",
+      "verification": [
+        "show spanning-tree inconsistentports"
+      ],
+      "sources": [
+        "CISCO-CAMPUS"
+      ]
+    },
+    {
+      "id": "stp.udld",
+      "designFields": [
+        "udld"
+      ],
+      "origin": "web.html:928;3172;6091-6092",
+      "context": "UDLD aggressive can detect unidirectional links; support varies by fiber, transceiver and vendor.",
+      "analysis": "Check uplink media, directionality, feature availability and operational UDLD status.",
+      "severity": "review",
+      "verification": [
+        "show udld"
+      ],
+      "sources": [
+        "CISCO-CAMPUS"
+      ]
+    },
+    {
+      "id": "campus.vtp",
+      "designFields": [
+        "campusVtp",
+        "campusVtpDomain"
+      ],
+      "origin": "web.html:3104-3105;3116-3133;6393-6397",
+      "context": "Off means locally managed VLANs without forwarding VTP advertisements; transparent locally manages VLANs but may forward received VTPv2/v3 advertisements; VTPv3 server/client can synchronize database with primary-server administration.",
+      "analysis": "Compare both Core VTP modes/domain/version and local VLAN inventory. For server/client, absent authentication evidence is a high-priority verification gap, not proof password is absent; confirmed no authentication merits critical severity.",
+      "severity": "high_if_unverified_auth;critical_if_confirmed_missing_auth",
+      "verification": [
+        "show vtp status",
+        "show vtp password (presence only; never disclose value)",
+        "show vlan brief"
+      ],
+      "sources": [
+        "CISCO-VTP-17.15",
+        "CISCO-VTP-4500"
+      ]
+    },
+    {
+      "id": "campus.native_vlan",
+      "designFields": [
+        "campusNativeVlan"
+      ],
+      "origin": "web.html:3106;3117-3140;6393-6397",
+      "context": "Native VLAN determines handling of untagged traffic on 802.1Q trunks. VLAN 999 configured as an ordinary VLAN is not evidence it is native; only switchport trunk native vlan or operational output establishes intent.",
+      "analysis": "Compare mapped trunk endpoints and VLAN membership; use context-dependent VLAN hopping and tagging risks, not blanket exploitation claims.",
+      "severity": "review;high_if_mapped_endpoints_mismatch",
+      "verification": [
+        "show interfaces trunk",
+        "show interfaces switchport"
+      ],
+      "sources": [
+        "IEEE-802.1Q",
+        "CISCO-CAMPUS"
+      ]
+    },
+    {
+      "id": "campus.allowed_vlans",
+      "designFields": [
+        "stpVlans",
+        "campusAccessVlan"
+      ],
+      "origin": "web.html:906-908;3107;3168;6393-6397",
+      "context": "Allowed VLAN list on trunks must include required user, management and services but avoid unnecessary broadcast/unknown-unicast domains.",
+      "analysis": "Compare VLAN scope on both dual-home paths and ensure pruning is service-aware.",
+      "severity": "review",
+      "verification": [
+        "show interfaces trunk",
+        "show vlan brief"
+      ],
+      "sources": [
+        "IEEE-802.1Q",
+        "CISCO-CAMPUS"
+      ]
+    },
+    {
+      "id": "campus.dtp",
+      "designFields": [
+        "campusNoDtp"
+      ],
+      "origin": "web.html:3112;3131-3140",
+      "context": "DTP negotiates trunk mode where enabled. Static trunk plus nonegotiate can reduce unintended negotiation exposure when neighbor settings are coordinated.",
+      "analysis": "Evaluate dynamically negotiated access-facing links and whether switchport nonegotiate is supported and correct.",
+      "severity": "review",
+      "verification": [
+        "show interfaces switchport"
+      ],
+      "sources": [
+        "CISCO-CAMPUS"
+      ]
+    },
+    {
+      "id": "campus.interconnect",
+      "designFields": [
+        "campusInterconnect",
+        "campusInterPo",
+        "campusInterMembers1",
+        "campusInterMembers2"
+      ],
+      "origin": "web.html:3101;3111;3139-3140;6393-6395",
+      "context": "A Port-channel must terminate on one logical peer; standalone independent cores cannot be treated like a single multi-chassis LAG. StackWise Virtual forms one logical bridge and uses MEC.",
+      "analysis": "Contrast standalone Core pair, LACP and StackWise Virtual; check bundle consistency and the root topology.",
+      "severity": "review",
+      "verification": [
+        "show etherchannel summary",
+        "show spanning-tree root"
+      ],
+      "sources": [
+        "CISCO-CAMPUS"
+      ]
+    },
+    {
+      "id": "stp.operational_mib",
+      "designFields": [
+        "stpRootPri",
+        "stpMode"
+      ],
+      "origin": "web.html:3155-3164;6089-6093",
+      "context": "BRIDGE-MIB in RFC 4188 exposes dot1dStpDesignatedRoot/dot1dStpRootPort/dot1dStpTopChanges; RSTP-MIB in RFC 4318 exposes edge and point-to-point operational state; no SNMP state is observed from config alone.",
+      "analysis": "Use RFC objects to plan read-only verification and counter-delta investigations; protect writable SNMP MIB objects with management access controls.",
+      "severity": "verification",
+      "verification": [
+        "show spanning-tree root",
+        "show spanning-tree detail",
+        "read-only BRIDGE-MIB / RSTP-MIB SNMP where supported"
+      ],
+      "sources": [
+        "RFC-4188",
+        "RFC-4318"
+      ]
+    },
+    {
+      "id": "stp.iccp",
+      "designFields": [],
+      "origin": "RFC 7727 sec.1",
+      "context": "RFC 7727 specifies STP application TLVs for ICCP Provider Edge redundancy groups serving multihomed STP/VPLS. Do not map generic vPC/MLAG or standalone campus pair to ICCP without explicit evidence.",
+      "analysis": "Only evaluate virtual-root and ICCP STP sync on confirmed ICCP Provider Edge groups.",
+      "severity": "conditional",
+      "verification": [
+        "Verify device redundancy architecture and ICCP STP application support"
+      ],
+      "sources": [
+        "RFC-7727"
+      ]
+    }
+  ]
+}
