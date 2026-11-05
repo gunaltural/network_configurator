@@ -87,6 +87,14 @@ function run(args){
  const result=pack.evaluate({...args,technology});
  if(!result||!Array.isArray(result.findings)||result.findings.length>LIMITS.findings)throw Error(technology+' adapter must return a bounded list of evidence-based findings');
  const ids=new Set(),counts={GOOD:0,RISK:0,VERIFY:0,NA:0};
+ const guidanceFor=id=>pack.controls.find(c=>c.id===id)||
+  pack.controls.find(c=>c.findingPrefixes.some(prefix=>id.startsWith(prefix)));
+ const normalizeLocations=items=>(Array.isArray(items)?items:[]).slice(0,LIMITS.lines).filter(item=>item&&typeof item==='object').map(item=>({
+  device:toString(item.device||item.hostname||item.deviceId),
+  interface:toString(item.interface),line:Number.isInteger(item.line)&&item.line>0?item.line:null,
+  command:toString(item.command),role:toString(item.role),note:toString(item.note)
+ })).filter(item=>item.device);
+
  const findings=result.findings.map(original=>{
   const raw=pack.resolveVerification?pack.resolveVerification(original,{...args,technology}):original;
   if(!raw||typeof raw!=='object'||!raw.id||!statuses.includes(raw.status))throw Error(technology+' adapter emitted invalid finding');
@@ -95,6 +103,7 @@ function run(args){
   // A technical "GOOD" requires identifiable positive evidence, not empty inference.
   if(raw.status==='GOOD'&&!(raw.evidence||[]).length)
    throw Error('GOOD outcome has no positive evidence: '+raw.id);
+  const rule=guidanceFor(toString(raw.id));
   const finding={
    id:toString(raw.id),technology,title:toString(raw.title),
    status:raw.status,severity:toString(raw.severity||'NONE'),confidence:toString(raw.confidence||'UNKNOWN'),
@@ -105,7 +114,14 @@ function run(args){
    verification:uniq(raw.verification||[]).map(toString),
    evidence:uniq(raw.evidence||[]).slice(0,LIMITS.lines).map(toString),
    references:(raw.references||[]).map(r=>({title:toString(r.title),url:toString(r.url)})),
-   limitations:(raw.limitations||[]).map(toString),provenance:toString(raw.provenance||'DESIGN_CONFIG')
+   limitations:(raw.limitations||[]).map(toString),provenance:toString(raw.provenance||'DESIGN_CONFIG'),
+   context:{purpose:toString(raw.context?.purpose||rule?.purpose),
+    applicableWhen:toString(raw.context?.applicableWhen||rule?.applicableWhen),
+    absenceImpact:toString(raw.context?.absenceImpact||rule?.absenceImpact),
+    acceptance:toString(raw.context?.acceptance||rule?.acceptance)},
+   deployment:{configured:normalizeLocations(raw.deployment?.configured),
+    missing:normalizeLocations(raw.deployment?.missing),
+    unknown:normalizeLocations(raw.deployment?.unknown)}
   };
   if(!finding.expected||!finding.observed||!finding.explanation||!finding.recommendation)throw Error('Incomplete engineering finding: '+finding.id);
   if(finding.status==='VERIFY'){
@@ -123,5 +139,5 @@ function run(args){
   knowledgeVersion:pack.knowledgeVersion,moduleStatus:pack.status,
   registeredControls:pack.controls.length,counts,findings};
 }
-root.NetworkEngineeringFindingsV1={run,register,describe,list,version:'2.0.0',statuses:freeze(statuses),knownTechnologies:freeze(known)};
+root.NetworkEngineeringFindingsV1={run,register,describe,list,version:'2.1.0',statuses:freeze(statuses),knownTechnologies:freeze(known)};
 })(typeof window==='undefined'?globalThis:window);
