@@ -38,8 +38,8 @@ function validate(workspace){
  const technicalCaptures=new Set();
  for(const capture of model.showTech){
   if(!ids.has(capture.deviceId)||typeof capture.text!=='string'||capture.text.length>8000000||typeof capture.filename!=='string'||capture.filename.length>255)throw Error('Invalid show tech capture.');
-  if(technicalCaptures.has(capture.deviceId))throw Error('Duplicate show tech capture for device.');
-  technicalCaptures.add(capture.deviceId);
+  if(!identifier(capture.filename)||technicalCaptures.has(capture.deviceId+'::'+capture.filename))throw Error('Duplicate or empty show tech capture filename for device.');
+  technicalCaptures.add(capture.deviceId+'::'+capture.filename);
  }
  for(const c of model.configs){
   if(!ids.has(c.deviceId)||typeof c.text!=='string')throw Error('Configuration has no matching device.');
@@ -78,6 +78,19 @@ function setShowTech(workspace,deviceId,text,filename){
  if(typeof text!=='string'||text.length>8000000)throw Error('Show tech capture is invalid or exceeds 8 MB.');
  next.showTech=next.showTech.filter(c=>c.deviceId!==deviceId);
  if(text.trim())next.showTech.push({deviceId,text,filename:String(filename||'show-tech.txt').slice(0,255)});
+ return validate(edited(next));
+}
+function addShowTech(workspace,deviceId,text,filename,synthetic=false){
+ const next=validate(workspace);
+ if(!next.nodes.some(n=>n.id===deviceId))throw Error('Unknown device.');
+ if(typeof text!=='string'||text.length>8000000||!text.trim())throw Error('Show tech text missing or exceeds 8 MB.');
+ filename=String(filename||'verification.txt').trim().slice(0,255);
+ next.showTech=next.showTech.filter(c=>!(c.deviceId===deviceId&&c.filename===filename));
+ next.showTech.push({deviceId,text,filename,synthetic:synthetic===true});
+ return validate(edited(next));
+}
+function removeShowTech(workspace,deviceId,filename){
+ const next=validate(workspace);next.showTech=next.showTech.filter(c=>!(c.deviceId===deviceId&&c.filename===filename));
  return validate(edited(next));
 }
 function structuralAssessment(workspace){
@@ -286,9 +299,9 @@ function analysisEvidenceBatches(workspace,selectedDeviceIds){
   const node=model.nodes.find(n=>n.id===c.deviceId);
   if(!node||!chosen.has(c.deviceId))continue;
   const lines=c.text.replace(/\r\n?/g,'\n').split('\n');
-  const excerpt=lines.slice(0,1800).join('\n').slice(0,160000).split('\n');
-  if(lines.length>1800||c.text.length>160000)excerpt.push('[PARTIAL SHOW TECH EXCERPT — remaining evidence not submitted]');
-  addChunks('show-tech-'+index,'Device: '+identifier(node.hostname).replace(/[\r\n]/g,' ')+'\nVendor: '+identifier(node.vendor).replace(/[\r\n]/g,' ')+'\nCommand: observed show tech-support capture (separate from Design configuration; operational evidence)',excerpt);
+  const excerpt=lines.slice(0,220).join('\n').slice(0,24000).split('\n');
+  if(lines.length>220||c.text.length>24000)excerpt.push('[PARTIAL CLI EXCERPT — full capture remains local; do not infer omitted commands]');
+  addChunks('show-tech-'+index,'Device: '+identifier(node.hostname).replace(/[\r\n]/g,' ')+'\nVendor: '+identifier(node.vendor).replace(/[\r\n]/g,' ')+'\nCommand: '+(c.synthetic?'SYNTHETIC LAB verification output — NOT real device evidence':'observed verification CLI capture (separate from Design configuration)')+'\nFile: '+safeLine(c.filename),excerpt);
  }
  if(!items.length)throw Error('A device or link is required.');
  const batches=[];let batch=[],size=0;
@@ -301,5 +314,5 @@ function analysisEvidenceBatches(workspace,selectedDeviceIds){
  return batches;
 }
 
-root.NetworkAITopology={fromDesign,blank,template,technologyCatalog,buildTechnologyTopology,buildFreeTopology,structuralAssessment,validate,addDevice,moveDevice,updateDevice,addLink,updateLink,removeLink,removeDevice,setConfiguration,setShowTech,analysisManifest,analysisEvidenceBatches};
+root.NetworkAITopology={fromDesign,blank,template,technologyCatalog,buildTechnologyTopology,buildFreeTopology,structuralAssessment,validate,addDevice,moveDevice,updateDevice,addLink,updateLink,removeLink,removeDevice,setConfiguration,setShowTech,addShowTech,removeShowTech,analysisManifest,analysisEvidenceBatches};
 })(typeof window==='undefined'?globalThis:window);
