@@ -272,7 +272,7 @@ const CAPTURE_TOPICS={
 function selectCaptureExcerpt(lines,modules){
  const MAX_LINES=220,MAX_CHARS=24000,SCAN_MAX=100000,first=Math.min(36,lines.length);
  const terms=(modules||[]).map(x=>CAPTURE_TOPICS[String(x).toUpperCase()]).filter(Boolean);
- const universal=/^\s*(?:\S+[#>]\s*)?(?:show|display|diagnose|get)\s+|^Neighbor\s+V\s+AS\s+MsgRcvd|^Health Check\(|^interface\b|^\s*ip route\b/i;
+ const universal=/^\s*(?:\S+[#>]\s*)?(?:show|display|diagnose|get)\s+|^Neighbor\s+V\s+AS\s+MsgRcvd|^Health Check\(|^interface\b|^\s*ip route\b|^\s*route\b/i;
  const scores=new Map(),scanned=Math.min(lines.length,SCAN_MAX);
  function score(i,value){if(i>=0&&i<scanned)scores.set(i,Math.max(scores.get(i)||0,value));}
  for(let i=0;i<scanned;i++){
