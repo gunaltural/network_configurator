@@ -37,7 +37,7 @@ function setupWorkflow(){
  reportHelp.textContent='Run analysis in step 3 to generate a report.';
  const controls=document.createElement('div');controls.className='report-tools';
  controls.append($('viewSTPCTO'),$('exportSTPCTO'));
- $('exportSTPCTO').textContent='Download HTML';
+ controls.querySelector('#exportSTPCTO').textContent='Download HTML';
  for(const [id,label] of [['downloadEngineeringPDF','Download PDF'],['downloadEngineeringWord','Download Word']]){
   const action=document.createElement('button');action.type='button';action.id=id;action.textContent=label;action.disabled=true;
   controls.append(action);
