@@ -318,7 +318,7 @@ function populate(select,values,preserve,blank){
  for(const [id,label] of values)select.append(makeOption(id,label));
  select.value=values.some(x=>x[0]===preserve)?preserve:(blank?'':values[0]?.[0]||'');
 }
-function invalidate(){reviewedSignature=null;pendingBatches=null;runState=null;$('analyze').disabled=true;$('downloadReport').disabled=true;$('evidencePreview').textContent='';$('analysisResult').value='';$('stpPreflightResult').textContent='STP V1 preflight not run for the current device selection.';$('stpKnowledgeResult').textContent='Knowledge review not run for this device selection.';$('stpCTOView').replaceChildren();$('stpCTOStatus').textContent='';$('exportSTPCTO').disabled=true;$('viewSTPCTO').disabled=true;$('stpCTOView').hidden=true;}
+function invalidate(){reportGenerated=false;activeSavedReport=null;$('saveEngineeringReport').disabled=true;$('editEngineeringReport').disabled=true;$('reportEditPanel').hidden=true;$('savedReportPreview').hidden=true;$('savedReportPreview').srcdoc='';$('reviewExecutiveComment').value='';$('reviewEngineeringNotes').value='';reviewedSignature=null;pendingBatches=null;runState=null;$('analyze').disabled=true;$('downloadReport').disabled=true;$('evidencePreview').textContent='';$('analysisResult').value='';$('stpPreflightResult').textContent='STP V1 preflight not run for the current device selection.';$('stpKnowledgeResult').textContent='Knowledge review not run for this device selection.';$('stpCTOView').replaceChildren();$('stpCTOStatus').textContent='';$('exportSTPCTO').disabled=true;$('viewSTPCTO').disabled=true;$('stpCTOView').hidden=true;}
 function draw(){
  const svg=$('topologyCanvas');svg.replaceChildren();
  const NS='http://www.w3.org/2000/svg',points=new Map(),n=workspace.nodes.length;
@@ -387,6 +387,7 @@ $('topologyCanvas').addEventListener('click',event=>{
  if(!workspace.nodes.some(n=>n.id===id))return;
  $('deviceSelect').value=id;loadDevice();
  $('configDevice').value=id;loadConfig();
+ navigateWorkflow(2);
  $('perDeviceConfiguration').scrollIntoView?.({behavior:'smooth',block:'nearest'});
 });
 function finishDrag(){
@@ -437,6 +438,7 @@ function render(){
   button.onclick=()=>{$('linkSelect').value=link.id;loadLink();};li.append(button);$('linksList').append(li);
  }
  draw();
+ refreshWorkflow();
 }
 function changed(label){invalidate();render();message(label+' Your original Design project was not modified.');}
 function loadDevice(){
@@ -538,7 +540,7 @@ $('loadSTPLab').onclick=()=>{
   workspace=window.NetworkSTPLabV1.create();originalMode=false;
   for(const choice of document.querySelectorAll('#moduleChoices input'))choice.checked=choice.value==='STP';
   $('sourceLabel').textContent='SYNTHETIC STP LAB · NOT PRODUCTION DATA';
-  changed('Synthetic 2 Core + 1 Access LAB loaded.');
+  currentStep=2;changed('Synthetic 2 Core + 1 Access LAB loaded.');
   loadDevice();loadLink();loadConfig();
  }catch(e){message('LAB: '+e.message,true);}
 };
@@ -571,6 +573,7 @@ function fromHandoff(){
   const sourceChoice=[...document.querySelectorAll('#moduleChoices input')].find(el=>el.value===chosen);
   if(sourceChoice)sourceChoice.checked=true;
   const returnLink=$('returnToDesign');if(returnLink){const module=String(workspace.sourceModule||'').toUpperCase();const supported=['BASIC','BGP','OSPF','STP','VPC','EVPN','SDWAN','QOS'];if(supported.includes(module)){returnLink.hidden=false;returnLink.textContent='Return to '+(module==='BASIC'?'System and Management':module)+' Design';returnLink.href='/?resume=1&workspace='+encodeURIComponent(module);}else{returnLink.hidden=true;}}
+  currentStep=2;
   message('Imported '+workspace.nodes.length+' Design devices, '+workspace.configs.length+' generated configuration proposals and '+(workspace.designReview?.parameters.length||0)+' engineering parameters. Review redacted evidence before AI analysis.');
  }catch(e){message('Could not import Design snapshot: '+e.message,true);}
 }
@@ -647,7 +650,7 @@ $('importWorkspace').onchange=async()=>{
    openDesignForImport(designFromJson(input));return;
   }
   if((workspace.nodes.length||workspace.configs.length)&&!window.confirm('Replace the current AI workspace?'))return;
-  workspace=api.validate(input);$('sourceLabel').textContent='Imported saved AI workspace';changed('Saved AI workspace imported.');loadDevice();loadLink();loadConfig();
+  workspace=api.validate(input);currentStep=2;$('sourceLabel').textContent='Imported saved AI workspace';changed('Saved AI workspace imported.');loadDevice();loadLink();loadConfig();
  }catch(e){message('JSON import failed: '+e.message,true);}
 };
 $('assessStructure').onclick=()=>{
