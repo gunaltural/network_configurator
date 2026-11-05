@@ -47,6 +47,8 @@ function create(){
    'Model Number : '+(isAccess?'C9300-48P':'C9500-24Y4C'),'===== show spanning-tree summary =====',
    'Switch is in rapid-pvst mode',
    '===== show spanning-tree root ====='];
+  lines.push('Vlan Root ID Cost Root Port');
+  for(const vlan of [10,20])lines.push('VLAN'+String(vlan).padStart(4,'0')+' '+(4096+vlan)+' '+(vlan===10?root10:root20)+' '+((vlan===10&&isA)||(vlan===20&&!isA&&!isAccess)?'0 This bridge is root':'4 TenGigabitEthernet1/0/48'));
   // Each VLAN has its own root/bridge identity, showing that the split-root intent works.
   for(const vlan of [10,20]){
    const rMac=vlan===10?root10:root20,prio=vlan===10?own10:own20;
@@ -61,9 +63,32 @@ function create(){
   for(const p of trunkPorts)lines.push(p+' 802.1q trunking 999');
   lines.push('===== show udld interface =====','Interface Admin Mode Operational State');
   for(const p of trunkPorts)lines.push(p+' aggressive bidirectional');
-  lines.push('===== show etherchannel summary =====','No port-channel interfaces in this lab fixture',
+  lines.push('===== show interfaces status =====','Port Name Status Vlan Duplex Speed Type');
+  for(const p of trunkPorts)lines.push(p+' connected trunk full 10G SFP-10GBase-SR');
+  lines.push('===== show vlan brief =====','VLAN Name Status Ports','10 SERVICES active','20 BACKEND active','999 UNUSED_NATIVE active');
+  lines.push('===== show spanning-tree interface detail =====');
+  for(const vlan of [10,20])lines.push('VLAN '+vlan+' port roles',...portTable(vlan));
+  lines.push('===== show spanning-tree detail =====','Spanning tree mode rapid-pvst',
+   'Number of topology changes '+(isAccess?2:1));
+  lines.push('===== show running-config | include bpduguard =====','<no matching BPDU Guard lines in LAB>');
+  lines.push('===== show etherchannel summary =====','No port-channel interfaces in this LAB design',
    '===== show spanning-tree inconsistentports =====','Name Interface Inconsistency','Number of inconsistent ports: 0',
-   '===== show cdp neighbors detail =====','LAB evidence: manually modelled links, not authenticated neighbor discovery');
+   '===== show cdp neighbors detail =====');
+  for(const link of links.filter(x=>x.a===n.id||x.b===n.id)){
+   const peerId=link.a===n.id?link.b:link.a,peer=nodes.find(x=>x.id===peerId);
+   lines.push('Device ID: '+peer.hostname,
+    'Interface: '+(link.a===n.id?link.aPort:link.bPort)+', Port ID (outgoing port): '+(link.a===n.id?link.bPort:link.aPort),
+    'Platform: cisco '+(peer.role==='lower'?'C9300-48P':'C9500-24Y4C')+', Capabilities: Switch');
+  }
+  lines.push('===== show lldp neighbors detail =====');
+  for(const link of links.filter(x=>x.a===n.id||x.b===n.id)){
+   const peer=nodes.find(x=>x.id===(link.a===n.id?link.b:link.a));
+   lines.push('System Name: '+peer.hostname,'Local Intf: '+(link.a===n.id?link.aPort:link.bPort),
+    'Port id: '+(link.a===n.id?link.bPort:link.aPort));
+  }
+  lines.push('===== show logging | include SPANTREE|UDLD =====','<no matching syslog events in this LAB capture>');
+  lines.push('===== show switch virtual =====','StackWise Virtual not configured in this LAB.');
+  // MST/vPC/MLAG platform-specific controls remain NOT APPLICABLE, not fabricated PASS results.
   showTech.push({deviceId:n.id,filename:n.hostname.toLowerCase()+'-synthetic-showtech.txt',
    text:lines.join('\n'),synthetic:true});
  }
