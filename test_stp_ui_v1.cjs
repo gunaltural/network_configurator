@@ -30,7 +30,7 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{JSDOM}=require
  $('runSTPPreflight').click();
  assert.match($('stpPreflightResult').textContent,/BRIDGE_PRIORITY_COMPARISON/);
  $('runSTPKnowledge').click();
- assert.match($('stpKnowledgeResult').textContent,/PARAMETER COVERAGE/,'Knowledge catalog is visible independently of model');
+ assert.match($('stpKnowledgeResult').textContent,/ÖNCELİKLİ BULGULAR/,'Knowledge catalog is visible independently of model');
  assert.match($('stpKnowledgeResult').textContent,/Cisco Catalyst/,'Source references are reported');
 
  assert.doesNotMatch($('stpPreflightResult').textContent,/ACCESS-1/);
@@ -64,7 +64,7 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{JSDOM}=require
  assert.equal(submitted.length,earlierCalls,'no provider request is sent when AI is disabled');
  assert.match($('analysisResult').value,/AI modeli ÇALIŞTIRILMADI/);
  assert.match($('analysisResult').value,/BRIDGE_PRIORITY_COMPARISON/);
- assert.match($('analysisResult').value,/PARAMETER COVERAGE/);
+ assert.match($('analysisResult').value,/ÖNCELİKLİ BULGULAR/);
  assert.doesNotMatch($('analysisResult').value,/ACCESS-1/);
  assert.equal($('downloadReport').disabled,false,'explicit offline report can be exported');
  assert.match($('status').textContent,/AI çalıştırılmadı/);
