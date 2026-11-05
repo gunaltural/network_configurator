@@ -102,7 +102,7 @@ function appendDecisionMatrix(paper,review,preflight,db,tr){
  ['STP-009',L('BPDU Guard','BPDU Guard'),'bpduGuard','show spanning-tree summary'],
  ['STP-010',L('Root Guard','Root Guard'),'rootGuard','show spanning-tree inconsistentports'],
  ['STP-011',L('Loop Guard','Loop Guard'),'loopGuard','show spanning-tree inconsistentports'],
- ['STP-012',L('UDLD link koruması','UDLD protection'),null,'show udld interface'],
+ ['STP-012',L('UDLD link koruması','UDLD protection'),'udld','show udld interface'],
  ['STP-013',L('EtherChannel / LACP','EtherChannel / LACP'),null,'show etherchannel summary'],
  ['STP-014',L('Native / Allowed VLAN','Native / allowed VLAN'),'nativeVlan','show interfaces trunk'],
  ['STP-015',L('Topology change davranışı','Topology changes'),null,'show spanning-tree detail'],
