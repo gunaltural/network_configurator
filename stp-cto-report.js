@@ -87,6 +87,82 @@ function build(container,review,preflight,db,language,engineering,network){
 }
 
 
+
+/* Aggregate all selected configurations into one topology and protocol report. */
+function appendNetworkReadout(paper,network,tr){
+ const L=(a,b)=>tr?a:b,sec=E('section','stp-network-readout');
+ sec.append(E('h2','',L('2 · Bütünleşik Ağ ve Protokol Değerlendirmesi','2 · End-to-end Network and Protocol Assessment')));
+ sec.append(E('p','',L('Bu bölüm seçilen cihazları ayrı ayrı değerlendirmekle yetinmez; VLAN, fiziksel bağlantı, root tercihleri, port korumaları ve topolojik bağımlılıkları tüm seçili cihazlar arasında karşılaştırır.',
+  'All selected devices are evaluated together for per-VLAN root preferences, modeled connectivity, STP guard relationships and graph dependencies.')));
+ const summary=E('div','summary-grid');
+ for(const [name,value] of [
+  [L('Seçili cihaz','Selected devices'),network.deviceCount],
+  [L('Konfigürasyonlu cihaz','Captured configurations'),network.capturedCount],
+  [L('Modellenen bağlantı','Modeled physical links'),network.modeledLinkCount],
+  [L('VLAN değerlendirmesi','VLAN assessments'),network.vlans.length],
+  [L('Cihazlar arası bulgu','Cross-device findings'),network.findings.length]
+ ])summary.append(A(E('div','metric'),E('b','',value),E('span','',name)));
+ sec.append(summary);
+ sec.append(E('p','report-muted',L('Kanıt kapsamı: ','Evidence scope: ')+network.coverage.deviceConfigs+
+  L(' cihaz konfigürasyonu; ',' captured device configurations; ')+network.coverage.mappedLinks+
+  L(' uç eşleşmeli bağlantı. ',' links with mapped endpoints. ')+network.scope));
+ for(const component of network.components){
+  sec.append(E('p','cto-context',L('Modellenen bağlantılı cihaz grubu: ','Modeled connected component: ')+component.join(' ↔ ')));
+ }
+ const vlanSec=E('details','');vlanSec.open=true;vlanSec.append(E('summary','',L('VLAN bazında root adayları ve karşılaştırmalı priority','Per-VLAN root candidate / priority correlation')));
+ const rootTable=E('table','');rootTable.style.cssText='width:100%;border-collapse:collapse;font-size:12px';
+ const header=E('tr','');for(const t of [L('VLAN / kapsam','VLAN / scope'),L('Cihaz priority değerleri','Observed priorities'),L('Root adayı / sonuç','Root preference / conclusion')]){
+  const th=E('th','',t);th.style.cssText='text-align:left;padding:8px;border-bottom:2px solid #becbd5';header.append(th);}
+ rootTable.append(header);
+ for(const x of network.vlans){
+  const row=E('tr','');
+  const priorities=x.configured.map(p=>p.hostname+': '+(p.priority??L('tanımsız','not explicit'))).join(' · ');
+  const values=['VLAN '+x.vlan+' · '+x.component,priorities,x.status+' · '+x.interpretation];
+  for(const value of values){const cell=E('td','',value);cell.style.cssText='padding:8px;vertical-align:top;border-bottom:1px solid #dbe5ec;overflow-wrap:anywhere';row.append(cell);}
+  rootTable.append(row);
+ }
+ vlanSec.append(rootTable);
+ if(!network.vlans.length)vlanSec.append(E('p','',L('VLAN tanımları veya ilgili priority kanıtları bulunamadı.','No explicit VLAN participation or priorities were captured.')));
+ sec.append(vlanSec);
+ const links=E('details','');links.open=true;links.append(E('summary','',L('Cihazlar arası trunk ve STP koruma ilişkileri','Inter-device trunk and STP protection correlations')));
+ for(const x of network.links){
+  const item=E('div','decision');
+  item.append(E('strong','',x.first+' ('+x.ports[0]+') ↔ '+x.second+' ('+x.ports[1]+')'));
+  item.append(E('p','report-muted',x.status));
+  for(const line of x.details)item.append(E('p','',line));
+  if(x.evidence.length){const proof=E('details','');proof.append(E('summary','',L('Her iki cihazın CLI kanıtları','Source CLI evidence from both devices')));
+   for(const v of x.evidence)proof.append(E('p','report-muted',v));item.append(proof);}
+  links.append(item);
+ }
+ if(!network.links.length)links.append(E('p','',L('Seçilen cihazlar arasında fiziksel bağlantı eşleştirmesi verilmedi. Gerçek komşuluk tahmin edilmez.',
+  'No physical links between selected devices were mapped. Peer adjacency is not inferred from hostnames or interface labels.')));
+ sec.append(links);
+ const risks=E('details','');risks.open=true;risks.append(E('summary','',L('İlişkisel bulgular ve doğrulama kararları','Cross-device findings and verification decisions')));
+ if(!network.findings.length)risks.append(E('p','',L('Kanıtlı çapraz cihaz çelişkisi görülmedi. Bu ağın doğru çalıştığını kanıtlamaz.',
+  'No explicit cross-device contradiction was found; this does not establish network health.')));
+ for(const x of network.findings){
+  const item=E('div','decision');
+  item.append(E('strong','',x.severity+' · '+x.code+' · '+x.scope));
+  item.append(E('p','',x.message));
+  item.append(E('p','cto-action',L('Doğrulama: ','Verification: ')+x.verification));
+  if(x.evidence.length)item.append(E('p','report-muted',x.evidence.join(' · ')));
+  risks.append(item);
+ }
+ sec.append(risks);
+ const failures=E('details','');failures.append(E('summary','',L('Topoloji bağımlılıkları ve arıza senaryoları (tasarım modelinden)','Modeled fault domains and failure scenarios')));
+ if(!network.resilience.length)failures.append(E('p','',L('Modellenen bağlantılarda bağlantıyı bölen tekil cihaz/link bağımlılığı saptanmadı. Gerçek yedeklilik yine doğrulanmalıdır.',
+  'No graph-separating single node/link was found in modeled links; operational redundancy is unproven.')));
+ for(const x of network.resilience){
+  const box=E('div','decision');
+  box.append(E('strong','',x.event+' · '+(x.device||x.link)));
+  box.append(E('p','',x.assessment));failures.append(box);
+ }
+ sec.append(failures);
+ sec.append(E('p','report-muted',L('Sınır: Bu, çalışan cihazlardan toplanmış STP port state/TCN ölçümü değildir. Topoloji bağlantıları kullanıcı modelinden, root adayı çıkarımları ise yüklenen konfigürasyondan gelir.',
+  'Limit: this is not measured STP forwarding, TCN or convergence. Topology links reflect modeled design; root preference reflects captured configuration only.')));
+ paper.append(sec);
+}
+
 /* A CTO can see actual device observations before generalized catalog findings. */
 function appendEngineeringReadout(paper,assessment,tr){
  const L=(a,b)=>tr?a:b;
