@@ -65,7 +65,7 @@ _SENSITIVE_CLI_LINE = re.compile(
 
 _PRIVATE_KEY_BEGIN = re.compile(r'-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----', re.I)
 _PRIVATE_KEY_END = re.compile(r'-----END [A-Z0-9 ]*PRIVATE KEY-----', re.I)
-_LINE_REFERENCE = re.compile(r'^(L\\d+:\\s*)')
+_LINE_REFERENCE = re.compile(r'^(L\d+:\s*)')
 
 def redact(value):
     """Keep CLI line numbers while masking credentials, including multiline keys.
@@ -75,7 +75,7 @@ def redact(value):
     protected = []
     in_key = False
     for line in value.splitlines(keepends=True):
-        body = line.rstrip('\\r\\n')
+        body = line.rstrip('\r\n')
         end = line[len(body):]
         starts = bool(_PRIVATE_KEY_BEGIN.search(body))
         ends = bool(_PRIVATE_KEY_END.search(body))
