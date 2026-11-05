@@ -71,7 +71,7 @@ on:
     branches: ["feature/vendor-failure-simulation-v5-44", "fix/v5-44-2-simulation-docker-packaging", "feature/render-live-deployment-verification", "main"]
 jobs:
   simulation-and-workspaces:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
