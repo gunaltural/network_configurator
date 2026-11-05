@@ -1207,8 +1207,8 @@ $('analyze').onclick=async()=>{
    message('Local evidence summary generated. No AI model was run.');
    return;
   }
-  if(['groq','openai'].includes(available.provider)&&
-     !window.confirm('Send sanitized network evidence to '+available.provider+'?\n\nDevices: '+scopedDeviceIds().map(id=>workspace.nodes.find(n=>n.id===id)?.hostname||id).join(', ')+'\nIncludes: topology, device configuration and any verification CLI.\n\nContinue only if authorized to share.')){
+  if((['groq','openai'].includes(available.provider)||available.externalDataTransfer===true)&&
+     !window.confirm('Send sanitized network evidence to the configured '+available.provider+' model endpoint?\n\nDevices: '+scopedDeviceIds().map(id=>workspace.nodes.find(n=>n.id===id)?.hostname||id).join(', ')+'\nIncludes: topology, device configuration and any verification CLI.\n\nContinue only if authorized to share.')){
     message('External model transfer cancelled. No evidence was submitted.');
     return;
   }
