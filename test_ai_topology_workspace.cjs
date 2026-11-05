@@ -109,6 +109,16 @@ const many=api.analysisEvidenceBatches(extended).flat();
 assert.ok(many.filter(x=>x.id.startsWith('config-')).length>1,'Split long configurations without truncating');
 assert.ok(many.every(x=>x.text.length<=3000),'Every evidence item fits API limit');
 assert.ok(api.analysisEvidenceBatches(extended).every(batch=>batch.length<=24),'Every batch stays bounded');
+const fullShow=Array.from({length:250},(_,i)=>'route '+i).concat(['LAST-LINE-OMITTED']).join('\n');
+const boundedShow=api.addShowTech(withCapture,'fw',fullShow,'captured-bgp.out');
+const captureItems=api.analysisEvidenceBatches(boundedShow,['fw']).flat();
+const scopeItem=captureItems.find(x=>x.id.startsWith('capture-coverage-'));
+assert.ok(scopeItem,'Every real capture has an explicit provenance and coverage entry');
+assert.match(scopeItem.text,/capture timestamp UNKNOWN/);
+assert.match(scopeItem.text,/Total lines 251; included excerpt lines 220/);
+assert.match(scopeItem.text,/omitted lines NOT evidence of absence/);
+assert.ok(!JSON.stringify(captureItems).includes('LAST-LINE-OMITTED'),'Model must not receive unseen sections disguised as analyzed');
+
 assert.throws(()=>api.analysisEvidenceBatches(api.setConfiguration(withCapture,'fw','x'.repeat(3100))),/too long/);
 
 console.log('AI topology workspace contract tests passed');
