@@ -3,7 +3,7 @@
 'use strict';
 const E=(tag,cls,txt)=>{const x=document.createElement(tag);if(cls)x.className=cls;if(txt!==undefined)x.textContent=String(txt);return x;};
 const A=(node,...children)=>{for(const child of children)node.append(child);return node;};
-function build(container,review,preflight,db,language,engineering,network,operational){
+function build(container,review,preflight,db,language,engineering,network,operational,unified){
  if(!engineering||engineering.kind!=='stp-engineering-v2-deterministic-not-ai')throw Error('STP Engineering V2 evidence engine is unavailable.');
  if(!network||network.kind!=='stp-network-correlation-v2')throw Error('N-device STP network correlation is unavailable.');
  if(!db||db.module!=='STP'||!Array.isArray(db.records)||db.records.length<10)throw Error('Engineering knowledge DB is not ready.');
@@ -22,12 +22,14 @@ function build(container,review,preflight,db,language,engineering,network,operat
  const decisions=risk.filter(x=>!(['vtpMode','vtpDomain'].includes(x.parameter)&&hostsWithAuthGap.has(x.title.split(':')[0])));
  decisions.sort((x,y)=>Number(y.parameter==='vtpPassword')-Number(x.parameter==='vtpPassword')||Number(y.severity==='warning')-Number(x.severity==='warning'));
  const kpis=E('div','summary-grid');
- for(const [title,val] of [[L('Cihazlar','Devices'),review.devices.length],[L('Öncelikli incelemeler','Risk reviews'),decisions.length],[L('Design bilgi kayıtları','Design knowledge rules'),db.records.length],[L('Operasyonel durum','Operational state'),L('Doğrulanmadı','Not verified')]]){
+ const nRisk=unified?.counts?.RISK||0,nGood=unified?.counts?.GOOD||0,nVerify=unified?.counts?.VERIFY||0;
+ for(const [title,val] of [[L('Cihazlar','Devices'),review.devices.length],[L('Tasarım riski','Design risks'),nRisk],[L('Uygun kontrol','Good checks'),nGood],[L('Ek doğrulama','Verification needed'),nVerify]]){
   kpis.append(A(E('div','metric'),E('b','',val),E('span','',title)));
  }
  paper.append(E('h2','',L('1 · Yönetici özeti','1 · Executive summary')));
- paper.append(E('p','',L('Değerlendirme yalnızca seçilen cihaz konfigürasyonlarına dayanır. Canlı root/port durumları doğrulanmadı.','Review is based only on selected configurations. Live root and port state is unverified.')));
+ paper.append(E('p','',L('Tasarım konfigürasyonları, mevcut topoloji ve sağlanan operasyonel kanıtlar değerlendirilmiştir. Yapılandırılmamış korumalar, bağlantı rolü kanıtlandığında tasarım riski olarak işaretlenir; gerçek kesinti iddia edilmez.','Selected configurations, modeled topology and supplied operational evidence were assessed. Missing protections become design risks when link context is evidenced; no live outage is asserted.')));
  paper.append(kpis);
+ if(unified)appendUnifiedFindings(paper,unified,tr);
  appendNetworkReadout(paper,network,tr,operational);
  appendEngineeringReadout(paper,engineering,tr);
  const rootFindings=preflight.findings.filter(x=>['BRIDGE_PRIORITY_COMPARISON','EQUAL_BRIDGE_PRIORITY'].includes(x.code));
@@ -83,10 +85,58 @@ function build(container,review,preflight,db,language,engineering,network,operat
  const ol=E('ol','');for(const x of [...new Set([...preflight.missing,...review.furtherEvidence])].slice(0,12))ol.append(E('li','',x));verify.append(ol);paper.append(verify);
  const parameterCoverage=appendDecisionMatrix(paper,review,preflight,db,tr,engineering,operational);
  paper.append(E('footer','report-footer',L('Kaynak:','Source:')+' Design parameter know-how · SQLite knowledge v'+db.version+' · '+db.signature.slice(0,12)+' · '+L('AI çalıştırılmadı','No AI executed')));
- return {deviceCount:review.devices.length,riskCount:decisions.length,ruleCount:db.records.length,parameterCoverage};
+ return {deviceCount:review.devices.length,riskCount:nRisk,ruleCount:db.records.length,parameterCoverage,unified};
 }
 
 
+
+
+/* Common evidence-first findings: one methodology for every technology adapter. */
+function appendUnifiedFindings(paper,assessment,tr){
+ const L=(a,b)=>tr?a:b,section=E('section','network-engineering-findings-v1');
+ section.append(E('h2','',L('1 · Teknoloji Bazlı Mühendislik Bulguları','1 · Technology-level Engineering Findings')));
+ section.append(E('p','report-muted',L('Sonuçlar, beklenen davranışın mevcut tasarım/konfigürasyon ve bağlamla karşılaştırılmasından oluşturulur. CLI varlığı tek başına başarı değildir.',
+  'Findings compare expected behavior with actual supplied configuration and network context. A CLI command alone is not a compliance result.')));
+ const c=assessment.counts;
+ const score=E('div','summary-grid');
+ for(const [label,num,color] of [[L('Risk','Risk'),c.RISK,'#a52832'],[L('Uygun','Good'),c.GOOD,'#147343'],[L('Doğrulama','Verify'),c.VERIFY,'#996015'],[L('Uygulanmaz','N/A'),c.NA,'#546371']]){
+  const metric=E('div','metric');metric.append(E('b','',num),E('span','',label));metric.style.borderLeft='4px solid '+color;score.append(metric);
+ }
+ section.append(score);
+ for(const f of assessment.findings){
+  const box=E('section','decision engineering-finding');
+  box.dataset.findingId=f.id;box.dataset.findingStatus=f.status;
+  box.style.cssText='border-left:5px solid '+({GOOD:'#198754',RISK:'#c72d39',VERIFY:'#ce8b19',NA:'#7d8892'}[f.status])+';padding:14px;margin:12px 0;background:#fff';
+  const head=E('div','cto-finding-head'),title=E('strong','',f.technology+' · '+f.title),tag=E('span','choice',
+   f.status+(f.status==='RISK'?' · '+f.severity:''));
+  tag.style.cssText='font-weight:700;background:'+({GOOD:'#e7f5ea',RISK:'#fbe9eb',VERIFY:'#fff2d9',NA:'#eff1f3'}[f.status])+
+   ';color:'+({GOOD:'#17643a',RISK:'#9b1f2a',VERIFY:'#75520e',NA:'#505a65'}[f.status])+';padding:5px 9px;border-radius:6px';
+  head.append(title,tag);box.append(head);
+  const where=[f.devices.length?f.devices.join(' · '):'',
+   f.interfaces.length?L('İlgili portlar: ','Relevant ports: ')+f.interfaces.join(' · '):''].filter(Boolean);
+  if(where.length)box.append(E('p','report-meta',where.join(' | ')));
+  const fields=[
+   [L('Beklenen davranış','Expected behavior'),f.expected],
+   [L('Konfigürasyon / operasyonel gözlem','Observed configuration / state'),f.observed],
+   [L('Mühendislik değerlendirmesi','Engineering interpretation'),f.explanation],
+   [L('Ağ etkisi','Potential network impact'),f.networkImpact],
+   [L('Önerilen aksiyon','Recommended action'),f.recommendation]
+  ];
+  for(const [label,value] of fields){if(!value)continue;const row=E('p','');
+   const key=E('strong','',label+': ');row.append(key,document.createTextNode(String(value)));box.append(row);}
+  box.append(E('p','report-muted',L('Kanıt düzeyi: ','Evidence level: ')+f.confidence+' · '+L('Veri türü: ','Source type: ')+f.provenance));
+  const detail=E('details','');detail.append(E('summary','',L('CLI kanıtı, doğrulama ve üretici kaynakları','CLI evidence, verification and vendor references')));
+  if(f.verification.length){detail.append(E('strong','',L('Doğrulama komutları','Verification commands')));
+   for(const cmd of f.verification){const c=E('code','',cmd);c.style.cssText='display:block;padding:5px;white-space:pre-wrap';detail.append(c);}}
+  if(f.evidence.length){detail.append(E('strong','',L('Kaynak satırları','Evidence lines')));
+   for(const fact of f.evidence.slice(0,80))detail.append(E('p','report-meta',fact));}
+  else detail.append(E('p','report-meta',L('Doğrudan CLI kanıtı bulunmuyor.','No direct CLI evidence available.')));
+  for(const item of f.references){const a=E('a','',item.title);a.href=item.url;a.target='_blank';a.rel='noopener noreferrer';a.style.cssText='display:block;padding:3px 0';detail.append(a);}
+  for(const caveat of f.limitations)detail.append(E('p','report-meta',L('Sınır: ','Limitation: ')+caveat));
+  box.append(detail);section.append(box);
+ }
+ paper.append(section);
+}
 
 /* Aggregate all selected configurations into one topology and protocol report. */
 function appendNetworkReadout(paper,network,tr,operational){
@@ -213,7 +263,7 @@ function appendEngineeringReadout(paper,assessment,tr){
     'PortFast ve BPDU Guard: Bu trunk arayüzlerde açıkça yapılandırılmamış. Switch-to-switch trunk üzerinde bu durum kendi başına hata değildir. Komşu/edge rolü doğrulanmadan eksiklik yazılamaz.',
     'PortFast and BPDU Guard are not explicitly configured on these trunks. This is NOT inherently a defect on network-facing trunks. Verify edge/neighbor role before scoring applicability.')));
   }
-  const ports=E('details','');ports.open=true;ports.append(E('summary','',L(
+  const ports=E('details','');ports.open=false;ports.append(E('summary','',L(
    'Arayüz Bazlı Mühendislik Kontrolleri ('+device.ports.length+' port)',
    'Per-interface engineering findings ('+device.ports.length+' ports)')));
   const table=E('table','');table.style.cssText='width:100%;border-collapse:collapse;font-size:11px';
