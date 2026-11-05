@@ -118,12 +118,17 @@ textarea{width:100%;min-height:140px;resize:vertical}pre{padding:12px;background
 <fieldset id="perDeviceConfiguration"><legend>Design / Running Configuration</legend>
 <label>Device<select id="configDevice"></select></label>
 <label>Paste Design / running config<textarea id="configuration" spellcheck="false" placeholder="show running-config / display current-configuration"></textarea></label>
-<div class="control"><label>Load local TXT / CFG<input type="file" id="configFile" accept=".txt,.log,.cfg,text/plain"></label><button id="saveConfig">Attach to selected device</button></div>
+<div class="control"><label>Load local TXT / CFG<input type="file" id="configFile" ></label><button id="saveConfig">Attach to selected device</button></div>
 
 </fieldset>
 <fieldset id="showTechEvidence"><legend>Show Tech / Verification CLI (optional)</legend>
 <label>Device<select id="showTechDevice" aria-label="Show Tech device"></select></label>
-<div class="control"><label>Upload TXT / LOG / CFG<input id="showTechFile" type="file" accept=".txt,.log,.cfg,text/plain"></label></div>
+<div class="control"><label>Choose verification CLI files<input id="showTechFile" type="file" multiple aria-label="Choose show command output files"></label></div>
+<details id="showTechPastePanel"><summary>Paste CLI output</summary>
+<label>Capture name<input id="showTechPasteName" type="text" placeholder="show-spanning-tree-root.out" maxlength="200"></label>
+<label>CLI output<textarea id="showTechPasteText" spellcheck="false" placeholder="Paste show command output here"></textarea></label>
+<button type="button" id="attachShowTechPaste">Attach to selected device</button>
+</details>
 <div id="showTechDeviceList" role="list" aria-label="Per-device operational evidence"></div>
 <p id="showTechStatus" role="status" class="hint"></p>
 </fieldset>
