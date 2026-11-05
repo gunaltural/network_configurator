@@ -483,7 +483,7 @@ $('runSTPKnowledge').onclick=()=>{
  try{
   if(!selectedModules().includes('STP'))throw Error('Select STP engineering scope first.');
   const r=stpKnowledgeV1Review();
-  $('stpKnowledgeResult').textContent=window.NetworkSTPKnowledgeV1.format(r);
+  $('stpKnowledgeResult').textContent=window.NetworkSTPKnowledgeV1.format(r,$('language').value);
   $('stpKnowledgeDetails').open=true;
   message('STP knowledge review complete. '+r.entries.length+' contextual entries; platform and operating state require engineering review.');
  }catch(error){message('STP knowledge: '+error.message,true);}
@@ -541,8 +541,15 @@ function reportOfflineSTP(reason){
  const notice=lang==='tr'
   ?'AI sağlayıcısı kullanılamıyor. Aşağıdaki bulgular kaynaklı ve deterministik ön kontroldür. Gerçek root/port durumları doğrulanmamıştır.'
   :'AI provider unavailable. Findings below are source-backed deterministic checks only. Actual root and port states are not verified.';
- runState.reports=[title+'\n\n'+notice+'\n\n## STP configuration comparison\n'+window.NetworkSTPV1.format(preflight)+
-  '\n\n## STP Design parameter / standards knowledge review\n'+window.NetworkSTPKnowledgeV1.format(catalog)];
+ const priorities=preflight.findings.filter(item=>item.code!=='INSUFFICIENT_COMPARABLE_EVIDENCE');
+ const comparison=priorities.length?priorities.map(item=>
+  '- ['+item.level.toUpperCase()+'] '+item.claim+'\n  Evidence: '+item.refs.join(' | ')+
+  '\n  Verification: show spanning-tree root/detail on both devices before determining live root role.').join('\n\n'):
+  (lang==='tr'?'İki cihazdan karşılaştırılabilir kök önceliği veya mod çelişkisi gözlenmedi. Bu, root durumunun doğru olduğunu kanıtlamaz.':
+   'No explicit cross-device priority/mode contradiction observed. This does not prove the current root is correct.');
+ runState.reports=[title+'\n\n'+notice+
+  '\n\n## '+(lang==='tr'?'CORE-1 / CORE-2 KARŞILAŞTIRMASI':'CORE-TO-CORE COMPARISON')+'\n'+comparison+
+  '\n\n'+window.NetworkSTPKnowledgeV1.format(catalog,lang)];
  runState.modes=['deterministic-stp-offline'];
  runState.index=0;runState.synthesis='';
  $('stpPreflightResult').textContent=window.NetworkSTPV1.format(preflight);
