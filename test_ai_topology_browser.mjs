@@ -42,6 +42,7 @@ try{
  const designPage=await browser.newPage({viewport:{width:1280,height:900}});
  try{
   await designPage.goto(base+'/?workspace=VPC',{waitUntil:'domcontentloaded'});
+  await designPage.locator('#ncSidebar details[data-nc-group="design"]').evaluate(el=>{el.open=true;});
   const openReview=designPage.locator('#ncSidebar button').filter({hasText:'Analyze Design with AI (optional)'});
   await openReview.waitFor({timeout:18000});
   await designPage.waitForFunction(()=>window.__designWorkspaceOpened===true,{timeout:15000});
