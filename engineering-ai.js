@@ -1,9 +1,10 @@
 (()=>{'use strict';
 const host=document.querySelector('#ncSidebar');if(!host)return;
-const trigger=document.createElement('button');trigger.className='nc-nav-item';trigger.textContent='AI Engineering Assistant';host.append(trigger);
+const navigation=host.querySelector('[data-nc-group="analysis"] > div')||host;
+const trigger=document.createElement('button');trigger.className='nc-nav-item nc-nav-sub';trigger.textContent='AI Engineering Assistant';navigation.append(trigger);
 // Optional design-review entry point: never intercepts Design -> Inventory navigation.
-const designTrigger=document.createElement('button');designTrigger.className='nc-nav-item';designTrigger.textContent='Analyze Design with AI (optional)';host.append(designTrigger);
-const workspaceTrigger=document.createElement('button');workspaceTrigger.className='nc-nav-item';workspaceTrigger.textContent='AI Topology Workspace';host.append(workspaceTrigger);
+const designTrigger=document.createElement('button');designTrigger.className='nc-nav-item nc-nav-sub';designTrigger.textContent='Analyze Design with AI (optional)';navigation.append(designTrigger);
+const workspaceTrigger=document.createElement('button');workspaceTrigger.className='nc-nav-item nc-nav-sub';workspaceTrigger.textContent='AI Topology Workspace';navigation.append(workspaceTrigger);
 const dialog=document.createElement('dialog');dialog.style.cssText='width:min(820px,94vw);max-height:90vh;overflow:auto;padding:24px;border:1px solid #aabac8;border-radius:12px';
 dialog.innerHTML='<form method="dialog"><button>Close</button></form><h2>AI Engineering Assistant</h2><p>Analyze the current module using its recorded evidence.</p><label>Task <select id="aiTask"><option value="design">Review design</option><option value="scenario">Explain scenarios</option><option value="report">Draft report commentary</option></select></label><p id="aiStatus" role="status"></p><details><summary>Evidence to send</summary><pre id="aiEvidence" style="white-space:pre-wrap;max-height:240px;overflow:auto"></pre></details><button id="aiRun" disabled>Analyze displayed evidence</button><textarea id="aiDraft" aria-label="Editable AI draft" style="display:block;width:100%;min-height:260px;margin:16px 0"></textarea><button id="aiCopy" disabled>Copy reviewed draft</button><p>AI engineering drafts are independent. They are not appended to Module Report or Final Project Report.</p>';
 document.body.append(dialog);const $=id=>dialog.querySelector('#'+id);
@@ -49,6 +50,7 @@ designTrigger.onclick=()=>{
   window.location.assign('/ai-topology');
  }catch(e){$('aiStatus').textContent=e.message;dialog.showModal();}
 };
+document.querySelectorAll('[data-nc-ai-design]').forEach(button=>button.addEventListener('click',()=>designTrigger.click()));
 $('aiRun').onclick=async()=>{if(!context||busy)return;busy=true;$('aiRun').disabled=true;$('aiTask').disabled=true;$('aiCopy').disabled=true;$('aiDraft').value='';$('aiStatus').textContent='Analyzing…';
 try{if(['groq','openai'].includes(modelProvider)&&!window.confirm('The reviewed Design evidence will be sent to the external '+modelProvider+' AI provider. Confirm authorization to share this data. Continue?')){ $('aiStatus').textContent='External model transfer cancelled; no evidence sent.';return; }const r=await fetch('/api/ai/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...context,language,task:$('aiTask').value})});const data=await r.json();if(!r.ok)throw Error(typeof data.detail==='string'?data.detail:'AI request rejected.');$('aiDraft').value=data.text;$('aiCopy').disabled=false;$('aiStatus').textContent='Independent AI draft ready. No Module Report or Final Project Report was changed.';}catch(e){$('aiStatus').textContent=e.message;}finally{busy=false;$('aiRun').disabled=false;$('aiTask').disabled=false;}};
 $('aiCopy').onclick=async()=>{try{await navigator.clipboard.writeText($('aiDraft').value);$('aiStatus').textContent='Copied. Paste into the report section after review.';}catch{$('aiStatus').textContent='Select and copy the draft manually.';}};
