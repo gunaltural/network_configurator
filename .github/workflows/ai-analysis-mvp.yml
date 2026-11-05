@@ -92,7 +92,7 @@ jobs:
             sleep 1
           done
           curl -fsS http://127.0.0.1:8125/healthz
-          curl -fsS http://127.0.0.1:8125/ai-topology | grep -q 'AI Analysis V0.1 Beta'
+          curl -fsS http://127.0.0.1:8125/ai-topology | grep -q 'AI Topology Workspace'
           curl -fsS http://127.0.0.1:8125/ai-topology-workspace.js | grep -q 'analysisEvidenceBatches'
           curl -fsS http://127.0.0.1:8125/ai-topology-ui.js | grep -q 'configDevice'
           node test_analysis_browser.mjs
