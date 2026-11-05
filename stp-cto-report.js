@@ -9,29 +9,32 @@ function build(container,review,preflight,db,language){
  const L=(a,b)=>tr?a:b;
  const cat={vtpMode:'campus.vtp',vtpPassword:'campus.vtp',vtpVersion:'campus.vtp',vtpDomain:'campus.vtp',nativeVlan:'campus.native_vlan',allowedVlans:'campus.allowed_vlans',dtp:'campus.dtp',stpMode:'stp.mode',mstRegion:'stp.mode',bridgePriority:'stp.root_priority',portfast:'stp.edge_portfast',bpduGuard:'stp.bpdu_guard',rootGuard:'stp.root_guard',loopGuard:'stp.loop_guard'};
  container.replaceChildren();
- const hdr=A(E('header','cto-head'),E('div','cto-kicker','NETWORK CONFIGURATOR / ENGINEERING ASSESSMENT'),E('h2','',L('STP Mühendislik Değerlendirmesi','STP Engineering Assessment')),E('p','',L('Yönetici özeti · Tasarım bütünlüğü · Risk ve aksiyonlar','Executive summary · Design integrity · Risks and actions')));
- hdr.append(E('div','cto-notice',L('Konfigürasyon bazlı inceleme — AI modeli çalıştırılmadı; operasyonel root ve port durumları doğrulanmadı.','Configuration-only assessment — AI model was not run; live root and port states unverified.')));
- container.append(hdr);
+ const paper=E('article','paper stp-design-paper');container.append(paper);
+ const hdr=A(E('header','report-header'),E('div','report-tag','NETWORK CONFIGURATOR / ENGINEERING ASSESSMENT'),E('h1','',L('STP Mühendislik Analiz Raporu','STP Engineering Assessment Report')),E('p','report-meta',L('Tasarım / konfigürasyon değerlendirmesi · Mühendis onayı bekleniyor','Design / configuration assessment · Engineer approval pending')));
+ hdr.append(E('p','report-meta',L('Konfigürasyon bazlı inceleme — AI modeli çalıştırılmadı; operasyonel root ve port durumları doğrulanmadı.','Configuration-only assessment — AI model was not run; live root and port states unverified.')));
+ paper.append(hdr);
  const risk=review.entries.filter(x=>x.severity==='warning'||x.severity==='review');
- const kpis=E('div','cto-kpis');
+ const kpis=E('div','summary-grid');
  for(const [title,val] of [[L('Cihazlar','Devices'),review.devices.length],[L('Öncelikli incelemeler','Risk reviews'),risk.length],[L('Design bilgi kayıtları','Design knowledge rules'),db.records.length],[L('Operasyonel durum','Operational state'),L('Doğrulanmadı','Not verified')]]){
-  kpis.append(A(E('div','cto-kpi'),E('small','',title),E('strong','',val)));
+  kpis.append(A(E('div','metric'),E('b','',val),E('span','',title)));
  }
- container.append(kpis);
+ paper.append(E('h2','',L('1 · Yönetici özeti','1 · Executive summary')));
+ paper.append(E('p','',L('Değerlendirme yalnızca seçilen cihaz konfigürasyonlarına dayanır. Canlı root/port durumları doğrulanmadı.','Review is based only on selected configurations. Live root and port state is unverified.')));
+ paper.append(kpis);
  const rootFindings=preflight.findings.filter(x=>['BRIDGE_PRIORITY_COMPARISON','EQUAL_BRIDGE_PRIORITY'].includes(x.code));
- const sec=E('section','cto-section');sec.append(E('h3','',L('STP Root Tasarımının Değerlendirilmesi','STP Root Design Assessment')));
+ const sec=E('section','');sec.append(E('h2','',L('2 · STP Root Tasarımı ve Yedeklilik','2 · Root Placement and Redundancy')));
  if(rootFindings.length){
   const distinct=[...new Set(rootFindings.map(x=>x.claim.replace(/^(VLAN|MST) \d+:/,'').trim()))];
   sec.append(E('p','',rootFindings.length+' VLAN/instance: '+distinct.join(' · ')));
   sec.append(E('p','',L('Düşük konfigüre priority birincil root tercihine işaret eder. Gerçek root seçimi yalnız konfigürasyondan kanıtlanamaz. Root yerleşiminin active/standby mı yoksa VLAN bazlı yük paylaşımı mı hedeflediği topoloji bağlamında doğrulanmalıdır.','Lower configured priority favors the root candidate, but does not prove live root state. Validate whether design intends active/standby or per-VLAN load sharing.')));
   sec.append(E('small','',rootFindings.flatMap(x=>x.refs).filter((x,i,a)=>a.indexOf(x)===i).join(' · ')));
  }else sec.append(E('p','',L('İki cihazdan karşılaştırılabilir root priority kanıtı alınamadı.','No comparable bridge priorities supplied across both nodes.')));
- container.append(sec);
- const risks=E('section','cto-section');risks.append(E('h3','',L('Öncelikli Mühendislik Bulguları','Prioritized Engineering Findings')));
+ paper.append(sec);
+ const risks=E('section','');risks.append(E('h2','',L('3 · Riskler ve Mühendislik Kararları','3 · Risks and Engineering Decisions')));
  if(!risk.length)risks.append(E('p','',L('Açık konfigürasyon tutarsızlığı bulunamadı; bu, ağın sağlıklı olduğu anlamına gelmez.','No explicit contradiction found; this does not establish network health.')));
  for(const item of risk){
-  const r=records.get(cat[item.parameter]),card=E('article','cto-finding');
-  const head=A(E('div','cto-finding-head'),E('strong','',item.title),E('span','cto-tag',item.severity.toUpperCase()));card.append(head);
+  const r=records.get(cat[item.parameter]),card=E('div','decision');
+  const head=A(E('div','cto-finding-head'),E('strong','',item.title),E('span','choice',item.severity.toUpperCase()));card.append(head);
   card.append(E('p','',item.impact));
   if(r){
    card.append(E('p','cto-context',L('Design know-how','Design know-how')+': '+r.context));
@@ -44,10 +47,10 @@ function build(container,review,preflight,db,language){
   if(item.limitation)card.append(E('small','cto-muted',L('Sınır','Limitation')+': '+item.limitation));
   risks.append(card);
  }
- container.append(risks);
- const verify=E('section','cto-section');verify.append(E('h3','',L('Doğrulama ve Aksiyon Planı','Validation and Action Plan')));
- const ol=E('ol','');for(const x of [...new Set([...preflight.missing,...review.furtherEvidence])].slice(0,12))ol.append(E('li','',x));verify.append(ol);container.append(verify);
- container.append(E('footer','cto-muted',L('Kaynak:','Source:')+' Design parameter know-how · SQLite knowledge v'+db.version+' · '+db.signature.slice(0,12)+' · '+L('AI çalıştırılmadı','No AI executed')));
+ paper.append(risks);
+ const verify=E('section','');verify.append(E('h2','',L('4 · Doğrulama ve Kabul Planı','4 · Verification and Acceptance')));
+ const ol=E('ol','');for(const x of [...new Set([...preflight.missing,...review.furtherEvidence])].slice(0,12))ol.append(E('li','',x));verify.append(ol);paper.append(verify);
+ paper.append(E('footer','report-footer',L('Kaynak:','Source:')+' Design parameter know-how · SQLite knowledge v'+db.version+' · '+db.signature.slice(0,12)+' · '+L('AI çalıştırılmadı','No AI executed')));
  return {deviceCount:review.devices.length,riskCount:risk.length,ruleCount:db.records.length};
 }
 root.NetworkSTPCTOReport={build};
