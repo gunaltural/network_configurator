@@ -6,6 +6,28 @@ let workspace=api.blank(),pendingBatches=null,reviewedSignature=null,runState=nu
 const selectedModules=()=>[...document.querySelectorAll('#moduleChoices input:checked')].map(el=>el.value);
 const clean=x=>String(x??'').trim(),snapshot=()=>JSON.stringify({workspace,modules:selectedModules()}),isReviewed=()=>reviewedSignature===snapshot();
 function message(value,error=false){$('status').textContent=value;$('status').dataset.error=String(error);}
+function updateScopeCount(){const n=selectedModules().length;$('scopeCount').textContent=n?n+' engineering module'+(n===1?'':'s')+' selected':'No modules selected';}
+function selectTopologyMode(original){
+ const hasOriginal=!!workspace.originalDesignSvg;
+ $('originalDesignPane').hidden=!original||!hasOriginal;
+ $('editableTopologyPane').hidden=original&&hasOriginal;
+ $('showOriginalDesign').setAttribute('aria-pressed',String(original&&hasOriginal));
+ $('showEditableTopology').setAttribute('aria-pressed',String(!original||!hasOriginal));
+}
+$('showOriginalDesign').onclick=()=>selectTopologyMode(true);
+$('showEditableTopology').onclick=()=>selectTopologyMode(false);
+function renderOriginalDesign(){
+ const available=!!workspace.originalDesignSvg;
+ $('showOriginalDesign').hidden=!available;
+ const img=$('originalDesignImage');
+ if(available){
+  // SVG is displayed as a non-interactive image (not injected into the DOM).
+  img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(workspace.originalDesignSvg);
+  img.alt='Original '+(workspace.sourceModule||'Design')+' network topology';
+ }else{img.removeAttribute('src');}
+ selectTopologyMode(available);
+}
+
 function makeOption(id,name){const opt=document.createElement('option');opt.value=id;opt.textContent=name;return opt;}
 function populate(select,values,preserve,blank){
  select.replaceChildren();
@@ -63,6 +85,8 @@ $('topologyCanvas').addEventListener('pointerup',finishDrag);
 $('topologyCanvas').addEventListener('pointercancel',finishDrag);
 $('topologyCanvas').addEventListener('lostpointercapture',finishDrag);
 function render(){
+ updateScopeCount();
+ renderOriginalDesign();
  const devs=workspace.nodes.map(n=>[n.id,n.hostname||n.id]),links=workspace.links.map(l=>[l.id,l.id+' · '+l.kind]);
  populate($('deviceSelect'),devs,$('deviceSelect').value,true);
  populate($('linkSelect'),links,$('linkSelect').value,true);
@@ -118,7 +142,7 @@ function saveFile(name,text,type){
  const blob=new Blob([text],{type}),url=URL.createObjectURL(blob),a=document.createElement('a');
  a.href=url;a.download=name;document.body.append(a);a.click();a.remove();URL.revokeObjectURL(url);
 }
-document.querySelectorAll('#moduleChoices input').forEach(input=>input.addEventListener('change',()=>{invalidate();message('Analysis scope changed. Review evidence again before sending.');}));
+document.querySelectorAll('#moduleChoices input').forEach(input=>input.addEventListener('change',()=>{invalidate();updateScopeCount();message('Analysis scope changed. Review evidence again before sending.');}));
 function fromHandoff(){
  const handoffRaw=sessionStorage.getItem(handoff);if(!handoffRaw)return;
  sessionStorage.removeItem(handoff);
