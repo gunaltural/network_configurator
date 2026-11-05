@@ -502,6 +502,7 @@ $('runSTPCTO').onclick=async()=>{
   const review=stpKnowledgeV1Review(),preflight=stpV1Review();
   const result=window.NetworkSTPCTOReport.build($('stpCTOView'),review,preflight,db,$('language').value);
   $('stpCTOStatus').textContent='Design knowledge database v'+db.version+' · '+result.ruleCount+' engineering records · '+result.deviceCount+' devices; AI model not run.';
+  $('stpCTOView').scrollIntoView?.({block:'nearest',behavior:'smooth'});
   $('stpKnowledgeDetails').open=true;
   $('exportSTPCTO').disabled=false;
  }catch(error){$('exportSTPCTO').disabled=true;$('stpCTOView').replaceChildren();$('stpCTOStatus').textContent='CTO report error: '+error.message;message(error.message,true);}
@@ -552,7 +553,7 @@ function reportText(){
  const reports=runState?.reports||[];
  return '# AI Topology Engineering Analysis\n\nSelected modules: '+selectedModules().join(', ')+'\nSelected devices: '+scopedDeviceIds().map(id=>workspace.nodes.find(n=>n.id===id)?.hostname||id).join(', ')+'\nStatus: '+(runState?.modes.includes('deterministic-stp-offline')?'DETERMINISTIC STP CONFIGURATION REVIEW ONLY — NO AI MODEL WAS RUN; engineer review required':'Unverified AI-assisted draft; engineer review required')+'\nTopology: '+workspace.nodes.length+' devices / '+workspace.links.length+' connections\nBatches: '+reports.length+' / '+(runState?.batches.length||0)+'\n\n'+reports.join('\n\n')+(runState?.synthesis?'\n\n## Cross-batch synthesis — UNVERIFIED\n'+runState.synthesis:'');
 }
-function reportOfflineSTP(reason){
+async function reportOfflineSTP(reason){
  if(!isReviewed()||!runState)throw Error('Review the current device evidence before STP local analysis.');
  if(!selectedModules().includes('STP'))throw Error('STP module must be selected for local fallback.');
  const selected=scopedDeviceIds();
@@ -581,6 +582,7 @@ function reportOfflineSTP(reason){
  $('analysisResult').value=reportText();
  $('downloadReport').disabled=false;
  message((lang==='tr'?'Yalnız STP yerel konfigürasyon değerlendirmesi oluşturuldu. AI çalıştırılmadı. ':'Local STP configuration assessment generated; AI was not run. ')+reason);
+ await $('runSTPCTO').onclick();
 }
 $('analyze').onclick=async()=>{
  if(busy)return;
@@ -588,7 +590,7 @@ $('analyze').onclick=async()=>{
  busy=true;$('analyze').disabled=true;
  try{
   const statusRes=await fetch('/api/ai/status');if(!statusRes.ok)throw Error('AI service status unavailable.');
-  const available=await statusRes.json();if(!available.available){if(selectedModules().includes('STP')){reportOfflineSTP('AI provider is not configured.');return;}throw Error('AI provider is not configured. Local STP review is available when STP is selected.');}
+  const available=await statusRes.json();if(!available.available){if(selectedModules().includes('STP')){await reportOfflineSTP('AI provider is not configured.');return;}throw Error('AI provider is not configured. Local STP review is available when STP is selected.');}
   if(['groq','openai'].includes(available.provider)&&
      !window.confirm('This sends the reviewed, redacted topology/configuration evidence to the external '+available.provider+' model provider. Confirm that you are authorized to share this data. Continue?')){
     message('External model transfer cancelled. No evidence was submitted.');
