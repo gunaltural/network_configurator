@@ -98,7 +98,7 @@ $('openSavedDesign').onclick=async()=>{
   sessionStorage.setItem('networkConfigurator.workflow.design',JSON.stringify(design));
   // Generate vendor configuration through Design itself, not from storage snapshots.
   // The user then invokes the existing audited Design -> AI handoff.
-  window.location.assign('/?resume=1&workspace='+encodeURIComponent(module));
+  window.location.assign('/?resume=1&workspace='+encodeURIComponent(module)+'&aiImport=1');
  }catch(error){projectStatus('Could not open Design: '+error.message);}
 };
 function makeOption(id,name){const opt=document.createElement('option');opt.value=id;opt.textContent=name;return opt;}
