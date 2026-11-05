@@ -768,8 +768,12 @@ function buildGenericReport(options={}){
   heads.forEach(v=>top.append(E('th','',v)));head.append(top);t.append(head);
   rows.forEach(values=>{const tr=E('tr','');values.forEach(v=>tr.append(E('td','',v)));body.append(tr);});t.append(body);return t;};
  const completed=!runState||runState.index>=runState.batches.length;
+ const modes=runState?.modes||[],noCitedDraft=modes.length>0&&!modes.some(m=>m==='model-evidence-cited-draft');
+ const onlyFallback=modes.length>0&&modes.every(m=>m==='evidence-only-provider-fallback');
  article.append(E('h1','',L('Ağ Mühendisliği Tasarım ve Kanıt Değerlendirmesi','Network Engineering Design and Evidence Assessment')));
  article.append(E('p','report-meta',offline?L('YEREL KANIT ÖZETİ — AI MODELİ ÇALIŞMADI','LOCAL EVIDENCE SUMMARY — NO AI MODEL EXECUTED'):
+  onlyFallback?L('SAĞLAYICI YANITI YOK — YALNIZCA KANIT; AI ANALİZİ DEĞİL','PROVIDER FAILED — EVIDENCE ONLY, NOT AI REASONING'):
+  noCitedDraft?L('KANITLA DESTEKLENEN AI BULGUSU DOĞRULANMADI','NO CITATION-VALID MODEL FINDINGS'):
   completed?L('AI TASLAĞI — MÜHENDİSLİK ONAYI GEREKLİ','AI DRAFT — ENGINEER REVIEW REQUIRED'):
   L('KISMİ AI TASLAĞI — TÜM KANITLAR İŞLENMEDİ','PARTIAL AI DRAFT — NOT ALL EVIDENCE PROCESSED')));
  article.append(E('p','report-meta',L('Design CLI, cihazda çalışan konfigürasyon değildir. Show çıktıları ayrıca doğrulanmalıdır.',
@@ -1069,7 +1073,8 @@ $('preview').onclick=()=>{
 };
 function reportText(){
  const reports=runState?.reports||[];
- return '# AI Topology Engineering Analysis\n\nSelected modules: '+selectedModules().join(', ')+'\nSelected devices: '+scopedDeviceIds().map(id=>workspace.nodes.find(n=>n.id===id)?.hostname||id).join(', ')+'\nStatus: '+(runState?.modes.includes('deterministic-stp-offline')?'DETERMINISTIC STP CONFIGURATION REVIEW ONLY — NO AI MODEL WAS RUN; engineer review required':'Unverified AI-assisted draft; engineer review required')+'\nTopology: '+workspace.nodes.length+' devices / '+workspace.links.length+' connections\nBatches: '+reports.length+' / '+(runState?.batches.length||0)+'\n\n'+reports.join('\n\n')+(runState?.synthesis?'\n\n## Cross-batch synthesis — UNVERIFIED\n'+runState.synthesis:'');
+ const evidenceOnly=!!(runState?.modes.length&&runState.modes.every(mode=>mode==='evidence-only-provider-fallback'));
+ return '# AI Topology Engineering Analysis\n\nSelected modules: '+selectedModules().join(', ')+'\nSelected devices: '+scopedDeviceIds().map(id=>workspace.nodes.find(n=>n.id===id)?.hostname||id).join(', ')+'\nStatus: '+(runState?.modes.includes('deterministic-stp-offline')?'DETERMINISTIC STP CONFIGURATION REVIEW ONLY — NO AI MODEL WAS RUN; engineer review required':evidenceOnly?'EVIDENCE ONLY — PROVIDER FAILED; no AI reasoning; engineer review required':'Unverified AI-assisted draft; engineer review required')+'\nTopology: '+workspace.nodes.length+' devices / '+workspace.links.length+' connections\nBatches: '+reports.length+' / '+(runState?.batches.length||0)+'\n\n'+reports.join('\n\n')+(runState?.synthesis?'\n\n## Cross-batch synthesis — UNVERIFIED\n'+runState.synthesis:'');
 }
 async function reportOfflineSTP(reason){
  if(!isReviewed()||!runState)throw Error('Review the current device evidence before STP local analysis.');
