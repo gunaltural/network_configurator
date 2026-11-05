@@ -74,7 +74,7 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{JSDOM}=require
  await $('analyze').onclick();
  assert.equal(submitted.length,earlierCalls,'no provider request is sent when AI is disabled');
  assert.match($('analysisResult').value,/AI modeli ÇALIŞTIRILMADI/);
- assert.match($('analysisResult').value,/BRIDGE_PRIORITY_COMPARISON/);
+ assert.match($('analysisResult').value,/VLAN 10: CORE-1 4096 vs CORE-2 8192/,'Human-readable bridge-priority evidence is included');
  assert.match($('analysisResult').value,/ÖNCELİKLİ BULGULAR/);
  assert.doesNotMatch($('analysisResult').value,/ACCESS-1/);
  assert.equal($('downloadReport').disabled,false,'explicit offline report can be exported');
