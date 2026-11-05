@@ -62,5 +62,25 @@ const conflict={...workspace,showTech:workspace.showTech.concat([{
 }])};
 assert.equal(C.assess({workspace:conflict,deviceIds:['a'],modules:['BGP']}).findings[0].status,'CONFLICT');
 assert.equal(C.assess({workspace:conflict,deviceIds:['a'],modules:['BGP']}).findings[0].confidence,'CAPTURE_TIMING_UNVERIFIED');
+// Cisco's documented Idle (Admin) state must not vanish from analysis.
+const adminSample={...workspace,showTech:[{deviceId:'a',filename:'admin-bgp.txt',
+ text:'CE-A#show ip bgp summary\nNeighbor V AS MsgRcvd MsgSent TblVer InQ OutQ Up/Down State/PfxRcd\n10.0.0.2 4 65100 0 0 1 0 0 never Idle (Admin)'}]};
+const admin=C.assess({workspace:adminSample,deviceIds:['a'],modules:['BGP']});
+const adminFinding=admin.findings.find(x=>x.title.includes('FSM'));
+assert.ok(adminFinding,'Administrative BGP Idle is recognized');
+assert.match(adminFinding.observed,/Idle \(Admin\)/);
+assert.match(adminFinding.explanation,/administratively idle/);
+assert.doesNotMatch(adminFinding.explanation,/TCP failure|unreachable route|confirmed outage/i);
+
+// Arista MLAG output uses state and local-int status fields in MLAG Status.
+const mlagSample={...workspace,showTech:[{deviceId:'b',filename:'show-mlag.txt',
+ text:'CE-B#show mlag\nMLAG Configuration:\ndomain-id : tenant01\npeer-link : Port-Channel101\nMLAG Status:\nstate : Active\npeer-link status : Up\nlocal-int status : Up\nMLAG Ports:\nActive-full : 4'}]};
+const mlag=C.assess({workspace:mlagSample,deviceIds:['b'],modules:['VPC']});
+assert.ok(mlag.findings.some(x=>x.observed.includes('state: Active')),'EOS state recognized in MLAG Status block');
+assert.ok(mlag.findings.some(x=>x.observed.includes('peer-link status: Up')),'EOS peer-link recognized');
+assert.ok(mlag.findings.some(x=>x.observed.includes('local-int status: Up')),'EOS local interface recognized');
+assert.ok(mlag.findings.every(x=>x.status==='OBSERVED'),'Healthy observed attributes are not deemed failures');
+assert.ok(mlag.findings.every(x=>x.source.some(doc=>doc.url.includes('arista.com'))),'Arista-only manufacturer citations');
+
 assert.throws(()=>C.assess({workspace,deviceIds:['missing'],modules:['BGP']}),/valid device/);
 console.log('Cross-domain vendor-scoped evidence contracts, counterevidence and no-false-PASS passed');
