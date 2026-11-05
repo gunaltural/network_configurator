@@ -1756,6 +1756,10 @@ def stp_operational_evidence_v1_script():
 def stp_synthetic_lab_v1_script():
     return FileResponse(BASE_DIR / 'stp-synthetic-lab-v1.js', media_type='application/javascript')
 
+@app.get('/network-engineering-findings-v1.js')
+def network_engineering_findings_v1_script():
+    return FileResponse(BASE_DIR / 'network-engineering-findings-v1.js', media_type='application/javascript')
+
 @app.get('/stp-cto-report.js')
 def stp_cto_report_script():
     return FileResponse(BASE_DIR / 'stp-cto-report.js', media_type='application/javascript')
