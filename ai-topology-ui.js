@@ -818,6 +818,16 @@ function buildGenericReport(options={}){
   SDWAN:['SLA-aware WAN path selection, policy-based steering and failover','Incorrect health-check, rule precedence or routing interactions can conditionally steer traffic onto failed or unsuitable paths','SD-WAN zone/member/SLA/service and BGP overlay; observed performance SLA, route and session selection'],
   DCI:['Join sites using scoped L2 extension and L3 routing while preserving failure boundaries','Uncontrolled stretched VLANs or route-target policies can extend faults or create route isolation','DCI peer/overlay design, VLAN/VNI and routing policy; observed route, MAC and underlay/overlay reachability']
  };
+ const technologyContextTR={
+  SYSTEM:['Güvenli yönetim erişimi, yetkilendirme, log toplama ve zaman senkronizasyonu','Eksik veya hatalı kontroller olay izlenebilirliğini ve olay müdahalesini zayıflatabilir','AAA/VTY, SSH, SNMP, logging ve NTP yapılandırması ile ilgili gerçek cihaz çıktıları'],
+  BGP:['Otonom sistemler arası yönlendirme, prefix alışverişi ve en uygun yol seçimi','Hatalı peering, filtre veya öznitelikler prefix kaybına, asimetrik trafiğe ya da yanlış ilana yol açabilir','router bgp, neighbor, route-map ve address-family satırları; BGP summary, FSM, alınan/ilan edilen prefixler'],
+  OSPF:['Link-state bilgi dağıtımı ve iç ağda yol hesaplama/yakınsama','Area, MTU, kimlik doğrulama veya timer uyumsuzluğu bazı komşuluk ve rota sorunlarına neden olabilir','router ospf ve arayüz ayarları; OSPF neighbor, interface, LSDB ve RIB çıktıları'],
+  STP:['Layer-2 döngülerini önleme ve yedek bağlantıların forwarding rollerini belirleme','Yanlış root seçimi veya port rolüne uygun olmayan korumalar döngüye veya beklenmedik bloklamaya neden olabilir','STP modu/önceliği, arayüz korumaları ve VLAN/instance bazlı show spanning-tree çıktıları'],
+  VPC:['Birden fazla cihaz üzerinde link yedekliliği ve koordineli Layer-2 forwarding','Peer-link, keepalive veya consistency uyumsuzluğu bazı üyelerin askıya alınmasına ya da split-brain riskine neden olabilir','vPC/MLAG domain, peer-link, keepalive, member port konfigürasyonu ve iki peer cihazın gerçek durumu'],
+  EVPN:['VXLAN üzerinde MAC/IP kontrol düzlemi dağıtımı, tenant L2/L3 bağlantısı','VNI/RT veya Type-2/Type-5 dağıtım hataları belirli uçlara ya da prefixlere erişimi etkileyebilir','VLAN–VNI, NVE/VTEP, BGP EVPN, VRF ve MAC/route kanıtları'],
+  SDWAN:['SLA tabanlı WAN yol seçimi, politika yönlendirmesi ve failover','Yanlış SLA, kural önceliği veya route etkileşimi trafik seçiminde istenmeyen sonuca neden olabilir','SD-WAN member/zone/SLA/service ile BGP overlay ve gerçek health-check/service çıktıları'],
+  DCI:['Siteler arası kontrollü L2 uzatma ve L3 yönlendirme, arıza alanı sınırlandırma','Kontrolsüz uzatılan VLAN veya hatalı RT politikası arıza alanını büyütebilir ya da rotaları izole edebilir','DCI, VLAN/VNI, underlay/overlay komşuluk, MAC ve route kanıtları']
+ };
  const context=section(L('Teknolojinin amacı, kullanılmaması halinde koşullu risk ve doğrulama kanıtı','Technology purpose, conditional exposure and required evidence'));
  context.append(E('p','report-muted',L(
   'Bu açıklamalar mühendislik arka planıdır; ilgili cihazda teknolojinin kullanıldığı veya eksik olduğu yalnızca bu açıklamalardan çıkarılamaz.',
@@ -825,7 +835,7 @@ function buildGenericReport(options={}){
  )));
  context.append(makeTable(
   [L('Teknoloji','Technology'),L('Neden kullanılır?','Purpose'),L('Eksik / hatalıysa olası etki','Conditional exposure if missing or misconfigured'),L('Nerede ve hangi kanıtla doğrulanır?','Where and how to verify')],
-  modules.map(m=>[m,...(technologyContext[m]||[
+  modules.map(m=>[m,...((tr?technologyContextTR[m]:technologyContext[m])||[
    'Technology-specific control-plane/data-plane design','Incorrect implementation may reduce intended resilience or reachability',
    'Review platform-scoped configuration and captured operational evidence'])])
  ));
