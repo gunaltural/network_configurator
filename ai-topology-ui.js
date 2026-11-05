@@ -62,9 +62,17 @@ $('chooseDesign').onclick=()=>{chooseEntry('design');$('refreshSavedDesign').cli
 $('chooseSaved').onclick=()=>chooseEntry('saved');
 $('chooseBuild').onclick=()=>chooseEntry('build');
 const buildCatalog=api.technologyCatalog();
+const platformVendor=platform=>platform.startsWith('Cisco')?'Cisco':platform.startsWith('Arista')?'Arista':platform.startsWith('Huawei')?'Huawei':platform==='FortiGate'?'Fortinet':'Other';
+function updateBuildPlatforms(){
+ const definition=buildCatalog[$('buildTechnology').value];
+ const permitted=definition.platforms.filter(platform=>platformVendor(platform)===$('buildVendor').value);
+ $('buildPlatform').replaceChildren(...permitted.map(platform=>makeOption(platform,platform)));
+}
 function updateBuildOptions(){
  const tech=$('buildTechnology').value,definition=buildCatalog[tech];if(!definition)return;
- $('buildPlatform').replaceChildren(...definition.platforms.map(platform=>makeOption(platform,platform)));
+ const vendors=[...new Set(definition.platforms.map(platformVendor))];
+ $('buildVendor').replaceChildren(...vendors.map(v=>makeOption(v,v)));
+ updateBuildPlatforms();
  $('buildPrimaryCount').value=String(definition.primaryCount);
  $('buildSecondaryCount').value=String(definition.secondaryCount);
  $('buildPrimaryCount').disabled=['STP','VPC','OSPF','QOS'].includes(tech);
@@ -75,6 +83,7 @@ function updateBuildOptions(){
 $('buildTechnology').append(...Object.entries(buildCatalog).map(([key,definition])=>makeOption(key,definition.label)));
 $('buildTechnology').value='STP';
 $('buildTechnology').onchange=updateBuildOptions;
+$('buildVendor').onchange=updateBuildPlatforms;
 updateBuildOptions();
 $('applyTechnologyTemplate').onclick=()=>{
  if((workspace.nodes.length||workspace.configs.length)&&!window.confirm('Replace your AI topology and attached device configurations? Original Design projects remain unchanged.'))return;
