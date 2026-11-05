@@ -161,6 +161,7 @@ function fromHandoff(){
   const report=JSON.parse(handoffRaw);
   workspace=report?.schema==='ai-topology-workspace-v1'?api.validate(report):api.fromDesign(report);originalMode=true;
   $('sourceLabel').textContent='Imported Design snapshot · independent copy';
+  $('topologyEntryHint').textContent='Imported '+(workspace.sourceModule||'Design')+' topology and generated configurations from Design. The source is unchanged. You can edit this independent copy, review evidence and return to the source module.';
   const sourceModule=String(workspace.sourceModule||'').toUpperCase();
   const aliases={SYSTEM_MANAGEMENT:'SYSTEM',SYSTEM_MANAGEMENT_AND_SECURITY:'SYSTEM',MLAG:'VPC',VXLAN:'EVPN'};
   const chosen=aliases[sourceModule]||sourceModule;
