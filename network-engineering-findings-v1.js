@@ -31,7 +31,10 @@ function register(packageSpec){
   if(!/^[A-Z][A-Z0-9_-]{3,64}$/.test(id)||ids.has(id))throw Error('Duplicate/invalid control id: '+id);
   ids.add(id);
   return freeze({id,family:toString(c.family),sources:uniq(c.sources.map(toString)),
-   verification:uniq((c.verification||[]).map(toString))});
+   verification:uniq((c.verification||[]).map(toString)),
+   findingPrefixes:freeze(uniq((c.findingPrefixes||[]).map(toString))),
+   purpose:toString(c.purpose),applicableWhen:toString(c.applicableWhen),
+   absenceImpact:toString(c.absenceImpact),acceptance:toString(c.acceptance)});
  });
  const descriptor=freeze({
   technology,knowledgeVersion:version,status:toString(packageSpec.status||'EXPERIMENTAL'),
