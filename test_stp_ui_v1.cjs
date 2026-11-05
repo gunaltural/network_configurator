@@ -6,6 +6,7 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{JSDOM}=require
  w.confirm=()=>true;
  w.fetch=async(url,options)=>{
   if(url==='/api/projects/status')return {ok:true,json:async()=>({available:false,configured:false})};
+  if(url==='/api/engineering-knowledge/stp'){const db=JSON.parse(fs.readFileSync('knowledge/stp_v1.json','utf8'));return {ok:true,json:async()=>({module:'STP',version:db.version,signature:'a'.repeat(64),records:db.records,sources:db.sources})};}
   if(url==='/api/ai/status')return {ok:true,json:async()=>({available:true,provider:'local'})};
   if(url==='/api/ai/analyze'){const body=JSON.parse(options.body);submitted.push(body);
    return {ok:true,json:async()=>({mode:'model-evidence-cited-draft',text:'STP comparison [config-0, L2]; verify root roles.'})};}
@@ -23,6 +24,7 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{JSDOM}=require
  w.eval(fs.readFileSync('ai-topology-workspace.js','utf8'));
  w.eval(fs.readFileSync('stp-analysis-v1.js','utf8'));
  w.eval(fs.readFileSync('stp-knowledge-v1.js','utf8'));
+ w.eval(fs.readFileSync('stp-cto-report.js','utf8'));
  w.eval(fs.readFileSync('ai-topology-ui.js','utf8'));
  assert.equal($('stpV1Panel').hidden,false,'STP source activates preflight');
  const access=[...d.querySelectorAll('#deviceAnalysisChoices input')].find(x=>x.dataset.deviceId==='access');
@@ -33,6 +35,13 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{JSDOM}=require
  assert.match($('stpKnowledgeResult').textContent,/PRIORITIZED ENGINEERING FINDINGS/,'Knowledge catalog is visible independently of model');
  assert.match($('stpKnowledgeResult').textContent,/Cisco Catalyst/,'Source references are reported');
 
+ await $('runSTPCTO').onclick();
+ assert.match($('stpCTOView').textContent,/STP Engineering Assessment/);
+ assert.match($('stpCTOView').textContent,/Design knowledge rules/);
+ assert.match($('stpCTOView').textContent,/CORE-1/);
+ assert.match($('stpCTOView').textContent,/CORE-2/);
+ assert.doesNotMatch($('stpCTOView').textContent,/ACCESS-1/);
+ assert.equal($('exportSTPCTO').disabled,false,'styled HTML executive report available');
  assert.doesNotMatch($('stpPreflightResult').textContent,/ACCESS-1/);
  $('preview').click();
  assert.equal($('analyze').disabled,false);
@@ -48,6 +57,7 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{JSDOM}=require
  access.checked=true;access.dispatchEvent(new w.Event('change',{bubbles:true}));
  assert.equal($('analyze').disabled,true);
  assert.equal($('analysisResult').value,'');
+ assert.equal($('exportSTPCTO').disabled,true,'stale executive report must not be exportable');
  // When Beta has no configured LLM, Analyze must produce an explicit non-AI STP
  // configuration report rather than leaving the result blank.
  access.checked=false;access.dispatchEvent(new w.Event('change',{bubbles:true}));
