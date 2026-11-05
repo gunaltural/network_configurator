@@ -15,6 +15,10 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  w.localStorage.setItem('networkConfigurator.v3.projects',JSON.stringify({campus:savedBrowserDesign}));
  w.eval(fs.readFileSync('ai-topology-workspace.js','utf8'));
  w.eval(fs.readFileSync('ai-topology-ui.js','utf8'));
+ assert.equal($('workflowStep1').hidden,false,'The Topology step is initially active');
+ assert.equal($('workflowStep2').hidden,true,'Configuration is a separate step');
+ assert.equal($('wizardNext').disabled,true,'Cannot advance before a topology exists');
+ assert.equal($('reportSavedList').options.length,0,'No report is fabricated on load');
  assert.equal($('chooseDesign').getAttribute('aria-pressed'),'true','Import from Design is the default Dashboard entry');
  assert.equal($('designSource').hidden,false,'Design tab content initially visible');
  assert.ok($('importDesignFile'),'Design project file import exists');
@@ -59,6 +63,10 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  assert.match(shell,/CLI \/ Show-Tech Analysis[^\n]*\/analysis/,'Legacy CLI analysis remains separately accessible');
  $('template').value='vpc';$('applyTemplate').click();
  assert.match($('overview').textContent,/2 devices · 2 links/);
+ assert.equal($('wizardNext').disabled,false,'Topology unlocks Configuration step');
+ $('wizardNext').click();
+ assert.equal($('workflowStep2').hidden,false,'Configuration follows topology');
+ assert.equal($('wizardNext').disabled,true,'Missing configs block Analysis step');
  assert.equal(d.querySelectorAll('#deviceAnalysisChoices input:checked').length,2,'all template devices selected by default');
  // Drag a node, ensure its location changes and the connecting SVG line follows.
  const svg=d.getElementById('topologyCanvas');
@@ -86,6 +94,9 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  $('saveLink').click();assert.match($('overview').textContent,/3 links/);
  $('configDevice').value='fw-1';$('configuration').value='hostname FW-1\nsnmp-server community SecretRO RO\nset community 65000:1 additive';
  $('saveConfig').click();assert.match($('overview').textContent,/1 configurations/);
+ assert.equal($('wizardNext').disabled,false,'Attached device config unlocks analysis');
+ assert.match($('configReadiness').textContent,/Missing — attach configuration/,'Missing device configurations are visible');
+ $('wizardNext').click();assert.equal($('workflowStep3').hidden,false,'Analysis is third step');
  assert.equal(d.querySelector('#moduleChoices input[value="VPC"]').checked,true,'vPC example presets review scope');
  $('moduleSearch').value='management';$('moduleSearch').dispatchEvent(new w.Event('input',{bubbles:true}));
  assert.equal(d.querySelector('#moduleChoices input[value="SYSTEM"]').closest('label').hidden,false,'matching technology remains visible');
@@ -109,9 +120,13 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  assert.ok(!JSON.stringify(sent[0]).includes('SecretRO'));
  assert.match($('analysisResult').value,/engineer review required/i);
  assert.equal($('downloadReport').disabled,false);
+ assert.equal($('workflowStep4').hidden,false,'Completed analysis opens Report step');
+ assert.equal($('editEngineeringReport').disabled,false,'Reviewer notes can be edited');
+ assert.equal($('saveEngineeringReport').disabled,false,'Report can be saved');
  $('configDevice').value='fw-1';$('configuration').value='hostname CHANGED';$('saveConfig').click();
  assert.equal($('analyze').disabled,true,'Changed evidence invalidates prior review');
  assert.equal($('analysisResult').value,'','Stale analysis is cleared after changing the workspace');
+ assert.equal($('workflowStep4').hidden,true,'Editing configuration exits stale Report step');
 
  $('preview').click();
  const initialRequests=sent.length;
