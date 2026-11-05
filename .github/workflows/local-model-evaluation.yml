@@ -53,7 +53,8 @@ jobs:
       # The 0.5B model is a diagnostic baseline, not the engineering reasoning acceptance gate.
       # Its incomplete output remains visible in logs without masking the required 3B run.
       - name: Run local model transport and fail-closed checks with synthetic CLI
-        continue-on-error: true
+        # Inference transport is a required smoke; unverified model drafts still
+        # do not count as independent engineering acceptance.
         env:
           PYTHONPATH: .
           AI_ENABLED: "1"
