@@ -123,6 +123,9 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  assert.match($('analysisResult').value,/engineer review required/i);
  assert.equal($('downloadReport').disabled,false);
  assert.equal($('workflowStep4').hidden,false,'Completed analysis opens Report step');
+ assert.equal($('stpCTOView').hidden,false,'Completed analysis immediately displays HTML report');
+ assert.equal($('wizardNext').hidden,true,'No empty navigation button on final Report stage');
+ assert.equal($('viewSTPCTO').textContent,'Hide HTML View','HTML toggle shows its actual state');
  assert.equal($('editEngineeringReport').disabled,false,'Reviewer notes can be edited');
  assert.equal($('saveEngineeringReport').disabled,false,'Report can be saved');
  $('configDevice').value='fw-1';$('configuration').value='hostname CHANGED';$('saveConfig').click();
