@@ -82,5 +82,29 @@ assert.ok(mlag.findings.some(x=>x.observed.includes('local-int status: Up')),'EO
 assert.ok(mlag.findings.every(x=>x.status==='OBSERVED'),'Healthy observed attributes are not deemed failures');
 assert.ok(mlag.findings.every(x=>x.source.some(doc=>doc.url.includes('arista.com'))),'Arista-only manufacturer citations');
 
+// Multi-command show-tech must not borrow evidence from a previous command.
+const composite=Array.from({length:300},(_,i)=>'unrelated interfaces counters '+i).join('\n')+
+ '\nCE-A#show ip ospf neighbor\nNeighbor ID Pri State Dead Time Address Interface'+
+ '\n2.2.2.2 1 EXSTART/DR 00:00:35 10.10.10.2 Gi0/0'+
+ '\nCE-A#show ip bgp summary\nNeighbor V AS MsgRcvd MsgSent TblVer InQ OutQ Up/Down State/PfxRcd'+
+ '\n10.0.0.2 4 65100 0 0 1 0 0 never Active'+
+ '\nCE-A#show interfaces Ethernet1/1'+
+ '\n10.0.0.3 4 65100 0 0 1 0 0 never Idle'+
+ '\nRoute Type: 5'+
+ '\nCE-A#show bgp l2vpn evpn\nRoute Type: 2';
+const multi=C.assess({workspace:{...workspace,showTech:[
+ {deviceId:'a',filename:'show-tech.txt',text:composite}]},deviceIds:['a'],modules:['OSPF','BGP','EVPN']});
+assert.ok(multi.findings.some(x=>x.technology==='BGP'&&x.observed.includes('10.0.0.2 reports Active')));
+assert.ok(multi.findings.some(x=>x.technology==='OSPF'&&x.observed.includes('EXSTART/DR')));
+assert.ok(multi.findings.some(x=>x.technology==='EVPN'&&x.observed.includes('type(s) 2')));
+assert.ok(!multi.findings.some(x=>x.observed.includes('10.0.0.3')),'Unrelated show interfaces text cannot become a BGP FSM observation');
+assert.ok(!multi.findings.some(x=>x.technology==='EVPN'&&x.observed.includes('2, 5')),'Route Type outside EVPN section cannot count');
+const ospfFinding=multi.findings.find(x=>x.technology==='OSPF');
+assert.equal(ospfFinding.evidence[0].line,303,'Original line numbers survive late show-tech sections');
+
+// Unknown vendor / supplied output without the command context cannot be treated as a verified operational fact.
+const unscoped={...workspace,showTech:[{deviceId:'n',filename:'unknown.txt',text:'Route Type: 5\npeer-link status : down'}]};
+assert.equal(C.assess({workspace:unscoped,deviceIds:['n'],modules:['EVPN','VPC']}).findings.length,0,'Free-floating text is insufficient evidence');
+
 assert.throws(()=>C.assess({workspace,deviceIds:['missing'],modules:['BGP']}),/valid device/);
 console.log('Cross-domain vendor-scoped evidence contracts, counterevidence and no-false-PASS passed');
