@@ -94,6 +94,7 @@ function renderReadiness(){
 function reportAvailable(){return reportGenerated||!!activeSavedReport||savedReportRecords().length>0;}
 function refreshWorkflow(){
  renderReadiness();
+ $('analyze').disabled=busy||!workspace.configs.some(c=>hasConfig(c.deviceId))||!scopedDeviceIds().length||!selectedModules().length;
  const enabled={1:true,2:workspace.nodes.length>0,3:workspace.configs.some(c=>hasConfig(c.deviceId)),4:reportAvailable()};
  for(const button of document.querySelectorAll('#workflowNav button[data-workflow-step]')){
   const step=Number(button.dataset.workflowStep);
@@ -880,9 +881,8 @@ $('preview').onclick=()=>{
   pendingBatches[0].unshift({id:'analysis-scope',text:'Device: ANALYSIS-SCOPE\nCommand: user-selected engineering review scope (intent, not operational evidence)\nL1: Analyze ONLY these engineering modules: '+modules.join(', ')+'\nL2: Analyze ONLY device IDs: '+devices.join(', ')+'; do not infer findings for unselected devices.\nL3: Do not perform unrelated module audits. Cross-module facts may be mentioned only when directly relevant to selected scope.\nL4: Assess proposed configurations as design intent, not deployed operational state.'});
   reviewedSignature=snapshot();runState={batches:pendingBatches,reports:[],modes:[],index:0,signature:reviewedSignature,synthesis:''};
   const previewText=pendingBatches.flat().map(e=>'## '+e.id+'\n'+e.text).join('\n\n');
-  $('evidencePreview').textContent=previewText;$('evidenceDetails').open=true;
+  $('evidencePreview').textContent=previewText;$('evidenceDetails').open=false;
   $('analyze').disabled=false;$('downloadReport').disabled=true;
-  message('Review '+pendingBatches.flat().length+' sanitized evidence items in '+pendingBatches.length+' batch(es) before sending.');
  }catch(e){message(e.message,true);$('analyze').disabled=true;}
 };
 function reportText(){
@@ -922,13 +922,22 @@ async function reportOfflineSTP(reason){
 }
 $('analyze').onclick=async()=>{
  if(busy)return;
- if(!isReviewed()||!runState)return message('Topology changed. Review the evidence again before sending.',true);
+ if(!isReviewed()||!runState){
+  $('preview').onclick();
+  if(!isReviewed()||!runState)return;
+ }
  busy=true;$('analyze').disabled=true;
  try{
+  // STP-only assessment is deterministic, fully local and has no model transfer.
+  if(selectedModules().length===1&&selectedModules()[0]==='STP'){
+   await $('runSTPCTO').onclick();
+   message('Local STP engineering assessment completed; no external model call was made.');
+   return;
+  }
   const statusRes=await fetch('/api/ai/status');if(!statusRes.ok)throw Error('AI service status unavailable.');
-  const available=await statusRes.json();if(!available.available){if(selectedModules().includes('STP')){await reportOfflineSTP('AI provider is not configured.');return;}throw Error('AI provider is not configured. Local STP review is available when STP is selected.');}
+  const available=await statusRes.json();if(!available.available)throw Error('AI provider is not configured for the selected modules. STP-only can be analyzed locally.');
   if(['groq','openai'].includes(available.provider)&&
-     !window.confirm('This sends the reviewed, redacted topology/configuration evidence to the external '+available.provider+' model provider. Confirm that you are authorized to share this data. Continue?')){
+     !window.confirm('Send sanitized network evidence to '+available.provider+'?\n\nDevices: '+scopedDeviceIds().map(id=>workspace.nodes.find(n=>n.id===id)?.hostname||id).join(', ')+'\nIncludes: topology, device configuration and any verification CLI.\n\nContinue only if authorized to share.')){
     message('External model transfer cancelled. No evidence was submitted.');
     return;
   }
@@ -970,7 +979,7 @@ $('analyze').onclick=async()=>{
    }
    $('analysisResult').value=reportText();
   }
-  $('analyze').textContent=more?'Continue remaining batches':'Analyze reviewed evidence';
+  $('analyze').textContent=more?'Continue analysis':'Analyze Selected Devices';
   $('downloadReport').disabled=false;
   if(runState.reports.length){
    activeSavedReport=null;reportGenerated=true;buildGenericReport();$('saveEngineeringReport').disabled=false;$('editEngineeringReport').disabled=false;
@@ -979,7 +988,7 @@ $('analyze').onclick=async()=>{
   }
   message(more?'Partial analysis: '+runState.index+' / '+runState.batches.length+' batches. Continue to cover all evidence.':'All batches submitted. Cross-batch root cause is NOT independently established. Validate the report before use.');
  }catch(e){message(e.message,true);}
- finally{busy=false;$('analyze').disabled=!isReviewed();}
+ finally{busy=false;refreshWorkflow();}
 };
 $('downloadReport').onclick=()=>{
  if(!$('analysisResult').value.trim())return;
