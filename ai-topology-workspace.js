@@ -19,12 +19,13 @@ function fromDesign(report){
   })),
   checks:report.designChecks||null
  };
- return validate({schema:'ai-topology-workspace-v1',sourceModule:identifier(report.source?.module),nodes,links,configs,designReview});
+ return validate({schema:'ai-topology-workspace-v1',sourceModule:identifier(report.source?.module),nodes,links,configs,designReview,originalDesignSvg:typeof report.topologySvg==='string'&&report.topologySvg.length<=120000&&/^<svg[\s>]/i.test(report.topologySvg.trim())?report.topologySvg:null});
 }
 function validate(workspace){
  const model=clone(workspace),ids=new Set(),linkIds=new Set();
  if(model.schema!=='ai-topology-workspace-v1'||!Array.isArray(model.nodes)||!Array.isArray(model.links)||!Array.isArray(model.configs))throw Error('Invalid workspace schema.');
  if(model.designReview&&(!Array.isArray(model.designReview.parameters)||typeof model.designReview.edited!=='boolean'))throw Error('Invalid Design review context.');
+ if(model.originalDesignSvg!=null&&(typeof model.originalDesignSvg!=='string'||model.originalDesignSvg.length>120000||!/^<svg[\s>]/i.test(model.originalDesignSvg.trim())))throw Error('Invalid original Design image.');
  for(const n of model.nodes){if(!identifier(n.id)||ids.has(n.id))throw Error('Duplicate or empty device id.');if(n.position&&(!Number.isFinite(n.position.x)||!Number.isFinite(n.position.y)||n.position.x<45||n.position.x>755||n.position.y<45||n.position.y>315))throw Error('Invalid device layout coordinates.');ids.add(n.id);}
  for(const l of model.links){if(!identifier(l.id)||linkIds.has(l.id)||!ids.has(l.a)||!ids.has(l.b)||l.a===l.b)throw Error('Invalid link or endpoint.');linkIds.add(l.id);}
  const configuredDevices=new Set();
