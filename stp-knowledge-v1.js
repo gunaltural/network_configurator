@@ -85,6 +85,20 @@ function review(workspace,ids){
  for(const d of parsed){
   if(!d.hasCapture){add('capture','missing',d.hostname+': configuration not attached','Configuration cannot be assessed without a capture.',[], 'stp');continue;}
   const o=d.observed;
+  for(const value of o.stpMode){
+   const mode=value.value;
+   if(/^(?:rstp|rapid-pvst|rapid-pvst\+)$/.test(mode))
+    add('stpMode','info',d.hostname+': rapid STP operating mode configured','RSTP uses rapid port role/state transitions and proposal/agreement on compatible point-to-point links. Convergence within a particular number of seconds cannot be inferred from mode alone; confirm observed port roles and neighbor compatibility.',[ref(d,value)],'stp','IEEE 802.1w (incorporated into 802.1D-2004); verify actual mode and operating state.');
+   else if(/^(?:mst|mstp)$/.test(mode))
+    add('stpMode','info',d.hostname+': MSTP configured','IEEE 802.1s / 802.1Q allows multiple VLANs to share CIST/MST instances; verify region name, revision and VLAN-to-instance mapping across peers. Instance-based load distribution requires deliberate root placement.',[ref(d,value)],'stp','IEEE 802.1Q MST region consistency depends on all relevant peer configurations.');
+   else if(/^(?:stp|pvst|pvst\+)$/.test(mode))
+    add('stpMode','review',d.hostname+': legacy STP mode configured','Classical IEEE 802.1D operation generally reconverges more slowly than rapid STP; do not assert measured convergence delay without BPDU/port-state observations.',[ref(d,value)],'stp','Vendor PVST extensions are not identical to the single-tree IEEE 802.1D standard.');
+  }
+  if(o.mstRegion.length){
+   add('mstRegion','info',d.hostname+': MST region parameters observed','MST instances and VLAN mappings should match intended regional peers. Different names, revisions or mappings can create a region boundary and alter expected CIST/MST forwarding.',o.mstRegion.slice(0,6).map(x=>ref(d,x)),'stp','IEEE 802.1s/802.1Q defines MST relationships; configuration alone does not prove active root roles.');
+  }
+  // RFC 4188 / RFC 4318 describe SNMP management observables, not additional
+  // device-running-configuration requirements or proof of operational state.
   for(const v of o.vtpMode){
    const val=v.value;
    if(val==='transparent')add('vtpMode','info',d.hostname+': VTP transparent','VLAN database changes remain local; VTPv2/v3 advertisements can still transit trunks. Central VLAN changes will not synchronize this device.',[ref(d,v)],'vtp','VTP version and trunk connectivity must be verified for forwarding behavior.');
@@ -101,6 +115,8 @@ function review(workspace,ids){
   for(const v of o.nativeVlan)if(v.value==='1')add('nativeVlan','review',d.hostname+': native VLAN 1 on '+v.iface,'Using VLAN 1 as native can enlarge exposure to unintended untagged traffic and, under particular access/trunk/tagging conditions, double-tagging VLAN hopping. Do not claim an exploitable attack from this line alone.',[ref(d,v)],'trunk','Check peer native VLAN, user VLAN membership, trunk allowed list and native tagging.');
   for(const v of o.allowedVlans)if(/^(?:all|1-4094)$/i.test(v.value))
    add('allowedVlans','review',d.hostname+': broad allowed VLAN set on '+v.iface,'Broad trunk VLAN scope can extend unnecessary broadcast/unknown-unicast flooding and failure domains. Prune according to actual downstream VLAN requirements.',[ref(d,v)],'trunk','Allowed-list changes must preserve required control and service VLANs.');
+  if(/\biccp\b/i.test((configs.find(c=>c.deviceId===d.id)?.text)||'')&&/(?:\bpe\b|\bvpls\b|redundancy[ -]?group)/i.test((configs.find(c=>c.deviceId===d.id)?.text)||''))
+   add('iccp','review',d.hostname+': ICCP-related terminology detected','RFC 7727 defines STP synchronization TLVs and virtual-root behavior for an ICCP PE redundancy group. Determine whether this deployment implements the RFC 7727 STP application before applying its conditions; matching keywords are not sufficient proof.',[],'stp','RFC 7727 source is a conditional reference, not a vendor-agnostic MLAG rule.');
   for(const v of o.dtp)if(/dynamic (auto|desirable)/.test(v.value))
    add('dtp','review',d.hostname+': dynamic trunk negotiation on '+v.iface,'Dynamic DTP negotiation allows trunk state to depend on the neighbor and may expand unintended trunk exposure. Use explicit port mode where the topology demands it.',[ref(d,v)],'trunk','DTP negotiation delay is not proven from configuration alone.');
   for(const v of o.portfast)if(v.iface){
