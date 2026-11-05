@@ -49,6 +49,18 @@ class Tests(unittest.TestCase):
             self.assertIn(line, output)
         self.assertIn("set community 65000:1 additive", output)
 
+    def test_remote_local_endpoint_requires_disclosure(self):
+        env = {'AI_PROVIDER':'local','AI_ENABLED':'1','AI_MODEL':'model',
+               'AI_BASE_URL':'https://remote-model.example/v1'}
+        with patch.dict(os.environ,env,clear=True):
+            status=self.client.get('/api/ai/status').json()
+            self.assertTrue(status['available'])
+            self.assertTrue(status['externalDataTransfer'])
+            self.assertFalse(status['reasoningVerified'])
+        env['AI_BASE_URL']='http://localhost:8080/v1'
+        with patch.dict(os.environ,env,clear=True):
+            self.assertFalse(self.client.get('/api/ai/status').json()['externalDataTransfer'])
+
     def test_draft(self):
         with patch.dict(os.environ, {'AI_PROVIDER': 'openai', 'AI_ENABLED': '1', 'AI_MODEL': 'test', 'OPENAI_API_KEY': 'test'}), patch('engineering_ai.generate', return_value='Draft [s1]') as generate:
             result = self.client.post('/api/ai/analyze', json=self.body)
