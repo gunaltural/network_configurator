@@ -205,19 +205,39 @@ function invalidate(){reviewedSignature=null;pendingBatches=null;runState=null;$
 function draw(){
  const svg=$('topologyCanvas');svg.replaceChildren();
  const NS='http://www.w3.org/2000/svg',points=new Map(),n=workspace.nodes.length;
- workspace.nodes.forEach((node,i)=>{const angle=-Math.PI/2+i*2*Math.PI/Math.max(n,1),radius=n===1?0:Math.min(145,65+n*12);points.set(node.id,node.position||{x:400+Math.cos(angle)*radius*1.65,y:180+Math.sin(angle)*radius});});
- function element(tag,attrs){const x=document.createElementNS(NS,tag);for(const [k,v]of Object.entries(attrs))x.setAttribute(k,String(v));svg.append(x);return x;}
+ const nodes=workspace.nodes;
+ nodes.forEach((node,i)=>{
+  const angle=-Math.PI/2+i*2*Math.PI/Math.max(n,1),radius=n===1?0:Math.min(145,65+n*12);
+  points.set(node.id,node.position||{x:400+Math.cos(angle)*radius*1.65,y:180+Math.sin(angle)*radius});
+ });
+ function element(tag,attrs,parent=svg){
+  const x=document.createElementNS(NS,tag);
+  for(const [k,v]of Object.entries(attrs))x.setAttribute(k,String(v));
+  parent.append(x);return x;
+ }
+ // Align with Design's tiered, rectangular network-diagram visual grammar.
+ // This is a view of the AI-owned graph, never a second configuration generator.
+ const upper=nodes.filter(node=>(points.get(node.id)?.y||0)<180).length;
+ const lower=nodes.length-upper;
+ if(nodes.length){
+  element('rect',{x:12,y:28,width:776,height:135,rx:12,class:'topology-tier'});
+  element('rect',{x:12,y:193,width:776,height:145,rx:12,class:'topology-tier'});
+  const label1=element('text',{x:27,y:47,class:'topology-tier-title'});label1.textContent='CORE / PRIMARY  ·  '+upper;
+  const label2=element('text',{x:27,y:212,class:'topology-tier-title'});label2.textContent='ACCESS / SECONDARY  ·  '+lower;
+ }
  for(const link of workspace.links){
   const a=points.get(link.a),b=points.get(link.b);if(!a||!b)continue;
-  const line=element('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,class:'link','stroke-dasharray':link.logical?'6 5':'none'});
+  const line=element('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,class:link.logical?'link link-logical':'link','stroke-dasharray':link.logical?'7 5':'none'});
   line.setAttribute('aria-label',link.id+' '+link.kind);
-  // Generic link labels duplicate the visible lines and obscure network nodes.
-  // Connection metadata remains available in the optional connection editor.
+  // Link descriptions remain in Advanced inventory; generic captions obscure nodes.
  }
- for(const node of workspace.nodes){
-  const p=points.get(node.id);element('circle',{cx:p.x,cy:p.y,r:41,class:'node','data-device-id':node.id,tabindex:0,role:'button','aria-label':'Drag '+node.hostname+' to reposition'});
-  const name=element('text',{x:p.x,y:p.y-2,'text-anchor':'middle'});name.textContent=node.hostname.slice(0,18);
-  const vendor=element('text',{x:p.x,y:p.y+15,'text-anchor':'middle'});vendor.textContent=node.vendor.slice(0,20);vendor.setAttribute('font-size','11');
+ for(const node of nodes){
+  const p=points.get(node.id),external=/external|isp|transport/i.test(node.role||'')||/^External/.test(node.vendor||'');
+  const box=element('rect',{x:p.x-57,y:p.y-35,width:114,height:70,rx:12,ry:12,class:external?'node node-external':'node','data-device-id':node.id,tabindex:0,role:'button','aria-label':'Select or drag '+node.hostname+' to reposition'});
+  const title=element('title',{},box);title.textContent=node.hostname+' · '+node.vendor+' · '+(node.role||'network device');
+  const name=element('text',{x:p.x,y:p.y-11,'text-anchor':'middle',class:'node-title'});name.textContent=String(node.hostname).slice(0,17);
+  const role=element('text',{x:p.x,y:p.y+8,'text-anchor':'middle',class:'node-role'});role.textContent=String(node.role||'network device').slice(0,22);
+  const vendor=element('text',{x:p.x,y:p.y+25,'text-anchor':'middle',class:'node-vendor'});vendor.textContent=String(node.vendor).slice(0,19);
  }
 }
 // SVG pointer interactions update drawing coordinates only; config and Design remain intact.
