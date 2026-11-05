@@ -40,21 +40,37 @@ def retrieve_sources(evidence: list[dict], vendor: str, *, max_items: int = 5) -
     if max_items <= 0:
         return []
     doc = catalog()
-    corpus = "\n".join(str(x.get("text", "")) for x in evidence).lower()
-    platforms = [vendor.lower()] if vendor.strip().lower() != "mixed" else []
+    default_vendor = vendor.strip().lower() if vendor.strip().lower() not in {"mixed", "unknown", ""} else ""
+    scored = {}
     for evidence_item in evidence:
-        for line in str(evidence_item.get("text", "")).splitlines():
-            match = re.search(r"(?i)(?:^Vendor:\s*|\bvendor=)([^\r\n]+)", line)
-            if match:
-                platforms.append(match.group(1).strip().lower())
-    candidate = []
-    for source in doc["sources"]:
-        if not any(alias.lower() in platform for alias in source["platforms"] for platform in platforms):
+        text = str(evidence_item.get("text", ""))
+        # Source relevance is device/evidence scoped.  A 'Mixed' topology
+        # cannot authorize Cisco guidance for an unrelated Arista BGP output.
+        explicit_vendors = [
+            m.group(1).strip().lower()
+            for m in re.finditer(r"(?im)^Vendor:\\s*([^\\r\\n]+)", text)
+        ]
+        vendors = explicit_vendors or ([default_vendor] if default_vendor else [])
+        if not vendors:
             continue
-        hits = sum(bool(re.search(r"(?<![a-z])" + re.escape(word.lower()) + r"(?![a-z])", corpus))
-                   for word in source["keywords"])
-        if hits:
-            candidate.append((hits, source))
+        # Multiple vendor headings in one narrative are ambiguous; do not
+        # transfer evidence or keyword hits across device boundaries.
+        if len(set(vendors)) != 1:
+            continue
+        local_vendor = vendors[0]
+        corpus = text.lower()
+        for source in doc["sources"]:
+            if not any(alias.lower() in local_vendor for alias in source["platforms"]):
+                continue
+            hits = sum(
+                bool(re.search(r"(?<![a-z])" + re.escape(word.lower()) + r"(?![a-z])", corpus))
+                for word in source["keywords"]
+            )
+            if hits:
+                previous = scored.get(source["id"])
+                if previous is None or hits > previous[0]:
+                    scored[source["id"]] = (hits, source)
+    candidate = list(scored.values())
     candidate.sort(key=lambda result: (-result[0], result[1]["id"]))
     return [
         {
