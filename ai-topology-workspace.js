@@ -28,12 +28,19 @@ function fromDesign(report){
 }
 function validate(workspace){
  const model=clone(workspace),ids=new Set(),linkIds=new Set();
+ if(!Array.isArray(model.showTech))model.showTech=[];
  if(model.schema!=='ai-topology-workspace-v1'||!Array.isArray(model.nodes)||!Array.isArray(model.links)||!Array.isArray(model.configs))throw Error('Invalid workspace schema.');
  if(model.designReview&&(!Array.isArray(model.designReview.parameters)||typeof model.designReview.edited!=='boolean'))throw Error('Invalid Design review context.');
  if(model.originalDesignSvg!=null&&(typeof model.originalDesignSvg!=='string'||model.originalDesignSvg.length>120000||!/^<svg[\s>]/i.test(model.originalDesignSvg.trim())))throw Error('Invalid original Design image.');
  for(const n of model.nodes){if(!identifier(n.id)||ids.has(n.id))throw Error('Duplicate or empty device id.');if(n.position&&(!Number.isFinite(n.position.x)||!Number.isFinite(n.position.y)||n.position.x<45||n.position.x>755||n.position.y<45||n.position.y>315))throw Error('Invalid device layout coordinates.');ids.add(n.id);}
  for(const l of model.links){if(!identifier(l.id)||linkIds.has(l.id)||!ids.has(l.a)||!ids.has(l.b)||l.a===l.b)throw Error('Invalid link or endpoint.');linkIds.add(l.id);}
  const configuredDevices=new Set();
+ const technicalCaptures=new Set();
+ for(const capture of model.showTech){
+  if(!ids.has(capture.deviceId)||typeof capture.text!=='string'||capture.text.length>8000000||typeof capture.filename!=='string'||capture.filename.length>255)throw Error('Invalid show tech capture.');
+  if(technicalCaptures.has(capture.deviceId))throw Error('Duplicate show tech capture for device.');
+  technicalCaptures.add(capture.deviceId);
+ }
  for(const c of model.configs){
   if(!ids.has(c.deviceId)||typeof c.text!=='string')throw Error('Configuration has no matching device.');
   if(configuredDevices.has(c.deviceId))throw Error('Duplicate configuration for device.');
@@ -57,13 +64,21 @@ function addLink(workspace,link){
  const next=validate(workspace);next.links.push({id:identifier(link.id),a:identifier(link.a),b:identifier(link.b),aPort:identifier(link.aPort),bPort:identifier(link.bPort),kind:identifier(link.kind||'Connection'),logical:link.logical===true});return validate(edited(next));
 }
 function removeDevice(workspace,id){
- const next=validate(workspace);next.nodes=next.nodes.filter(n=>n.id!==id);next.links=next.links.filter(l=>l.a!==id&&l.b!==id);next.configs=next.configs.filter(c=>c.deviceId!==id);return validate(edited(next));
+ const next=validate(workspace);next.nodes=next.nodes.filter(n=>n.id!==id);next.links=next.links.filter(l=>l.a!==id&&l.b!==id);next.configs=next.configs.filter(c=>c.deviceId!==id);next.showTech=next.showTech.filter(c=>c.deviceId!==id);return validate(edited(next));
 }
 function setConfiguration(workspace,deviceId,text){
  const next=validate(workspace);if(!next.nodes.some(n=>n.id===deviceId))throw Error('Unknown device.');
  if(typeof text!=='string')throw Error('Configuration must be text.');
  next.configs=next.configs.filter(c=>c.deviceId!==deviceId);
  next.configs.push({deviceId,text});return validate(edited(next));
+}
+function setShowTech(workspace,deviceId,text,filename){
+ const next=validate(workspace);
+ if(!next.nodes.some(n=>n.id===deviceId))throw Error('Unknown device.');
+ if(typeof text!=='string'||text.length>8000000)throw Error('Show tech capture is invalid or exceeds 8 MB.');
+ next.showTech=next.showTech.filter(c=>c.deviceId!==deviceId);
+ if(text.trim())next.showTech.push({deviceId,text,filename:String(filename||'show-tech.txt').slice(0,255)});
+ return validate(edited(next));
 }
 function structuralAssessment(workspace){
  const model=validate(workspace),physical=model.links.filter(l=>!l.logical);
@@ -267,6 +282,14 @@ function analysisEvidenceBatches(workspace,selectedDeviceIds){
   if(c.text.length>150000)throw Error('Device configuration exceeds 150 KB. Use CLI Analysis for large captures.');
   addChunks('config-'+index,'Device: '+identifier(node.hostname).replace(/[\r\n]/g,' ')+'\nVendor: '+identifier(node.vendor).replace(/[\r\n]/g,' ')+'\nCommand: proposed configuration (generated Design or manually attached; NOT deployed)',c.text.replace(/\r\n?/g,'\n').split('\n'));
  }
+ for(const [index,c]of model.showTech.entries()){
+  const node=model.nodes.find(n=>n.id===c.deviceId);
+  if(!node||!chosen.has(c.deviceId))continue;
+  const lines=c.text.replace(/\r\n?/g,'\n').split('\n');
+  const excerpt=lines.slice(0,1800).join('\n').slice(0,160000).split('\n');
+  if(lines.length>1800||c.text.length>160000)excerpt.push('[PARTIAL SHOW TECH EXCERPT — remaining evidence not submitted]');
+  addChunks('show-tech-'+index,'Device: '+identifier(node.hostname).replace(/[\r\n]/g,' ')+'\nVendor: '+identifier(node.vendor).replace(/[\r\n]/g,' ')+'\nCommand: observed show tech-support capture (separate from Design configuration; operational evidence)',excerpt);
+ }
  if(!items.length)throw Error('A device or link is required.');
  const batches=[];let batch=[],size=0;
  for(const item of items){
@@ -278,5 +301,5 @@ function analysisEvidenceBatches(workspace,selectedDeviceIds){
  return batches;
 }
 
-root.NetworkAITopology={fromDesign,blank,template,technologyCatalog,buildTechnologyTopology,buildFreeTopology,structuralAssessment,validate,addDevice,moveDevice,updateDevice,addLink,updateLink,removeLink,removeDevice,setConfiguration,analysisManifest,analysisEvidenceBatches};
+root.NetworkAITopology={fromDesign,blank,template,technologyCatalog,buildTechnologyTopology,buildFreeTopology,structuralAssessment,validate,addDevice,moveDevice,updateDevice,addLink,updateLink,removeLink,removeDevice,setConfiguration,setShowTech,analysisManifest,analysisEvidenceBatches};
 })(typeof window==='undefined'?globalThis:window);
