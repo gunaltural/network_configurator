@@ -7,6 +7,27 @@ const SOURCES={
  trunk:{title:'Cisco Catalyst 9300 IOS XE 17.15 — Configuring VLAN Trunks',url:'https://www.cisco.com/c/en/us/td/docs/switches/lan/catalyst9300/software/release/17-15/configuration_guide/vlan/b_1715_vlan_9300_cg/configuring_vlan_trunks.html'},
  stp:{title:'Cisco Catalyst 9300 IOS XE 17.1 — Optional STP Features',url:'https://www.cisco.com/c/dam/en/us/td/docs/switches/lan/catalyst9300/software/release/17-1/configuration_guide/lyr2/configuring_optional_spanning_tree_features.html'}
 };
+const STANDARDS={
+ ieee8021d:{title:'IEEE 802.1D — MAC Bridges / original STP',url:'https://www.ieee802.org/1/pages/802.1D.html',role:'protocol',scope:'Classical 802.1D STP behavior, root bridge, port roles and legacy timer-based convergence; do not infer exact convergence time from config alone.'},
+ ieee8021w:{title:'IEEE 802.1w — Rapid Reconfiguration (RSTP)',url:'https://www.ieee802.org/1/pages/802.1w.html',role:'protocol',scope:'Rapid topology reconvergence via alternate/backup ports and proposal/agreement; actual behavior depends on neighbor compatibility and operational port state. Incorporated into 802.1D-2004.'},
+ ieee8021s:{title:'IEEE 802.1s — Multiple Spanning Trees (MSTP)',url:'https://www.ieee802.org/1/pages/802.1s.html',role:'protocol',scope:'VLANs can share MST instances and different spanning tree forwarding paths; meaningful load distribution requires planned root/instance mappings and consistent regions.'},
+ ieee8021q:{title:'IEEE 802.1Q — Bridges and Bridged Networks',url:'https://www.ieee802.org/1/pages/802.1Q.html',role:'protocol',scope:'Consolidated VLAN bridging and MSTP standard; evaluate CIST/MSTI region name, revision and VLAN-to-instance consistency. Original 802.1s is an amendment, not a separate current RFC.'},
+ rfc4188:{title:'RFC 4188 — Definitions of Managed Objects for Bridges',url:'https://www.rfc-editor.org/info/rfc4188',role:'management-mib',scope:'BRIDGE-MIB objects for bridge priority, designated root, root port, topology change counters and per-port state; an SNMP observable is not proven by a running config.'},
+ rfc4318:{title:'RFC 4318 — Definitions of Managed Objects for Bridges with RSTP',url:'https://www.rfc-editor.org/info/rfc4318',role:'management-mib',scope:'RSTP-MIB objects such as dot1dStpVersion, dot1dStpTxHoldCount and port protocol migration; require SNMP/RSTP operational evidence and correct MIB support.'},
+ rfc7727:{title:'RFC 7727 — STP Application of ICCP',url:'https://www.rfc-editor.org/info/rfc7727',role:'conditional-inter-chassis',scope:'ICCP STP application for redundant Provider Edge groups serving multihomed STP/VPLS networks; does NOT describe arbitrary Cisco vPC, Arista MLAG or Huawei M-LAG STP synchronization. Apply only with explicit ICCP/PE redundancy evidence.'}
+};
+const STANDARD_REFERENCES={
+ stpMode:['ieee8021d','ieee8021w','ieee8021s','ieee8021q','rfc4188','rfc4318'],
+ bridgePriority:['ieee8021d','ieee8021q','rfc4188'],
+ mstRegion:['ieee8021s','ieee8021q'],
+ portfast:['ieee8021w','ieee8021q'],
+ bpduGuard:['ieee8021d','ieee8021w'],
+ rootGuard:['ieee8021d','ieee8021q'],
+ loopGuard:['ieee8021w','ieee8021q'],
+ nativeVlan:['ieee8021q'],
+ allowedVlans:['ieee8021q'],
+ vtpMode:[],vtpVersion:[],vtpDomain:[],vtpPassword:[],dtp:[]
+};
 const PARAMETERS=[
  {id:'vtpMode',label:'VTP VLAN database',design:'campusVtp',source:'vtp'},
  {id:'vtpVersion',label:'VTP version',design:'campusVtp',source:'vtp'},
@@ -97,8 +118,8 @@ function review(workspace,ids){
   if(av&&bv&&av.value!==bv.value)add('nativeVlan','warning',a.hostname+' ↔ '+b.hostname+': native VLAN mismatch','The explicitly mapped trunk endpoints have different native VLANs; this may cause untagged traffic misclassification and STP inconsistency. Verify trunk operational status before predicting impact.',[ref(a,av),ref(b,bv)],'trunk','Link endpoint mapping is user-provided topology intent, not observed cabling.');
  }
  if(!entries.length)add('scope','info','No explicit catalog findings','No relevant configuration contradiction was detected in the subset of known commands; this is not evidence of compliance.',[],'stp','Vendor defaults and operational state remain unknown.');
- const coverage=PARAMETERS.map(p=>({id:p.id,label:p.label,design:p.design,source:SOURCES[p.source],devices:parsed.map(d=>({hostname:d.hostname,seen:d.observed[p.id].length>0,refs:d.observed[p.id].map(o=>ref(d,o))}))}));
- return {kind:'source-curated-knowledge-catalog-v1-not-live-rag',devices:parsed.map(d=>d.hostname),entries,coverage,sourceScope:'Cisco Catalyst IOS XE references; adapt semantics to exact vendor/platform before adopting recommendations',furtherEvidence:['show vtp status','show interfaces trunk','show interfaces switchport','show spanning-tree root','show spanning-tree detail','show etherchannel summary']};
+ const coverage=PARAMETERS.map(p=>({id:p.id,label:p.label,design:p.design,source:SOURCES[p.source],standards:(STANDARD_REFERENCES[p.id]||[]).map(id=>STANDARDS[id]),devices:parsed.map(d=>({hostname:d.hostname,seen:d.observed[p.id].length>0,refs:d.observed[p.id].map(o=>ref(d,o))}))}));
+ return {kind:'source-curated-knowledge-catalog-v1-not-live-rag',devices:parsed.map(d=>d.hostname),entries,coverage,standards:STANDARDS,sourceScope:'Cisco Catalyst IOS XE references; adapt semantics to exact vendor/platform before adopting recommendations',furtherEvidence:['show vtp status','show interfaces trunk','show interfaces switchport','show spanning-tree root','show spanning-tree detail','show etherchannel summary']};
 }
 function format(r){
  const out=['STP Engineering Knowledge Catalog V1 — configuration review; NOT live RAG / confirmed AI diagnosis',
@@ -110,12 +131,18 @@ function format(r){
  }
  out.push('PARAMETER COVERAGE (absence is unknown, not disabled)');
  for(const p of r.coverage)out.push(p.label+': '+p.devices.map(d=>d.hostname+'='+ (d.seen?'observed':'not observed')).join('; '));
+ out.push('STP STANDARDS AND EVIDENCE ROLES');
+ for(const x of Object.values(STANDARDS))out.push(x.title+' ['+x.role+'] '+x.url+' — '+x.scope);
+ out.push('RFC 7727 applicability: do not infer ICCP or PE virtual-root synchronization from a generic Core/Access, vPC, MLAG or stacking topology.');
  out.push('Read-only validation: '+r.furtherEvidence.join(' | '));
  return out.join('\n');
 }
 function context(r){
- return ['Catalog type: curated Cisco documentation, not online retrieval; findings need independent reasoning.',
+ return ['Catalog type: curated vendor documentation, IEEE protocol standards and IETF MIB/ICCP RFC descriptions, NOT live retrieval; treat all as engineering questions, NOT device observations.',
+ 'IEEE 802.1D / 802.1w / 802.1s as incorporated into 802.1Q: root election, RSTP transitions, MST CIST and region mapping; require operational verification.',
+ 'RFC 4188 BRIDGE-MIB and RFC 4318 RSTP-MIB provide SNMP management observables, not independent proof of an observed configuration.',
+ 'RFC 7727 applies ONLY when ICCP STP application for redundant PE / VPLS is evidenced; do not apply automatically to Cisco vPC, Arista MLAG or campus Core pair.',
  ...r.entries.slice(0,8).map(e=>e.title+': '+e.impact+' [source '+e.source.url+'] Evidence '+e.evidence.join(', ')+' Limit '+e.limitation)].map(s=>s.slice(0,260));
 }
-root.NetworkSTPKnowledgeV1={sources:SOURCES,parameters:PARAMETERS,parse,review,format,context};
+root.NetworkSTPKnowledgeV1={sources:SOURCES,standards:STANDARDS,parameterStandards:STANDARD_REFERENCES,parameters:PARAMETERS,parse,review,format,context};
 })(typeof window==='undefined'?globalThis:window);
