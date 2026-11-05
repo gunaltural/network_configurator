@@ -94,6 +94,51 @@ function template(kind){
  const definition=definitions[kind];if(!definition)throw Error('Unknown topology template.');
  return validate({...blank(),...clone(definition),nodes:definition.nodes.map(n=>({...n,source:'template'}))});
 }
+// Topology-only presets reflecting Design module node families. These DO NOT
+// generate configuration or infer protocol reachability. The engineer supplies
+// actual CLI/configuration evidence per node after building the graph.
+const TECHNOLOGIES={
+ BASIC:{label:'System & Management',platforms:['Cisco NX-OS','Cisco IOS-XE','Arista EOS','Huawei_CE_SW','FortiGate'],primary:'managed device',secondary:'',primaryCount:1,secondaryCount:0},
+ BGP:{label:'BGP',platforms:['Cisco NX-OS','Cisco IOS-XE','Arista EOS','Huawei_CE_SW','FortiGate'],primary:'CE router',secondary:'ISP router',primaryCount:2,secondaryCount:2},
+ OSPF:{label:'OSPF',platforms:['Cisco NX-OS','Cisco IOS-XE','Arista EOS','Huawei_CE_SW','FortiGate'],primary:'router',secondary:'router',primaryCount:1,secondaryCount:1},
+ STP:{label:'STP',platforms:['Cisco NX-OS','Cisco IOS-XE','Arista EOS','Huawei_CE_SW'],primary:'core switch',secondary:'access switch',primaryCount:2,secondaryCount:2},
+ VPC:{label:'vPC / MLAG',platforms:['Cisco NX-OS','Cisco IOS-XE','Arista EOS','Huawei_CE_SW','Huawei iStack'],primary:'peer switch',secondary:'access switch',primaryCount:2,secondaryCount:2},
+ EVPN:{label:'EVPN / VXLAN',platforms:['Cisco NX-OS','Arista EOS','Huawei_CE_SW'],primary:'spine',secondary:'leaf',primaryCount:2,secondaryCount:2},
+ SDWAN:{label:'SD-WAN',platforms:['Cisco IOS-XE'],primary:'edge router',secondary:'external transport',primaryCount:2,secondaryCount:2},
+ QOS:{label:'QoS',platforms:['Cisco NX-OS','Cisco IOS-XE','Arista EOS','Huawei_CE_SW'],primary:'device',secondary:'device',primaryCount:1,secondaryCount:1}
+};
+function technologyCatalog(){return clone(TECHNOLOGIES);}
+function buildTechnologyTopology(module,platform,primaryCount,secondaryCount){
+ const key=identifier(module).toUpperCase(),def=TECHNOLOGIES[key];
+ if(!def)throw Error('Unknown Design technology.');
+ if(!def.platforms.includes(platform))throw Error('Platform is unavailable for this technology.');
+ const p=Number(primaryCount),q=Number(secondaryCount);
+ if(!Number.isInteger(p)||!Number.isInteger(q)||p<1||p>8||q<0||q>12||(!def.secondary&&q!==0))throw Error('Invalid device counts for the selected technology.');
+ if(['VPC','STP'].includes(key)&&p!==2)throw Error('This Design baseline requires two core/peer switches.');
+ if(['OSPF','QOS'].includes(key)&&(p!==1||q!==1))throw Error('The current Design baseline is a two-device adjacency.');
+ const nodes=[],links=[];const add=(prefix,i,role,level,vendor=platform)=>{
+  const id=prefix+'-'+i;
+  const spacing=level==='upper'?Math.min(155,650/Math.max(1,p-1)):Math.min(150,650/Math.max(1,q-1));
+  const x=Math.max(45,Math.min(755,Math.round(400+(i-1-( (level==='upper'?p:q)-1)/2)*spacing)));
+  nodes.push({id,hostname:prefix.toUpperCase()+'-'+String(i).padStart(2,'0'),vendor,role,source:'template',position:{x,y:level==='upper'?95:265}});
+  return id;
+ };
+ const a=Array.from({length:p},(_,i)=>add(key==='BGP'?'ce':key==='EVPN'?'spine':key==='SDWAN'?'edge':key==='BASIC'?'mgmt':key==='OSPF'?'rtr-a':key==='QOS'?'qos-a':'core',i+1,def.primary,'upper'));
+ const b=Array.from({length:q},(_,i)=>add(key==='BGP'?'isp':key==='EVPN'?'leaf':key==='SDWAN'?'transport':key==='OSPF'?'rtr-b':key==='QOS'?'qos-b':'access',i+1,def.secondary,'lower',key==='BGP'?'External (ISP)':key==='SDWAN'?'External (transport)':platform));
+ const link=(x,y,kind,logical=false)=>{const id='link-'+(links.length+1);links.push({id,a:x,b:y,kind,logical,aPort:'',bPort:''});};
+ if(key==='VPC'){
+  link(a[0],a[1],platform==='Huawei iStack'?'stack interconnect':'peer-link');
+  if(platform!=='Huawei iStack')link(a[0],a[1],'peer-keepalive',true);
+ }
+ if(key==='STP')link(a[0],a[1],'core interconnect');
+ if(key==='BGP')for(const ce of a)for(const isp of b)link(ce,isp,'eBGP candidate');
+ else if(key==='SDWAN')for(const edge of a)for(const wan of b)link(edge,wan,'transport candidate');
+ else if(key==='EVPN')for(const spine of a)for(const leaf of b)link(spine,leaf,'underlay candidate');
+ else if(key==='VPC'||key==='STP')for(const core of a)for(const acc of b)link(core,acc,'access uplink candidate');
+ else if(key==='OSPF'||key==='QOS')link(a[0],b[0],key==='OSPF'?'OSPF adjacency candidate':'QoS path');
+ // A template is a planning graph, not a claim that peering or physical links exist.
+ return validate({...blank(),sourceModule:key,nodes,links,templateInfo:{module:key,platform,primaryCount:p,secondaryCount:q,intentOnly:true}});
+}
 function updateDevice(workspace,id,changes){
  const next=validate(workspace),device=next.nodes.find(n=>n.id===id);
  if(!device)throw Error('Unknown device.');
@@ -168,5 +213,5 @@ function analysisEvidenceBatches(workspace,selectedDeviceIds){
  return batches;
 }
 
-root.NetworkAITopology={fromDesign,blank,template,validate,addDevice,moveDevice,updateDevice,addLink,updateLink,removeLink,removeDevice,setConfiguration,analysisManifest,analysisEvidenceBatches};
+root.NetworkAITopology={fromDesign,blank,template,technologyCatalog,buildTechnologyTopology,validate,addDevice,moveDevice,updateDevice,addLink,updateLink,removeLink,removeDevice,setConfiguration,analysisManifest,analysisEvidenceBatches};
 })(typeof window==='undefined'?globalThis:window);
