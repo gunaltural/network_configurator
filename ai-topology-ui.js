@@ -201,7 +201,7 @@ function populate(select,values,preserve,blank){
  for(const [id,label] of values)select.append(makeOption(id,label));
  select.value=values.some(x=>x[0]===preserve)?preserve:(blank?'':values[0]?.[0]||'');
 }
-function invalidate(){reviewedSignature=null;pendingBatches=null;runState=null;$('analyze').disabled=true;$('downloadReport').disabled=true;$('evidencePreview').textContent='';$('analysisResult').value='';$('stpPreflightResult').textContent='STP V1 preflight not run for the current device selection.';$('stpKnowledgeResult').textContent='Knowledge review not run for this device selection.';$('stpCTOView').replaceChildren();$('stpCTOStatus').textContent='';}
+function invalidate(){reviewedSignature=null;pendingBatches=null;runState=null;$('analyze').disabled=true;$('downloadReport').disabled=true;$('evidencePreview').textContent='';$('analysisResult').value='';$('stpPreflightResult').textContent='STP V1 preflight not run for the current device selection.';$('stpKnowledgeResult').textContent='Knowledge review not run for this device selection.';$('stpCTOView').replaceChildren();$('stpCTOStatus').textContent='';$('exportSTPCTO').disabled=true;}
 function draw(){
  const svg=$('topologyCanvas');svg.replaceChildren();
  const NS='http://www.w3.org/2000/svg',points=new Map(),n=workspace.nodes.length;
@@ -503,7 +503,14 @@ $('runSTPCTO').onclick=async()=>{
   const result=window.NetworkSTPCTOReport.build($('stpCTOView'),review,preflight,db,$('language').value);
   $('stpCTOStatus').textContent='Design knowledge database v'+db.version+' · '+result.ruleCount+' engineering records · '+result.deviceCount+' devices; AI model not run.';
   $('stpKnowledgeDetails').open=true;
- }catch(error){$('stpCTOView').replaceChildren();$('stpCTOStatus').textContent='CTO report error: '+error.message;message(error.message,true);}
+  $('exportSTPCTO').disabled=false;
+ }catch(error){$('exportSTPCTO').disabled=true;$('stpCTOView').replaceChildren();$('stpCTOStatus').textContent='CTO report error: '+error.message;message(error.message,true);}
+};
+$('exportSTPCTO').onclick=()=>{
+ if($('exportSTPCTO').disabled||!$('stpCTOView').children.length)return;
+ const css='.cto-head{background:#103a56;color:white;padding:24px;border-radius:12px}.cto-head h2{font-size:26px}.cto-notice{padding:9px;background:#285570;border-radius:7px}.cto-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:18px 0}.cto-kpi,.cto-section{padding:17px;border:1px solid #d7e3ed;border-radius:12px;margin:12px 0}.cto-kpi strong{display:block;font-size:20px}.cto-finding{border-left:4px solid #db9c40;background:#f9fbfe;padding:15px;border-radius:8px;margin:12px 0}.cto-finding-head{display:flex;justify-content:space-between;gap:8px}.cto-tag{font-weight:bold;color:#875519}.cto-context,.cto-action{background:#edf4f9;padding:10px;border-radius:7px}.cto-muted{color:#5f798b}a{display:block;color:#176aa1;margin:6px 0}body{font-family:system-ui,Arial,sans-serif;max-width:1040px;margin:30px auto;padding:0 16px;color:#173d55}footer{margin-top:28px}';
+ const html='<!doctype html><html lang="'+($('language').value==='tr'?'tr':'en')+'"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>STP Engineering Assessment</title><style>'+css+'</style></head><body>'+$('stpCTOView').outerHTML+'</body></html>';
+ saveFile('network-configurator-stp-cto-assessment.html',html,'text/html;charset=utf-8');
 };
 function stpV1Review(){
  if(!window.NetworkSTPV1)throw Error('STP V1 parser is unavailable.');
