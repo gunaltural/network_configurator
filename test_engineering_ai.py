@@ -36,6 +36,19 @@ class Tests(unittest.TestCase):
             self.assertEqual(self.client.post('/api/ai/analyze', json=self.body).status_code, 503)
             generate.assert_not_called()
 
+    def test_redaction_masks_psk_isakmp_and_private_keys(self):
+        raw = ("L11: crypto isakmp key SuperSensitive address 192.0.2.2\n"
+               "L12: set psksecret MyPrivatePSK\n"
+               "L13: pre-shared-key AnotherCredential\n"
+               "L14: route-map RM-BGP permit 10\n"
+               "L15: set community 65000:1 additive")
+        output = redact(raw)
+        for value in ("SuperSensitive", "MyPrivatePSK", "AnotherCredential"):
+            self.assertNotIn(value, output)
+        for line in ("L11: [REDACTED]", "L12: [REDACTED]", "L13: [REDACTED]"):
+            self.assertIn(line, output)
+        self.assertIn("set community 65000:1 additive", output)
+
     def test_draft(self):
         with patch.dict(os.environ, {'AI_PROVIDER': 'openai', 'AI_ENABLED': '1', 'AI_MODEL': 'test', 'OPENAI_API_KEY': 'test'}), patch('engineering_ai.generate', return_value='Draft [s1]') as generate:
             result = self.client.post('/api/ai/analyze', json=self.body)
