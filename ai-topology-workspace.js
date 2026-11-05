@@ -255,7 +255,7 @@ function updateLink(workspace,id,changes){
 function removeLink(workspace,id){
  const next=validate(workspace);next.links=next.links.filter(l=>l.id!==id);return validate(edited(next));
 }
-const sensitive=/(?:password|passwd|secret|snmp[-\s]?server\s+community|snmp\s+community|community-string|private.?key|api.?key|authorization|sk-[A-Za-z0-9_-]+)/i;
+const sensitive=/(?:password|passwd|secret|snmp[-\s]?server\s+community|snmp\s+community|community-string|private.?key|api.?key|authorization|set\s+psksecret|set\s+enc-password|crypto\s+isakmp\s+key|pre-shared-key|shared-secret|BEGIN [A-Z ]*PRIVATE KEY|sk-[A-Za-z0-9_-]+)/i;
 function safeLine(line){return sensitive.test(line)?'[REDACTED]':line.replace(/[\r\n\t]/g,' ');}
 function analysisEvidenceBatches(workspace,selectedDeviceIds){
  const model=validate(workspace),items=[];
@@ -307,6 +307,8 @@ function analysisEvidenceBatches(workspace,selectedDeviceIds){
   if(!node||!chosen.has(c.deviceId))continue;
   const lines=c.text.replace(/\r\n?/g,'\n').split('\n');
   const excerpt=lines.slice(0,220).join('\n').slice(0,24000).split('\n');
+  const included=excerpt.length;
+  items.push({id:'capture-coverage-'+index,text:'Device: '+identifier(node.hostname)+'\nCommand: capture coverage and provenance, NOT an operational finding\nL1: File '+safeLine(c.filename)+'\nL2: Source '+(c.synthetic?'SYNTHETIC LAB':'user-attached operational capture')+'; capture timestamp UNKNOWN and device authenticity NOT VERIFIED\nL3: Total lines '+lines.length+'; included excerpt lines '+included+'; full capture retained locally; omitted lines NOT evidence of absence.'});
   if(lines.length>220||c.text.length>24000)excerpt.push('[PARTIAL CLI EXCERPT — full capture remains local; do not infer omitted commands]');
   addChunks('show-tech-'+index,'Device: '+identifier(node.hostname).replace(/[\r\n]/g,' ')+'\nVendor: '+identifier(node.vendor).replace(/[\r\n]/g,' ')+'\nCommand: '+(c.synthetic?'SYNTHETIC LAB verification output — NOT real device evidence':'observed verification CLI capture (separate from Design configuration)')+'\nFile: '+safeLine(c.filename),excerpt);
  }
