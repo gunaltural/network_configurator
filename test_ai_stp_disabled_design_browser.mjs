@@ -35,6 +35,8 @@ async function scenario(disabled){
   assert.equal(await page.locator('#evidenceDetails').isVisible(),false,'No raw internal evidence preview');
   await page.locator('#analyze').click();
   await page.waitForFunction(()=>!document.getElementById('viewSTPCTO').disabled,{timeout:15000});
+  assert.equal(await page.locator('#stpCTOView').isVisible(),true,'HTML report is immediately visible after Analyze');
+  assert.equal(await page.locator('#wizardNext').isVisible(),false,'No empty last-stage Continue button');
   const rows=await page.locator('.network-engineering-findings-v1 [data-finding-id]').evaluateAll(els=>els.map(x=>({id:x.dataset.findingId,status:x.dataset.findingStatus,text:x.textContent.slice(0,300)})));
   console.log((disabled?'DISABLED':'PROTECTED')+'_FINDINGS '+JSON.stringify(rows));
   assert.ok(rows.some(x=>x.id==='STP-VTP-OFF'&&x.status==='GOOD'),'VTP off is explained and positively assessed');
