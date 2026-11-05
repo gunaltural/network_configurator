@@ -29,6 +29,20 @@ function proof(node,kind,index,text){
  return {deviceId:node.id,device:node.hostname,source:kind,line:index+1,
  excerpt:secret.test(text)?'[REDACTED]':String(text).trim().slice(0,220)};
 }
+/* Operational captures can contain multiple show commands (including show-tech).
+ * Bind observations to the ACTIVE command section; never treat a whole file as
+ * one command or let a BGP table bleed into later OSPF/EVPN output. */
+function commandSection(line){
+ const m=String(line).match(/^\s*(?:[\w.:-]+[>#]\s*|[-=#*]{3,}\s*)?(show|display|diagnose|get)\s+(.+?)\s*(?:[-=#*]{3,})?\s*$/i);
+ if(!m)return undefined;
+ const cmd=(m[1]+' '+m[2]).toLowerCase().trim();
+ if(/\b(?:show bgp l2vpn evpn|show evpn route|display bgp evpn routing-table)\b/.test(cmd))return 'EVPN';
+ if(/\b(?:show (?:ip |ipv6 )?bgp (?:all )?summary|get router info bgp summary)\b/.test(cmd))return 'BGP';
+ if(/\b(?:show (?:ip )?ospf neighbor(?:s)?|display ospf peer)\b/.test(cmd))return 'OSPF';
+ if(/\b(?:show vpc(?: brief)?|show mlag(?: detail)?|display dfs-group)\b/.test(cmd))return 'VPC';
+ if(/\b(?:diagnose sys sdwan health-check|diagnose sys virtual-wan-link health-check)\b/.test(cmd))return 'SDWAN';
+ return null;
+}
 function assess(args){
  const workspace=args&&args.workspace,chosen=args&&args.deviceIds,modules=args&&args.modules;
  if(!workspace||!Array.isArray(workspace.nodes)||!Array.isArray(workspace.configs))throw Error('Analysis workspace missing');
@@ -76,58 +90,63 @@ function assess(args){
    if(m)bgp.ips.set(m[1],proof(node,'Design/attached config',i,line));
   }
   for(const capture of real){
-   const raw=lines(capture.text),context=raw.slice(0,60).join('\n')+' '+capture.filename;
-   const hasBGP=/\b(?:show\s+(?:ip\s+|ipv6\s+)?bgp\s+(?:all\s+)?summary|show bgp summary|get router info bgp summary)\b/i.test(context)||
-    raw.some(x=>/^\s*Neighbor\s+V\s+AS\s+MsgRcvd.*State\/PfxRcd/i.test(x));
-   const hasOSPF=/\b(?:show (?:ip )?ospf neighbor(?:s)?|display ospf peer)\b/i.test(context);
-   const hasEVPN=/\b(?:show bgp l2vpn evpn|display bgp evpn routing-table|show evpn route)\b/i.test(context);
-   const hasVPC=/\b(?:show vpc(?: brief)?|show mlag(?: detail)?|display dfs-group)\b/i.test(context);
-   const hasSDWAN=vendor==='fortinet'&&(/\b(?:diagnose sys sdwan health-check|diagnose sys virtual-wan-link health-check)\b/i.test(context)||
-     raw.some(x=>/^\s*Health Check\([^)]+\):/i.test(x)));
-   if(scope.has('BGP')&&hasBGP){
-    let table=false;
-    raw.forEach((line,i)=>{
-     if(/^\s*Neighbor\s+V\s+AS\s+MsgRcvd.*State\/PfxRcd/i.test(line)){table=true;return;}
-     if(!table)return;
+   const raw=lines(capture.text);
+   let active=null,bgpTable=false,mlagStatus=false,sdwanCheck='';
+   const source='show: '+capture.filename;
+   for(const [i,line] of raw.entries()){
+    const command=commandSection(line);
+    if(command!==undefined){
+     active=command;bgpTable=false;mlagStatus=false;sdwanCheck='';
+     continue;
+    }
+    // Some real captures start with just a BGP table and no prompt/command.
+    if(/^\s*Neighbor\s+V\s+AS\s+MsgRcvd.*State\/PfxRcd\b/i.test(line)){
+     active='BGP';bgpTable=true;mlagStatus=false;sdwanCheck='';
+     continue;
+    }
+    if(scope.has('BGP')&&active==='BGP'&&bgpTable){
      const p=line.trim().split(/\s+/);
-     if(p.length<10||!ip.test(p[0])||p[1]!=='4'||!/^\d+$/.test(p[2]))return;
-     const last=p[p.length-1];
-     const isAdmin=last==='(Admin)'&&/^Idle$/i.test(p[p.length-2]||'');
-     const state=isAdmin?'Idle (Admin)':/^\d+$/.test(last)?'Established':last;
-     if(!/^(?:Idle(?: \(Admin\))?|Active|Connect|OpenSent|OpenConfirm|Established|Shutdown)$/i.test(state))return;
-     if(!bgp.states.has(p[0]))bgp.states.set(p[0],[]);
-     bgp.states.get(p[0]).push({state,prefixCount:/^\d+$/.test(last)?Number(last):null,
-      proof:proof(node,'show: '+capture.filename,i,line)});
-    });
-   }
-   if(scope.has('OSPF')&&hasOSPF)raw.forEach((line,i)=>{
-    const m=line.match(/^\s*((?:\d{1,3}\.){3}\d{1,3})\s+\d+\s+(FULL\/\S+|(?:INIT|DOWN|EXSTART|EXCHANGE|LOADING|2WAY)\/\S+)/i);
-    if(m)ospf.push({neighbor:m[1],state:m[2],proof:proof(node,'show: '+capture.filename,i,line)});
-   });
-   if(scope.has('EVPN')&&hasEVPN)raw.forEach((line,i)=>{
-    const m=line.match(/(?:Route[ -]?Type|route type|type)\s*[:= -]?\s*([235])\b/i);
-    if(m&&evpn.length<30)evpn.push({type:Number(m[1]),proof:proof(node,'show: '+capture.filename,i,line)});
-   });
-   if(scope.has('VPC')&&hasVPC){
-    let inMlagStatus=false;
-    raw.forEach((line,i)=>{
-     if(/^\s*MLAG Status:\s*$/i.test(line)){inMlagStatus=true;return;}
-     if(/^\s*MLAG (?:Configuration|Ports):\s*$/i.test(line)){inMlagStatus=false;return;}
-     const pattern=inMlagStatus&&vendor==='arista'
-      ?/^\s*(state|negotiation status|peer-link status|local-int status)\s*[:=]\s*(\S.*?)\s*$/i
+     if(p.length>=10&&ip.test(p[0])&&p[1]==='4'&&/^\d+$/.test(p[2])){
+      const last=p[p.length-1],admin=last==='(Admin)'&&/^Idle$/i.test(p[p.length-2]||'');
+      const state=admin?'Idle (Admin)':/^\d+$/.test(last)?'Established':last;
+      if(/^(?:Idle(?: \(Admin\))?|Active|Connect|OpenSent|OpenConfirm|Established|Shutdown)$/i.test(state)){
+       if(!bgp.states.has(p[0]))bgp.states.set(p[0],[]);
+       bgp.states.get(p[0]).push({state,prefixCount:/^\d+$/.test(last)?Number(last):null,
+        proof:proof(node,source,i,line)});
+      }
+     }
+    }
+    if(scope.has('OSPF')&&active==='OSPF'){
+     const m=line.match(/^\s*((?:\d{1,3}\.){3}\d{1,3})\s+\d+\s+(FULL\/\S+|(?:INIT|DOWN|EXSTART|EXCHANGE|LOADING|2WAY)\/\S+)/i);
+     if(m)ospf.push({neighbor:m[1],state:m[2],proof:proof(node,source,i,line)});
+    }
+    if(scope.has('EVPN')&&active==='EVPN'){
+     const m=line.match(/(?:Route[ -]?Type|route type|type)\s*[:= -]?\s*([235])\b/i);
+     if(m&&evpn.length<30)evpn.push({type:Number(m[1]),proof:proof(node,source,i,line)});
+    }
+    if(scope.has('VPC')&&active==='VPC'){
+     if(/^\s*MLAG Status:\s*$/i.test(line)){mlagStatus=true;continue;}
+     if(/^\s*MLAG (?:Configuration|Ports):\s*$/i.test(line)){mlagStatus=false;continue;}
+     const pattern=vendor==='arista'
+      ?mlagStatus?/^\s*(state|negotiation status|peer-link status|local-int status)\s*[:=]\s*(\S.*?)\s*$/i:null
       :/^\s*(Peer status|Peer keepalive status|vPC keep-alive status|Peer Gateway|Peer-link status)\s*[:=]\s*(\S.*?)\s*$/i;
-     const m=line.match(pattern);
-     if(m)vpc.push({field:m[1],value:m[2].trim(),proof:proof(node,'show: '+capture.filename,i,line)});
-    });
-   }
-   if(scope.has('SDWAN')&&hasSDWAN){
-    let check='';
-    raw.forEach((line,i)=>{
-     const h=line.match(/^\s*Health Check\(([^)]+)\):/i);
-     if(h){check=h[1];return;}
-     const m=line.match(/\bSeq\((\d+)[^)]*\).*?\bstate\((alive|dead)\)/i);
-     if(check&&m)sdwan.push({check,member:m[1],state:m[2].toLowerCase(),proof:proof(node,'show: '+capture.filename,i,line)});
-    });
+     const m=pattern?line.match(pattern):null;
+     if(m)vpc.push({field:m[1],value:m[2].trim(),proof:proof(node,source,i,line)});
+    }
+    if(scope.has('SDWAN')&&vendor==='fortinet'){
+     const health=line.match(/^\s*Health Check\(([^)]+)\):/i);
+     if(health){
+      // FortiOS outputs can omit a visible command when pasted separately.
+      if(active===null||active==='SDWAN')active='SDWAN';
+      sdwanCheck=active==='SDWAN'?health[1]:'';
+      continue;
+     }
+     if(active==='SDWAN'&&sdwanCheck){
+      const m=line.match(/\bSeq\((\d+)[^)]*\).*?\bstate\((alive|dead)\)/i);
+      if(m)sdwan.push({check:sdwanCheck,member:m[1],state:m[2].toLowerCase(),
+       proof:proof(node,source,i,line)});
+     }
+    }
    }
   }
   parsed.set(node.id,{node,vendor,bgp,ospf,evpn,vpc,sdwan});
