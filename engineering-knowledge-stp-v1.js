@@ -264,9 +264,33 @@ function run({workspace,deviceIds,technology='STP',engineering,network,operation
  }
  return finalize();
 }
+// Compact verification guidance owned by the STP knowledge package, not the UI.
+function planVerification(f){
+ const guidance={
+  'DATA-CONFIG-COVERAGE':['Attach the missing full device configurations in step 2.','All selected devices have a correctly mapped configuration.'],
+  'STP-PARSER-COVERAGE':['Have the knowledge maintainer add and test the vendor-specific parser. CLI upload alone is insufficient.','A tested parser recognizes the supplied vendor syntax.'],
+  'STP-MODE-CONSISTENCY':['Compare STP mode and instance/VLAN scope across both ends of each relevant link.','Mapped peers have interoperable STP modes and the intended root per VLAN.'],
+  'STP-ROOT-CONTAINMENT':['Check the operational root for each VLAN and the actual roles of mapped Core-to-Access ports.','Intended Core is root; downstream protected ports are designated and none are root-inconsistent.'],
+  'STP-LOOP-RESILIENCE':['Check root/alternate roles per VLAN on redundant Access uplinks and verify BPDU-loss safeguards.','Expected redundant roles are present and no loop-inconsistent ports are observed.'],
+  'STP-EDGE-SAFETY':['Confirm the connected device on candidate access ports, then check the effective edge/BPDU policy.','Only true endpoint-facing ports use the approved PortFast and BPDU Guard policy.'],
+  'STP-UDLD-PHYSICAL':['Identify uplink media and read operational UDLD status at both physical ends.','UDLD is bidirectional on applicable media, or a documented exception is approved.'],
+  'STP-OBSERVED-COVERAGE':['Attach current, device-identified show outputs in step 2; replace synthetic LAB evidence.','Real outputs establish per-VLAN root and port roles consistently across mapped devices.']
+ };
+ const exact=guidance[f.id];
+ const pair=exact||(f.id.startsWith('STP-VTP-')?[
+  'Check VTP mode, version, domain and whether advertisement forwarding matches VLAN policy.',
+  'The configured and observed VTP behavior agrees with the approved VLAN governance model.']:
+  f.id.startsWith('STP-PEER-')?[
+  'Compare operational trunk, VLAN and STP properties on both ends of the affected link.',
+  'Both peer endpoints have compatible trunk forwarding and STP roles.']:
+  [f.recommendation,'Relevant observed output matches the approved design and resolves the evidence gap.']);
+ return {owner:'Network Operations',reviewer:'Network Engineering',
+  action:pair[0],acceptance:pair[1]};
+}
+
 root.NetworkEngineeringFindingsV1.register({
  technology:'STP',
- knowledgeVersion:'1.0.0',
+ knowledgeVersion:'1.1.0',
  status:'IMPLEMENTED_BASELINE',
  vendors:['Cisco IOS-XE','Cisco NX-OS'],
  description:'Layer-2/STP design intent, configured ports, multi-device root preferences, endpoint roles and observed evidence.',
@@ -281,7 +305,8 @@ root.NetworkEngineeringFindingsV1.register({
   {id:'STP-OBSERVED-COVERAGE',family:'Evidence coverage',sources:['OPERATIONAL'],verification:['show spanning-tree root']}
  ],
  references:Object.values(REFS),
+ planVerification,
  evaluate:run
 });
-root.NetworkSTPKnowledgePackageV1={version:'1.0.0',sources:REFS};
+root.NetworkSTPKnowledgePackageV1={version:'1.1.0',sources:REFS,planVerification};
 })(typeof window==='undefined'?globalThis:window);
