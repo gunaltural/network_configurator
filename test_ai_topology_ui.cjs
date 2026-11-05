@@ -17,6 +17,8 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  w.eval(fs.readFileSync('ai-topology-ui.js','utf8'));
  assert.equal($('workflowStep1').hidden,false,'The Topology step is initially active');
  assert.equal($('workflowStep2').hidden,true,'Configuration is a separate step');
+ assert.equal(d.querySelector('label #analysisResult'),null,'Raw AI draft editor not visible');
+ assert.equal($('internalAnalysisCapture').hidden,true,'Raw analysis storage is hidden');
  assert.equal($('wizardNext').disabled,true,'Cannot advance before a topology exists');
  assert.equal($('reportSavedList').options.length,0,'No report is fabricated on load');
  assert.equal($('chooseDesign').getAttribute('aria-pressed'),'true','Import from Design is the default Dashboard entry');
