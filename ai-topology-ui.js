@@ -37,7 +37,7 @@ function setupWorkflow(){
  reportHelp.textContent='Run analysis in step 3 to generate a report.';
  const controls=document.createElement('div');controls.className='report-tools';
  controls.append($('viewSTPCTO'),$('exportSTPCTO'));
- for(const [id,label] of [['saveEngineeringReport','Save Report'],['editEngineeringReport','Edit Report']]){
+ for(const [id,label] of [['saveEngineeringReport','Save Report (browser)'],['editEngineeringReport','Edit Report']]){
   const b=document.createElement('button');b.type='button';b.id=id;b.textContent=label;b.disabled=true;controls.append(b);
  }
  const edits=document.createElement('div');edits.id='reportEditPanel';edits.hidden=true;
@@ -319,7 +319,7 @@ function populate(select,values,preserve,blank){
  for(const [id,label] of values)select.append(makeOption(id,label));
  select.value=values.some(x=>x[0]===preserve)?preserve:(blank?'':values[0]?.[0]||'');
 }
-function invalidate(){if(currentStep===4)currentStep=3;reportGenerated=false;activeSavedReport=null;$('saveEngineeringReport').disabled=true;$('editEngineeringReport').disabled=true;$('reportEditPanel').hidden=true;$('savedReportPreview').hidden=true;$('savedReportPreview').srcdoc='';$('reviewExecutiveComment').value='';$('reviewEngineeringNotes').value='';reviewedSignature=null;pendingBatches=null;runState=null;$('analyze').disabled=true;$('downloadReport').disabled=true;$('evidencePreview').textContent='';$('analysisResult').value='';$('stpPreflightResult').textContent='STP V1 preflight not run for the current device selection.';$('stpKnowledgeResult').textContent='Knowledge review not run for this device selection.';$('stpCTOView').replaceChildren();$('stpCTOStatus').textContent='';$('exportSTPCTO').disabled=true;$('viewSTPCTO').disabled=true;$('stpCTOView').hidden=true;}
+function invalidate(){if(currentStep===4)currentStep=3;reportGenerated=false;activeSavedReport=null;$('saveEngineeringReport').disabled=true;$('editEngineeringReport').disabled=true;$('reportEditPanel').hidden=true;$('savedReportPreview').hidden=true;$('savedReportPreview').srcdoc='';$('reviewExecutiveComment').value='';$('reviewEngineeringNotes').value='';reviewedSignature=null;pendingBatches=null;runState=null;$('analyze').disabled=true;$('downloadReport').disabled=true;$('evidencePreview').textContent='';$('analysisResult').value='';$('stpPreflightResult').textContent='STP V1 preflight not run for the current device selection.';$('stpKnowledgeResult').textContent='Knowledge review not run for this device selection.';$('stpCTOView').replaceChildren();$('stpCTOStatus').textContent='';$('exportSTPCTO').disabled=true;$('viewSTPCTO').disabled=true;$('stpCTOView').hidden=true;refreshWorkflow();}
 function draw(){
  const svg=$('topologyCanvas');svg.replaceChildren();
  const NS='http://www.w3.org/2000/svg',points=new Map(),n=workspace.nodes.length;
