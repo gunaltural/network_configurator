@@ -66,8 +66,10 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{JSDOM}=require
  assert.equal($('evidenceDetails').hidden,true,'Internal evidence payload is not displayed');
  assert.equal($('downloadEngineeringPDF').disabled,false,'PDF export is available');
  assert.equal($('downloadEngineeringWord').disabled,false,'Word export is available');
- $('viewSTPCTO').click();
- assert.equal($('stpCTOView').hidden,false,'HTML report is visible inside the application');
+ assert.equal($('stpCTOView').hidden,false,'HTML report is visible automatically after analysis');
+ assert.equal($('workflowStep4').hidden,false,'Report step opens automatically');
+ assert.equal($('wizardNext').hidden,true,'Last step has no blank Continue button');
+ assert.equal($('viewSTPCTO').textContent,'Hide HTML View');
  assert.match($('stpCTOView').textContent,/OBSERVED/,'observed configuration is not mislabeled compliance');
  assert.doesNotMatch($('stpPreflightResult').textContent,/ACCESS-1/);
  $('preview').click();
