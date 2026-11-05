@@ -63,6 +63,7 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{JSDOM}=require
  access.checked=false;access.dispatchEvent(new w.Event('change',{bubbles:true}));
  const earlierCalls=submitted.length;
  w.fetch=async(url)=>{
+  if(url==='/api/engineering-knowledge/stp'){const db=JSON.parse(fs.readFileSync('knowledge/stp_v1.json','utf8'));return {ok:true,json:async()=>({module:'STP',version:db.version,signature:'a'.repeat(64),records:db.records,sources:db.sources})};}
   if(url==='/api/ai/status')return {ok:true,json:async()=>({available:false,provider:'disabled'})};
   if(url==='/api/projects/status')return {ok:true,json:async()=>({configured:false,available:false})};
   throw Error('No model call is permitted for an unconfigured provider: '+url);
@@ -78,6 +79,8 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{JSDOM}=require
  assert.doesNotMatch($('analysisResult').value,/ACCESS-1/);
  assert.equal($('downloadReport').disabled,false,'explicit offline report can be exported');
  assert.match($('status').textContent,/AI çalıştırılmadı/);
+ assert.match($('stpCTOView').textContent,/STP Mühendislik Değerlendirmesi/,'offline Analyze shows CTO dashboard');
+ assert.equal($('exportSTPCTO').disabled,false);
  dom.window.close();
  console.log('STP V1 UI: selected 2 Core devices, preflight, redacted evidence, typed model call, stale review prevention passed');
 })().catch(error=>{console.error(error);process.exitCode=1;});
