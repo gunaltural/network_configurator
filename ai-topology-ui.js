@@ -46,7 +46,8 @@ function draw(){
   const a=points.get(link.a),b=points.get(link.b);if(!a||!b)continue;
   const line=element('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,class:'link','stroke-dasharray':link.logical?'6 5':'none'});
   line.setAttribute('aria-label',link.id+' '+link.kind);
-  const label=element('text',{x:(a.x+b.x)/2,y:(a.y+b.y)/2-10,'text-anchor':'middle'});label.textContent=link.kind||link.id;
+  // Generic link labels duplicate the visible lines and obscure network nodes.
+  // Connection metadata remains available in the optional connection editor.
  }
  for(const node of workspace.nodes){
   const p=points.get(node.id);element('circle',{cx:p.x,cy:p.y,r:41,class:'node','data-device-id':node.id,tabindex:0,role:'button','aria-label':'Drag '+node.hostname+' to reposition'});
@@ -165,7 +166,7 @@ function fromHandoff(){
   const chosen=aliases[sourceModule]||sourceModule;
   const sourceChoice=[...document.querySelectorAll('#moduleChoices input')].find(el=>el.value===chosen);
   if(sourceChoice)sourceChoice.checked=true;
-  const returnLink=$('returnToDesign');if(returnLink){returnLink.hidden=false;returnLink.textContent='Return to '+(workspace.sourceModule||'selected')+' Design';}
+  const returnLink=$('returnToDesign');if(returnLink){const module=String(workspace.sourceModule||'').toUpperCase();const supported=['BASIC','BGP','OSPF','STP','VPC','EVPN','SDWAN','QOS'];if(supported.includes(module)){returnLink.hidden=false;returnLink.textContent='Return to '+(module==='BASIC'?'System and Management':module)+' Design';returnLink.href='/?resume=1&workspace='+encodeURIComponent(module);}else{returnLink.hidden=true;}}
   message('Imported '+workspace.nodes.length+' Design devices, '+workspace.configs.length+' generated configuration proposals and '+(workspace.designReview?.parameters.length||0)+' engineering parameters. Review redacted evidence before AI analysis.');
  }catch(e){message('Could not import Design snapshot: '+e.message,true);}
 }
