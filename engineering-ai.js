@@ -56,6 +56,16 @@ designTrigger.onclick=()=>{
   window.location.assign('/ai-topology');
  }catch(e){$('aiStatus').textContent=e.message;dialog.showModal();}
 };
+// Keep the existing main Design entry point and guided workflow contract.
+const designHead=document.getElementById('v3WorkspaceHead');
+if(designHead&&!document.getElementById('sendDesignToAI')){
+ const button=document.createElement('button');
+ button.id='sendDesignToAI';button.type='button';button.className='v3-btn primary';
+ button.textContent='AI Analizine Gönder';
+ button.setAttribute('aria-label','Mevcut tasarımı bağımsız AI Analysis alanında incele');
+ button.style.cssText='margin-left:auto;padding:9px 13px;background:#174e76;color:#fff;border:1px solid #174e76;border-radius:8px;white-space:nowrap;cursor:pointer';
+ button.onclick=()=>designTrigger.click();designHead.append(button);
+}
 document.addEventListener('click',event=>{if(event.target.closest?.('[data-nc-ai-design]'))designTrigger.click();});
 document.addEventListener('nc-ai-import-design',()=>designTrigger.click());
  // A user-selected saved Design can continue directly into this same AI Workspace.
