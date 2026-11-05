@@ -3,8 +3,9 @@
 'use strict';
 const E=(tag,cls,txt)=>{const x=document.createElement(tag);if(cls)x.className=cls;if(txt!==undefined)x.textContent=String(txt);return x;};
 const A=(node,...children)=>{for(const child of children)node.append(child);return node;};
-function build(container,review,preflight,db,language,engineering){
+function build(container,review,preflight,db,language,engineering,network){
  if(!engineering||engineering.kind!=='stp-engineering-v2-deterministic-not-ai')throw Error('STP Engineering V2 evidence engine is unavailable.');
+ if(!network||network.kind!=='stp-network-correlation-v2')throw Error('N-device STP network correlation is unavailable.');
  if(!db||db.module!=='STP'||!Array.isArray(db.records)||db.records.length<10)throw Error('Engineering knowledge DB is not ready.');
  const tr=language==='tr',records=new Map(db.records.map(x=>[x.id,x])),sources=new Map(db.sources.map(x=>[x.id,x]));
  const L=(a,b)=>tr?a:b;
@@ -27,6 +28,7 @@ function build(container,review,preflight,db,language,engineering){
  paper.append(E('h2','',L('1 · Yönetici özeti','1 · Executive summary')));
  paper.append(E('p','',L('Değerlendirme yalnızca seçilen cihaz konfigürasyonlarına dayanır. Canlı root/port durumları doğrulanmadı.','Review is based only on selected configurations. Live root and port state is unverified.')));
  paper.append(kpis);
+ appendNetworkReadout(paper,network,tr);
  appendEngineeringReadout(paper,engineering,tr);
  const rootFindings=preflight.findings.filter(x=>['BRIDGE_PRIORITY_COMPARISON','EQUAL_BRIDGE_PRIORITY'].includes(x.code));
  const sec=E('section','');sec.append(E('h2','',L('2 · STP Root Tasarımı ve Yedeklilik','2 · Root Placement and Redundancy')));
