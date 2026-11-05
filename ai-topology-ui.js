@@ -903,6 +903,64 @@ function buildGenericReport(options={}){
     }
    }
    assessment.append(E('p','report-muted',intelligence.limitations.join(' · ')));
+   if(window.NetworkAIEngineeringAssessmentV1){
+    const matrix=window.NetworkAIEngineeringAssessmentV1.evaluate({
+     workspace,deviceIds:nodes.map(node=>node.id),modules,
+     correlation:intelligence,language:tr?'tr':'en'
+    });
+    const panel=section(L('Mühendislik değerlendirme matrisi — kanıt ve karar','Engineering assessment matrix — evidence and decision'));
+    panel.dataset.assessmentSchema=matrix.schema;
+    panel.append(E('p','report-muted',L(
+     'Ortak metodoloji: amaç → uygulanabilirlik → konfigürasyon niyeti → operasyonel gözlem → olası etki → audit → aksiyon → kabul kriteri. Bunlar otomatik PASS/FAIL veya doğrulanmış kök neden değildir.',
+     'Shared methodology: purpose → applicability → configuration intent → operational observation → conditional impact → audit → action → acceptance. This is not an automatic PASS/FAIL or certified root cause.'
+    )));
+    panel.append(makeTable(
+     [L('Teknoloji','Technology'),L('Amaç ve bağımlılıklar','Purpose and dependencies'),
+      L('Operasyonel durum','Operational state'),L('Doğrulama amacı','Audit objective')],
+     matrix.controls.map(control=>[control.technology,control.purpose,
+      control.state==='EVIDENCE_OBSERVED'?
+       control.findings+' '+L('kaynaklı bulgu · inceleme gerekli','source-scoped facts · engineering review required'):
+       L('DOĞRULANMADI · kapsam/kanıt eksik olabilir','NOT VERIFIED · evidence may be missing or unsupported'),
+      control.audit])
+    ));
+    if(matrix.findings.length){
+     for(const finding of matrix.findings){
+      const card=E('article','evidence-correlation-item ai-engineering-matrix-finding');
+      card.dataset.status=finding.status;card.dataset.technology=finding.technology;
+      card.append(E('h3','',finding.title+' · '+finding.status));
+      card.append(makeTable(
+       [L('Değerlendirme boyutu','Assessment dimension'),L('Mühendislik açıklaması','Engineering explanation')],
+       [
+        [L('Amaç / uygulanabilirlik','Purpose / applicability'),finding.purpose+' · '+finding.sourceApplicability],
+        [L('Beklenen davranış','Expected behavior'),finding.expected],
+        [L('Konfigürasyon','Configuration evidence'),finding.configured],
+        [L('Gözlem','Observed evidence'),finding.observed],
+        [L('Teknik değerlendirme / hipotez','Rationale / hypothesis'),finding.hypothesis],
+        [L('Karşıt kanıt ve sınırlama','Counterevidence / limitations'),finding.counterevidence+' · '+finding.limitations.join(' ')],
+        [L('Olası teknik ve iş etkisi','Conditional technical and business impact'),finding.conditionalImpact],
+        [L('Salt-okunur audit','Read-only audit'),finding.audit.join(' · ')||L('Üretici doğrulaması gerekli','Vendor-specific review required')],
+        [L('Kontrollü iyileştirme','Controlled remediation'),finding.remediation],
+        [L('Kabul kriteri','Acceptance criterion'),finding.acceptance]
+       ]
+      ));
+      const proofs=E('details','ai-engineering-matrix-proofs');
+      proofs.append(E('summary','',L('Denetlenebilir kanıtlar ve sürüm kapsamlı kaynaklar','Traceable CLI evidence and release-scoped references')));
+      for(const ev of finding.evidence){
+       proofs.append(E('p','report-meta',ev.device+' · '+ev.source+' · L'+ev.line+': '+ev.excerpt));
+      }
+      for(const src of finding.source){
+       if(!/^https:\/\//i.test(src.url||''))continue;
+       const link=E('a','',src.title);link.href=src.url;link.rel='noopener noreferrer';link.target='_blank';
+       proofs.append(link,E('p','report-meta',src.scope||'Release scope must be confirmed.'));
+      }
+      card.append(proofs);panel.append(card);
+     }
+    }else panel.append(E('p','report-muted',L(
+     'Seçilen teknolojilere ait kaynaklı operasyonel bulgu bulunmadı; bu olumlu veya olumsuz uygunluk kararı değildir.',
+     'No source-scoped operational finding was recognized. This is neither a healthy-state nor a noncompliance verdict.'
+    )));
+    panel.append(E('p','report-muted',matrix.limitations.join(' · ')));
+   }
   }catch(error){
    const disabled=section(L('CLI korelasyonu tamamlanamadı','CLI correlation unavailable'));
    disabled.append(E('p','report-muted',L('Kanıtlar veya teknoloji adaptörü yeniden incelenmeli.','Review the selected evidence or technology adapter.')+' '+error.message));
