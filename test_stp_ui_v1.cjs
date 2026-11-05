@@ -44,6 +44,10 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{JSDOM}=require
  await $('runSTPCTO').onclick();
  assert.match($('stpCTOView').textContent,/STP Engineering Assessment/);
  assert.match($('stpCTOView').textContent,/Technology-level Engineering Findings/,'New common findings appear in the STP report');
+ assert.match($('stpCTOView').textContent,/Verification task/,'VERIFY shows a concise accountable next step');
+ assert.match($('stpCTOView').textContent,/Accept when:/,'VERIFY shows explicit acceptance conditions');
+ assert.equal(d.querySelector('label #analysisResult'),null,'Legacy editable analysis draft is removed');
+ assert.equal($('internalAnalysisCapture').hidden,true,'Internal raw model text is not a report editor');
  assert.ok($('stpCTOView').querySelector('[data-finding-id="STP-MODE-CONSISTENCY"]'),'Technology compatibility finding is evidence-based');
  assert.match($('stpCTOView').textContent,/Design risks/,'Executive KPI reports actual evidence-based risk count');
  assert.match($('stpCTOView').textContent,/CORE-1/);
