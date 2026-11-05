@@ -47,7 +47,10 @@ def configured():
 
 _SENSITIVE_CLI_LINE = re.compile(
     r'(?im)^(?P<line>L\d+:\s*)?.*(?:password|passwd|secret|snmp[-\s]?server\s+community|'
-    r'snmp\s+community|community-string|private.key|api.key|authorization|crypto\s+isakmp\s+key|pre-shared-key|shared-secret|set\s+psksecret|set\s+enc-password|BEGIN [A-Z ]*PRIVATE KEY|sk-[a-zA-Z0-9_-]+).*
+    r'snmp\s+community|community-string|private.key|api.key|authorization|crypto\s+isakmp\s+key|'
+    r'pre-shared-key|shared-secret|set\s+psksecret|set\s+enc-password|BEGIN [A-Z ]*PRIVATE KEY|'
+    r'sk-[a-zA-Z0-9_-]+).*$'
+)
 
 def redact(value):
     return _SENSITIVE_CLI_LINE.sub(
