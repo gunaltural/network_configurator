@@ -201,7 +201,7 @@ function populate(select,values,preserve,blank){
  for(const [id,label] of values)select.append(makeOption(id,label));
  select.value=values.some(x=>x[0]===preserve)?preserve:(blank?'':values[0]?.[0]||'');
 }
-function invalidate(){reviewedSignature=null;pendingBatches=null;runState=null;$('analyze').disabled=true;$('downloadReport').disabled=true;$('evidencePreview').textContent='';$('analysisResult').value='';$('stpPreflightResult').textContent='STP V1 preflight not run for the current device selection.';$('stpKnowledgeResult').textContent='Knowledge review not run for this device selection.';}
+function invalidate(){reviewedSignature=null;pendingBatches=null;runState=null;$('analyze').disabled=true;$('downloadReport').disabled=true;$('evidencePreview').textContent='';$('analysisResult').value='';$('stpPreflightResult').textContent='STP V1 preflight not run for the current device selection.';$('stpKnowledgeResult').textContent='Knowledge review not run for this device selection.';$('stpCTOView').replaceChildren();$('stpCTOStatus').textContent='';}
 function draw(){
  const svg=$('topologyCanvas');svg.replaceChildren();
  const NS='http://www.w3.org/2000/svg',points=new Map(),n=workspace.nodes.length;
@@ -487,6 +487,23 @@ $('runSTPKnowledge').onclick=()=>{
   $('stpKnowledgeDetails').open=true;
   message('STP knowledge review complete. '+r.entries.length+' contextual entries; platform and operating state require engineering review.');
  }catch(error){message('STP knowledge: '+error.message,true);}
+};
+$('runSTPCTO').onclick=async()=>{
+ if(!selectedModules().includes('STP')){message('Select STP scope for the CTO report.',true);return;}
+ const selected=scopedDeviceIds();
+ if(!selected.length){message('Select at least one STP device.',true);return;}
+ const signature=JSON.stringify({deviceIds:selected,configs:workspace.configs,modules:selectedModules()});
+ $('stpCTOStatus').textContent='Loading versioned Design engineering knowledge…';
+ try{
+  const response=await fetch('/api/engineering-knowledge/stp');
+  if(!response.ok)throw Error('Knowledge database unavailable (HTTP '+response.status+').');
+  const db=await response.json();
+  if(signature!==JSON.stringify({deviceIds:scopedDeviceIds(),configs:workspace.configs,modules:selectedModules()}))throw Error('Device scope changed; please run the report again.');
+  const review=stpKnowledgeV1Review(),preflight=stpV1Review();
+  const result=window.NetworkSTPCTOReport.build($('stpCTOView'),review,preflight,db,$('language').value);
+  $('stpCTOStatus').textContent='Design knowledge database v'+db.version+' · '+result.ruleCount+' engineering records · '+result.deviceCount+' devices; AI model not run.';
+  $('stpKnowledgeDetails').open=true;
+ }catch(error){$('stpCTOView').replaceChildren();$('stpCTOStatus').textContent='CTO report error: '+error.message;message(error.message,true);}
 };
 function stpV1Review(){
  if(!window.NetworkSTPV1)throw Error('STP V1 parser is unavailable.');
