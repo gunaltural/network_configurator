@@ -1,0 +1,133 @@
+'use strict';
+const assert=require('node:assert/strict');
+require('./network-evidence-correlation-v1.js');
+const C=global.NetworkEvidenceCorrelationV1;
+const workspace={schema:'ai-topology-workspace-v1',nodes:[
+ {id:'a',hostname:'CE-A',vendor:'Cisco IOS-XE'},
+ {id:'b',hostname:'CE-B',vendor:'Arista EOS'},
+ {id:'f',hostname:'FGT-A',vendor:'FortiGate 7.4.8'},
+ {id:'n',hostname:'N9K-A',vendor:'Cisco NX-OS'}
+],links:[],configs:[
+ {deviceId:'a',source:'design',text:'hostname CE-A\nrouter bgp 65001\n neighbor 10.0.0.2 remote-as 65200\nip address 10.0.0.1/32'},
+ {deviceId:'b',source:'design',text:'hostname CE-B\nrouter bgp 65100\nip address 10.0.0.2/32'},
+ {deviceId:'f',source:'design',text:'config router bgp\n set as 65010\nend\nset psksecret VerySensitiveKey'},
+ {deviceId:'n',source:'design',text:'feature vpc\nvpc domain 100'}
+],showTech:[
+ {deviceId:'a',filename:'show-bgp-summary.txt',text:'CE-A#show ip bgp summary\nNeighbor V AS MsgRcvd MsgSent TblVer InQ OutQ Up/Down State/PfxRcd\n10.0.0.2 4 65100 0 0 1 0 0 never Idle'},
+ {deviceId:'b',filename:'show-bgp-summary.txt',text:'CE-B#show ip bgp summary\nNeighbor V AS MsgRcvd MsgSent TblVer InQ OutQ Up/Down State/PfxRcd\n10.0.0.1 4 65001 88 72 19 0 0 1d03h 50'},
+ {deviceId:'f',filename:'bgp.out',text:'FGT-A# get router info bgp summary\nNeighbor V AS MsgRcvd MsgSent TblVer InQ OutQ Up/Down State/PfxRcd\n198.51.100.2 4 65002 0 0 1 0 0 never Active'},
+ {deviceId:'f',filename:'sdwan.out',text:'FGT-A# diagnose sys sdwan health-check\nHealth Check(ping):\nSeq(1 R150): state(dead), packet-loss(100.000%)'},
+ {deviceId:'n',filename:'vpc.out',text:'N9K-A#show vpc\nPeer status : peer adjacency formed ok\nPeer Gateway : Enabled'},
+ {deviceId:'n',filename:'evpn.out',text:'N9K-A#show bgp l2vpn evpn\nRoute Type: 2\nRoute Type: 5'},
+ {deviceId:'a',filename:'ospf.out',text:'CE-A#show ip ospf neighbor\nNeighbor ID Pri State Dead Time Address Interface\n2.2.2.2 1 FULL/DR 00:00:35 10.10.10.2 Gi0/0'}
+]};
+const result=C.assess({workspace,deviceIds:['a','b','f','n'],modules:['BGP','OSPF','EVPN','VPC','SDWAN']});
+assert.equal(result.coverage.configured,4);
+assert.equal(result.coverage.realCaptures,7);
+assert.equal(result.coverage.syntheticCaptures,0);
+assert.equal(result.scope.modules.length,5);
+const f=(tech,fragment)=>result.findings.find(x=>x.technology===tech&&x.observed.includes(fragment));
+assert.equal(f('BGP','10.0.0.2 reports Idle').status,'REVIEW');
+assert.equal(f('BGP','10.0.0.1 reports Established').status,'OBSERVED');
+assert.ok(f('BGP','10.0.0.1 reports Established').source.some(x=>x.url.includes('arista.com')),'Arista EOS gets Arista guidance');
+assert.ok(!f('BGP','10.0.0.1 reports Established').source.some(x=>x.url.includes('cisco.com')),'Cisco guidance is not attributed to Arista');
+assert.ok(f('BGP','198.51.100.2 reports Active').source.length===0,'No invented Fortinet BGP document citation');
+assert.ok(result.findings.some(x=>x.technology==='BGP'&&x.confidence==='CONFIG_IP_AND_AS_EXPLICIT'));
+assert.ok(result.findings.some(x=>x.confidence==='CROSS_DOMAIN_HYPOTHESIS_NOT_CAUSAL'));
+assert.equal(f('OSPF','FULL/DR').status,'OBSERVED');
+assert.equal(f('EVPN','2, 5').status,'OBSERVED');
+assert.equal(f('VPC','Peer Gateway: Enabled').status,'OBSERVED');
+assert.equal(f('SDWAN','state(dead)').status,'REVIEW');
+assert.ok(f('SDWAN','state(dead)').verification.includes('diagnose sys sdwan neighbor'),'BGP-SDWAN correlation must verify FortiGate selected neighbor');
+assert.ok(f('VPC','Peer Gateway: Enabled').verification.includes('show vpc consistency-parameters global'),'NX-OS vPC requires peer consistency evidence');
+assert.ok(f('SDWAN','state(dead)').explanation.includes('not the same as SLA compliance'));
+assert.equal(result.findings.some(x=>/peer-gateway.*disabled|missing peer-gateway/i.test(x.title+' '+x.explanation)),false);
+for(const finding of result.findings){
+ assert.ok(['OBSERVED','REVIEW','CONFLICT'].includes(finding.status),'No invented compliance PASS or FAIL');
+ assert.ok(finding.evidence.length>0,'Every specific finding has source evidence');
+ for(const proof of finding.evidence){
+  assert.ok(proof.device&&proof.source&&proof.line>0,'Device/command/line evidence present');
+  assert.ok(!proof.excerpt.includes('VerySensitiveKey'));
+ }
+}
+const onlyConfig={...workspace,showTech:[]};
+const noShow=C.assess({workspace:onlyConfig,deviceIds:['a','b','f','n'],modules:['BGP','OSPF','EVPN','VPC','SDWAN']});
+assert.equal(noShow.counts.OBSERVED,0);
+assert.equal(noShow.findings.filter(x=>x.confidence==='OPERATIONAL_SINGLE_DEVICE').length,0);
+assert.ok(noShow.findings.every(x=>x.confidence==='CONFIG_IP_AND_AS_EXPLICIT'),'Only explicit cross-device config discrepancy is possible');
+const onlyLab={...workspace,showTech:[{deviceId:'a',synthetic:true,filename:'synthetic',text:workspace.showTech[0].text}]};
+assert.equal(C.assess({workspace:onlyLab,deviceIds:['a'],modules:['BGP']}).findings.length,0,'Synthetic lab is not real operational evidence');
+const falsePositive={...workspace,showTech:[{deviceId:'a',filename:'notes.txt',text:'Neighbor 10.0.0.2 was Idle yesterday, ignore this paragraph'}]};
+assert.equal(C.assess({workspace:falsePositive,deviceIds:['a'],modules:['BGP']}).findings.length,0,'Arbitrary commentary is not parsed as show output');
+const conflict={...workspace,showTech:workspace.showTech.concat([{
+ deviceId:'a',filename:'show-bgp-later.txt',text:'CE-A#show ip bgp summary\nNeighbor V AS MsgRcvd MsgSent TblVer InQ OutQ Up/Down State/PfxRcd\n10.0.0.2 4 65100 88 60 10 0 0 1d01h 14'
+}])};
+assert.equal(C.assess({workspace:conflict,deviceIds:['a'],modules:['BGP']}).findings[0].status,'CONFLICT');
+assert.equal(C.assess({workspace:conflict,deviceIds:['a'],modules:['BGP']}).findings[0].confidence,'CAPTURE_TIMING_UNVERIFIED');
+// Cisco's documented Idle (Admin) state must not vanish from analysis.
+const adminSample={...workspace,showTech:[{deviceId:'a',filename:'admin-bgp.txt',
+ text:'CE-A#show ip bgp summary\nNeighbor V AS MsgRcvd MsgSent TblVer InQ OutQ Up/Down State/PfxRcd\n10.0.0.2 4 65100 0 0 1 0 0 never Idle (Admin)'}]};
+const admin=C.assess({workspace:adminSample,deviceIds:['a'],modules:['BGP']});
+const adminFinding=admin.findings.find(x=>x.title.includes('FSM'));
+assert.ok(adminFinding,'Administrative BGP Idle is recognized');
+assert.match(adminFinding.observed,/Idle \(Admin\)/);
+assert.match(adminFinding.explanation,/administratively idle/);
+assert.doesNotMatch(adminFinding.explanation,/TCP failure|unreachable route|confirmed outage/i);
+
+// Arista MLAG output uses state and local-int status fields in MLAG Status.
+const mlagSample={...workspace,showTech:[{deviceId:'b',filename:'show-mlag.txt',
+ text:'CE-B#show mlag\nMLAG Configuration:\ndomain-id : tenant01\npeer-link : Port-Channel101\nMLAG Status:\nstate : Active\npeer-link status : Up\nlocal-int status : Up\nMLAG Ports:\nActive-full : 4'}]};
+const mlag=C.assess({workspace:mlagSample,deviceIds:['b'],modules:['VPC']});
+assert.ok(mlag.findings.some(x=>x.observed.includes('state: Active')),'EOS state recognized in MLAG Status block');
+assert.ok(mlag.findings.some(x=>x.observed.includes('peer-link status: Up')),'EOS peer-link recognized');
+assert.ok(mlag.findings.some(x=>x.observed.includes('local-int status: Up')),'EOS local interface recognized');
+assert.ok(mlag.findings.every(x=>x.status==='OBSERVED'),'Healthy observed attributes are not deemed failures');
+assert.ok(mlag.findings.every(x=>x.verification.includes('show mlag config-sanity')),'EOS MLAG uses Arista consistency diagnostics, not Cisco vPC syntax');
+assert.ok(mlag.findings.every(x=>x.source.some(doc=>doc.url.includes('arista.com'))),'Arista-only manufacturer citations');
+
+// Multi-command show-tech must not borrow evidence from a previous command.
+const composite=Array.from({length:300},(_,i)=>'unrelated interfaces counters '+i).join('\n')+
+ '\nCE-A#show ip ospf neighbor\nNeighbor ID Pri State Dead Time Address Interface'+
+ '\n2.2.2.2 1 EXSTART/DR 00:00:35 10.10.10.2 Gi0/0'+
+ '\nCE-A#show ip bgp summary\nNeighbor V AS MsgRcvd MsgSent TblVer InQ OutQ Up/Down State/PfxRcd'+
+ '\n10.0.0.2 4 65100 0 0 1 0 0 never Active'+
+ '\nCE-A#show interfaces Ethernet1/1'+
+ '\n10.0.0.3 4 65100 0 0 1 0 0 never Idle'+
+ '\nRoute Type: 5'+
+ '\nCE-A#show bgp l2vpn evpn\nRoute Type: 2';
+const multi=C.assess({workspace:{...workspace,showTech:[
+ {deviceId:'a',filename:'show-tech.txt',text:composite}]},deviceIds:['a'],modules:['OSPF','BGP','EVPN']});
+assert.ok(multi.findings.some(x=>x.technology==='BGP'&&x.observed.includes('10.0.0.2 reports Active')));
+assert.ok(multi.findings.some(x=>x.technology==='OSPF'&&x.observed.includes('EXSTART/DR')));
+assert.ok(multi.findings.some(x=>x.technology==='EVPN'&&x.observed.includes('type(s) 2')));
+assert.ok(!multi.findings.some(x=>x.observed.includes('10.0.0.3')),'Unrelated show interfaces text cannot become a BGP FSM observation');
+assert.ok(!multi.findings.some(x=>x.technology==='EVPN'&&x.observed.includes('2, 5')),'Route Type outside EVPN section cannot count');
+const ospfFinding=multi.findings.find(x=>x.technology==='OSPF');
+assert.equal(ospfFinding.evidence[0].line,303,'Original line numbers survive late show-tech sections');
+
+// Unknown vendor / supplied output without the command context cannot be treated as a verified operational fact.
+const unscoped={...workspace,showTech:[{deviceId:'n',filename:'unknown.txt',text:'Route Type: 5\npeer-link status : down'}]};
+assert.equal(C.assess({workspace:unscoped,deviceIds:['n'],modules:['EVPN','VPC']}).findings.length,0,'Free-floating text is insufficient evidence');
+
+// Huawei CloudEngine uses Peer / State / PrefRcv, not Cisco State/PfxRcd.
+const huawei={...workspace,nodes:workspace.nodes.concat([{id:'h',hostname:'CE6865-A',vendor:'Huawei CloudEngine VRP8'}]),
+ configs:workspace.configs.concat([{deviceId:'h',source:'design',
+  text:'sysname CE6865-A\nbgp 64512\npeer 192.0.2.2 as-number 64513\nip address 192.0.2.1 255.255.255.255'}]),
+ showTech:[{deviceId:'h',filename:'display-bgp-peer.txt',text:
+  '<HUAWEI> display bgp peer\nBGP local router ID : 192.0.2.1\nLocal AS number : 64512\n'+
+  'Peer            V          AS  MsgRcvd  MsgSent  OutQ  Up/Down        State  PrefRcv\n'+
+  '192.0.2.2      4       64513   104931   104925     0 0242h14m Established       62\n'+
+  '192.0.2.3      4       64514        0        0     0 0423h23m Connect            0\n'+
+  '<HUAWEI> display ip routing-table\n192.0.2.4       4       64514        0        0     0 0423h23m Active             0'}]};
+const hw=C.assess({workspace:huawei,deviceIds:['h'],modules:['BGP']});
+const hwGood=hw.findings.find(x=>x.observed.includes('192.0.2.2'));
+const hwDown=hw.findings.find(x=>x.observed.includes('192.0.2.3'));
+assert.equal(hwGood?.status,'OBSERVED','Huawei Established is observed, not compliance PASS');
+assert.match(hwGood.observed,/62 prefixes/);
+assert.equal(hwDown?.status,'REVIEW','Huawei Connect requires further verification');
+assert.ok(hwGood.source.some(x=>x.url.includes('huawei.com')),'Huawei source is Huawei, not Cisco');
+assert.ok(!hw.findings.some(x=>x.observed.includes('192.0.2.4')),'Routing-table lines cannot masquerade as BGP peer states');
+assert.equal(hwGood.evidence[0].line,5,'Huawei command original CLI line is retained');
+
+assert.throws(()=>C.assess({workspace,deviceIds:['missing'],modules:['BGP']}),/valid device/);
+console.log('Cross-domain vendor-scoped evidence contracts, counterevidence and no-false-PASS passed');

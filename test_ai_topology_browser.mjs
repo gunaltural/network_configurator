@@ -9,6 +9,7 @@ page.on('pageerror',error=>errors.push(error.message));
 try{
  const response=await page.goto(base+'/ai-topology');
  assert.equal(response.status(),200);
+ assert.equal(await page.evaluate(()=>!!window.NetworkEvidenceCorrelationV1),true,'Source-aware correlation script loaded from the live FastAPI route');
  await page.locator('#chooseBuild').click();
  await page.locator('#legacyTemplates').evaluate(el=>{el.open=true;});
  await page.locator('#connectionEditor').evaluate(el=>{el.open=true;});

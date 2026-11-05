@@ -8,6 +8,9 @@ on:
       - 'test_groq_access_probe.py'
       - 'engineering_ai.py'
       - 'engineering_knowledge.py'
+      - 'engineering_source_index.py'
+      - 'test_engineering_source_index.py'
+      - 'knowledge/engineering_sources_v1.json'
       - 'analysis-ui.js'
       - 'analysis.html'
       - 'test_engineering_ai.py'
@@ -18,8 +21,11 @@ on:
       - 'test_show_analysis_large_capture.cjs'
       - 'simulation/**'
       - 'ai-topology*'
+      - 'network-evidence-correlation-v1.js'
+      - 'test_network_evidence_correlation_v1.cjs'
       - 'test_ai_topology*'
       - 'test_ai_analysis_evidence_report.cjs'
+      - 'test_ai_analysis_generic_browser.mjs'
       - 'stp-analysis-v1.js'
       - 'stp-knowledge-v1.js'
       - 'stp-cto-report.js'
@@ -56,6 +62,9 @@ on:
       - 'test_groq_access_probe.py'
       - 'engineering_ai.py'
       - 'engineering_knowledge.py'
+      - 'engineering_source_index.py'
+      - 'test_engineering_source_index.py'
+      - 'knowledge/engineering_sources_v1.json'
       - 'analysis-ui.js'
       - 'analysis.html'
       - 'test_engineering_ai.py'
@@ -66,8 +75,11 @@ on:
       - 'test_show_analysis_large_capture.cjs'
       - 'simulation/**'
       - 'ai-topology*'
+      - 'network-evidence-correlation-v1.js'
+      - 'test_network_evidence_correlation_v1.cjs'
       - 'test_ai_topology*'
       - 'test_ai_analysis_evidence_report.cjs'
+      - 'test_ai_analysis_generic_browser.mjs'
       - 'stp-analysis-v1.js'
       - 'stp-knowledge-v1.js'
       - 'stp-cto-report.js'
@@ -108,7 +120,7 @@ jobs:
       - name: Test hosted provider access probe fail-closed (offline; no API secret)
         run: python -m unittest -v test_groq_access_probe
       - name: Validate model review and knowledge retrieval
-        run: python -m unittest -v test_engineering_ai test_engineering_knowledge test_knowledge_store
+        run: python -m unittest -v test_engineering_ai test_engineering_knowledge test_engineering_source_index test_knowledge_store
       - name: Verify BGP CLI mixed capture
         run: python -m unittest -v test_bgp_cli_evidence.BgpCaptureTests.test_mixed_capture
       - name: Verify BGP CLI unsupported columns
@@ -126,11 +138,11 @@ jobs:
       - name: TAC overview test_no_cross_router_or_unscoped_security_finding
         run: python -m unittest -v test_tac_overview.OverviewTests.test_no_cross_router_or_unscoped_security_finding
       - name: Validate browser JavaScript syntax
-        run: node --check analysis-ui.js && node --check show-analysis.js && node --check ai-topology-workspace.js && node --check ai-topology-ui.js && node --check stp-analysis-v1.js && node --check stp-knowledge-v1.js && node --check stp-cto-report.js && node --check stp-engineering-v2.js && node --check stp-network-analysis-v2.js && node --check network-engineering-findings-v1.js && node --check network-engineering-review-v1.js && node --check engineering-knowledge-stp-v1.js && node --check stp-operational-evidence-v1.js && node --check stp-synthetic-lab-v1.js && node --check engineering-ai.js && node --check ai-evidence.js && node --check project-workflow.js
+        run: node --check analysis-ui.js && node --check show-analysis.js && node --check ai-topology-workspace.js && node --check ai-topology-ui.js && node --check network-evidence-correlation-v1.js && node --check stp-analysis-v1.js && node --check stp-knowledge-v1.js && node --check stp-cto-report.js && node --check stp-engineering-v2.js && node --check stp-network-analysis-v2.js && node --check network-engineering-findings-v1.js && node --check network-engineering-review-v1.js && node --check engineering-knowledge-stp-v1.js && node --check stp-operational-evidence-v1.js && node --check stp-synthetic-lab-v1.js && node --check engineering-ai.js && node --check ai-evidence.js && node --check project-workflow.js
       - name: Install browser DOM test dependency
         run: npm install --no-save --ignore-scripts jsdom@30.1.1 playwright@1.56.1
       - name: Test editable AI topology and Design import contracts
-        run: node test_ai_topology_workspace.cjs && node test_ai_design_handoff.cjs && node test_ai_topology_ui.cjs && node test_ai_analysis_evidence_report.cjs && node test_ai_panel.cjs && node test_stp_analysis_v1.cjs && node test_stp_ui_v1.cjs && node test_stp_knowledge_v1.cjs && node test_stp_network_v2.cjs && node test_network_engineering_review_v1.cjs && node test_engineering_knowledge_registry_v1.cjs && node test_network_engineering_findings_v1.cjs && node test_stp_operational_v1.cjs && node test_stp_verification_resolution_v1.cjs
+        run: node test_ai_topology_workspace.cjs && node test_ai_design_handoff.cjs && node test_ai_topology_ui.cjs && node test_ai_analysis_evidence_report.cjs && node test_network_evidence_correlation_v1.cjs && node test_ai_panel.cjs && node test_stp_analysis_v1.cjs && node test_stp_ui_v1.cjs && node test_stp_knowledge_v1.cjs && node test_stp_network_v2.cjs && node test_network_engineering_review_v1.cjs && node test_engineering_knowledge_registry_v1.cjs && node test_network_engineering_findings_v1.cjs && node test_stp_operational_v1.cjs && node test_stp_verification_resolution_v1.cjs
       - name: Run isolated Chromium AI Analysis UI smoke
         env:
           AUTH_ENABLED: '0'
@@ -154,6 +166,7 @@ jobs:
           curl -fsS http://127.0.0.1:8125/ai-topology-ui.js | grep -q 'configDevice'
           node test_analysis_browser.mjs
           node test_ai_topology_browser.mjs
+          node test_ai_analysis_generic_browser.mjs
           node test_ai_stp_disabled_design_browser.mjs
       - name: Build hosted production profile without local model or secret
         run: |

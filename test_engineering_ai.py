@@ -36,6 +36,46 @@ class Tests(unittest.TestCase):
             self.assertEqual(self.client.post('/api/ai/analyze', json=self.body).status_code, 503)
             generate.assert_not_called()
 
+    def test_redaction_masks_multiline_pem_and_preserves_original_line_refs(self):
+        data = ("L1: interface Gi0/1\n"
+                "L2: -----BEGIN RSA PRIVATE KEY-----\n"
+                "L3: SUPERSECRETBASE64PAYLOAD\n"
+                "L4: -----END RSA PRIVATE KEY-----\n"
+                "L5: router bgp 65001\n")
+        safe = redact(data)
+        self.assertNotIn("SUPERSECRETBASE64PAYLOAD", safe)
+        for n in (2,3,4):
+            self.assertIn(f"L{n}: [REDACTED]", safe)
+        self.assertIn("L5: router bgp 65001", safe)
+        incomplete = redact("L1: -----BEGIN OPENSSH PRIVATE KEY-----\nL2: UNCLOSEDKEY\nL3: do not leak")
+        self.assertNotIn("UNCLOSEDKEY", incomplete)
+        self.assertIn("L3: [REDACTED]", incomplete)
+
+    def test_redaction_masks_psk_isakmp_and_private_keys(self):
+        raw = ("L11: crypto isakmp key SuperSensitive address 192.0.2.2\n"
+               "L12: set psksecret MyPrivatePSK\n"
+               "L13: pre-shared-key AnotherCredential\n"
+               "L14: route-map RM-BGP permit 10\n"
+               "L15: set community 65000:1 additive")
+        output = redact(raw)
+        for value in ("SuperSensitive", "MyPrivatePSK", "AnotherCredential"):
+            self.assertNotIn(value, output)
+        for line in ("L11: [REDACTED]", "L12: [REDACTED]", "L13: [REDACTED]"):
+            self.assertIn(line, output)
+        self.assertIn("set community 65000:1 additive", output)
+
+    def test_remote_local_endpoint_requires_disclosure(self):
+        env = {'AI_PROVIDER':'local','AI_ENABLED':'1','AI_MODEL':'model',
+               'AI_BASE_URL':'https://remote-model.example/v1'}
+        with patch.dict(os.environ,env,clear=True):
+            status=self.client.get('/api/ai/status').json()
+            self.assertTrue(status['available'])
+            self.assertTrue(status['externalDataTransfer'])
+            self.assertFalse(status['reasoningVerified'])
+        env['AI_BASE_URL']='http://localhost:8080/v1'
+        with patch.dict(os.environ,env,clear=True):
+            self.assertFalse(self.client.get('/api/ai/status').json()['externalDataTransfer'])
+
     def test_draft(self):
         with patch.dict(os.environ, {'AI_PROVIDER': 'openai', 'AI_ENABLED': '1', 'AI_MODEL': 'test', 'OPENAI_API_KEY': 'test'}), patch('engineering_ai.generate', return_value='Draft [s1]') as generate:
             result = self.client.post('/api/ai/analyze', json=self.body)
@@ -92,6 +132,8 @@ class Tests(unittest.TestCase):
             self.assertEqual(draft['evidenceIds'], ['summary'])
             payload = generate.call_args.args[0]
             self.assertIn('retrieved_knowledge', payload['input'])
+            self.assertIn('manufacturer_source_metadata', payload['input'])
+            self.assertIn('cisco-bgp-basic-2026', draft['sourceIndexIds'])
             self.assertIn('L3:', payload['input'])
             self.assertIn('Design as intent and Simulation as hypothetical', payload['instructions'])
 

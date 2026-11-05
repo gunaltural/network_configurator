@@ -818,6 +818,16 @@ function buildGenericReport(options={}){
   SDWAN:['SLA-aware WAN path selection, policy-based steering and failover','Incorrect health-check, rule precedence or routing interactions can conditionally steer traffic onto failed or unsuitable paths','SD-WAN zone/member/SLA/service and BGP overlay; observed performance SLA, route and session selection'],
   DCI:['Join sites using scoped L2 extension and L3 routing while preserving failure boundaries','Uncontrolled stretched VLANs or route-target policies can extend faults or create route isolation','DCI peer/overlay design, VLAN/VNI and routing policy; observed route, MAC and underlay/overlay reachability']
  };
+ const technologyContextTR={
+  SYSTEM:['Güvenli yönetim erişimi, yetkilendirme, log toplama ve zaman senkronizasyonu','Eksik veya hatalı kontroller olay izlenebilirliğini ve olay müdahalesini zayıflatabilir','AAA/VTY, SSH, SNMP, logging ve NTP yapılandırması ile ilgili gerçek cihaz çıktıları'],
+  BGP:['Otonom sistemler arası yönlendirme, prefix alışverişi ve en uygun yol seçimi','Hatalı peering, filtre veya öznitelikler prefix kaybına, asimetrik trafiğe ya da yanlış ilana yol açabilir','router bgp, neighbor, route-map ve address-family satırları; BGP summary, FSM, alınan/ilan edilen prefixler'],
+  OSPF:['Link-state bilgi dağıtımı ve iç ağda yol hesaplama/yakınsama','Area, MTU, kimlik doğrulama veya timer uyumsuzluğu bazı komşuluk ve rota sorunlarına neden olabilir','router ospf ve arayüz ayarları; OSPF neighbor, interface, LSDB ve RIB çıktıları'],
+  STP:['Layer-2 döngülerini önleme ve yedek bağlantıların forwarding rollerini belirleme','Yanlış root seçimi veya port rolüne uygun olmayan korumalar döngüye veya beklenmedik bloklamaya neden olabilir','STP modu/önceliği, arayüz korumaları ve VLAN/instance bazlı show spanning-tree çıktıları'],
+  VPC:['Birden fazla cihaz üzerinde link yedekliliği ve koordineli Layer-2 forwarding','Peer-link, keepalive veya consistency uyumsuzluğu bazı üyelerin askıya alınmasına ya da split-brain riskine neden olabilir','vPC/MLAG domain, peer-link, keepalive, member port konfigürasyonu ve iki peer cihazın gerçek durumu'],
+  EVPN:['VXLAN üzerinde MAC/IP kontrol düzlemi dağıtımı, tenant L2/L3 bağlantısı','VNI/RT veya Type-2/Type-5 dağıtım hataları belirli uçlara ya da prefixlere erişimi etkileyebilir','VLAN–VNI, NVE/VTEP, BGP EVPN, VRF ve MAC/route kanıtları'],
+  SDWAN:['SLA tabanlı WAN yol seçimi, politika yönlendirmesi ve failover','Yanlış SLA, kural önceliği veya route etkileşimi trafik seçiminde istenmeyen sonuca neden olabilir','SD-WAN member/zone/SLA/service ile BGP overlay ve gerçek health-check/service çıktıları'],
+  DCI:['Siteler arası kontrollü L2 uzatma ve L3 yönlendirme, arıza alanı sınırlandırma','Kontrolsüz uzatılan VLAN veya hatalı RT politikası arıza alanını büyütebilir ya da rotaları izole edebilir','DCI, VLAN/VNI, underlay/overlay komşuluk, MAC ve route kanıtları']
+ };
  const context=section(L('Teknolojinin amacı, kullanılmaması halinde koşullu risk ve doğrulama kanıtı','Technology purpose, conditional exposure and required evidence'));
  context.append(E('p','report-muted',L(
   'Bu açıklamalar mühendislik arka planıdır; ilgili cihazda teknolojinin kullanıldığı veya eksik olduğu yalnızca bu açıklamalardan çıkarılamaz.',
@@ -825,18 +835,97 @@ function buildGenericReport(options={}){
  )));
  context.append(makeTable(
   [L('Teknoloji','Technology'),L('Neden kullanılır?','Purpose'),L('Eksik / hatalıysa olası etki','Conditional exposure if missing or misconfigured'),L('Nerede ve hangi kanıtla doğrulanır?','Where and how to verify')],
-  modules.map(m=>[m,...(technologyContext[m]||[
+  modules.map(m=>[m,...((tr?technologyContextTR[m]:technologyContext[m])||[
    'Technology-specific control-plane/data-plane design','Incorrect implementation may reduce intended resilience or reachability',
    'Review platform-scoped configuration and captured operational evidence'])])
  ));
+ // Technology-independent operational evidence correlation. This is a separate,
+ // versioned read-only adapter, never a substitute for the real AI reasoning layer.
+ if(window.NetworkEvidenceCorrelationV1){
+  try{
+   const intelligence=window.NetworkEvidenceCorrelationV1.assess({
+    workspace,deviceIds:nodes.map(n=>n.id),modules
+   });
+   const assessment=section(L('Cihazlar arası CLI korelasyonu ve kanıt değerlendirmesi','Cross-device CLI evidence correlation'));
+   assessment.append(E('p','report-muted',L(
+    'Bu bölüm yalnızca sağlanan CLI kanıtlarından çıkarılan sınırlı gözlemleri gösterir. Gözlendi = doğru tasarım veya uyumluluk PASS değildir. İncelenmeli = kesin arıza değildir. Çelişki = ayrıca doğrulanmalıdır.',
+    'These are limited observations from supplied CLI. Observed does not mean compliant or healthy. Review is not confirmed failure. Conflict requires verification.'
+   )));
+   const statuses=[
+    ['OBSERVED',intelligence.counts.OBSERVED,L('Gözlemlendi','Observed'),'#287d75'],
+    ['REVIEW',intelligence.counts.REVIEW,L('İncelenmeli','Review'),'#c29236'],
+    ['CONFLICT',intelligence.counts.CONFLICT,L('Çelişki','Conflict'),'#b75937']
+   ];
+   const n=statuses.reduce((sum,item)=>sum+item[1],0);
+   const legend=E('div','evidence-correlation-summary');
+   for(const [status,count,label] of statuses){
+    const item=E('span','',label+': '+count);item.dataset.status=status;legend.append(item);
+   }
+   legend.append(E('span','',L('Gerçek show dosyası: ','Real show captures: ')+intelligence.coverage.realCaptures));
+   assessment.append(legend);
+   if(n){
+    const bar=E('div','evidence-correlation-band');bar.setAttribute('role','img');
+    bar.setAttribute('aria-label',statuses.map(x=>x[2]+' '+x[1]).join(', '));
+    for(const [status,count,label,color] of statuses){
+     if(!count)continue;
+     const segment=E('span');segment.style.width=(count/n*100).toFixed(2)+'%';
+     segment.style.backgroundColor=color;segment.title=label+': '+count;bar.append(segment);
+    }
+    assessment.append(bar);
+   }else assessment.append(E('p','report-muted',L(
+    'Seçilen cihazlar için bu sürümün tanıdığı operasyonel kanıt bulunmadı. Bu, herhangi bir teknolojinin sorunsuz olduğu veya cihazın yanlış yapılandırıldığı anlamına gelmez.',
+    'No operational fact recognized by this adapter for selected devices. This does not imply good health or a configuration fault.'
+   )));
+   if(intelligence.findings.length){
+    for(const finding of intelligence.findings){
+     const card=E('article','evidence-correlation-item');card.dataset.status=finding.status;
+     const heading=E('strong','',(tr&&finding.titleTr||finding.title)+' · '+finding.technology+' · '+finding.status);
+     card.append(heading);
+     card.append(E('p','',finding.observed));
+     card.append(E('p','report-muted',finding.explanation));
+     card.append(E('p','report-muted',L('Olası etki: ','Conditional impact: ')+finding.networkImpact));
+     card.append(E('p','report-muted',L('Güven düzeyi: ','Evidence confidence: ')+finding.confidence));
+     const proofBox=E('details');proofBox.append(E('summary','',L('Cihaz / kaynak / CLI satırı ve doğrulama','Device / source / CLI line and verification')));
+     for(const evidence of finding.evidence){
+      proofBox.append(E('p','report-meta',evidence.device+' · '+evidence.source+
+       ' · L'+evidence.line+': '+evidence.excerpt));
+     }
+     proofBox.append(E('p','report-muted',L('Salt-okunur doğrulama: ','Read-only verification: ')+finding.verification.join(' · ')));
+     if(finding.source?.length){
+      const references=E('p','report-muted');
+      for(const entry of finding.source){
+       const link=E('a','',entry.title);link.href=entry.url;link.rel='noopener noreferrer';link.target='_blank';references.append(link);
+       references.append(document.createTextNode(' · '+entry.scope+' '));
+      }
+      proofBox.append(references);
+     }
+     card.append(proofBox);assessment.append(card);
+    }
+   }
+   assessment.append(E('p','report-muted',intelligence.limitations.join(' · ')));
+  }catch(error){
+   const disabled=section(L('CLI korelasyonu tamamlanamadı','CLI correlation unavailable'));
+   disabled.append(E('p','report-muted',L('Kanıtlar veya teknoloji adaptörü yeniden incelenmeli.','Review the selected evidence or technology adapter.')+' '+error.message));
+  }
+ }
  const detail=section(L('Teknik kanıt ve satır referansları','Technical evidence and line references'));
  detail.append(E('p','report-muted',L('Her cihazın ilk 80 CLI satırı (gizli bilgiler maskeli); tam konfigürasyon 2. adımda görülebilir.','First 80 configuration CLI lines per device (secrets redacted); full configurations are accessible in Step 2.')));
- const secret=/(?:\bpassword\b|\bpasswd\b|\bsecret\b|snmp[-\s]?server\s+community|snmp\s+community|community-string|private.?key|api.?key|\bauthorization\b|sk-[A-Za-z0-9_-]+)/i;
+ const secret=/(?:\bpassword\b|\bpasswd\b|\bsecret\b|snmp[-\s]?server\s+community|snmp\s+community|community-string|private.?key|api.?key|\bauthorization\b|crypto\s+isakmp\s+key|pre-shared-key|shared-secret|set\s+psksecret|set\s+enc-password|BEGIN [A-Z ]*PRIVATE KEY|sk-[A-Za-z0-9_-]+)/i;
  nodes.forEach(n=>{
   const c=workspace.configs.find(x=>x.deviceId===n.id&&typeof x.text==='string'&&x.text.trim());
   const box=E('details','engineering-deployment-evidence');box.append(E('summary','',n.hostname+' · '+(c?L('Design/ekli CLI mevcut','CLI available'):L('CLI eksik','CLI missing'))));
   if(c){
-   const lines=c.text.replace(/\r\n?/g,'\n').split('\n'),excerpt=lines.slice(0,80).map((line,i)=>'L'+(i+1)+': '+(secret.test(line)?'[REDACTED]':line)).join('\n');
+   const lines=c.text.replace(/\r\n?/g,'\n').split('\n');
+   let inPrivateKey=false;
+   const safeLines=lines.map(line=>{
+    const starts=/-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----/i.test(line);
+    const ends=/-----END [A-Z0-9 ]*PRIVATE KEY-----/i.test(line);
+    const hidden=inPrivateKey||starts||secret.test(line);
+    if(starts)inPrivateKey=true;
+    if(ends)inPrivateKey=false;
+    return hidden?'[REDACTED]':line;
+   });
+   const excerpt=safeLines.slice(0,80).map((line,i)=>'L'+(i+1)+': '+line).join('\n');
    const pre=E('pre','',excerpt);pre.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere';box.append(pre);
    if(lines.length>80)box.append(E('p','report-meta',L('İlk 80 / toplam ','First 80 / total ')+lines.length+L(' satır gösterildi',' lines shown')));
   }
@@ -1052,7 +1141,7 @@ $('preview').onclick=()=>{
  try{
   const modules=selectedModules();if(!modules.length)throw Error('Select at least one analysis module.');
   const devices=scopedDeviceIds();if(!devices.length)throw Error('Select at least one device to analyze.');
-  pendingBatches=api.analysisEvidenceBatches(workspace,devices);
+  pendingBatches=api.analysisEvidenceBatches(workspace,devices,modules);
   if(modules.includes('STP')){
    const review=stpV1Review();
    $('stpPreflightResult').textContent=window.NetworkSTPV1.format(review);
@@ -1128,8 +1217,8 @@ $('analyze').onclick=async()=>{
    message('Local evidence summary generated. No AI model was run.');
    return;
   }
-  if(['groq','openai'].includes(available.provider)&&
-     !window.confirm('Send sanitized network evidence to '+available.provider+'?\n\nDevices: '+scopedDeviceIds().map(id=>workspace.nodes.find(n=>n.id===id)?.hostname||id).join(', ')+'\nIncludes: topology, device configuration and any verification CLI.\n\nContinue only if authorized to share.')){
+  if((['groq','openai'].includes(available.provider)||available.externalDataTransfer===true)&&
+     !window.confirm('Send sanitized network evidence to the configured '+available.provider+' model endpoint?\n\nDevices: '+scopedDeviceIds().map(id=>workspace.nodes.find(n=>n.id===id)?.hostname||id).join(', ')+'\nIncludes: topology, device configuration and any verification CLI.\n\nContinue only if authorized to share.')){
     message('External model transfer cancelled. No evidence was submitted.');
     return;
   }

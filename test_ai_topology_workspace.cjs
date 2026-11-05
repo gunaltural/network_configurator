@@ -16,6 +16,15 @@ assert.equal(initial.links.length,2);
 assert.equal(initial.links.find(l=>l.id==='keepalive').logical,true);
 assert.equal(initial.links.find(l=>l.id==='peer').aPort,'Eth1/1');
 assert.equal(design.devices[0].source,undefined,'Design source must not be mutated');
+
+const privateImport=api.fromDesign({...design,configurations:[{
+ deviceId:'a',text:'hostname N9K-A\n-----BEGIN RSA PRIVATE KEY-----\nVERY_PRIVATE_KEY_BODY\n-----END RSA PRIVATE KEY-----\nrouter bgp 65001'
+}]});
+const safeImported=privateImport.configs.find(x=>x.deviceId==='a').text;
+assert.ok(!safeImported.includes('VERY_PRIVATE_KEY_BODY'),'Private key body must be masked at Design import, before report or AI analysis');
+assert.ok(safeImported.includes('router bgp 65001'),'Nonsecret Design CLI must survive import');
+assert.equal(safeImported.split('\n').length,5,'Original Design CLI line count is preserved for citations');
+
 let modified=api.addDevice(initial,{id:'fw',hostname:'Firewall',vendor:'Fortinet',role:'security'});
 modified=api.addLink(modified,{id:'uplink',a:'a',b:'fw',aPort:'Eth1/10',bPort:'port1'});
 modified=api.setConfiguration(modified,'fw','config system interface\nedit port1\nnext\nend');
@@ -109,6 +118,39 @@ const many=api.analysisEvidenceBatches(extended).flat();
 assert.ok(many.filter(x=>x.id.startsWith('config-')).length>1,'Split long configurations without truncating');
 assert.ok(many.every(x=>x.text.length<=3000),'Every evidence item fits API limit');
 assert.ok(api.analysisEvidenceBatches(extended).every(batch=>batch.length<=24),'Every batch stays bounded');
+const fullShow=Array.from({length:250},(_,i)=>'route '+i).concat(['LAST-LINE-OMITTED']).join('\n');
+const boundedShow=api.addShowTech(withCapture,'fw',fullShow,'captured-bgp.out');
+const captureItems=api.analysisEvidenceBatches(boundedShow,['fw']).flat();
+const scopeItem=captureItems.find(x=>x.id.startsWith('capture-coverage-'));
+assert.ok(scopeItem,'Every real capture has an explicit provenance and coverage entry');
+assert.match(scopeItem.text,/capture timestamp UNKNOWN/);
+assert.match(scopeItem.text,/Total lines 251; included excerpt lines 220/);
+assert.match(scopeItem.text,/omitted lines NOT evidence of absence/);
+assert.ok(!JSON.stringify(captureItems).includes('LAST-LINE-OMITTED'),'Model must not receive unseen sections disguised as analyzed');
+
+const lateBgp=Array.from({length:400},(_,i)=>'unrelated section '+i).join('\n')+
+ '\nFGT-1#show ip bgp summary\nNeighbor V AS MsgRcvd MsgSent TblVer InQ OutQ Up/Down State/PfxRcd\n198.51.100.2 4 65002 0 0 1 0 0 never Idle';
+const lateCapture=api.addShowTech(withCapture,'fw',lateBgp,'large-show-tech.txt');
+const selectedBgp=api.analysisEvidenceBatches(lateCapture,['fw'],['BGP']).flat()
+ .filter(x=>x.id.startsWith('show-tech-'));
+assert.ok(selectedBgp.some(x=>x.text.includes('L403: 198.51.100.2 4 65002')),'Late BGP section found after line 400 with ORIGINAL line number');
+assert.ok(selectedBgp.some(x=>x.text.includes('L401: FGT-1#show ip bgp summary')),'Technology-aware retrieval preserves command context');
+
+const pem=api.setConfiguration(withCapture,'fw','hostname FGT-1\n-----BEGIN RSA PRIVATE KEY-----\nSENSITIVEPEM_PAYLOAD_123\n-----END RSA PRIVATE KEY-----\nrouter bgp 65001');
+const pemEvidence=api.analysisEvidenceBatches(pem,['fw'],['BGP']).flat().filter(x=>x.id.startsWith('config-')).map(x=>x.text).join('\n');
+assert.ok(!pemEvidence.includes('SENSITIVEPEM_PAYLOAD_123'),'Private-key body never enters model evidence');
+assert.ok(pemEvidence.includes('L3: [REDACTED]'),'Masked key retains original CLI line number');
+assert.ok(pemEvidence.includes('L5: router bgp 65001'),'Unrelated BGP CLI remains available');
+
+
+const noisyOspf=Array.from({length:300},(_,i)=>'OSPF neighbor '+i+' state FULL/DR').join('\n')+
+ '\nFGT-1#show ip bgp summary\nNeighbor V AS MsgRcvd MsgSent TblVer InQ OutQ Up/Down State/PfxRcd\n198.51.100.3 4 65003 0 0 1 0 0 never Active';
+const noiseCapture=api.addShowTech(withCapture,'fw',noisyOspf,'noisy-ospf-then-bgp.txt');
+const bOnly=api.analysisEvidenceBatches(noiseCapture,['fw'],['BGP']).flat().filter(x=>x.id.startsWith('show-tech-'));
+assert.ok(bOnly.some(x=>x.text.includes('L303: 198.51.100.3')),'Unrelated OSPF neighbor lines cannot crowd out late BGP peer state');
+
+
+
 assert.throws(()=>api.analysisEvidenceBatches(api.setConfiguration(withCapture,'fw','x'.repeat(3100))),/too long/);
 
 console.log('AI topology workspace contract tests passed');

@@ -22,7 +22,7 @@ function build(report){
  return {module,vendor,evidence};
 }
 
-const sensitiveConfigLine=/(?:password|passwd|secret|snmp[-\s]?server\s+community|snmp\s+community|community-string|private.?key|api.?key|authorization|sk-[a-zA-Z0-9_-]+)/i;
+const sensitiveConfigLine=/(?:password|passwd|secret|snmp[-\s]?server\s+community|snmp\s+community|community-string|private.?key|api.?key|authorization|crypto\s+isakmp\s+key|pre-shared-key|shared-secret|set\s+psksecret|set\s+enc-password|BEGIN [A-Z ]*PRIVATE KEY|sk-[a-zA-Z0-9_-]+)/i;
 function cleanLine(line){
  return sensitiveConfigLine.test(String(line))?'[REDACTED]':String(line);
 }

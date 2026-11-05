@@ -2,6 +2,7 @@
 from bgp_cli_evidence import summarize_capture, correlate
 from tac_overview import overview
 from engineering_knowledge import retrieve_knowledge
+from engineering_source_index import retrieve_sources
 import json
 import os
 import re
@@ -44,15 +45,48 @@ def configured():
     return enabled and provider == 'local' and url.scheme in ('http', 'https') and bool(url.hostname) and not url.username and not url.password and not url.query and not url.fragment
 
 
+def external_data_transfer():
+    """Conservatively flag provider calls that may leave the local host."""
+    provider = os.getenv('AI_PROVIDER', 'local')
+    if provider in ('groq', 'openai'):
+        return True
+    if provider != 'local':
+        return False
+    host = (urlparse(os.getenv('AI_BASE_URL', '')).hostname or '').lower()
+    return bool(host and host not in ('localhost', '127.0.0.1', '::1'))
+
+
 _SENSITIVE_CLI_LINE = re.compile(
     r'(?im)^(?P<line>L\d+:\s*)?.*(?:password|passwd|secret|snmp[-\s]?server\s+community|'
-    r'snmp\s+community|community-string|private.key|api.key|authorization|sk-[a-zA-Z0-9_-]+).*$'
+    r'snmp\s+community|community-string|private.key|api.key|authorization|crypto\s+isakmp\s+key|'
+    r'pre-shared-key|shared-secret|set\s+psksecret|set\s+enc-password|BEGIN [A-Z ]*PRIVATE KEY|'
+    r'sk-[a-zA-Z0-9_-]+).*$'
 )
 
+_PRIVATE_KEY_BEGIN = re.compile(r'-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----', re.I)
+_PRIVATE_KEY_END = re.compile(r'-----END [A-Z0-9 ]*PRIVATE KEY-----', re.I)
+_LINE_REFERENCE = re.compile(r'^(L\d+:\s*)')
+
 def redact(value):
-    return _SENSITIVE_CLI_LINE.sub(
-        lambda match: (match.group('line') or '') + '[REDACTED]', value
-    )
+    """Keep CLI line numbers while masking credentials, including multiline keys.
+
+    For an unterminated private-key block, redact through end of evidence.
+    """
+    protected = []
+    in_key = False
+    for line in value.splitlines(keepends=True):
+        body = line.rstrip('\r\n')
+        end = line[len(body):]
+        starts = bool(_PRIVATE_KEY_BEGIN.search(body))
+        ends = bool(_PRIVATE_KEY_END.search(body))
+        hide = in_key or starts or bool(_SENSITIVE_CLI_LINE.search(body))
+        prefix = _LINE_REFERENCE.match(body)
+        protected.append(((prefix.group(1) if prefix else '') + '[REDACTED]' if hide else body) + end)
+        if starts:
+            in_key = True
+        if ends:
+            in_key = False
+    return ''.join(protected)
 
 def groq_error_category(error):
     """Classify only documented provider codes; never log a response message.
@@ -251,7 +285,9 @@ def install_engineering_ai(app):
         enabled = bool(configured())
         return {'available': enabled, 'readOnly': True,
                 'provider': os.getenv('AI_PROVIDER', 'local') if enabled else 'disabled',
+                'externalDataTransfer': bool(enabled and external_data_transfer()),
                 'reasoningVerified': False,
+                'knowledgeRetrieval': 'curated-versioned-source-metadata-not-full-text-RAG',
                 'note': 'Credentials configured; this endpoint does not verify model quality or live inference.'}
 
     @app.post('/api/ai/analyze')
@@ -272,13 +308,15 @@ def install_engineering_ai(app):
                 observed = overview(content['evidence'], body.vendor, body.language)
                 context = observed[0][:550] if observed else ''
                 knowledge = retrieve_knowledge(content['evidence'], body.vendor)
+                source_index = retrieve_sources(content['evidence'], body.vendor)
                 # Prompt stays within the bundled small-model context window.
                 # The full local evidence is retained for independent citation validation.
                 compact_knowledge = ([{**item, 'questions': item['questions'][:2]} for item in knowledge[:2]]
                     if os.getenv('AI_PROVIDER', 'local') == 'local' and os.getenv('AI_LOCAL_REASONING_PROFILE') != 'full' else knowledge)
                 inputs = {'vendor': body.vendor, 'language': body.language,
                     'evidence': content['evidence'], 'observed_context': context,
-                    'retrieved_knowledge': compact_knowledge}
+                    'retrieved_knowledge': compact_knowledge,
+                    'manufacturer_source_metadata': source_index}
                 try:
                     # Bound full-profile reasoning to concise, verifiable findings.
                     # Long free-form generations frequently exhaust the local model
@@ -308,7 +346,8 @@ def install_engineering_ai(app):
                     return {'text': heading + '\n\n' + detail,
                         'mode': 'evidence-only-provider-fallback',
                         'reviewRequired': True, 'evidenceIds': [e.id for e in body.evidence],
-                        'knowledgeIds': [k['id'] for k in knowledge]}
+                        'knowledgeIds': [k['id'] for k in knowledge],
+                        'sourceIndexIds': [k['id'] for k in source_index]}
                 valid, ids = validate_evidence_citations(draft, content['evidence'])
                 if not valid and (os.getenv('AI_PROVIDER', 'local') != 'local' or
                                   os.getenv('AI_LOCAL_REASONING_PROFILE') == 'full'):
@@ -339,7 +378,8 @@ def install_engineering_ai(app):
                 if valid:
                     return {'text': draft, 'mode': 'model-evidence-cited-draft',
                         'reviewRequired': True, 'engineeringVerified': False, 'evidenceIds': ids,
-                        'knowledgeIds': [k['id'] for k in knowledge]}
+                        'knowledgeIds': [k['id'] for k in knowledge],
+                        'sourceIndexIds': [k['id'] for k in source_index]}
                 # Fail closed: do not publish a speculative engineering claim when
                 # its supporting observation cannot be checked in the capture.
                 # Retain only an evidence excerpt and an explicit review warning.
@@ -355,7 +395,8 @@ def install_engineering_ai(app):
                     excerpts.append('### ' + item['id'] + '\n' + '\n'.join(lines[:4]))
                 return {'text': warning + '\n\n' + '\n\n'.join(excerpts),
                     'mode': 'model-unverified-draft', 'reviewRequired': True,
-                    'evidenceIds': [], 'knowledgeIds': [k['id'] for k in knowledge]}
+                    'evidenceIds': [], 'knowledgeIds': [k['id'] for k in knowledge],
+                        'sourceIndexIds': [k['id'] for k in source_index]}
             if body.module == 'CLI_SYNTHESIS':
                 draft = generate({'model': os.environ['AI_MODEL'], 'store': False,
                     'max_output_tokens': 1800, 'instructions': INSTRUCTIONS + _SYNTHESIS,
