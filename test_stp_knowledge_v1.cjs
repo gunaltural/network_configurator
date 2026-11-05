@@ -33,14 +33,14 @@ assert.ok(mismatch,'Explicit peer port mapping is required to flag mismatch');
 assert.deepEqual(mismatch.evidence,['CORE-1 config L5 (Port-channel10)','CORE-2 config L5 (Port-channel10)']);
 assert.ok(!JSON.stringify(report).includes('ACCESS-1'),'unselected device stays excluded');
 assert.ok(report.entries.every(x=>x.source&&x.source.url.startsWith('https://www.cisco.com/')),'Each observation links official source');
-assert.ok(api.format(report).includes('PARAMETER COVERAGE'));
+assert.ok(api.format(report).includes('PRIORITIZED ENGINEERING FINDINGS'));
 assert.match(api.format(report),/RFC 4188/);
 assert.match(api.format(report),/RFC 4318/);
-assert.match(api.format(report),/RFC 7727 applicability/);
+assert.match(api.format(report),/RFC 7727 applies only/);
 assert.match(api.format(report),/802\.1w/);
 assert.ok(report.coverage.find(x=>x.id==='stpMode').standards.some(x=>x.title.includes('802.1w')));
 
-assert.ok(api.format(report).includes('NOT live RAG'));
+assert.ok(api.format(report).includes('NO AI MODEL WAS RUN'));
 assert.ok(api.context(report).join(' ').includes('curated vendor documentation'));
 const noLink=api.review({...base,links:[]},['a','b']);
 assert.ok(!noLink.entries.some(x=>x.title.includes('native VLAN mismatch')),'No cross-device port claims without mapped topology link');
