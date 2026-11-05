@@ -42,6 +42,10 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{JSDOM}=require
  assert.match($('stpCTOView').textContent,/CORE-2/);
  assert.doesNotMatch($('stpCTOView').textContent,/ACCESS-1/);
  assert.equal($('exportSTPCTO').disabled,false,'styled HTML executive report available');
+ assert.match($('stpCTOView').textContent,/STP-018/,'18-control engineering matrix is rendered');
+ assert.match($('stpCTOView').textContent,/CORE-1/,'matrix reports per selected device');
+ assert.match($('stpCTOView').textContent,/NOT AUTOMATED/,'unsupported checks are explicitly identified');
+ assert.match($('stpCTOView').textContent,/OBSERVED/,'observed configuration is not mislabeled compliance');
  assert.doesNotMatch($('stpPreflightResult').textContent,/ACCESS-1/);
  $('preview').click();
  assert.equal($('analyze').disabled,false);
