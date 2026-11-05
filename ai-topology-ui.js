@@ -201,7 +201,7 @@ function populate(select,values,preserve,blank){
  for(const [id,label] of values)select.append(makeOption(id,label));
  select.value=values.some(x=>x[0]===preserve)?preserve:(blank?'':values[0]?.[0]||'');
 }
-function invalidate(){reviewedSignature=null;pendingBatches=null;runState=null;$('analyze').disabled=true;$('downloadReport').disabled=true;$('evidencePreview').textContent='';$('analysisResult').value='';$('stpPreflightResult').textContent='STP V1 preflight not run for the current device selection.';$('stpKnowledgeResult').textContent='Knowledge review not run for this device selection.';$('stpCTOView').replaceChildren();$('stpCTOStatus').textContent='';$('exportSTPCTO').disabled=true;}
+function invalidate(){reviewedSignature=null;pendingBatches=null;runState=null;$('analyze').disabled=true;$('downloadReport').disabled=true;$('evidencePreview').textContent='';$('analysisResult').value='';$('stpPreflightResult').textContent='STP V1 preflight not run for the current device selection.';$('stpKnowledgeResult').textContent='Knowledge review not run for this device selection.';$('stpCTOView').replaceChildren();$('stpCTOStatus').textContent='';$('exportSTPCTO').disabled=true;$('viewSTPCTO').disabled=true;$('stpCTOView').hidden=true;}
 function draw(){
  const svg=$('topologyCanvas');svg.replaceChildren();
  const NS='http://www.w3.org/2000/svg',points=new Map(),n=workspace.nodes.length;
@@ -290,6 +290,8 @@ function render(){
  populate($('linkA'),devs,$('linkA').value,false);
  populate($('linkB'),devs,$('linkB').value,false);
  populate($('configDevice'),devs,$('configDevice').value,false);
+ populate($('showTechDevice'),devs,$('showTechDevice').value,false);
+ renderEvidenceDevices();
  $('overview').textContent=workspace.nodes.length+' devices · '+workspace.links.length+' links · '+workspace.configs.length+' configurations attached (not operationally validated)';
  const review=workspace.designReview,panel=$('designReviewPanel');
  panel.hidden=!review;
@@ -335,6 +337,62 @@ function loadConfig(){
  const c=workspace.configs.find(c=>c.deviceId===$('configDevice').value);
  $('configuration').value=c?.text||'';
 }
+function renderEvidenceDevices(){
+ const list=$('showTechDeviceList');list.replaceChildren();
+ for(const device of workspace.nodes){
+  const item=document.createElement('div');item.className='evidence-device';item.setAttribute('role','listitem');
+  const files=(workspace.showTech||[]).filter(c=>c.deviceId===device.id);
+  const caption=document.createElement('span');
+  caption.textContent=device.hostname+' · '+(files.length?files.map(c=>c.filename+(c.synthetic?' [SYNTHETIC LAB]':'')).join(', '):'No operational CLI');
+  item.append(caption);
+  const button=document.createElement('button');button.type='button';button.textContent='Upload';button.dataset.evidenceDevice=device.id;
+  button.onclick=()=>chooseEvidenceFile(device.id);item.append(button);
+  for(const file of files){
+   const remove=document.createElement('button');remove.type='button';remove.textContent='Remove '+file.filename;
+   remove.onclick=()=>{workspace=api.removeShowTech(workspace,device.id,file.filename);changed('Operational evidence removed.');};
+   item.append(remove);
+  }
+  list.append(item);
+ }
+}
+let pendingEvidenceDevice=null;
+function chooseEvidenceFile(deviceId){
+ if(!workspace.nodes.some(n=>n.id===deviceId))return message('Select a valid device.',true);
+ pendingEvidenceDevice=deviceId;$('showTechDevice').value=deviceId;$('showTechFile').value='';$('showTechFile').click();
+}
+async function addEvidenceFile(file,deviceId){
+ if(!file||!deviceId)return;
+ if(file.size>8000000)throw Error('Verification CLI capture exceeds 8 MB limit.');
+ const text=await file.text();
+ const alreadyHadReport=!$('exportSTPCTO').disabled,wasVisible=!$('stpCTOView').hidden;
+ workspace=api.addShowTech(workspace,deviceId,text,file.name,false);
+ changed('Verification CLI uploaded for '+(workspace.nodes.find(n=>n.id===deviceId)?.hostname||deviceId)+'.');
+ $('showTechDevice').value=deviceId;
+ $('showTechStatus').textContent=file.name+' attached to '+(workspace.nodes.find(n=>n.id===deviceId)?.hostname||deviceId)+'.';
+ if(alreadyHadReport&&selectedModules().includes('STP')){
+  await $('runSTPCTO').onclick();$('stpCTOView').hidden=!wasVisible;
+ }
+}
+$('showTechFile').onchange=async()=>{
+ const file=$('showTechFile').files?.[0],deviceId=pendingEvidenceDevice||$('showTechDevice').value;
+ pendingEvidenceDevice=null;
+ try{await addEvidenceFile(file,deviceId);}catch(e){message('Show Tech: '+e.message,true);}
+};
+$('stpCTOView').addEventListener('click',event=>{
+ const upload=event.target.closest?.('[data-evidence-upload]');
+ if(upload)chooseEvidenceFile(upload.dataset.evidenceUpload);
+});
+$('loadSTPLab').onclick=()=>{
+ if((workspace.nodes.length||workspace.configs.length||(workspace.showTech||[]).length)&&!window.confirm('Replace the current AI workspace with a synthetic 2 Core + 1 Access LAB?'))return;
+ if(!window.NetworkSTPLabV1)return message('Synthetic LAB module not available.',true);
+ try{
+  workspace=window.NetworkSTPLabV1.create();originalMode=false;
+  for(const choice of document.querySelectorAll('#moduleChoices input'))choice.checked=choice.value==='STP';
+  $('sourceLabel').textContent='SYNTHETIC STP LAB · NOT PRODUCTION DATA';
+  changed('Synthetic 2 Core + 1 Access LAB loaded.');
+  loadDevice();loadLink();loadConfig();
+ }catch(e){message('LAB: '+e.message,true);}
+};
 function saveFile(name,text,type){
  const blob=new Blob([text],{type}),url=URL.createObjectURL(blob),a=document.createElement('a');
  a.href=url;a.download=name;document.body.append(a);a.click();a.remove();URL.revokeObjectURL(url);
@@ -492,29 +550,37 @@ $('runSTPCTO').onclick=async()=>{
  if(!selectedModules().includes('STP')){message('Select STP scope for the CTO report.',true);return;}
  const selected=scopedDeviceIds();
  if(!selected.length){message('Select at least one STP device.',true);return;}
- const signature=JSON.stringify({deviceIds:selected,configs:workspace.configs,modules:selectedModules()});
+ const signature=JSON.stringify({deviceIds:selected,configs:workspace.configs,showTech:workspace.showTech,modules:selectedModules()});
  $('stpCTOStatus').textContent='Loading versioned Design engineering knowledge…';
  try{
   const response=await fetch('/api/engineering-knowledge/stp');
   if(!response.ok)throw Error('Knowledge database unavailable (HTTP '+response.status+').');
   const db=await response.json();
-  if(signature!==JSON.stringify({deviceIds:scopedDeviceIds(),configs:workspace.configs,modules:selectedModules()}))throw Error('Device scope changed; please run the report again.');
+  if(signature!==JSON.stringify({deviceIds:scopedDeviceIds(),configs:workspace.configs,showTech:workspace.showTech,modules:selectedModules()}))throw Error('Device scope changed; please run the report again.');
   const review=stpKnowledgeV1Review(),preflight=stpV1Review();
   if(!window.NetworkSTPEngineeringV2)throw Error('STP V2 configuration reasoning engine is unavailable.');
   const engineering=window.NetworkSTPEngineeringV2.assess(workspace,selected);
+  if(!window.NetworkSTPOperationalV1)throw Error('Operational evidence module is unavailable.');
+  const operational=window.NetworkSTPOperationalV1.assess(workspace,selected);
+  window.NetworkSTPOperationalV1.augment(engineering,operational);
   if(!window.NetworkSTPNetworkV2)throw Error('Multi-device STP correlation engine unavailable.');
   const network=window.NetworkSTPNetworkV2.analyze(workspace,selected);
-  const result=window.NetworkSTPCTOReport.build($('stpCTOView'),review,preflight,db,$('language').value,engineering,network);
-  $('stpCTOStatus').textContent='STP Engineering V2 · '+network.deviceCount+' analyzed devices · '+network.modeledLinkCount+' modeled links · '+network.vlans.length+' VLAN design decisions · '+network.findings.length+' cross-device findings · AI model not run.';
-  $('stpCTOView').scrollIntoView?.({block:'nearest',behavior:'smooth'});
-  $('stpKnowledgeDetails').open=true;
-  $('exportSTPCTO').disabled=false;
- }catch(error){$('exportSTPCTO').disabled=true;$('stpCTOView').replaceChildren();$('stpCTOStatus').textContent='CTO report error: '+error.message;message(error.message,true);}
+  const result=window.NetworkSTPCTOReport.build($('stpCTOView'),review,preflight,db,$('language').value,engineering,network,operational);
+  $('stpCTOStatus').textContent='STP V2 · '+network.deviceCount+' devices · '+operational.devices.filter(x=>x.present).length+' with verification CLI · '+network.findings.length+' network findings'+(operational.devices.some(x=>x.syntheticOnly)?' · SYNTHETIC LAB':'')+'.';
+  $('exportSTPCTO').disabled=false;$('viewSTPCTO').disabled=false;
+ }catch(error){$('exportSTPCTO').disabled=true;$('viewSTPCTO').disabled=true;$('stpCTOView').replaceChildren();$('stpCTOStatus').textContent='CTO report error: '+error.message;message(error.message,true);}
+};
+$('viewSTPCTO').onclick=()=>{
+ if($('viewSTPCTO').disabled)return;
+ $('stpCTOView').hidden=!$('stpCTOView').hidden;
+ $('viewSTPCTO').textContent=$('stpCTOView').hidden?'HTML View':'Hide HTML View';
+ if(!$('stpCTOView').hidden)$('stpCTOView').scrollIntoView?.({block:'nearest',behavior:'smooth'});
 };
 $('exportSTPCTO').onclick=()=>{
  if($('exportSTPCTO').disabled||!$('stpCTOView').children.length)return;
  const css="body{font-family:Arial,system-ui,sans-serif;color:#1b2933;background:#f0f3f6;max-width:1080px;margin:25px auto;padding:0 20px}.paper{background:white;border-radius:5px;padding:34px;box-shadow:0 10px 28px #0002;min-height:500px}.paper h1{font-size:26px;margin:8px 0}.paper h2{font-size:17px;border-bottom:1px solid #cad5dd;padding:0 0 5px;margin:26px 0 8px}.paper p,.paper li{font-size:12px;line-height:1.6}.report-meta{color:#506779;font-size:11px}.report-tag{color:#186595;font-weight:800;text-transform:uppercase;letter-spacing:.12em;font-size:10px}.summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin:18px 0}.metric{border:1px solid #cad6df;border-radius:7px;padding:10px}.metric b{display:block;font-size:20px}.metric span{display:block;font-size:10px;color:#586d79}.decision{border-left:3px solid #80abc4;background:#f5f9fc;padding:12px 14px;margin:12px 0;break-inside:avoid}.decision strong{font-size:13px;color:#153e58}.decision .choice{display:inline-block;margin-left:7px;color:#215f83;font-size:11px;font-weight:700}.decision p{margin:7px 0;color:#354e5e}.decision details{margin-top:9px;font-size:11px}.decision details a{display:block;padding:3px 0;overflow-wrap:anywhere}.report-footer{font-size:10px;color:#6c7c87;margin-top:30px}.cto-action{border-top:1px solid #d8e4ea;padding-top:8px}.cto-muted{color:#5f798b;font-size:11px}@media print{body{background:white;padding:0;margin:0}.paper{box-shadow:none;padding:12px}}";
- const html='<!doctype html><html lang="'+($('language').value==='tr'?'tr':'en')+'"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>STP Engineering Assessment</title><style>'+css+'</style></head><body>'+$('stpCTOView').outerHTML+'</body></html>';
+ const report=$('stpCTOView').cloneNode(true);report.hidden=false;report.querySelectorAll('[data-evidence-upload]').forEach(button=>button.remove());
+ const html='<!doctype html><html lang="'+($('language').value==='tr'?'tr':'en')+'"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>STP Engineering Assessment</title><style>'+css+'</style></head><body>'+report.outerHTML+'</body></html>';
  saveFile('network-configurator-stp-cto-assessment.html',html,'text/html;charset=utf-8');
 };
 function stpV1Review(){
