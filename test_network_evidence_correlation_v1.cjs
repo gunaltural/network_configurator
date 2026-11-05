@@ -38,6 +38,8 @@ assert.equal(f('OSPF','FULL/DR').status,'OBSERVED');
 assert.equal(f('EVPN','2, 5').status,'OBSERVED');
 assert.equal(f('VPC','Peer Gateway: Enabled').status,'OBSERVED');
 assert.equal(f('SDWAN','state(dead)').status,'REVIEW');
+assert.ok(f('SDWAN','state(dead)').verification.includes('diagnose sys sdwan neighbor'),'BGP-SDWAN correlation must verify FortiGate selected neighbor');
+assert.ok(f('VPC','Peer Gateway: Enabled').verification.includes('show vpc consistency-parameters global'),'NX-OS vPC requires peer consistency evidence');
 assert.ok(f('SDWAN','state(dead)').explanation.includes('not the same as SLA compliance'));
 assert.equal(result.findings.some(x=>/peer-gateway.*disabled|missing peer-gateway/i.test(x.title+' '+x.explanation)),false);
 for(const finding of result.findings){
@@ -80,6 +82,7 @@ assert.ok(mlag.findings.some(x=>x.observed.includes('state: Active')),'EOS state
 assert.ok(mlag.findings.some(x=>x.observed.includes('peer-link status: Up')),'EOS peer-link recognized');
 assert.ok(mlag.findings.some(x=>x.observed.includes('local-int status: Up')),'EOS local interface recognized');
 assert.ok(mlag.findings.every(x=>x.status==='OBSERVED'),'Healthy observed attributes are not deemed failures');
+assert.ok(mlag.findings.every(x=>x.verification.includes('show mlag config-sanity')),'EOS MLAG uses Arista consistency diagnostics, not Cisco vPC syntax');
 assert.ok(mlag.findings.every(x=>x.source.some(doc=>doc.url.includes('arista.com'))),'Arista-only manufacturer citations');
 
 // Multi-command show-tech must not borrow evidence from a previous command.
