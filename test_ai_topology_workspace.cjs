@@ -119,6 +119,15 @@ assert.match(scopeItem.text,/Total lines 251; included excerpt lines 220/);
 assert.match(scopeItem.text,/omitted lines NOT evidence of absence/);
 assert.ok(!JSON.stringify(captureItems).includes('LAST-LINE-OMITTED'),'Model must not receive unseen sections disguised as analyzed');
 
+const lateBgp=Array.from({length:400},(_,i)=>'unrelated section '+i).join('\n')+
+ '\nFGT-1#show ip bgp summary\nNeighbor V AS MsgRcvd MsgSent TblVer InQ OutQ Up/Down State/PfxRcd\n198.51.100.2 4 65002 0 0 1 0 0 never Idle';
+const lateCapture=api.addShowTech(withCapture,'fw',lateBgp,'large-show-tech.txt');
+const selectedBgp=api.analysisEvidenceBatches(lateCapture,['fw'],['BGP']).flat()
+ .filter(x=>x.id.startsWith('show-tech-'));
+assert.ok(selectedBgp.some(x=>x.text.includes('L403: 198.51.100.2 4 65002')),'Late BGP section found after line 400 with ORIGINAL line number');
+assert.ok(selectedBgp.some(x=>x.text.includes('L401: FGT-1#show ip bgp summary')),'Technology-aware retrieval preserves command context');
+
+
 assert.throws(()=>api.analysisEvidenceBatches(api.setConfiguration(withCapture,'fw','x'.repeat(3100))),/too long/);
 
 console.log('AI topology workspace contract tests passed');
