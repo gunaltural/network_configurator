@@ -91,7 +91,7 @@ function renderReadiness(){
  root.append(table);
  $('readinessSummary').textContent=ready+' / '+workspace.nodes.length+' devices have configuration · '+withCli+' have optional CLI evidence';
 }
-function reportAvailable(){return reportGenerated||!!activeSavedReport;}
+function reportAvailable(){return reportGenerated||!!activeSavedReport||savedReportRecords().length>0;}
 function refreshWorkflow(){
  renderReadiness();
  const enabled={1:true,2:workspace.nodes.length>0,3:workspace.configs.some(c=>hasConfig(c.deviceId)),4:reportAvailable()};
@@ -113,8 +113,9 @@ function refreshWorkflow(){
 }
 function navigateWorkflow(step){
  if(!Number.isInteger(step)||step<1||step>4)return false;
- if(step>1&&!workspace.nodes.length){message('Create or import a topology first.',true);return false;}
- if(step>2&&!workspace.configs.some(c=>hasConfig(c.deviceId))){message('Attach at least one device configuration before analysis.',true);return false;}
+ const archived=step===4&&reportAvailable();
+ if(step>1&&!workspace.nodes.length&&!archived){message('Create or import a topology first.',true);return false;}
+ if(step>2&&!workspace.configs.some(c=>hasConfig(c.deviceId))&&!archived){message('Attach at least one device configuration before analysis.',true);return false;}
  if(step===4&&!reportAvailable()){message('Run engineering analysis before opening the report.',true);return false;}
  currentStep=step;refreshWorkflow();
  $('workflowNav').scrollIntoView?.({behavior:'smooth',block:'start'});return true;
@@ -318,7 +319,7 @@ function populate(select,values,preserve,blank){
  for(const [id,label] of values)select.append(makeOption(id,label));
  select.value=values.some(x=>x[0]===preserve)?preserve:(blank?'':values[0]?.[0]||'');
 }
-function invalidate(){reportGenerated=false;activeSavedReport=null;$('saveEngineeringReport').disabled=true;$('editEngineeringReport').disabled=true;$('reportEditPanel').hidden=true;$('savedReportPreview').hidden=true;$('savedReportPreview').srcdoc='';$('reviewExecutiveComment').value='';$('reviewEngineeringNotes').value='';reviewedSignature=null;pendingBatches=null;runState=null;$('analyze').disabled=true;$('downloadReport').disabled=true;$('evidencePreview').textContent='';$('analysisResult').value='';$('stpPreflightResult').textContent='STP V1 preflight not run for the current device selection.';$('stpKnowledgeResult').textContent='Knowledge review not run for this device selection.';$('stpCTOView').replaceChildren();$('stpCTOStatus').textContent='';$('exportSTPCTO').disabled=true;$('viewSTPCTO').disabled=true;$('stpCTOView').hidden=true;}
+function invalidate(){if(currentStep===4)currentStep=3;reportGenerated=false;activeSavedReport=null;$('saveEngineeringReport').disabled=true;$('editEngineeringReport').disabled=true;$('reportEditPanel').hidden=true;$('savedReportPreview').hidden=true;$('savedReportPreview').srcdoc='';$('reviewExecutiveComment').value='';$('reviewEngineeringNotes').value='';reviewedSignature=null;pendingBatches=null;runState=null;$('analyze').disabled=true;$('downloadReport').disabled=true;$('evidencePreview').textContent='';$('analysisResult').value='';$('stpPreflightResult').textContent='STP V1 preflight not run for the current device selection.';$('stpKnowledgeResult').textContent='Knowledge review not run for this device selection.';$('stpCTOView').replaceChildren();$('stpCTOStatus').textContent='';$('exportSTPCTO').disabled=true;$('viewSTPCTO').disabled=true;$('stpCTOView').hidden=true;}
 function draw(){
  const svg=$('topologyCanvas');svg.replaceChildren();
  const NS='http://www.w3.org/2000/svg',points=new Map(),n=workspace.nodes.length;
@@ -719,14 +720,19 @@ $('runSTPCTO').onclick=async()=>{
   const network=window.NetworkSTPNetworkV2.analyze(workspace,selected);
   const result=window.NetworkSTPCTOReport.build($('stpCTOView'),review,preflight,db,$('language').value,engineering,network,operational);
   $('stpCTOStatus').textContent='STP V2 · '+network.deviceCount+' devices · '+operational.devices.filter(x=>x.present).length+' with verification CLI · '+network.findings.length+' network findings'+(operational.devices.some(x=>x.syntheticOnly)?' · SYNTHETIC LAB':'')+'.';
+  activeSavedReport=null;reportGenerated=true;$('savedReportPreview').hidden=true;
+  $('saveEngineeringReport').disabled=false;$('editEngineeringReport').disabled=false;
+  $('reportStageStatus').textContent='Analysis complete. Open HTML View, export, edit reviewer notes, or save.';
   $('exportSTPCTO').disabled=false;$('viewSTPCTO').disabled=false;
+  if(currentStep===3)navigateWorkflow(4);else refreshWorkflow();
  }catch(error){$('exportSTPCTO').disabled=true;$('viewSTPCTO').disabled=true;$('stpCTOView').replaceChildren();$('stpCTOStatus').textContent='CTO report error: '+error.message;message(error.message,true);}
 };
 $('viewSTPCTO').onclick=()=>{
  if($('viewSTPCTO').disabled)return;
- $('stpCTOView').hidden=!$('stpCTOView').hidden;
- $('viewSTPCTO').textContent=$('stpCTOView').hidden?'HTML View':'Hide HTML View';
- if(!$('stpCTOView').hidden)$('stpCTOView').scrollIntoView?.({block:'nearest',behavior:'smooth'});
+ const view=activeSavedReport?$('savedReportPreview'):$('stpCTOView');
+ view.hidden=!view.hidden;
+ $('viewSTPCTO').textContent=view.hidden?'HTML View':'Hide HTML View';
+ if(!view.hidden)view.scrollIntoView?.({block:'nearest',behavior:'smooth'});
 };
 
 function getReportDocument(){
@@ -946,6 +952,11 @@ $('analyze').onclick=async()=>{
   }
   $('analyze').textContent=more?'Continue remaining batches':'Analyze reviewed evidence';
   $('downloadReport').disabled=false;
+  if(runState.reports.length){
+   activeSavedReport=null;reportGenerated=true;$('saveEngineeringReport').disabled=false;$('editEngineeringReport').disabled=false;
+   $('reportStageStatus').textContent=more?'Partial analysis — additional batches remain.':'Analysis draft ready for engineering review.';
+   if(!more&&currentStep===3)navigateWorkflow(4);else refreshWorkflow();
+  }
   message(more?'Partial analysis: '+runState.index+' / '+runState.batches.length+' batches. Continue to cover all evidence.':'All batches submitted. Cross-batch root cause is NOT independently established. Validate the report before use.');
  }catch(e){message(e.message,true);}
  finally{busy=false;$('analyze').disabled=!isReviewed();}
