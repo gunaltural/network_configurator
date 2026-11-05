@@ -51,6 +51,8 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{JSDOM}=require
  assert.match($('stpCTOView').textContent,/Per-VLAN root candidate/,'per-VLAN cross-device comparison is rendered');
  assert.match($('stpCTOView').textContent,/CORE-1/,'matrix reports per selected device');
  assert.match($('stpCTOView').textContent,/Upload CLI/,'per-device verification evidence can be uploaded from matrix rows');
+ assert.match($('stpCTOView').textContent,/Verification commands/,'CLI commands are visible as a dedicated column');
+ assert.match($('stpCTOView').textContent,/show version or show tech-support/,'STP-001 verification CLI remains visible');
  assert.equal($('viewSTPCTO').disabled,false,'HTML View is enabled after generating the report');
  $('viewSTPCTO').click();
  assert.equal($('stpCTOView').hidden,false,'HTML report is visible inside the application');
