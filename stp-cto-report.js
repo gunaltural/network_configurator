@@ -3,7 +3,8 @@
 'use strict';
 const E=(tag,cls,txt)=>{const x=document.createElement(tag);if(cls)x.className=cls;if(txt!==undefined)x.textContent=String(txt);return x;};
 const A=(node,...children)=>{for(const child of children)node.append(child);return node;};
-function build(container,review,preflight,db,language){
+function build(container,review,preflight,db,language,engineering){
+ if(!engineering||engineering.kind!=='stp-engineering-v2-deterministic-not-ai')throw Error('STP Engineering V2 evidence engine is unavailable.');
  if(!db||db.module!=='STP'||!Array.isArray(db.records)||db.records.length<10)throw Error('Engineering knowledge DB is not ready.');
  const tr=language==='tr',records=new Map(db.records.map(x=>[x.id,x])),sources=new Map(db.sources.map(x=>[x.id,x]));
  const L=(a,b)=>tr?a:b;
@@ -26,6 +27,7 @@ function build(container,review,preflight,db,language){
  paper.append(E('h2','',L('1 · Yönetici özeti','1 · Executive summary')));
  paper.append(E('p','',L('Değerlendirme yalnızca seçilen cihaz konfigürasyonlarına dayanır. Canlı root/port durumları doğrulanmadı.','Review is based only on selected configurations. Live root and port state is unverified.')));
  paper.append(kpis);
+ appendEngineeringReadout(paper,engineering,tr);
  const rootFindings=preflight.findings.filter(x=>['BRIDGE_PRIORITY_COMPARISON','EQUAL_BRIDGE_PRIORITY'].includes(x.code));
  const sec=E('section','');sec.append(E('h2','',L('2 · STP Root Tasarımı ve Yedeklilik','2 · Root Placement and Redundancy')));
  if(rootFindings.length){
@@ -77,13 +79,119 @@ function build(container,review,preflight,db,language){
  paper.append(risks);
  const verify=E('section','');verify.append(E('h2','',L('4 · Doğrulama ve Kabul Planı','4 · Verification and Acceptance')));
  const ol=E('ol','');for(const x of [...new Set([...preflight.missing,...review.furtherEvidence])].slice(0,12))ol.append(E('li','',x));verify.append(ol);paper.append(verify);
- const parameterCoverage=appendDecisionMatrix(paper,review,preflight,db,tr);
+ const parameterCoverage=appendDecisionMatrix(paper,review,preflight,db,tr,engineering);
  paper.append(E('footer','report-footer',L('Kaynak:','Source:')+' Design parameter know-how · SQLite knowledge v'+db.version+' · '+db.signature.slice(0,12)+' · '+L('AI çalıştırılmadı','No AI executed')));
  return {deviceCount:review.devices.length,riskCount:decisions.length,ruleCount:db.records.length,parameterCoverage};
 }
 
+
+/* A CTO can see actual device observations before generalized catalog findings. */
+function appendEngineeringReadout(paper,assessment,tr){
+ const L=(a,b)=>tr?a:b;
+ const section=E('section','stp-device-evidence');
+ section.append(E('h2','',L('2 · Cihaz Konfigürasyonundan Çıkarılan Mühendislik Analizi','2 · Configuration-driven Device Engineering Assessment')));
+ section.append(E('p','report-muted',L(
+  'Aşağıdaki tüm değerler analiz için seçilen cihazların yüklenen konfigürasyonlarından çıkarılmıştır. Port rolü ve fiziksel komşu doğrulanmadan STP koruma politikaları eksik/hatalı ilan edilmez.',
+  'All values below are parsed from selected device configurations. Port roles and physical neighbors must be verified before declaring missing or incorrect STP safeguards.')));
+ for(const device of assessment.devices){
+  const m=device.summary;
+  const panel=E('div','decision');panel.append(E('h3','',device.hostname+' · '+device.platform));
+  if(!device.hasConfig){panel.append(E('p','',L('Konfigürasyon bulunamadı. Bu cihaz için mühendislik sonucu oluşturulamaz.','No configuration supplied. Engineering conclusions are blocked.')));section.append(panel);continue;}
+  const facts=E('table','');facts.style.cssText='width:100%;border-collapse:collapse;font-size:12px';
+  const labels=[
+   [L('STP modu','STP mode'),m.mode||L('Doğrulanmadı','Unverified')],
+   [L('VTP modu','VTP mode'),m.vtp||L('Doğrulanmadı','Unverified')],
+   [L('Root priority (VLAN/instance)','Root priority (VLAN/instance)'),m.rootPriority||L('Doğrulanmadı','Unverified')],
+   [L('Tanımlı trunk','Configured trunks'),String(m.trunkCount)],
+   ['Root Guard',String(m.rootGuardCount)+L(' arayüz',' interfaces')],
+   ['Loop Guard',String(m.loopGuardCount)+L(' arayüz',' interfaces')],
+   ['UDLD',String(m.udldCount)+L(' arayüz',' interfaces')],
+   [L('Native VLAN dağılımı','Native VLAN distribution'),m.nativeSummary||'-'],
+   [L('Allowed VLAN dağılımı','Allowed VLAN distribution'),m.allowedSummary||'-']
+  ];
+  for(const [label,value] of labels){const row=E('tr',''),a=E('th','',label),b=E('td','',value);
+   a.style.cssText='padding:5px;text-align:left;width:32%;border-bottom:1px solid #dbe5ec';b.style.cssText='padding:5px;border-bottom:1px solid #dbe5ec;overflow-wrap:anywhere';
+   row.append(a,b);facts.append(row);}
+  panel.append(facts);
+  if(m.rootGuardCount&&m.loopGuardCount){
+   panel.append(E('p','cto-context',L(
+    m.rootGuardCount+' arayüzde Root Guard, '+m.loopGuardCount+' arayüzde Loop Guard kullanılması farklı L2 port rollerine göre bilinçli koruma tasarımına işaret edebilir. Root Guard designated/downstream; Loop Guard root/alternate bağlantılarında anlamlıdır. Gerçek port rolleri henüz kanıtlanmadı.',
+    m.rootGuardCount+' Root Guard and '+m.loopGuardCount+' Loop Guard ports may indicate deliberate separation of L2 boundary roles. Root Guard is intended for designated/downstream ports, Loop Guard for root/alternate behavior. Actual port roles remain unproven.')));
+  }
+  if(m.trunkCount&&!device.ports.some(p=>p.portfast||p.bpduGuard)){
+   panel.append(E('p','cto-action',L(
+    'PortFast ve BPDU Guard: Bu trunk arayüzlerde açıkça yapılandırılmamış. Switch-to-switch trunk üzerinde bu durum kendi başına hata değildir. Komşu/edge rolü doğrulanmadan eksiklik yazılamaz.',
+    'PortFast and BPDU Guard are not explicitly configured on these trunks. This is NOT inherently a defect on network-facing trunks. Verify edge/neighbor role before scoring applicability.')));
+  }
+  const ports=E('details','');ports.open=true;ports.append(E('summary','',L(
+   'Arayüz Bazlı Mühendislik Kontrolleri ('+device.ports.length+' port)',
+   'Per-interface engineering findings ('+device.ports.length+' ports)')));
+  const table=E('table','');table.style.cssText='width:100%;border-collapse:collapse;font-size:11px';
+  const head=E('tr','');for(const t of [L('Arayüz','Interface'),L('Trunk / VLAN','Trunk / VLAN'),L('Koruma / DTP','Protection / DTP'),L('Mühendislik yorumu','Engineering assessment')]){
+   const x=E('th','',t);x.style.cssText='padding:8px;text-align:left;border-bottom:2px solid #aabfcf';head.append(x);}
+  table.append(head);
+  for(const port of device.ports){
+   const row=E('tr','');const detail=E('details','');
+   detail.append(E('summary','',port.name));
+   detail.append(E('p','',port.description||L('Port açıklaması bulunmuyor','No interface description')));
+   detail.append(E('p','',port.evidence.join(' · ')||L('Tanımlanmış kural kanıtı bulunmuyor','No explicit control evidence')));
+   const values=[detail,
+    port.mode+' · native '+(port.native??'?')+' · allowed '+(port.allowed??'?'),
+    port.guard+' · '+port.udld+' · '+port.dtp,
+    port.interpretation];
+   for(const value of values){const cell=E('td','');cell.style.cssText='padding:8px;vertical-align:top;border-bottom:1px solid #dbe5ec;overflow-wrap:anywhere';
+    if(typeof value==='string')cell.textContent=value;else cell.append(value);row.append(cell);}
+   table.append(row);
+  }
+  ports.append(table);panel.append(ports);section.append(panel);
+ }
+ if(assessment.findings.length){
+  const alerts=E('div','');alerts.append(E('h3','',L('Kanıtlı konfigürasyon incelemeleri','Configuration findings requiring review')));
+  for(const item of assessment.findings){
+   const x=E('div','decision');
+   x.append(E('strong','',item.severity+' · '+item.id+' · '+item.device));
+   x.append(E('p','',item.reason));x.append(E('p','cto-action',item.action));
+   x.append(E('p','report-muted',item.evidence.join(' · ')));alerts.append(x);
+  }
+  section.append(alerts);
+ }
+ paper.append(section);
+}
+function appendEngineeringMatrix(paper,assessment,tr){
+ const L=(a,b)=>tr?a:b;
+ const section=E('section','stp-assessment-matrix');section.append(E('h2','',L('5 · 18 Kontrol İçin Cihaz Bazlı Kanıt ve Karar Matrisi','5 · Per-device Evidence and Decision Matrix — 18 Controls')));
+ section.append(E('p','report-muted',L(
+  'Durumlar: OBSERVED = komut okundu (uyumluluk sertifikası değil); DESIGN_REVIEW = topoloji/rol ile yorum gerektirir; ROLE_DEPENDENT = ilgili rol kanıtlanmadan eksiklik değildir; VERIFY = operasyonel kanıt gerekir; NOT_APPLICABLE = bu protokol tasarımında uygulanmaz. NOT AUTOMATED: canlı port/root ve arıza analizi konfigürasyondan yapılamaz.',
+  'OBSERVED = configuration statement read (not compliance); DESIGN_REVIEW = topology/role reasoning needed; ROLE_DEPENDENT = absence is not a fault without an applicable role; VERIFY = operational evidence needed; NOT_APPLICABLE = not relevant to protocol. NOT AUTOMATED: live root/port and failure verification require operational input.')));
+ let observed=0,review=0,verify=0;
+ for(const device of assessment.devices){
+  const details=E('details','');details.open=true;details.append(E('summary','',device.hostname+' · '+device.controls.length+L(' kriter',' criteria')));
+  const table=E('table','');table.style.cssText='width:100%;border-collapse:collapse;font-size:11px';
+  const header=E('tr','');
+  for(const text of ['ID',L('Kriter ve durum','Control / status'),L('Konfigürasyondan okunan','Observed from config'),L('Mühendislik yorumu','Engineering interpretation'),L('Kanıt / doğrulama','Evidence / verification')]){
+   const th=E('th','',text);th.style.cssText='text-align:left;padding:8px;border-bottom:2px solid #bccbd6';header.append(th);
+  }table.append(header);
+  for(const c of device.controls){
+   if(c.status==='OBSERVED')observed++;else if(c.status==='VERIFY')verify++;else review++;
+   const row=E('tr',''),proof=E('div','');
+   proof.append(E('strong','',c.verify));
+   if(c.evidence.length){const ds=E('details','');ds.append(E('summary','',L('CLI kanıtı ('+c.evidence.length+')','CLI evidence ('+c.evidence.length+')')));for(const e of c.evidence)ds.append(E('p','',e));proof.append(ds);}
+   if(c.source){const link=E('a','',c.source.title);link.href=c.source.url;link.target='_blank';link.rel='noopener noreferrer';proof.append(link);}
+   for(const val of [c.id,c.label+' · '+c.status,c.observed,c.analysis,proof]){
+    const cell=E('td','');cell.style.cssText='padding:8px;vertical-align:top;border-bottom:1px solid #dbe5ec;overflow-wrap:anywhere';
+    if(typeof val==='string')cell.textContent=val;else cell.append(val);row.append(cell);
+   }table.append(row);
+  }
+  details.append(table);section.append(details);
+ }
+ section.append(E('p','report-muted',L('Gözlenen: ','Observed: ')+observed+L(' · Tasarım/rol incelemesi: ',' · Design/role review: ')+review+L(' · Operasyonel doğrulama: ',' · Operational verification: ')+verify+'.'));
+ paper.append(section);
+ return {observed,issues:assessment.findings.length,unverified:verify,notAutomated:verify};
+}
+
 /* Auditable engineering parameter matrix — evidence presence is NOT compliance. */
-function appendDecisionMatrix(paper,review,preflight,db,tr){
+function appendDecisionMatrix(paper,review,preflight,db,tr,engineering){
+ if(engineering)return appendEngineeringMatrix(paper,engineering,tr);
  const L=(a,b)=>tr?a:b;
  const matrix=E('section','stp-assessment-matrix');
  matrix.append(E('h2','',L('5 · Cihaz Bazlı Parametre Matrisi ve Kanıt Kapsamı','5 · Device Parameter Matrix and Evidence Coverage')));
