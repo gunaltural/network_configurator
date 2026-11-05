@@ -48,7 +48,7 @@ def retrieve_sources(evidence: list[dict], vendor: str, *, max_items: int = 5) -
         # cannot authorize Cisco guidance for an unrelated Arista BGP output.
         explicit_vendors = [
             m.group(1).strip().lower()
-            for m in re.finditer(r"(?im)^Vendor:\\s*([^\\r\\n]+)", text)
+            for m in re.finditer(r"(?im)^Vendor:\s*([^\r\n]+)", text)
         ]
         vendors = explicit_vendors or ([default_vendor] if default_vendor else [])
         if not vendors:
