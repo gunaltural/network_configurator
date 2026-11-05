@@ -10,10 +10,18 @@ for(const file of ['ai-evidence.js','engineering-ai.js'])w.eval(fs.readFileSync(
 const d=w.document,$=id=>d.getElementById(id),open=()=>d.querySelector('#ncSidebar button').onclick();
 await open();assert.equal(calls,1);assert.equal(state.projectDetails.executiveSummary,'Existing authored text');
 await $('aiRun').onclick();assert.equal(calls,2);assert.equal(state.projectDetails.executiveSummary,'Existing authored text');
-$('aiDraft').value='Edited by engineer';$('aiInsert').onclick();assert.equal(state.projectDetails.executiveSummary,'Existing authored text\n\nEdited by engineer');assert.ok($('aiInsert').disabled);
-await open();await $('aiRun').onclick();state.devices[0].hostname='CE2';$('aiInsert').onclick();assert.ok($('aiStatus').textContent.includes('report changed'));assert.ok(!state.projectDetails.executiveSummary.includes('Reviewed path'));
-await open();await $('aiRun').onclick();$('aiDraft').value='X'.repeat(1300);$('aiInsert').onclick();assert.ok($('aiStatus').textContent.includes('section limit'));
+$('aiDraft').value='Edited by engineer';
+assert.equal($('aiInsert'),null,'AI drafts must not have a Project Report insertion control');
+assert.equal(state.projectDetails.executiveSummary,'Existing authored text','Independent AI analysis cannot modify project report');
+assert.match(d.querySelector('dialog').textContent,/not appended to Module Report or Final Project Report/);
+await open();await $('aiRun').onclick();state.devices[0].hostname='CE2';
+assert.equal(state.projectDetails.executiveSummary,'Existing authored text','Changes to Design cannot indirectly append an AI draft');
 w.fetch=async()=>({ok:true,json:async()=>({available:false})});await open();assert.ok($('aiRun').disabled);
 let externalCalls=0;w.confirm=()=>false;w.fetch=async url=>{externalCalls++;return {ok:true,json:async()=>url.endsWith('status')?{available:true,provider:'groq'}:{text:'must-not-run'}};};await open();await $('aiRun').onclick();assert.equal(externalCalls,1,'No external request without explicit confirmation');assert.match($('aiStatus').textContent,/cancelled/);
-dom.window.close();console.log('AI panel: explicit send, reviewed append, existing text, stale context, limits and disabled state passed');
+// New Project and Quick Design share the same optional AI entry action.
+const workflow=fs.readFileSync('project-workflow.js','utf8');
+assert.match(workflow,/Analyze '\+m\.key\+' Design with AI \(optional\)/,'Guided New Project displays module-scoped AI action');
+assert.match(workflow,/nc-ai-import-design/,'Guided AI action dispatches the shared handoff event');
+assert.match(fs.readFileSync('engineering-ai.js','utf8'),/addEventListener\('nc-ai-import-design'/,'AI importer listens for dynamically created project action');
+dom.window.close();console.log('AI panel: independent reports, external consent, disabled state, New Project and Quick Design AI entry contract passed');
 })().catch(e=>{console.error(e);process.exitCode=1});

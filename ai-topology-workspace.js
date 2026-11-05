@@ -5,6 +5,11 @@ const identifier=x=>String(x??'').trim();
 function fromDesign(report){
  if(!report||!Array.isArray(report.devices))throw Error('A design with devices is required.');
  const nodes=report.devices.filter(d=>!d.inventoryOnly).map(d=>({id:identifier(d.id),hostname:identifier(d.hostname||d.id),vendor:identifier(d.vendor||report.vendor),role:identifier(d.tier||d.role),source:'design'}));
+ // The editable graph follows the same hierarchical network tiers as Design,
+ // instead of using a generic circular layout. The imported SVG remains exact.
+ const upper=nodes.filter(n=>n.role==='upper'),lower=nodes.filter(n=>n.role==='lower');
+ const distribute=(members,y)=>members.forEach((n,i)=>{n.position={x:Math.round(400+(i-(members.length-1)/2)*Math.min(235,620/Math.max(1,members.length-1))),y};});
+ if(upper.length||lower.length){distribute(upper,105);distribute(lower,265);}
  const links=[...(report.links||[]),...(report.specialLinks||[])].filter(l=>l.enabled!==false).map((l,i)=>({id:identifier(l.id||'link-'+i),a:identifier(l.a),b:identifier(l.b),aPort:identifier(l.aPort||l.upperPort),bPort:identifier(l.bPort||l.lowerPort),kind:identifier(l.kind||'Connection'),logical:l.logical===true}));
  const ids=new Set(nodes.map(n=>n.id));
  const configs=(report.configurations||[]).filter(c=>ids.has(identifier(c.deviceId))&&typeof c.text==='string').map(c=>({
@@ -19,13 +24,14 @@ function fromDesign(report){
   })),
   checks:report.designChecks||null
  };
- return validate({schema:'ai-topology-workspace-v1',sourceModule:identifier(report.source?.module),sourceProjectName:identifier(report.source?.projectName).slice(0,120),nodes,links,configs,designReview});
+ return validate({schema:'ai-topology-workspace-v1',sourceModule:identifier(report.source?.module),nodes,links,configs,designReview,originalDesignSvg:typeof report.topologySvg==='string'&&report.topologySvg.length<=120000&&/^<svg[\s>]/i.test(report.topologySvg.trim())?report.topologySvg:null});
 }
 function validate(workspace){
  const model=clone(workspace),ids=new Set(),linkIds=new Set();
  if(model.schema!=='ai-topology-workspace-v1'||!Array.isArray(model.nodes)||!Array.isArray(model.links)||!Array.isArray(model.configs))throw Error('Invalid workspace schema.');
  if(model.designReview&&(!Array.isArray(model.designReview.parameters)||typeof model.designReview.edited!=='boolean'))throw Error('Invalid Design review context.');
- for(const n of model.nodes){if(!identifier(n.id)||ids.has(n.id))throw Error('Duplicate or empty device id.');ids.add(n.id);}
+ if(model.originalDesignSvg!=null&&(typeof model.originalDesignSvg!=='string'||model.originalDesignSvg.length>120000||!/^<svg[\s>]/i.test(model.originalDesignSvg.trim())))throw Error('Invalid original Design image.');
+ for(const n of model.nodes){if(!identifier(n.id)||ids.has(n.id))throw Error('Duplicate or empty device id.');if(n.position&&(!Number.isFinite(n.position.x)||!Number.isFinite(n.position.y)||n.position.x<45||n.position.x>755||n.position.y<45||n.position.y>315))throw Error('Invalid device layout coordinates.');ids.add(n.id);}
  for(const l of model.links){if(!identifier(l.id)||linkIds.has(l.id)||!ids.has(l.a)||!ids.has(l.b)||l.a===l.b)throw Error('Invalid link or endpoint.');linkIds.add(l.id);}
  const configuredDevices=new Set();
  for(const c of model.configs){
@@ -39,6 +45,14 @@ function edited(next){if(next.designReview)next.designReview.edited=true;return 
 function addDevice(workspace,device){
  const next=validate(workspace);next.nodes.push({id:identifier(device.id),hostname:identifier(device.hostname||device.id),vendor:identifier(device.vendor),role:identifier(device.role),source:'user'});return validate(edited(next));
 }
+// Coordinates describe only the engineer's drawing layout, never operational topology.
+function moveDevice(workspace,id,x,y){
+ const next=validate(workspace),node=next.nodes.find(n=>n.id===id);
+ if(!node)throw Error('Unknown device.');
+ if(!Number.isFinite(x)||!Number.isFinite(y))throw Error('Invalid topology coordinates.');
+ node.position={x:Math.round(Math.max(45,Math.min(755,x))),y:Math.round(Math.max(45,Math.min(315,y)))};
+ return validate(next);
+}
 function addLink(workspace,link){
  const next=validate(workspace);next.links.push({id:identifier(link.id),a:identifier(link.a),b:identifier(link.b),aPort:identifier(link.aPort),bPort:identifier(link.bPort),kind:identifier(link.kind||'Connection'),logical:link.logical===true});return validate(edited(next));
 }
@@ -51,8 +65,6 @@ function setConfiguration(workspace,deviceId,text){
  next.configs=next.configs.filter(c=>c.deviceId!==deviceId);
  next.configs.push({deviceId,text});return validate(edited(next));
 }
-// Structural graph evidence is computed from user-defined *physical* links.
-// These are possible dependency points, not observed outages or AI diagnoses.
 function structuralAssessment(workspace){
  const model=validate(workspace),physical=model.links.filter(l=>!l.logical);
  const adjacency=new Map(model.nodes.map(n=>[n.id,[]]));
@@ -116,8 +128,51 @@ function template(kind){
  const definition=definitions[kind];if(!definition)throw Error('Unknown topology template.');
  return validate({...blank(),...clone(definition),nodes:definition.nodes.map(n=>({...n,source:'template'}))});
 }
-// Technology-neutral builder: constructs only user-selected nodes and links.
-// Never invents routing policies, configurations, device state or AI conclusions.
+// Topology-only presets reflecting Design module node families. These DO NOT
+// generate configuration or infer protocol reachability. The engineer supplies
+// actual CLI/configuration evidence per node after building the graph.
+const TECHNOLOGIES={
+ BASIC:{label:'System & Management',platforms:['Cisco NX-OS','Cisco IOS-XE','Arista EOS','Huawei_CE_SW','FortiGate'],primary:'managed device',secondary:'',primaryCount:1,secondaryCount:0},
+ BGP:{label:'BGP',platforms:['Cisco NX-OS','Cisco IOS-XE','Arista EOS','Huawei_CE_SW','FortiGate'],primary:'CE router',secondary:'ISP router',primaryCount:2,secondaryCount:2},
+ OSPF:{label:'OSPF',platforms:['Cisco NX-OS','Cisco IOS-XE','Arista EOS','Huawei_CE_SW','FortiGate'],primary:'router',secondary:'router',primaryCount:1,secondaryCount:1},
+ STP:{label:'STP',platforms:['Cisco NX-OS','Cisco IOS-XE','Arista EOS','Huawei_CE_SW'],primary:'core switch',secondary:'access switch',primaryCount:2,secondaryCount:2},
+ VPC:{label:'vPC / MLAG',platforms:['Cisco NX-OS','Cisco IOS-XE','Arista EOS','Huawei_CE_SW','Huawei iStack'],primary:'peer switch',secondary:'access switch',primaryCount:2,secondaryCount:2},
+ EVPN:{label:'EVPN / VXLAN',platforms:['Cisco NX-OS','Arista EOS','Huawei_CE_SW'],primary:'spine',secondary:'leaf',primaryCount:2,secondaryCount:2},
+ SDWAN:{label:'SD-WAN',platforms:['Cisco IOS-XE'],primary:'edge router',secondary:'external transport',primaryCount:2,secondaryCount:2},
+ QOS:{label:'QoS',platforms:['Cisco NX-OS','Cisco IOS-XE','Arista EOS','Huawei_CE_SW'],primary:'device',secondary:'device',primaryCount:1,secondaryCount:1}
+};
+function technologyCatalog(){return clone(TECHNOLOGIES);}
+function buildTechnologyTopology(module,platform,primaryCount,secondaryCount){
+ const key=identifier(module).toUpperCase(),def=TECHNOLOGIES[key];
+ if(!def)throw Error('Unknown Design technology.');
+ if(!def.platforms.includes(platform))throw Error('Platform is unavailable for this technology.');
+ const p=Number(primaryCount),q=Number(secondaryCount);
+ if(!Number.isInteger(p)||!Number.isInteger(q)||p<1||p>8||q<0||q>12||(!def.secondary&&q!==0))throw Error('Invalid device counts for the selected technology.');
+ if(['VPC','STP'].includes(key)&&p!==2)throw Error('This Design baseline requires two core/peer switches.');
+ if(['OSPF','QOS'].includes(key)&&(p!==1||q!==1))throw Error('The current Design baseline is a two-device adjacency.');
+ const nodes=[],links=[];const add=(prefix,i,role,level,vendor=platform)=>{
+  const id=prefix+'-'+i;
+  const spacing=level==='upper'?Math.min(155,650/Math.max(1,p-1)):Math.min(150,650/Math.max(1,q-1));
+  const x=Math.max(45,Math.min(755,Math.round(400+(i-1-( (level==='upper'?p:q)-1)/2)*spacing)));
+  nodes.push({id,hostname:prefix.toUpperCase()+'-'+String(i).padStart(2,'0'),vendor,role,source:'template',position:{x,y:level==='upper'?95:265}});
+  return id;
+ };
+ const a=Array.from({length:p},(_,i)=>add(key==='BGP'?'ce':key==='EVPN'?'spine':key==='SDWAN'?'edge':key==='BASIC'?'mgmt':key==='OSPF'?'rtr-a':key==='QOS'?'qos-a':'core',i+1,def.primary,'upper'));
+ const b=Array.from({length:q},(_,i)=>add(key==='BGP'?'isp':key==='EVPN'?'leaf':key==='SDWAN'?'transport':key==='OSPF'?'rtr-b':key==='QOS'?'qos-b':'access',i+1,def.secondary,'lower',key==='BGP'?'External (ISP)':key==='SDWAN'?'External (transport)':platform));
+ const link=(x,y,kind,logical=false)=>{const id='link-'+(links.length+1);links.push({id,a:x,b:y,kind,logical,aPort:'',bPort:''});};
+ if(key==='VPC'){
+  link(a[0],a[1],platform==='Huawei iStack'?'stack interconnect':'peer-link');
+  if(platform!=='Huawei iStack')link(a[0],a[1],'peer-keepalive',true);
+ }
+ if(key==='STP')link(a[0],a[1],'core interconnect');
+ if(key==='BGP')for(const ce of a)for(const isp of b)link(ce,isp,'eBGP candidate');
+ else if(key==='SDWAN')for(const edge of a)for(const wan of b)link(edge,wan,'transport candidate');
+ else if(key==='EVPN')for(const spine of a)for(const leaf of b)link(spine,leaf,'underlay candidate');
+ else if(key==='VPC'||key==='STP')for(const core of a)for(const acc of b)link(core,acc,'access uplink candidate');
+ else if(key==='OSPF'||key==='QOS')link(a[0],b[0],key==='OSPF'?'OSPF adjacency candidate':'QoS path');
+ // A template is a planning graph, not a claim that peering or physical links exist.
+ return validate({...blank(),sourceModule:key,nodes,links,templateInfo:{module:key,platform,primaryCount:p,secondaryCount:q,intentOnly:true}});
+}
 function buildFreeTopology(options={}){
  const count=Number(options.deviceCount);
  if(!Number.isInteger(count)||count<1||count>32)throw Error('Device count must be between 1 and 32.');
@@ -167,20 +222,18 @@ function removeLink(workspace,id){
 }
 const sensitive=/(?:password|passwd|secret|snmp[-\s]?server\s+community|snmp\s+community|community-string|private.?key|api.?key|authorization|sk-[A-Za-z0-9_-]+)/i;
 function safeLine(line){return sensitive.test(line)?'[REDACTED]':line.replace(/[\r\n\t]/g,' ');}
-function analysisEvidenceBatches(workspace){
+function analysisEvidenceBatches(workspace,selectedDeviceIds){
  const model=validate(workspace),items=[];
  if(!model.nodes.length)throw Error('Add at least one device before analysis.');
+ const allIds=new Set(model.nodes.map(n=>n.id));
+ const chosen=selectedDeviceIds==null?allIds:new Set(selectedDeviceIds);
+ if(!chosen.size||[...chosen].some(id=>!allIds.has(id)))throw Error('Select one or more valid devices before analysis.');
  // Every topology and configuration fact is line-addressed. No fabricated CLI
  // commands, and no rule-derived conclusion is passed off as an observation.
- const assessment=structuralAssessment(model);
- const topology=['Workspace topology: user-edited (not verified operational state)',
-  'Graph review: physical-model components='+assessment.components.length+
-   '; potential transit nodes='+assessment.potentialTransitDependencies.join(',')+
-   '; potential single-path links='+assessment.potentialSinglePathLinks.join(',')+
-   '; logical links excluded from physical reachability='+assessment.logicalLinks,
-  'Graph review is a computed structural observation only, not proof of traffic failure or an AI diagnosis'];
- for(const n of model.nodes)topology.push('Device '+n.id+' hostname='+n.hostname+' vendor='+n.vendor+' role='+n.role);
- for(const l of model.links)topology.push('Link '+l.id+' '+l.a+'['+l.aPort+'] to '+l.b+'['+l.bPort+'] kind='+l.kind+' logical='+!!l.logical);
+ const topology=['Workspace topology: user-edited (not verified operational state)'];
+ topology.push('Selected devices: '+[...chosen].join(', '));
+ for(const n of model.nodes.filter(n=>chosen.has(n.id)))topology.push('Device '+n.id+' hostname='+n.hostname+' vendor='+n.vendor+' role='+n.role);
+ for(const l of model.links.filter(l=>chosen.has(l.a)&&chosen.has(l.b)))topology.push('Link '+l.id+' '+l.a+'['+l.aPort+'] to '+l.b+'['+l.bPort+'] kind='+l.kind+' logical='+!!l.logical);
  const addChunks=(idPrefix,header,lines)=>{
   let chunk=[],size=header.length+15,part=0;
   function flush(){if(!chunk.length)return;items.push({id:idPrefix+'-'+part++,text:header+'\n'+chunk.join('\n')});chunk=[];size=header.length+15;}
@@ -195,13 +248,13 @@ function analysisEvidenceBatches(workspace){
  addChunks('topology','Device: WORKSPACE\nCommand: user topology manifest (design intent, not operational proof)',topology);
  if(model.designReview){
   const source=model.designReview.edited?'Original Design parameters (workspace has since been edited)':'Original Design parameters (intent; not operational proof)';
-  const params=['Source: '+source,...model.designReview.parameters.map(p=>
+  const params=['Source: '+source,'Scope: these parameters describe the complete original Design, not just the selected devices',...model.designReview.parameters.map(p=>
    'Parameter '+p.label+' | selected='+p.value+' | engineering rationale='+p.impact
   )];
   addChunks('design-intent','Device: ORIGINAL-DESIGN\nCommand: parameter choices and engineering rationale',params);
   const checks=model.designReview.checks;
   if(checks){
-   const observations=['Source: existing Design consistency checker; this is not AI reasoning or deployed configuration verification',
+   const observations=['Source: existing Design consistency checker; this is not AI reasoning or deployed configuration verification','Scope: whole original Design; checker issues are not automatically attributed to selected devices',
     'Evaluated '+checks.evaluated+' inputs; '+checks.errors+' errors; '+checks.warnings+' warnings',
     'Original Design status: '+(model.designReview.edited?'STALE AFTER WORKSPACE EDITS':'snapshot at import')];
    for(const issue of checks.issues||[])observations.push(safeLine('Design check '+issue.code+' '+issue.severity+': '+issue.message));
@@ -210,7 +263,7 @@ function analysisEvidenceBatches(workspace){
  }
  for(const [index,c]of model.configs.entries()){
   const node=model.nodes.find(n=>n.id===c.deviceId);
-  if(!node)continue;
+  if(!node||!chosen.has(c.deviceId))continue;
   if(c.text.length>150000)throw Error('Device configuration exceeds 150 KB. Use CLI Analysis for large captures.');
   addChunks('config-'+index,'Device: '+identifier(node.hostname).replace(/[\r\n]/g,' ')+'\nVendor: '+identifier(node.vendor).replace(/[\r\n]/g,' ')+'\nCommand: proposed configuration (generated Design or manually attached; NOT deployed)',c.text.replace(/\r\n?/g,'\n').split('\n'));
  }
@@ -225,5 +278,5 @@ function analysisEvidenceBatches(workspace){
  return batches;
 }
 
-root.NetworkAITopology={fromDesign,blank,template,buildFreeTopology,structuralAssessment,validate,addDevice,updateDevice,addLink,updateLink,removeLink,removeDevice,setConfiguration,analysisManifest,analysisEvidenceBatches};
+root.NetworkAITopology={fromDesign,blank,template,technologyCatalog,buildTechnologyTopology,buildFreeTopology,structuralAssessment,validate,addDevice,moveDevice,updateDevice,addLink,updateLink,removeLink,removeDevice,setConfiguration,analysisManifest,analysisEvidenceBatches};
 })(typeof window==='undefined'?globalThis:window);
