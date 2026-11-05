@@ -260,7 +260,7 @@ function safeLine(line){return sensitive.test(line)?'[REDACTED]':line.replace(/[
 /* Evidence retrieval across the whole capture. This is bounded selection, not
  * full-file model inference. Original line identifiers must survive sampling. */
 const CAPTURE_TOPICS={
- BGP:/\bbgp\b|neighbor|prefix|remote-as|local.pref|route.map|state\/pfx|tcp.179|route policy/i,
+ BGP:/\bbgp\b|^\s*Neighbor\s+V\s+AS\b|^\s*(?:neighbor\s+(?:\d{1,3}\.){3}\d{1,3}\s+(?:remote-as|activate)|peer\s+(?:\d{1,3}\.){3}\d{1,3}\s+as-number)|local.pref|route.map|state\/pfx|tcp.179|route policy/i,
  OSPF:/\bospf\b|adjacency|\blsdb\b|exstart|exchange|router.id|area [0-9]/i,
  EVPN:/\bevpn\b|\bvxlan\b|\bvni\b|\bnve\b|route.target|type.[235]|mac.ip|vtep/i,
  VPC:/\bvpc\b|\bmlag\b|peer.link|keep.alive|peer.gateway|port.channel|consistency/i,
