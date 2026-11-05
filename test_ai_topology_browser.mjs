@@ -30,6 +30,7 @@ try{
  await page.locator('#role').fill('edge');
  await page.locator('#saveDevice').click();
  assert.match(await page.locator('#overview').innerText(),/3 devices/);
+ await page.locator('#connectionEditor summary').click();
  await page.locator('#linkId').fill('fw-uplink');
  await page.locator('#linkKind').fill('Ethernet');
  await page.locator('#linkA').selectOption('n9k-a');
