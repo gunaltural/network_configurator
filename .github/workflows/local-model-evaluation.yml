@@ -54,7 +54,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install application test dependencies
-        run: python -m pip install fastapi httpx httpx2
+        run: python -m pip install fastapi httpx
       - name: Verify isolated AI topology workspace contract
         run: node test_ai_topology_workspace.cjs
       - name: Verify raw TAC evidence correlation
@@ -132,7 +132,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install evaluation dependencies
-        run: python -m pip install fastapi httpx httpx2
+        run: python -m pip install fastapi httpx
       - name: Download stronger Qwen2.5 3B GGUF
         run: |
           set -euo pipefail
@@ -178,7 +178,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install held-out evaluation dependencies
-        run: python -m pip install fastapi httpx httpx2
+        run: python -m pip install fastapi httpx
       - name: Verify independent endpoint probe and safe diagnostics offline
         run: python -m unittest -v test_groq_access_probe
       - name: Test Groq account and model permission without customer evidence
