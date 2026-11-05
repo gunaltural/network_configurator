@@ -126,6 +126,29 @@ function review(workspace,ids){
   for(const g of o.rootGuard){const collision=o.loopGuard.find(x=>x.iface&&x.iface===g.iface);if(collision)
    add('rootGuard','warning',d.hostname+': root guard and loop guard on '+g.iface,'The two safeguards are not intended simultaneously on the same interface; check vendor support and correct port role.',[ref(d,g),ref(d,collision)],'stp');}
  }
+ // Assess cross-core VTP intent only when both nodes explicitly state their mode.
+ // Do not claim a live VLAN mismatch from configuration directives alone.
+ for(let i=0;i<parsed.length;i++)for(let j=i+1;j<parsed.length;j++){
+  const a=parsed[i],b=parsed[j];
+  if(!a.hasCapture||!b.hasCapture)continue;
+  const av=a.observed.vtpMode[0],bv=b.observed.vtpMode[0];
+  if(av&&bv&&av.value!==bv.value){
+   const local=['off','transparent'].includes(av.value)||['off','transparent'].includes(bv.value);
+   add('vtpMode','review',a.hostname+' ↔ '+b.hostname+': VTP management modes differ',
+    a.hostname+' uses '+av.value+' and '+b.hostname+' uses '+bv.value+'. '+(local?
+    'At least one device manages VLANs locally; validate whether centralized synchronization is intended and compare VLAN database/trunk consistency.':
+    'Both devices participate in VTP differently; verify intended server/client roles, version, domain and primary control.'),
+    [ref(a,av),ref(b,bv)],'vtp',
+    'Mode mismatch is not itself evidence of an STP loop or service outage; confirm show vtp status and show vlan brief.');
+  }
+  const am=a.observed.stpMode[0],bm=b.observed.stpMode[0];
+  if(am&&bm&&am.value!==bm.value){
+   add('stpMode','warning',a.hostname+' ↔ '+b.hostname+': STP mode differs',
+    a.hostname+' uses '+am.value+' while '+b.hostname+' uses '+bm.value+'. Check rapid/MST boundary interoperability and root behavior on the actual interconnect.',
+    [ref(a,am),ref(b,bm)],'stp',
+    'Different configuration modes are not sufficient to predict live root, convergence or forwarding states.');
+  }
+ }
  // Compare per-endpoint native VLAN only when exact link port names are present.
  for(const link of workspace.links||[]){
   const a=parsed.find(d=>d.id===link.a),b=parsed.find(d=>d.id===link.b);
