@@ -30,6 +30,27 @@ const technologies=['BGP','OSPF','EVPN','VPC','SDWAN','STP','SYSTEM','DCI'];
 const correlated=C.assess({workspace,deviceIds:nodes.map(x=>x.id),modules:technologies});
 const result=M.evaluate({workspace,deviceIds:nodes.map(x=>x.id),modules:technologies,correlation:correlated,language:'en'});
 assert.equal(result.schema,'ai-engineering-assessment-matrix-v1');
+
+assert.equal(result.rejectedUnboundFindings,0,'All real correlator findings match their original supplied CLI lines');
+const original=correlated.findings.find(f=>f.evidence?.length&&f.evidence[0].source.startsWith('show: '));
+assert.ok(original,'Test requires an observed line-bearing finding');
+for(const forged of [
+ {line:9999},
+ {device:'NONEXISTENT-HOSTNAME'},
+ {excerpt:'fabricated state: Established'},
+ {source:'show: other-file.txt'},
+ {deviceId:'another-device'}
+]){
+ const fake={...original,id:'FORGED-PROOF',evidence:[{...original.evidence[0],...forged}]};
+ const output=M.evaluate({workspace,deviceIds:nodes.map(x=>x.id),modules:technologies,
+  correlation:{findings:[...correlated.findings,fake]}});
+ assert.equal(output.rejectedUnboundFindings,1,'Forged evidence must not enter assessment matrix');
+ assert.equal(output.findings.some(f=>f.id==='FORGED-PROOF'),false);
+}
+const staleCapture={...workspace,showTech:real.filter(x=>x.filename!=='ios-bgp')};
+const stale=M.evaluate({workspace:staleCapture,deviceIds:nodes.map(x=>x.id),modules:technologies,correlation:correlated});
+assert.ok(stale.rejectedUnboundFindings>=1,'Report must reject findings when source CLI is deleted after correlation');
+
 assert.equal(result.controls.length,8,'Every chosen technology has a consistent assessment methodology');
 assert.ok(result.controls.every(x=>x.purpose&&x.audit&&x.acceptance&&x.conditionalRisk));
 assert.equal(result.controls.find(x=>x.technology==='STP').state,'NOT_VERIFIED','No automatic control PASS from unsupported operational evidence');
