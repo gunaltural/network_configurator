@@ -62,7 +62,7 @@ function parse(node,input){
   if((m=cmd.match(/^spanning-tree vlan\s+([\d,\s-]+)\s+root\s+(primary|secondary)/i))){
    result.rootMacros.push(record({instances:vlanList(m[1]),role:m[2].toLowerCase()},line,cmd));continue;
   }
-  if(/^(?:spanning-tree portfast default|spanning-tree portfast bpduguard default|spanning-tree loopguard default|udld aggressive|udld enable)$/i.test(cmd))result.global.push(record(cmd,line,cmd));
+  if(/^(?:spanning-tree portfast(?: edge)? default|spanning-tree portfast(?: edge)? bpduguard default|spanning-tree loopguard default|udld aggressive|udld enable)$/i.test(cmd))result.global.push(record(cmd,line,cmd));
  });
  result.vlans=[...new Set(result.vlans)].sort((a,b)=>a-b);
  return result;
@@ -82,6 +82,10 @@ function assess(workspace,ids){
   const roots=d.interfaces.filter(p=>p.rootGuard),loops=d.interfaces.filter(p=>p.loopGuard);
   const udlds=d.interfaces.filter(p=>p.udld),edge=d.interfaces.filter(p=>p.portfast);
   const bpdus=d.interfaces.filter(p=>p.bpduGuard);
+  const globalPortfast=d.global.filter(x=>/^spanning-tree portfast(?: edge)? default$/i.test(x.command));
+  const globalBpdu=d.global.filter(x=>/^spanning-tree portfast(?: edge)? bpduguard default$/i.test(x.command));
+  const explicitInstances=[...new Set(d.priorities.filter(x=>x.value.scope==='VLAN').map(x=>x.value.instance).concat(...d.rootMacros.map(x=>x.value.instances)))].sort((a,b)=>a-b);
+  const instanceVerification=explicitInstances.length&&explicitInstances.length<=32?'show spanning-tree vlan '+explicitInstances.join(','):'show spanning-tree root; show spanning-tree detail';
   const nativeMap=new Map(),allowMap=new Map();
   for(const p of trunks){
    const native=p.native?String(p.native.value):'?';
@@ -119,6 +123,7 @@ function assess(workspace,ids){
     portfast:!!p.portfast,bpduGuard:!!p.bpduGuard,controls,interpretation,evidence};
   });
   function c(id,label,status,observed,analysis,verify,evidence,source){
+   if(!d.hasConfig)return {id,label,status:'NO_DATA',observed:'No configuration attached',analysis:'No configuration assessment possible. Attach the device capture.',verify,evidence:[],source:source||SOURCES.stp};
    return {id,label,status,observed,analysis,verify,evidence:evidence.filter(Boolean),source:source||SOURCES.stp};
   }
   const controls=[];
@@ -128,24 +133,24 @@ function assess(workspace,ids){
   controls.push(c('STP-001','Platform / software version','VERIFY','Workspace: '+d.platform,'Exact model and OS version were not supplied by running-config. Vendor-default assumptions are not validated.','show version',[]));
   controls.push(c('STP-002','Device and interface role','ROLE_DEPENDENT',trunks.length+' trunk(s) configured; topology describes design intent only.','Core / distribution / access role and each trunk peer must be verified from topology and LLDP/CDP before declaring safeguards wrong.','show cdp neighbors detail; show lldp neighbors detail',trunks.map(p=>ref(d,p.trunk,p.name))));
   controls.push(c('STP-003','STP protocol mode',d.mode?'OBSERVED':'VERIFY',d.mode?.value||'not explicitly stated',d.mode?.value==='rapid-pvst'?'Rapid-PVST configured; this alone does not measure convergence time.':'Verify protocol interoperability against adjacent switches.','show spanning-tree summary',[ref(d,d.mode)]));
-  controls.push(c('STP-004','Root placement',d.priorities.length||d.rootMacros.length?'DESIGN_REVIEW':'VERIFY',priSummary||'No explicit priority observed','Configured lower bridge priority makes this device a preferred root candidate relative to higher-priority peers, not a proven operational root. Compare every relevant bridge per VLAN.','show spanning-tree root; show spanning-tree vlan 10,20',[...priEvidence,...d.rootMacros.map(x=>ref(d,x))],SOURCES.root));
+  controls.push(c('STP-004','Root placement',d.priorities.length||d.rootMacros.length?'DESIGN_REVIEW':'VERIFY',priSummary||'No explicit priority observed','Configured lower bridge priority makes this device a preferred root candidate relative to higher-priority peers, not a proven operational root. Compare every relevant bridge per VLAN.','show spanning-tree root; '+instanceVerification,[...priEvidence,...d.rootMacros.map(x=>ref(d,x))],SOURCES.root));
   controls.push(c('STP-005','Bridge ID / priority',d.priorities.length?'OBSERVED':'VERIFY',priSummary||'not explicitly stated','Bridge ID also includes system-ID extension/MAC address; root election cannot be proven by priority alone.','show spanning-tree detail',priEvidence,SOURCES.root));
   controls.push(c('STP-006','Root redundancy','VERIFY',d.priorities.length?'Root candidate configured; backup role unproven':'No configured candidate captured','Assess root takeover against all peers and redundant topology; no measured failover duration inferred.','show spanning-tree root; show spanning-tree detail',priEvidence));
   controls.push(c('STP-007','MST region',d.mode&&d.mode.value!=='mst'&&d.mode.value!=='mstp'?'NOT_APPLICABLE':'VERIFY',
    d.mode&&d.mode.value!=='mst'&&d.mode.value!=='mstp'?'Not applicable to configured '+d.mode.value:'MST region not evaluated',
    d.mode&&d.mode.value!=='mst'&&d.mode.value!=='mstp'?'Do not report missing MST settings as a defect under Rapid-PVST.':'Compare region name, revision and VLAN-to-instance mapping against peers.','show spanning-tree mst configuration',[ref(d,d.mode)],SOURCES.trunk));
-  controls.push(c('STP-008','PortFast / edge port','ROLE_DEPENDENT',edge.length+' explicit PortFast interface(s); '+trunks.length+' trunk(s) seen',
-   edge.length?'Check that each PortFast trunk terminates at a true endpoint; a server-facing trunk can be legitimate.':
+  controls.push(c('STP-008','PortFast / edge port','ROLE_DEPENDENT',edge.length+' explicit PortFast interface(s); '+trunks.length+' trunk(s) seen; '+globalPortfast.length+' global edge default(s)',
+   edge.length?'Check that each PortFast trunk terminates at a true endpoint; a server-facing trunk can be legitimate.':globalPortfast.length?'Global PortFast default is configured. Verify which interfaces qualify as operational edge; do not infer forwarding state from the global command.':
    'No explicit PortFast on captured trunks. This is NOT a fault by itself; network-facing trunks normally do not need PortFast. Confirm any actual endpoint edge ports separately.',
-   'show spanning-tree interface detail; show lldp neighbors detail',edge.map(p=>ref(d,p.portfast,p.name))));
-  controls.push(c('STP-009','BPDU Guard','ROLE_DEPENDENT',bpdus.length+' explicit BPDU Guard interface(s)',
-   bpdus.length?'Assess BPDU Guard only on confirmed edge-facing interfaces.':
+   'show spanning-tree interface detail; show lldp neighbors detail',[...edge.map(p=>ref(d,p.portfast,p.name)),...globalPortfast.map(x=>ref(d,x))]));
+  controls.push(c('STP-009','BPDU Guard','ROLE_DEPENDENT',bpdus.length+' explicit BPDU Guard interface(s); '+globalBpdu.length+' global edge default(s)',
+   bpdus.length?'Assess BPDU Guard only on confirmed edge-facing interfaces.':globalBpdu.length?'Global BPDU Guard default is configured. Verify which ports operate as PortFast edge; this is not proof the feature is active on every trunk.':
    'No explicit BPDU Guard on captured trunks. This is NOT a fault by itself; BPDU Guard belongs to the edge-port protection policy, not every Core trunk.',
-   'show spanning-tree summary; show running-config | include bpduguard',bpdus.map(p=>ref(d,p.bpduGuard,p.name))));
+   'show spanning-tree summary; show running-config | include bpduguard',[...bpdus.map(p=>ref(d,p.bpduGuard,p.name)),...globalBpdu.map(x=>ref(d,x))]));
   controls.push(c('STP-010','Root Guard',roots.length?'DESIGN_REVIEW':'ROLE_DEPENDENT',roots.length+' interface(s): '+join(roots.map(p=>p.name)),
    roots.length?'Protection is configured. Root Guard is intended for designated/downstream-facing boundaries; verify VLAN-specific roles and prevent incorrect placement on root ports.':
    'No explicit Root Guard; assess only interfaces where superior BPDUs must be excluded.',
-   'show spanning-tree vlan 10,20 detail; show spanning-tree inconsistentports',roots.map(p=>ref(d,p.rootGuard,p.name)),SOURCES.root));
+   instanceVerification+' detail; show spanning-tree inconsistentports',roots.map(p=>ref(d,p.rootGuard,p.name)),SOURCES.root));
   controls.push(c('STP-011','Loop Guard',loops.length?'DESIGN_REVIEW':'ROLE_DEPENDENT',loops.length+' interface(s): '+join(loops.map(p=>p.name)),
    loops.length?'Loop Guard is configured. It protects eligible root/alternate (non-designated) ports from loss of expected BPDUs; validate role per VLAN.':
    'Absence alone cannot establish a defect without STP role and redundancy context.',
@@ -183,7 +188,7 @@ function assess(workspace,ids){
   if(nativeMap.size>1)
    finding(d.hostname,'STP-014','REVIEW','Trunk native VLANs differ inside '+d.hostname, trunks.map(p=>ref(d,p.native,p.name)).filter(Boolean),'Determine if VLAN differences reflect intentional network segmentation.');
   reports.push({hostname:d.hostname,id:d.id,platform:d.platform,configHostname:d.configHostname?.value||null,hasConfig:haveConfig,
-   summary:{mode:d.mode?.value||null,vtp:d.vtp?.value||null,vlans:d.vlans,rootPriority:priSummary,
+   summary:{mode:d.mode?.value||null,vtp:d.vtp?.value||null,vlans:d.vlans,rootPriority:priSummary,globalPortfast:globalPortfast.length,globalBpduGuard:globalBpdu.length,
     trunkCount:trunks.length,rootGuardCount:roots.length,loopGuardCount:loops.length,udldCount:udlds.length,
     nativeSummary:nativeText,allowedSummary:allowText},
    facts:{mode:ref(d,d.mode),vtp:ref(d,d.vtp),priorities:priEvidence},
