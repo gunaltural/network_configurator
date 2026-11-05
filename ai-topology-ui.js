@@ -851,7 +851,8 @@ function publishGenericReport(options={}){
  $('saveEngineeringReport').disabled=false;$('editEngineeringReport').disabled=false;
  $('reportStageStatus').textContent=options.offline?'Local Design / CLI evidence summary; AI not executed.':
   (runState&&runState.index<runState.batches.length?'Partial model analysis; more evidence batches remain.':'AI draft ready for engineer review.');
- if(currentStep===3)navigateWorkflow(4);else{refreshWorkflow();if(currentStep===4)showGeneratedReport();}
+ if(currentStep===3&&(options.offline||!runState||runState.index>=runState.batches.length))navigateWorkflow(4);
+ else{refreshWorkflow();if(currentStep===4)showGeneratedReport();}
 }
 $('analysisResult').addEventListener('input',()=>{
  const preview=$('stpCTOView').querySelector('[data-editable-draft]');
@@ -878,7 +879,7 @@ function getReportDocument(){
 }
 async function downloadDocument(format){
  const button=$(format==='pdf'?'downloadEngineeringPDF':'downloadEngineeringWord');
- if(button.dataset.downloading==='true'||!reportAvailable())return;
+ if(button.dataset.downloading==='true'||(!reportGenerated&&!activeSavedReport))return;
  const label=format==='pdf'?'PDF':'Word',ext=format==='pdf'?'pdf':'docx';
  const originalText=button.textContent;
  button.dataset.downloading='true';
@@ -913,7 +914,7 @@ async function downloadDocument(format){
   clearTimeout(watchdog);
   button.textContent=originalText;
   button.dataset.downloading='false';
-  button.disabled=!reportAvailable();
+  button.disabled=!reportGenerated&&!activeSavedReport;
  }
 }
 $('downloadEngineeringPDF').onclick=()=>downloadDocument('pdf');
