@@ -88,7 +88,7 @@ function run(args){
  if(!result||!Array.isArray(result.findings)||result.findings.length>LIMITS.findings)throw Error(technology+' adapter must return a bounded list of evidence-based findings');
  const ids=new Set(),counts={GOOD:0,RISK:0,VERIFY:0,NA:0};
  const guidanceFor=id=>pack.controls.find(c=>c.id===id)||
-  pack.controls.find(c=>c.findingPrefixes.some(prefix=>id.startsWith(prefix)));
+  pack.controls.find(c=>id.startsWith(c.id+'-')||c.findingPrefixes.some(prefix=>id.startsWith(prefix)));
  const normalizeLocations=items=>(Array.isArray(items)?items:[]).slice(0,LIMITS.lines).filter(item=>item&&typeof item==='object').map(item=>({
   device:toString(item.device||item.hostname||item.deviceId),
   interface:toString(item.interface),line:Number.isInteger(item.line)&&item.line>0?item.line:null,
