@@ -61,6 +61,33 @@ function chooseEntry(mode){
 $('chooseDesign').onclick=()=>{chooseEntry('design');$('refreshSavedDesign').click();};
 $('chooseSaved').onclick=()=>chooseEntry('saved');
 $('chooseBuild').onclick=()=>chooseEntry('build');
+const buildCatalog=api.technologyCatalog();
+function updateBuildOptions(){
+ const tech=$('buildTechnology').value,definition=buildCatalog[tech];if(!definition)return;
+ $('buildPlatform').replaceChildren(...definition.platforms.map(platform=>makeOption(platform,platform)));
+ $('buildPrimaryCount').value=String(definition.primaryCount);
+ $('buildSecondaryCount').value=String(definition.secondaryCount);
+ $('buildPrimaryCount').disabled=['STP','VPC','OSPF','QOS'].includes(tech);
+ $('buildSecondaryCount').disabled=!definition.secondary||['OSPF','QOS'].includes(tech);
+ $('primaryCountLabel').firstChild.textContent=definition.primary.charAt(0).toUpperCase()+definition.primary.slice(1)+' count';
+ $('secondaryCountLabel').firstChild.textContent=(definition.secondary||'Secondary device')+' count';
+}
+$('buildTechnology').append(...Object.entries(buildCatalog).map(([key,definition])=>makeOption(key,definition.label)));
+$('buildTechnology').value='STP';
+$('buildTechnology').onchange=updateBuildOptions;
+updateBuildOptions();
+$('applyTechnologyTemplate').onclick=()=>{
+ if((workspace.nodes.length||workspace.configs.length)&&!window.confirm('Replace your AI topology and attached device configurations? Original Design projects remain unchanged.'))return;
+ try{
+  workspace=api.buildTechnologyTopology($('buildTechnology').value,$('buildPlatform').value,Number($('buildPrimaryCount').value),Number($('buildSecondaryCount').value));
+  selectedDeviceIds.clear();
+  originalMode=false;
+  $('sourceLabel').textContent='Built topology · configuration not yet attached';
+  document.querySelectorAll('#moduleChoices input').forEach(input=>{input.checked=input.value===workspace.sourceModule;});
+  changed('Technology topology created. Select a node and upload its real configuration or CLI output below.');
+  loadDevice();loadLink();loadConfig();
+ }catch(error){message(error.message,true);}
+};
 const sourceProjects=new Map();
 const projectStatus=(message)=>{$('savedDesignStatus').textContent=message;};
 function addProjectSource(id,label,source){
@@ -206,6 +233,15 @@ $('topologyCanvas').addEventListener('pointermove',event=>{
  if(!draggingNode)return;const point=pointerLocation(event);if(!point)return;
  workspace=api.moveDevice(workspace,draggingNode.id,point.x+draggingNode.offsetX,point.y+draggingNode.offsetY);
  draggingNode.moved=true;draw();
+});
+// Clicking a topology node selects its corresponding configuration editor.
+$('topologyCanvas').addEventListener('click',event=>{
+ const node=event.target.closest?.('[data-device-id]');if(!node)return;
+ const id=node.dataset.deviceId;
+ if(!workspace.nodes.some(n=>n.id===id))return;
+ $('deviceSelect').value=id;loadDevice();
+ $('configDevice').value=id;loadConfig();
+ $('perDeviceConfiguration').scrollIntoView?.({behavior:'smooth',block:'nearest'});
 });
 function finishDrag(){
  if(!draggingNode)return;
