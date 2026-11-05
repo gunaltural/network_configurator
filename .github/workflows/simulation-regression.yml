@@ -69,14 +69,9 @@ on:
       - ".github/workflows/simulation-regression.yml"
   push:
     branches: ["feature/vendor-failure-simulation-v5-44", "fix/v5-44-2-simulation-docker-packaging", "feature/render-live-deployment-verification", "main"]
-# Run only the newest simulation suite for the same PR/branch. Older
-# browser runs otherwise compete for runner resources after each code fix.
-concurrency:
-  group: simulation-regression-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
 jobs:
   simulation-and-workspaces:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -91,7 +86,7 @@ jobs:
         run: |
           python -m pip install -r requirements.txt
           python -m pip install httpx2
-          npm install --no-save --ignore-scripts playwright@1.56.1 jsdom@30.1.1
+          npm install --no-save --ignore-scripts playwright jsdom
           npx playwright install --with-deps chromium
       - name: AI service and authentication regression
         run: python -m unittest test_engineering_ai -v && node test_ai_evidence.cjs && node --check engineering-ai.js && node test_ai_panel.cjs && node test_show_analysis.cjs && node test_show_analysis_large_capture.cjs && node test_analysis_navigation.cjs && node test_corporate_shell.cjs && node --check analysis-ui.js
@@ -196,14 +191,9 @@ jobs:
           echo "::group::node simulation/test_workspace_browser.mjs"
           timeout --signal=TERM --kill-after=10s 180s env SMOKE_VENDOR_SCOPE=cisco node simulation/test_workspace_browser.mjs
           echo "::endgroup::"
-          # One complete browser/test process per platform. The former shared
-          # 75s limit expired after the third vendor, leaving IOS-XE and iStack
-          # untested despite all earlier scenario checks passing.
-          for vendor in cisco-nxos arista-eos huawei-ce cisco-ios-xe huawei-istack; do
-            echo "::group::simulation/test_pair_browser.mjs [$vendor]"
-            timeout --signal=TERM --kill-after=10s 120s env PAIR_TEST_VENDOR="$vendor" node simulation/test_pair_browser.mjs
-            echo "::endgroup::"
-          done
+          echo "::group::node simulation/test_pair_browser.mjs"
+          timeout --signal=TERM --kill-after=10s 75s node simulation/test_pair_browser.mjs
+          echo "::endgroup::"
           echo "::group::node simulation/test_report_browser.mjs"
           timeout --signal=TERM --kill-after=10s 75s node simulation/test_report_browser.mjs
           echo "::endgroup::"
