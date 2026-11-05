@@ -54,10 +54,49 @@ textarea{width:100%;min-height:140px;resize:vertical}pre{padding:12px;background
 .stp-design-paper th,.stp-design-paper td{border:1px solid #cbd6df;padding:7px;text-align:left;word-break:break-word}
 .stp-design-paper th{background:#eaf1f6}
 @media(max-width:600px){.stp-design-paper{padding:15px}.stp-design-paper h1{font-size:21px}}
+/* Four-stage workflow: Design-like step navigation while preserving existing module controls. */
+.workflow-nav{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:18px 0 10px}
+.workflow-nav button{padding:12px 10px;text-align:left;display:grid;gap:4px;align-content:start;background:#fff;border:1px solid #c5d9e5;border-radius:10px;min-width:0}
+.workflow-nav button strong{font-size:.91rem;color:#1b425d;overflow-wrap:anywhere}
+.workflow-nav button span{font-size:.77rem;color:#607b8c}
+.workflow-nav button[aria-current="step"]{border-color:#2576a4;background:#e7f3fa;box-shadow:inset 0 -3px #287aab}
+.workflow-nav button[disabled]{opacity:.5}
+.workflow-summary{font-size:.88rem;color:#49677b;margin:8px 0 0}
+.workflow-step[hidden],#legacyWorkspaceGrid[hidden]{display:none!important}
+.workflow-columns{display:grid;grid-template-columns:minmax(330px,450px) minmax(0,1fr);gap:16px}
+.workflow-columns .panel{margin-top:14px}
+.workflow-actions{display:flex;justify-content:space-between;gap:12px;margin:20px 0;padding:12px 0;border-top:1px solid #c9d7e2}
+.workflow-actions button{min-width:125px}
+.workflow-stage-panel{max-width:1350px;margin:15px auto}
+#configReadiness{overflow-x:auto}
+#configReadiness table{border-collapse:collapse;width:100%;font-size:13px}
+#configReadiness th,#configReadiness td{padding:9px;border-bottom:1px solid #d9e4ec;text-align:left;vertical-align:middle}
+#configReadiness th{background:#eef5f9}
+.readiness-state{font-size:12px;font-weight:650}
+.readiness-state.good{color:#1f6e41}.readiness-state.missing{color:#9b6026}
+#configReadiness button{font-size:12px;padding:5px 9px}
+.report-tools{display:flex;align-items:center;flex-wrap:wrap;gap:9px;margin:12px 0}
+.report-tools button{flex:0 0 auto}
+#reportEditPanel{margin:12px 0;padding:12px;border:1px solid #d4e2eb;border-radius:8px;background:#f8fbfd}
+#reportEditPanel textarea{min-height:105px}
+#savedReportPreview{width:100%;min-height:600px;border:1px solid #d9e4ec;border-radius:8px;background:#fff}
+#reportSavedList{max-width:500px}
+#stpCTOView[hidden],#savedReportPreview[hidden],#reportEditPanel[hidden]{display:none!important}
+@media(max-width:880px){.workflow-columns{grid-template-columns:1fr}.workflow-nav{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.workflow-nav button{padding:9px}.workflow-nav button span{display:none}.workflow-actions button{min-width:100px}}
 </style></head>
 <body><main>
 <header><div><a href="/">Network Configurator</a> / AI Analysis <a id="returnToDesign" href="/" hidden>Return to Design</a> <h1>AI Analysis Workspace</h1></div><span id="sourceLabel">Independent workspace</span></header>
-<div class="grid"><section class="panel" aria-label="Topology editor">
+<nav id="workflowNav" class="workflow-nav" aria-label="AI Analysis steps">
+<button type="button" data-workflow-step="1" aria-current="step"><strong>1 · Topology</strong><span>Import or build</span></button>
+<button type="button" data-workflow-step="2"><strong>2 · Configuration &amp; Evidence</strong><span>Device captures</span></button>
+<button type="button" data-workflow-step="3"><strong>3 · Analysis</strong><span>Scope and assessment</span></button>
+<button type="button" data-workflow-step="4"><strong>4 · Report</strong><span>View, edit, save</span></button>
+</nav>
+<p id="workflowSummary" class="workflow-summary" role="status">Choose or build a topology to begin.</p>
+<div id="workflowStages"></div>
+<div class="workflow-actions"><button type="button" id="wizardBack" disabled>Previous</button><button type="button" id="wizardNext" class="primary" disabled>Continue to Configurations</button></div>
+<div class="grid" id="legacyWorkspaceGrid"><section class="panel" aria-label="Topology editor">
 <h2>1 · Build or import topology</h2>
 <div id="syntheticLabEntry" class="control" role="group" aria-label="Optional STP lab"><button id="loadSTPLab" type="button">Try STP LAB · 2 Core + 1 Access</button><span class="hint">Optional · synthetic CLI, not real device data</span></div>
 <p id="topologyEntryHint" class="hint" hidden></p>
