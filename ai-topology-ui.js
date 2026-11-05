@@ -826,7 +826,7 @@ $('saveEngineeringReport').onclick=()=>{
    module:selectedModules().join(', '),devices:scopedDeviceIds().map(id=>workspace.nodes.find(n=>n.id===id)?.hostname||id),
    notes:{executive:$('reviewExecutiveComment').value,engineering:$('reviewEngineeringNotes').value}};
   localStorage.setItem(REPORT_KEY,JSON.stringify([record,...savedReportRecords()].slice(0,5)));
-  refreshSavedReports();$('reportSavedList').value=record.id;
+  refreshSavedReports();$('reportSavedList').value=record.id;$('savedReportsPanel').open=true;
   $('reportStageStatus').textContent='Report saved to this browser. It is available in Saved reports. Use Download HTML for a portable copy.';
  }catch(e){message('Could not save report: '+e.message,true);}
 };
