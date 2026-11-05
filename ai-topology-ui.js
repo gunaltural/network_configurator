@@ -201,7 +201,7 @@ function populate(select,values,preserve,blank){
  for(const [id,label] of values)select.append(makeOption(id,label));
  select.value=values.some(x=>x[0]===preserve)?preserve:(blank?'':values[0]?.[0]||'');
 }
-function invalidate(){reviewedSignature=null;pendingBatches=null;runState=null;$('analyze').disabled=true;$('downloadReport').disabled=true;$('evidencePreview').textContent='';$('analysisResult').value='';$('stpPreflightResult').textContent='STP V1 preflight not run for the current device selection.';}
+function invalidate(){reviewedSignature=null;pendingBatches=null;runState=null;$('analyze').disabled=true;$('downloadReport').disabled=true;$('evidencePreview').textContent='';$('analysisResult').value='';$('stpPreflightResult').textContent='STP V1 preflight not run for the current device selection.';$('stpKnowledgeResult').textContent='Knowledge review not run for this device selection.';}
 function draw(){
  const svg=$('topologyCanvas');svg.replaceChildren();
  const NS='http://www.w3.org/2000/svg',points=new Map(),n=workspace.nodes.length;
@@ -461,6 +461,19 @@ $('assessStructure').onclick=()=>{
   $('structuralResult').textContent=lines.join('\n');
  }catch(e){message(e.message,true);}
 };
+function stpKnowledgeV1Review(){
+ if(!window.NetworkSTPKnowledgeV1)throw Error('STP knowledge catalog script unavailable.');
+ return window.NetworkSTPKnowledgeV1.review(workspace,scopedDeviceIds());
+}
+$('runSTPKnowledge').onclick=()=>{
+ try{
+  if(!selectedModules().includes('STP'))throw Error('Select STP engineering scope first.');
+  const r=stpKnowledgeV1Review();
+  $('stpKnowledgeResult').textContent=window.NetworkSTPKnowledgeV1.format(r);
+  $('stpKnowledgeDetails').open=true;
+  message('STP knowledge review complete. '+r.entries.length+' contextual entries; platform and operating state require engineering review.');
+ }catch(error){message('STP knowledge: '+error.message,true);}
+};
 function stpV1Review(){
  if(!window.NetworkSTPV1)throw Error('STP V1 parser is unavailable.');
  return window.NetworkSTPV1.assess(workspace,scopedDeviceIds());
@@ -481,6 +494,11 @@ $('preview').onclick=()=>{
   if(modules.includes('STP')){
    const review=stpV1Review();
    $('stpPreflightResult').textContent=window.NetworkSTPV1.format(review);
+   const knowledge=stpKnowledgeV1Review();
+   $('stpKnowledgeResult').textContent=window.NetworkSTPKnowledgeV1.format(knowledge);
+   const statements=window.NetworkSTPKnowledgeV1.context(knowledge).slice(0,8).map((line,i)=>'L'+(i+1)+': '+line.slice(0,245));
+   pendingBatches[0].unshift({id:'stp-knowledge-v1',text:'Device: STP-KNOWLEDGE-CATALOG\nCommand: version-scoped Cisco engineering context, NOT device evidence or model findings\n'+statements.join('\n')});
+
    const lines=window.NetworkSTPV1.evidence(review).slice(0,12).map((line,i)=>'L'+(i+1)+': '+line.slice(0,160));
    pendingBatches[0].unshift({id:'stp-v1-preflight',text:'Device: STP-V1-PREFLIGHT\nCommand: deterministic config comparison, not an AI answer key\n'+lines.join('\n')});
   }
