@@ -27,6 +27,7 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{JSDOM}=require
  w.eval(fs.readFileSync('stp-engineering-v2.js','utf8'));
  w.eval(fs.readFileSync('stp-network-analysis-v2.js','utf8'));
  w.eval(fs.readFileSync('network-engineering-findings-v1.js','utf8'));
+ w.eval(fs.readFileSync('engineering-knowledge-stp-v1.js','utf8'));
  w.eval(fs.readFileSync('stp-operational-evidence-v1.js','utf8'));
  w.eval(fs.readFileSync('stp-synthetic-lab-v1.js','utf8'));
  w.eval(fs.readFileSync('stp-cto-report.js','utf8'));
