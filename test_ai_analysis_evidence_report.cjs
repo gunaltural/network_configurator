@@ -12,7 +12,7 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
    {label:'failover design',value:'dual core',impact:'No live failure convergence measured'}],
   configurations:devices.map((hostname,i)=>({deviceId:'node-'+i,text:'hostname '+hostname+
    '\nrouter bgp 65001\n neighbor 192.0.2.'+(i+1)+' remote-as 65002'+
-   '\nusername admin secret PrivateSecretValue\nset psksecret MySecretPSKData\ncrypto isakmp key DeviceIsakmpValue address 192.0.2.6'})),
+   '\nusername admin secret PrivateSecretValue\nset psksecret MySecretPSKData\ncrypto isakmp key DeviceIsakmpValue address 192.0.2.6\n-----BEGIN RSA PRIVATE KEY-----\nSENSITIVEPEM_PAYLOAD_123\n-----END RSA PRIVATE KEY-----'})),
   designChecks:{evaluated:35,errors:0,warnings:0,issues:[]}
  };
  w.sessionStorage.setItem('networkConfigurator.aiTopology.pending',JSON.stringify(report));
