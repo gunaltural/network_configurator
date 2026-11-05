@@ -130,6 +130,7 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  $('buildVendor').value='Cisco';$('buildVendor').dispatchEvent(new w.Event('change'));
  assert.ok([...$('buildPlatform').options].every(o=>o.value.startsWith('Cisco')),'Vendor filters operating platforms');
  $('buildPlatform').value='Cisco IOS-XE';$('buildPrimaryCount').value='3';$('buildSecondaryCount').value='2';
+ w.confirm=()=>true; // Topology replacement is a separate, explicitly accepted action.
  $('applyTechnologyTemplate').click();
  assert.match($('overview').textContent,/5 devices · 6 links/,'Three CE and two upstream router template built');
  assert.equal(d.querySelectorAll('#deviceAnalysisChoices input:checked').length,5,'All generated devices available for scoped analysis');
