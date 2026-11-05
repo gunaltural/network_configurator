@@ -127,6 +127,13 @@ const selectedBgp=api.analysisEvidenceBatches(lateCapture,['fw'],['BGP']).flat()
 assert.ok(selectedBgp.some(x=>x.text.includes('L403: 198.51.100.2 4 65002')),'Late BGP section found after line 400 with ORIGINAL line number');
 assert.ok(selectedBgp.some(x=>x.text.includes('L401: FGT-1#show ip bgp summary')),'Technology-aware retrieval preserves command context');
 
+const pem=api.setConfiguration(withCapture,'fw','hostname FGT-1\n-----BEGIN RSA PRIVATE KEY-----\nSENSITIVEPEM_PAYLOAD_123\n-----END RSA PRIVATE KEY-----\nrouter bgp 65001');
+const pemEvidence=api.analysisEvidenceBatches(pem,['fw'],['BGP']).flat().filter(x=>x.id.startsWith('config-')).map(x=>x.text).join('\n');
+assert.ok(!pemEvidence.includes('SENSITIVEPEM_PAYLOAD_123'),'Private-key body never enters model evidence');
+assert.ok(pemEvidence.includes('L3: [REDACTED]'),'Masked key retains original CLI line number');
+assert.ok(pemEvidence.includes('L5: router bgp 65001'),'Unrelated BGP CLI remains available');
+
+
 const noisyOspf=Array.from({length:300},(_,i)=>'OSPF neighbor '+i+' state FULL/DR').join('\n')+
  '\nFGT-1#show ip bgp summary\nNeighbor V AS MsgRcvd MsgSent TblVer InQ OutQ Up/Down State/PfxRcd\n198.51.100.3 4 65003 0 0 1 0 0 never Active';
 const noiseCapture=api.addShowTech(withCapture,'fw',noisyOspf,'noisy-ospf-then-bgp.txt');
