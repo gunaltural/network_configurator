@@ -10,11 +10,11 @@ page.on('pageerror',error=>errors.push(error.message));
 try{
  const response=await page.goto(base+'/ai-topology');
  assert.equal(response.status(),200);
+ await page.locator('#chooseBuild').click();
  await page.locator('#aiNodeCount').fill('7');
  await page.locator('#aiTopologyPattern').selectOption('ring');
  await page.locator('#aiDefaultVendor').selectOption('Arista EOS');
  await page.locator('#aiDefaultRole').fill('fabric-node');
- await page.locator('#chooseBuild').click();
  await page.locator('#aiBuildTopology').click();
  assert.match(await page.locator('#overview').innerText(),/7 devices · 7 links · 0 configurations/);
  assert.ok((await page.locator('#devicesList').innerText()).includes('Arista EOS'));
