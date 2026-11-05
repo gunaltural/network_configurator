@@ -915,7 +915,17 @@ function buildGenericReport(options={}){
   const c=workspace.configs.find(x=>x.deviceId===n.id&&typeof x.text==='string'&&x.text.trim());
   const box=E('details','engineering-deployment-evidence');box.append(E('summary','',n.hostname+' · '+(c?L('Design/ekli CLI mevcut','CLI available'):L('CLI eksik','CLI missing'))));
   if(c){
-   const lines=c.text.replace(/\r\n?/g,'\n').split('\n'),excerpt=lines.slice(0,80).map((line,i)=>'L'+(i+1)+': '+(secret.test(line)?'[REDACTED]':line)).join('\n');
+   const lines=c.text.replace(/\r\n?/g,'\n').split('\n');
+   let inPrivateKey=false;
+   const safeLines=lines.map(line=>{
+    const starts=/-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----/i.test(line);
+    const ends=/-----END [A-Z0-9 ]*PRIVATE KEY-----/i.test(line);
+    const hidden=inPrivateKey||starts||secret.test(line);
+    if(starts)inPrivateKey=true;
+    if(ends)inPrivateKey=false;
+    return hidden?'[REDACTED]':line;
+   });
+   const excerpt=safeLines.slice(0,80).map((line,i)=>'L'+(i+1)+': '+line).join('\n');
    const pre=E('pre','',excerpt);pre.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere';box.append(pre);
    if(lines.length>80)box.append(E('p','report-meta',L('İlk 80 / toplam ','First 80 / total ')+lines.length+L(' satır gösterildi',' lines shown')));
   }
