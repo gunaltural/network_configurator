@@ -51,7 +51,8 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
 
  assert.equal($('savedSource').hidden,true,'Design tab hides saved workspace form');
  assert.match($('overview').textContent,/0 devices/);
- assert.match($('topologyEntryHint').textContent,/Choose a source below/,'Dashboard opens the same workspace with source options');
+ assert.ok($('chooseDesign')&&$('chooseSaved')&&$('chooseBuild'),'Dashboard retains the three source actions without verbose help text');
+  assert.equal($('topologyEntryHint').hidden,true,'Long source explanation is removed from UI');
  assert.match(fs.readFileSync('ai-topology-ui.js','utf8'),/aiImport=1/,'saved Design selection restores source into AI import');
  const shell=fs.readFileSync('corporate-shell.js','utf8');
  assert.match(shell,/AI Analysis Workspace[^\n]*data-nc-ai-workspace[^\n]*\/ai-topology/,'Dashboard Analysis routes to shared topology workspace');
