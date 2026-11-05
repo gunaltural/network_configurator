@@ -29,6 +29,78 @@ function renderOriginalDesign(){
  selectTopologyMode(available&&originalMode);
 }
 
+// The three entry routes share this page; no import mutates the saved Design source.
+function chooseEntry(mode){
+ const choices=[['design','chooseDesign','designSource'],['saved','chooseSaved','savedSource'],['build','chooseBuild','buildSource']];
+ for(const [key,button,panel] of choices){
+  $(button).setAttribute('aria-pressed',String(mode===key));
+  $(panel).hidden=mode!==key;
+ }
+}
+$('chooseDesign').onclick=()=>chooseEntry('design');
+$('chooseSaved').onclick=()=>chooseEntry('saved');
+$('chooseBuild').onclick=()=>chooseEntry('build');
+const sourceProjects=new Map();
+const projectStatus=(message)=>{$('savedDesignStatus').textContent=message;};
+function addProjectSource(id,label,source){
+ if(sourceProjects.has(id))return;
+ sourceProjects.set(id,source);$('savedDesignSelect').append(makeOption(id,label));
+}
+function refreshBrowserProjects(){
+ sourceProjects.clear();
+ $('savedDesignSelect').replaceChildren(makeOption('','Select a Design project'));
+ const read=(storage,key)=>{try{return JSON.parse(storage.getItem(key)||'null');}catch{return null;}};
+ const current=read(sessionStorage,'networkConfigurator.workflow.design');
+ if(current?.schema==='network-configurator-v3'&&current.workspace?.technology)
+  addProjectSource('current',String(current.project?.name||'Current Design')+' · current browser session',{kind:'browser',design:current});
+ const saved=read(localStorage,'networkConfigurator.v3.projects');
+ if(saved&&typeof saved==='object'&&!Array.isArray(saved))
+ for(const [key,design] of Object.entries(saved)){
+  if(design?.schema!=='network-configurator-v3'||!design.workspace?.technology)continue;
+  addProjectSource('local:'+key,String(design.project?.name||key)+' · browser saved',{kind:'browser',design});
+ }
+ $('openSavedDesign').disabled=true;
+ projectStatus(sourceProjects.size?sourceProjects.size+' browser Design source(s) found. Select one to continue.':'No saved browser Design found. You can create one from Quick Design or New Project.');
+}
+$('savedDesignSelect').onchange=()=>{$('openSavedDesign').disabled=!sourceProjects.has($('savedDesignSelect').value);};
+$('refreshSavedDesign').onclick=async()=>{
+ refreshBrowserProjects();
+ // Server Project Library may be unavailable on free previews or without login.
+ // An unavailable endpoint must not hide local browser-saved projects.
+ try{
+  const response=await fetch('/api/projects?offset=0');
+  if(!response.ok)throw Error('Project Library unavailable');
+  const data=await response.json();
+  for(const item of data.projects||[]){
+   if(!item.has_design)continue;
+   addProjectSource('library:'+item.id,String(item.name||item.id)+' · Project Library',{kind:'library',id:item.id});
+  }
+  projectStatus(sourceProjects.size+' Design source(s) available in this browser and Project Library.');
+ }catch{
+  projectStatus(sourceProjects.size+' browser Design source(s) available. Server Project Library is unavailable here; saved local projects remain selectable.');
+ }
+};
+$('openSavedDesign').onclick=async()=>{
+ const source=sourceProjects.get($('savedDesignSelect').value);if(!source)return;
+ try{
+  let design=source.design;
+  if(source.kind==='library'){
+   const response=await fetch('/api/projects/'+encodeURIComponent(source.id));
+   if(!response.ok)throw Error('The saved Project Library document could not be opened.');
+   const record=await response.json();design=record.document?.design;
+  }
+  if(design?.schema!=='network-configurator-v3'||!design.workspace?.technology||!design.fields||typeof design.fields!=='object')
+   throw Error('This record does not contain a usable Design workspace.');
+  const module=String(design.workspace.technology).toUpperCase();
+  if(!['BASIC','BGP','OSPF','STP','VPC','EVPN','SDWAN','QOS'].includes(module))
+   throw Error('This saved Design technology is not yet supported for import.');
+  if((workspace.nodes.length||workspace.configs.length)&&!window.confirm('Open another Design? Your current unsaved AI workspace will not be preserved.'))return;
+  sessionStorage.setItem('networkConfigurator.workflow.design',JSON.stringify(design));
+  // Generate vendor configuration through Design itself, not from storage snapshots.
+  // The user then invokes the existing audited Design -> AI handoff.
+  window.location.assign('/?resume=1&workspace='+encodeURIComponent(module));
+ }catch(error){projectStatus('Could not open Design: '+error.message);}
+};
 function makeOption(id,name){const opt=document.createElement('option');opt.value=id;opt.textContent=name;return opt;}
 function populate(select,values,preserve,blank){
  select.replaceChildren();
@@ -160,6 +232,7 @@ function fromHandoff(){
  try{
   const report=JSON.parse(handoffRaw);
   workspace=report?.schema==='ai-topology-workspace-v1'?api.validate(report):api.fromDesign(report);originalMode=true;
+  chooseEntry('design');
   $('sourceLabel').textContent='Imported Design snapshot · independent copy';
   $('topologyEntryHint').textContent='Imported '+(workspace.sourceModule||'Design')+' topology and generated configurations from Design. The source is unchanged. You can edit this independent copy, review evidence and return to the source module.';
   const sourceModule=String(workspace.sourceModule||'').toUpperCase();
@@ -305,5 +378,5 @@ $('downloadReport').onclick=()=>{
  if(!$('analysisResult').value.trim())return;
  saveFile('ai-topology-assessment.txt',$('analysisResult').value,'text/plain');
 };
-fromHandoff();render();loadDevice();loadLink();loadConfig();
+refreshBrowserProjects();fromHandoff();render();loadDevice();loadLink();loadConfig();
 })();
