@@ -85,7 +85,7 @@ function addShowTech(workspace,deviceId,text,filename,synthetic=false){
  if(!next.nodes.some(n=>n.id===deviceId))throw Error('Unknown device.');
  if(typeof text!=='string'||text.length>8000000||!text.trim())throw Error('Show tech text missing or exceeds 8 MB.');
  filename=String(filename||'verification.txt').trim().slice(0,255);
- next.showTech=next.showTech.filter(c=>!(c.deviceId===deviceId&&c.filename===filename));
+ next.showTech=next.showTech.filter(c=>!(c.deviceId===deviceId&&(c.filename===filename||(!synthetic&&c.synthetic))));
  next.showTech.push({deviceId,text,filename,synthetic:synthetic===true});
  return validate(edited(next));
 }
