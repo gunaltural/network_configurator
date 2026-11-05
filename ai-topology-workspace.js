@@ -123,14 +123,21 @@ function structuralAssessment(workspace){
   isolatedDevices:model.nodes.filter(n=>adjacency.get(n.id).length===0).map(n=>n.id),
   potentialTransitDependencies:[...articulation].sort(),
   potentialSinglePathLinks:[...new Set(bridges)].sort(),
-  configurationMissing:model.nodes.filter(n=>!model.configs.some(c=>c.deviceId===n.id)).map(n=>n.id),
+  configurationMissing:model.nodes.filter(n=>!model.configs.some(c=>c.deviceId===n.id&&typeof c.text==='string'&&!!c.text.trim())).map(n=>n.id),
   caveat:'Graph dependencies are conditional. Missing links/configurations may be outside the modeled scope; no failure, outage, traffic path or vendor compliance is proven.'
  };
 }
 function analysisManifest(workspace){
  const model=validate(workspace);
  // Never include raw configuration in a manifest destined for the AI provider.
- return {schema:model.schema,sourceModule:model.sourceModule,nodes:model.nodes,links:model.links,configurationCoverage:model.nodes.map(n=>({deviceId:n.id,present:model.configs.some(c=>c.deviceId===n.id)}))};
+ return {schema:model.schema,sourceModule:model.sourceModule,nodes:model.nodes,links:model.links,
+  configurationCoverage:model.nodes.map(n=>{
+   const config=model.configs.find(c=>c.deviceId===n.id);
+   return {deviceId:n.id,present:!!(config&&typeof config.text==='string'&&config.text.trim()),
+    source:config?.source==='design'?'design':config?'user-or-saved':'missing',
+    realVerificationCaptures:model.showTech.filter(c=>c.deviceId===n.id&&!c.synthetic).length,
+    syntheticCaptures:model.showTech.filter(c=>c.deviceId===n.id&&c.synthetic).length};
+  })};
 }
 
 function blank(){return validate({schema:'ai-topology-workspace-v1',sourceModule:'',nodes:[],links:[],configs:[]});}
