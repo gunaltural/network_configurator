@@ -79,7 +79,7 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{JSDOM}=require
  assert.doesNotMatch($('analysisResult').value,/ACCESS-1/);
  assert.equal($('downloadReport').disabled,false,'explicit offline report can be exported');
  assert.match($('status').textContent,/AI çalıştırılmadı/);
- assert.match($('stpCTOView').textContent,/STP Mühendislik Değerlendirmesi/,'offline Analyze shows CTO dashboard');
+ assert.match($('stpCTOView').textContent,/STP Mühendislik Analiz Raporu/,'offline Analyze shows CTO dashboard');
  assert.equal($('exportSTPCTO').disabled,false);
  dom.window.close();
  console.log('STP V1 UI: selected 2 Core devices, preflight, redacted evidence, typed model call, stale review prevention passed');
