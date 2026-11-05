@@ -62,6 +62,10 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{JSDOM}=require
  assert.match($('stpCTOView').textContent,/Verification commands/,'CLI commands are visible as a dedicated column');
  assert.match($('stpCTOView').textContent,/show version or show tech-support/,'STP-001 verification CLI remains visible');
  assert.equal($('viewSTPCTO').disabled,false,'HTML View is enabled after generating the report');
+ assert.equal($('preview').hidden,true,'Internal evidence preview action is not visible');
+ assert.equal($('evidenceDetails').hidden,true,'Internal evidence payload is not displayed');
+ assert.equal($('downloadEngineeringPDF').disabled,false,'PDF export is available');
+ assert.equal($('downloadEngineeringWord').disabled,false,'Word export is available');
  $('viewSTPCTO').click();
  assert.equal($('stpCTOView').hidden,false,'HTML report is visible inside the application');
  assert.match($('stpCTOView').textContent,/OBSERVED/,'observed configuration is not mislabeled compliance');
