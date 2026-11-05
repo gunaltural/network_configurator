@@ -829,6 +829,75 @@ function buildGenericReport(options={}){
    'Technology-specific control-plane/data-plane design','Incorrect implementation may reduce intended resilience or reachability',
    'Review platform-scoped configuration and captured operational evidence'])])
  ));
+ // Technology-independent operational evidence correlation. This is a separate,
+ // versioned read-only adapter, never a substitute for the real AI reasoning layer.
+ if(window.NetworkEvidenceCorrelationV1){
+  try{
+   const intelligence=window.NetworkEvidenceCorrelationV1.assess({
+    workspace,deviceIds:nodes.map(n=>n.id),modules
+   });
+   const assessment=section(L('Cihazlar arası CLI korelasyonu ve kanıt değerlendirmesi','Cross-device CLI evidence correlation'));
+   assessment.append(E('p','report-muted',L(
+    'Bu bölüm yalnızca sağlanan CLI kanıtlarından çıkarılan sınırlı gözlemleri gösterir. Gözlendi = doğru tasarım veya uyumluluk PASS değildir. İncelenmeli = kesin arıza değildir. Çelişki = ayrıca doğrulanmalıdır.',
+    'These are limited observations from supplied CLI. Observed does not mean compliant or healthy. Review is not confirmed failure. Conflict requires verification.'
+   )));
+   const statuses=[
+    ['OBSERVED',intelligence.counts.OBSERVED,L('Gözlemlendi','Observed'),'#287d75'],
+    ['REVIEW',intelligence.counts.REVIEW,L('İncelenmeli','Review'),'#c29236'],
+    ['CONFLICT',intelligence.counts.CONFLICT,L('Çelişki','Conflict'),'#b75937']
+   ];
+   const n=statuses.reduce((sum,item)=>sum+item[1],0);
+   const legend=E('div','evidence-correlation-summary');
+   for(const [status,count,label] of statuses){
+    const item=E('span','',label+': '+count);item.dataset.status=status;legend.append(item);
+   }
+   legend.append(E('span','',L('Gerçek show dosyası: ','Real show captures: ')+intelligence.coverage.realCaptures));
+   assessment.append(legend);
+   if(n){
+    const bar=E('div','evidence-correlation-band');bar.setAttribute('role','img');
+    bar.setAttribute('aria-label',statuses.map(x=>x[2]+' '+x[1]).join(', '));
+    for(const [status,count,label,color] of statuses){
+     if(!count)continue;
+     const segment=E('span');segment.style.width=(count/n*100).toFixed(2)+'%';
+     segment.style.backgroundColor=color;segment.title=label+': '+count;bar.append(segment);
+    }
+    assessment.append(bar);
+   }else assessment.append(E('p','report-muted',L(
+    'Seçilen cihazlar için bu sürümün tanıdığı operasyonel kanıt bulunmadı. Bu, herhangi bir teknolojinin sorunsuz olduğu veya cihazın yanlış yapılandırıldığı anlamına gelmez.',
+    'No operational fact recognized by this adapter for selected devices. This does not imply good health or a configuration fault.'
+   )));
+   if(intelligence.findings.length){
+    for(const finding of intelligence.findings){
+     const card=E('article','evidence-correlation-item');card.dataset.status=finding.status;
+     const heading=E('strong','',(tr&&finding.titleTr||finding.title)+' · '+finding.technology+' · '+finding.status);
+     card.append(heading);
+     card.append(E('p','',finding.observed));
+     card.append(E('p','report-muted',finding.explanation));
+     card.append(E('p','report-muted',L('Olası etki: ','Conditional impact: ')+finding.networkImpact));
+     card.append(E('p','report-muted',L('Güven düzeyi: ','Evidence confidence: ')+finding.confidence));
+     const proofBox=E('details');proofBox.append(E('summary','',L('Cihaz / kaynak / CLI satırı ve doğrulama','Device / source / CLI line and verification')));
+     for(const evidence of finding.evidence){
+      proofBox.append(E('p','report-meta',evidence.device+' · '+evidence.source+
+       ' · L'+evidence.line+': '+evidence.excerpt));
+     }
+     proofBox.append(E('p','report-muted',L('Salt-okunur doğrulama: ','Read-only verification: ')+finding.verification.join(' · ')));
+     if(finding.source?.length){
+      const references=E('p','report-muted');
+      for(const entry of finding.source){
+       const link=E('a','',entry.title);link.href=entry.url;link.rel='noopener noreferrer';link.target='_blank';references.append(link);
+       references.append(document.createTextNode(' · '+entry.scope+' '));
+      }
+      proofBox.append(references);
+     }
+     card.append(proofBox);assessment.append(card);
+    }
+   }
+   assessment.append(E('p','report-muted',intelligence.limitations.join(' · ')));
+  }catch(error){
+   const disabled=section(L('CLI korelasyonu tamamlanamadı','CLI correlation unavailable'));
+   disabled.append(E('p','report-muted',L('Kanıtlar veya teknoloji adaptörü yeniden incelenmeli.','Review the selected evidence or technology adapter.')+' '+error.message));
+  }
+ }
  const detail=section(L('Teknik kanıt ve satır referansları','Technical evidence and line references'));
  detail.append(E('p','report-muted',L('Her cihazın ilk 80 CLI satırı (gizli bilgiler maskeli); tam konfigürasyon 2. adımda görülebilir.','First 80 configuration CLI lines per device (secrets redacted); full configurations are accessible in Step 2.')));
  const secret=/(?:\bpassword\b|\bpasswd\b|\bsecret\b|snmp[-\s]?server\s+community|snmp\s+community|community-string|private.?key|api.?key|\bauthorization\b|sk-[A-Za-z0-9_-]+)/i;
