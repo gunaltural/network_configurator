@@ -34,6 +34,11 @@ assert.deepEqual(mismatch.evidence,['CORE-1 config L5 (Port-channel10)','CORE-2 
 assert.ok(!JSON.stringify(report).includes('ACCESS-1'),'unselected device stays excluded');
 assert.ok(report.entries.every(x=>x.source&&x.source.url.startsWith('https://www.cisco.com/')),'Each observation links official source');
 assert.ok(api.format(report).includes('PRIORITIZED ENGINEERING FINDINGS'));
+assert.match(api.format(report,'tr'),/YÖNETİCİ ÖZETİ/);
+assert.match(api.format(report,'tr'),/ÖNCELİKLİ BULGULAR/);
+assert.match(api.format(report,'tr'),/Önerilen aksiyon/);
+assert.match(api.format(report,'tr'),/konfigürasyon/i);
+
 assert.match(api.format(report),/RFC 4188/);
 assert.match(api.format(report),/RFC 4318/);
 assert.match(api.format(report),/RFC 7727 applies only/);
@@ -42,6 +47,14 @@ assert.ok(report.coverage.find(x=>x.id==='stpMode').standards.some(x=>x.title.in
 
 assert.ok(api.format(report).includes('NO AI MODEL WAS RUN'));
 assert.ok(api.context(report).join(' ').includes('curated vendor documentation'));
+
+const vtpmodes=api.review({...base,configs:[
+ {deviceId:'a',text:'vtp mode off\\nspanning-tree mode rapid-pvst\\nvlan 999'},
+ {deviceId:'b',text:'vtp mode transparent\\nspanning-tree mode rapid-pvst'}
+]},['a','b']);
+assert.ok(vtpmodes.entries.some(x=>x.title.includes('VTP management modes differ')));
+assert.match(api.format(vtpmodes,'tr'),/VTP yönetim modları farklı/);
+assert.ok(!vtpmodes.entries.some(x=>x.parameter==='nativeVlan'),'VLAN 999 creation alone is NOT native VLAN configuration');
 const noLink=api.review({...base,links:[]},['a','b']);
 assert.ok(!noLink.entries.some(x=>x.title.includes('native VLAN mismatch')),'No cross-device port claims without mapped topology link');
 const parsed=api.parse(nodes[0],'vtp password secret-without-reveal\nvtp mode client');
