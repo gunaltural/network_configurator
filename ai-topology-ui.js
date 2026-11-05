@@ -756,20 +756,102 @@ $('viewSTPCTO').onclick=()=>{
  if(!view.hidden)view.scrollIntoView?.({block:'nearest',behavior:'smooth'});
 };
 
-function buildGenericReport(){
- if(!$('analysisResult').value.trim())return;
- const article=document.createElement('article');article.className='stp-design-paper';
- const title=document.createElement('h1');title.textContent='Network Engineering Assessment';
- const label=document.createElement('p');label.className='report-meta';
- label.textContent='Unverified AI-assisted engineering draft. Engineer approval and independent operational verification are required.';
- const body=document.createElement('pre');body.dataset.editableDraft='true';body.textContent=$('analysisResult').value;
- body.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;max-height:none';
- article.append(title,label,body);
- $('stpCTOView').replaceChildren(article);
- $('stpCTOView').hidden=true;
- $('viewSTPCTO').textContent='HTML View';
- $('viewSTPCTO').disabled=false;$('exportSTPCTO').disabled=false;
+function buildGenericReport(options={}){
+ const offline=options.offline===true,tr=$('language').value==='tr',L=(a,b)=>tr?a:b;
+ const nodes=workspace.nodes.filter(n=>selectedDeviceIds.has(n.id)),modules=selectedModules();
+ const files=(workspace.showTech||[]).filter(c=>selectedDeviceIds.has(c.deviceId));
+ const configured=nodes.filter(n=>hasConfig(n.id)).length,real=files.filter(c=>!c.synthetic).length,lab=files.length-real;
+ const E=(tag,cls,value)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(value!==undefined)el.textContent=String(value);return el;};
+ const article=E('article','stp-design-paper');
+ const section=title=>{const el=E('section','engineering-report-section');el.append(E('h2','',title));article.append(el);return el;};
+ const makeTable=(heads,rows)=>{const t=E('table','engineering-priority-table'),head=E('thead',''),body=E('tbody',''),top=E('tr','');
+  heads.forEach(v=>top.append(E('th','',v)));head.append(top);t.append(head);
+  rows.forEach(values=>{const tr=E('tr','');values.forEach(v=>tr.append(E('td','',v)));body.append(tr);});t.append(body);return t;};
+ const completed=!runState||runState.index>=runState.batches.length;
+ article.append(E('h1','',L('Ağ Mühendisliği Tasarım ve Kanıt Değerlendirmesi','Network Engineering Design and Evidence Assessment')));
+ article.append(E('p','report-meta',offline?L('YEREL KANIT ÖZETİ — AI MODELİ ÇALIŞMADI','LOCAL EVIDENCE SUMMARY — NO AI MODEL EXECUTED'):
+  completed?L('AI TASLAĞI — MÜHENDİSLİK ONAYI GEREKLİ','AI DRAFT — ENGINEER REVIEW REQUIRED'):
+  L('KISMİ AI TASLAĞI — TÜM KANITLAR İŞLENMEDİ','PARTIAL AI DRAFT — NOT ALL EVIDENCE PROCESSED')));
+ article.append(E('p','report-meta',L('Design CLI, cihazda çalışan konfigürasyon değildir. Show çıktıları ayrıca doğrulanmalıdır.',
+  'Generated Design CLI is not a deployed running configuration. Captured show outputs require independent verification.')));
+ if(options.reason)article.append(E('p','report-muted',options.reason));
+ section(L('Yönetici özeti ve kapsam','Executive summary and coverage')).append(makeTable(
+  [L('Ölçüt','Metric'),L('Değer','Value'),L('Kanıt yorumu','Evidence interpretation')],
+  [[L('Teknolojiler','Technologies'),modules.join(', '),L('Seçili analiz kapsamı','Selected analysis scope')],
+   [L('Cihazlar','Devices'),nodes.length,L('Modellenmiş topoloji','Modeled topology')],
+   [L('CLI konfigürasyonları','Configuration CLI'),configured+' / '+nodes.length,L('Tasarım/ekli CLI; devreye alındığı kanıtlanmadı','Design/attached CLI; deployment not proven')],
+   [L('Gerçek show dosyası','Real show capture files'),real,L('Dosya sayısı; doğruluk kanıtı değil','File count; not proof of correctness')],
+   [L('Sentetik kanıt','Synthetic evidence'),lab,L('Gerçek cihaz değildir','Not a real device')],
+   [L('Karar','Disposition'),L('DOĞRULAMA GEREKLİ','REVIEW REQUIRED'),L('Uyumluluk veya risk hükmü üretilmedi','No assumed compliance or risk verdict')]]));
+ if(workspace.designReview){
+  const review=workspace.designReview,base=section(L('Design parametreleri ve gerekçe','Design parameters and rationale'));
+  base.append(E('p','report-muted',review.edited?
+   L('DİKKAT: Design kontrolleri son düzenlemelerden sonra güncelliğini yitirmiştir.','WARNING: Original Design checks are stale after edits.'):
+   L('Bu veriler Design anlık görüntüsüdür; operasyonel doğrulama değildir.','This is a Design snapshot, not operational verification.')));
+  if(review.checks)base.append(E('p','',review.checks.evaluated+' '+L('tasarım kontrolü, ','Design checks, ')+review.checks.errors+
+   L(' hata, ',' errors, ')+review.checks.warnings+L(' uyarı. Sıfır hata, sıfır ağ riski anlamına gelmez.',' advisories. Zero input errors do not imply zero network risk.')));
+  if(review.parameters?.length)base.append(makeTable(
+   [L('Parametre','Parameter'),L('Değer','Value'),L('Tasarım gerekçesi','Design rationale')],
+   review.parameters.map(p=>[p.label||'—',p.value||'—',p.impact||'—'])));
+ }
+ section(L('Cihaz bazlı CLI ve doğrulama matrisi','Per-device CLI and verification matrix')).append(makeTable(
+  [L('Cihaz','Device'),L('Üretici','Vendor'),L('Konfigürasyon kaynağı','Configuration provenance'),L('Show çıktısı','Show output'),L('Sonuç','Assessment')],
+  nodes.map(n=>{
+   const c=workspace.configs.find(x=>x.deviceId===n.id&&typeof x.text==='string'&&x.text.trim());
+   const captures=files.filter(x=>x.deviceId===n.id),observed=captures.filter(x=>!x.synthetic).length;
+   return [n.hostname,n.vendor||'—',
+    !c?L('YOK','MISSING'):c.source==='design'?L('Design üretimi','Generated Design CLI'):L('Ekli konfigürasyon','Attached configuration'),
+    observed?observed+' '+L('dosya','files'):captures.length?L('Yalnız sentetik','Synthetic only'):L('İsteğe bağlı · yok','Optional · absent'),
+    c?L('CLI gözlendi; operasyon doğrulanmadı','CLI observed; operation unverified'):L('Konfigürasyon kanıtı gerekli','Configuration evidence needed')];
+  })));
+ const detail=section(L('Teknik kanıt ve satır referansları','Technical evidence and line references'));
+ detail.append(E('p','report-muted',L('Her cihazın ilk 80 CLI satırı (gizli bilgiler maskeli); tam konfigürasyon 2. adımda görülebilir.','First 80 configuration CLI lines per device (secrets redacted); full configurations are accessible in Step 2.')));
+ const secret=/(?:\bpassword\b|\bpasswd\b|\bsecret\b|snmp[-\s]?server\s+community|snmp\s+community|community-string|private.?key|api.?key|\bauthorization\b|sk-[A-Za-z0-9_-]+)/i;
+ nodes.forEach(n=>{
+  const c=workspace.configs.find(x=>x.deviceId===n.id&&typeof x.text==='string'&&x.text.trim());
+  const box=E('details','engineering-deployment-evidence');box.append(E('summary','',n.hostname+' · '+(c?L('Design/ekli CLI mevcut','CLI available'):L('CLI eksik','CLI missing'))));
+  if(c){
+   const lines=c.text.replace(/\r\n?/g,'\n').split('\n'),excerpt=lines.slice(0,80).map((line,i)=>'L'+(i+1)+': '+(secret.test(line)?'[REDACTED]':line)).join('\n');
+   const pre=E('pre','',excerpt);pre.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere';box.append(pre);
+   if(lines.length>80)box.append(E('p','report-meta',L('İlk 80 / toplam ','First 80 / total ')+lines.length+L(' satır gösterildi',' lines shown')));
+  }
+  const capture=files.filter(x=>x.deviceId===n.id);
+  box.append(E('p','report-meta',capture.length?L('Doğrulama dosyaları: ','Verification captures: ')+capture.map(x=>x.filename+(x.synthetic?' [SYNTHETIC LAB]':'')).join(' · '):L('Gerçek show çıktısı eklenmedi','No actual show capture attached')));
+  detail.append(box);
+ });
+ const plans={
+  SYSTEM:'AAA, management access, NTP and logging',
+  BGP:'Neighbor FSM, received/advertised routes, policy and best-path',
+  OSPF:'Adjacencies, area/MTU/authentication and LSDB/route selection',
+  EVPN:'VTEP/NVE, Type-2/Type-5, VNI/RT and MAC learning',
+  VPC:'Peer-link, keepalive, consistency and member-port failover',
+  STP:'Per-VLAN root election, port role, BPDU safeguards and topology changes',
+  SDWAN:'Tunnels, SLA probes, route steering and failover',
+  DCI:'L2 extension, L3 routing, route reachability and failure boundaries'
+ };
+ const verification=section(L('Teknoloji bazlı doğrulama planı','Technology-specific verification plan'));
+ verification.append(E('p','report-muted',L('Aşağıdakiler doğrulama görevidir; otomatik Passed/Failed sonucu değildir.','These are verification tasks, not automatic Passed/Failed verdicts.')));
+ verification.append(makeTable([L('Teknoloji','Technology'),L('Kontrol alanı','Verification area'),L('Durum','Status')],
+  modules.map(m=>[m,plans[m]||'Vendor-specific running and show evidence',L('İNCELENMELİ','REVIEW')])));
+ const output=section(L('Analiz taslağı ve sınırlamalar','Analysis draft and limitations'));
+ if(!offline&&$('analysisResult').value.trim()){
+  output.append(E('p','report-muted',L('AI kanıt atıfları biçimsel olabilir; teknik doğruluk ve risk sınıflandırması bağımsız olarak onaylanmalıdır.','AI evidence citations may be syntactic only; engineering accuracy and risk classification require independent review.')));
+  const pre=E('pre','',$('analysisResult').value);pre.dataset.editableDraft='true';pre.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;max-height:none';output.append(pre);
+ }else output.append(E('p','report-muted',L('AI modeli çalıştırılmadı. Protokole özgü teknik uygunluk veya kök neden kararı üretilmedi.','No AI model was run. No protocol-specific technical compliance or root-cause decision was produced.')));
+ output.append(E('p','report-meta',L('Metodoloji: Tasarım → konfigürasyon → operasyonel kanıt → mühendislik değerlendirmesi → doğrulama.','Method: Design → configuration → operational evidence → engineering evaluation → verification.')));
+ for(const [name,url] of [['Cisco Campus HA Design','https://www.cisco.com/c/en/us/td/docs/solutions/Enterprise/Campus/HA_campus_DG/hacampusdg.html'],['CIS Cisco Benchmarks','https://www.cisecurity.org/benchmark/cisco']]){
+  const p=E('p',''),link=E('a','',name);link.href=url;link.rel='noopener noreferrer';link.target='_blank';p.append(link);output.append(p);
+ }
+ $('stpCTOView').replaceChildren(article);$('stpCTOView').hidden=true;
+ $('viewSTPCTO').textContent='HTML View';$('viewSTPCTO').disabled=false;$('exportSTPCTO').disabled=false;
  $('downloadEngineeringPDF').disabled=false;$('downloadEngineeringWord').disabled=false;
+}
+function publishGenericReport(options={}){
+ activeSavedReport=null;reportGenerated=true;buildGenericReport(options);
+ $('saveEngineeringReport').disabled=false;$('editEngineeringReport').disabled=false;
+ $('reportStageStatus').textContent=options.offline?'Local Design / CLI evidence summary; AI not executed.':
+  (runState&&runState.index<runState.batches.length?'Partial model analysis; more evidence batches remain.':'AI draft ready for engineer review.');
+ if(currentStep===3)navigateWorkflow(4);else{refreshWorkflow();if(currentStep===4)showGeneratedReport();}
 }
 $('analysisResult').addEventListener('input',()=>{
  const preview=$('stpCTOView').querySelector('[data-editable-draft]');
@@ -1000,7 +1082,12 @@ $('analyze').onclick=async()=>{
    return;
   }
   const statusRes=await fetch('/api/ai/status');if(!statusRes.ok)throw Error('AI service status unavailable.');
-  const available=await statusRes.json();if(!available.available)throw Error('AI provider is not configured for the selected modules. STP-only can be analyzed locally.');
+  const available=await statusRes.json();if(!available.available){
+   $('analysisResult').value='';
+   publishGenericReport({offline:true,reason:'AI provider not configured. Design/CLI evidence is available; no protocol-specific AI assessment was generated.'});
+   message('Local evidence summary generated. No AI model was run.');
+   return;
+  }
   if(['groq','openai'].includes(available.provider)&&
      !window.confirm('Send sanitized network evidence to '+available.provider+'?\n\nDevices: '+scopedDeviceIds().map(id=>workspace.nodes.find(n=>n.id===id)?.hostname||id).join(', ')+'\nIncludes: topology, device configuration and any verification CLI.\n\nContinue only if authorized to share.')){
     message('External model transfer cancelled. No evidence was submitted.');
@@ -1047,12 +1134,16 @@ $('analyze').onclick=async()=>{
   $('analyze').textContent=more?'Continue analysis':'Analyze Selected Devices';
   $('downloadReport').disabled=false;
   if(runState.reports.length){
-   activeSavedReport=null;reportGenerated=true;buildGenericReport();$('saveEngineeringReport').disabled=false;$('editEngineeringReport').disabled=false;
-   $('reportStageStatus').textContent=more?'Partial analysis — additional batches remain.':'Analysis draft ready for engineering review.';
-   if(!more&&currentStep===3)navigateWorkflow(4);else{refreshWorkflow();if(currentStep===4)showGeneratedReport();}
+   publishGenericReport();
   }
   message(more?'Partial analysis: '+runState.index+' / '+runState.batches.length+' batches. Continue to cover all evidence.':'All batches submitted. Cross-batch root cause is NOT independently established. Validate the report before use.');
- }catch(e){message(e.message,true);}
+ }catch(e){
+  if(runState&&!runState.reports.length&&selectedModules().some(m=>m!=='STP')){
+   $('analysisResult').value='';
+   publishGenericReport({offline:true,reason:'AI request failed: '+e.message+'. No model-derived findings were produced.'});
+   message('AI request failed; Design / CLI evidence summary available. '+e.message,true);
+  }else message(e.message,true);
+ }
  finally{busy=false;refreshWorkflow();}
 };
 $('downloadReport').onclick=()=>{
