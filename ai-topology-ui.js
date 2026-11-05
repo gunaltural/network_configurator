@@ -58,7 +58,7 @@ function chooseEntry(mode){
   $(panel).hidden=mode!==key;
  }
 }
-$('chooseDesign').onclick=()=>chooseEntry('design');
+$('chooseDesign').onclick=()=>{chooseEntry('design');$('refreshSavedDesign').click();};
 $('chooseSaved').onclick=()=>chooseEntry('saved');
 $('chooseBuild').onclick=()=>chooseEntry('build');
 const sourceProjects=new Map();
@@ -425,4 +425,6 @@ $('downloadReport').onclick=()=>{
  saveFile('ai-topology-assessment.txt',$('analysisResult').value,'text/plain');
 };
 refreshBrowserProjects();fromHandoff();render();loadDevice();loadLink();loadConfig();
+// Populate Project Library choices on first entry without requiring manual refresh.
+$('refreshSavedDesign').click();
 })();
