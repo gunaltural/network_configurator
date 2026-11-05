@@ -59,8 +59,8 @@ function build(container,review,preflight,db,language){
   const head=A(E('div','cto-finding-head'),E('strong','',item.title),E('span','choice',item.severity.toUpperCase()));card.append(head);
   card.append(E('p','',item.parameter==='vtpPassword'?L('VTP Server/Client modunda kimlik doğrulama ayarının varlığı kanıtlanamadı. VTP alanına erişebilen bir cihazdan yanlış veya yetkisiz VLAN güncellemeleri yayılabilir; bu güvenlik ve servis sürekliliği açısından yüksek öncelikli doğrulama gerektirir. Ancak gizlenmiş parola satırını yok kabul etmiyoruz.','Authentication presence is not evidenced for VTP Server/Client. Without authentication, incorrect or unauthorized VLAN updates could propagate. A hidden password cannot be assumed absent.'):item.impact));
   if(r){
-   card.append(E('p','cto-context',L('Design parametre gerekçesi','Design parameter rationale')+': '+r.context));
-   card.append(E('p','cto-action',L('Mühendislik kararı ve aksiyon','Engineering decision and action')+': '+r.analysis));
+   card.append(E('p','cto-context',L('Design parametre gerekçesi','Design parameter rationale')+': '+(tr?r.contextTr||r.context:r.context)));
+   card.append(E('p','cto-action',L('Mühendislik kararı ve aksiyon','Engineering decision and action')+': '+(tr?r.analysisTr||r.analysis:r.analysis)));
    const details=E('details','');details.append(E('summary','',L('Kanıt ve standart kaynaklar','Evidence and standards')));
    details.append(E('p','',item.evidence.join(' · ')||L('İlgili satır doğrulanmadı','Source line not verified')));
    for(const id of r.sources){const source=sources.get(id);if(!source)continue;const a=E('a','',source.title);a.href=source.url;a.target='_blank';a.rel='noopener noreferrer';details.append(a);}
