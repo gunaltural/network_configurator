@@ -28,7 +28,7 @@ function run({workspace,deviceIds,technology='STP',engineering,network,operation
    recommendation:entry.recommendation,verification:entry.verification||[],
    evidence:[...new Set(entry.evidence||[])].filter(Boolean),
    references:entry.references||[],limitations:entry.limitations||[],
-   provenance:entry.provenance||'DESIGN_CONFIG'};
+   provenance:entry.provenance||'DESIGN_CONFIG',deployment:entry.deployment||null,context:entry.context||null};
   counts[status]++;results.push(item);
  };
  if(!devices.length)return {kind:'network-engineering-findings-v1',technology,findings:[],counts,limitations:['No selected devices']};
