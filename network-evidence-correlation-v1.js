@@ -87,8 +87,10 @@ function assess(args){
      if(!table)return;
      const p=line.trim().split(/\s+/);
      if(p.length<10||!ip.test(p[0])||p[1]!=='4'||!/^\d+$/.test(p[2]))return;
-     const last=p[p.length-1],state=/^\d+$/.test(last)?'Established':last;
-     if(!/^(?:Idle|Active|Connect|OpenSent|OpenConfirm|Established|Shutdown)$/i.test(state))return;
+     const last=p[p.length-1];
+     const isAdmin=last==='(Admin)'&&/^Idle$/i.test(p[p.length-2]||'');
+     const state=isAdmin?'Idle (Admin)':/^\d+$/.test(last)?'Established':last;
+     if(!/^(?:Idle(?: \(Admin\))?|Active|Connect|OpenSent|OpenConfirm|Established|Shutdown)$/i.test(state))return;
      if(!bgp.states.has(p[0]))bgp.states.set(p[0],[]);
      bgp.states.get(p[0]).push({state,prefixCount:/^\d+$/.test(last)?Number(last):null,
       proof:proof(node,'show: '+capture.filename,i,line)});
@@ -102,10 +104,18 @@ function assess(args){
     const m=line.match(/(?:Route[ -]?Type|route type|type)\s*[:= -]?\s*([235])\b/i);
     if(m&&evpn.length<30)evpn.push({type:Number(m[1]),proof:proof(node,'show: '+capture.filename,i,line)});
    });
-   if(scope.has('VPC')&&hasVPC)raw.forEach((line,i)=>{
-    const m=line.match(/^\s*(Peer status|Peer keepalive status|Peer Gateway|peer-link status|MLAG Status)\s*[:=]\s*(.+)\s*$/i);
-    if(m)vpc.push({field:m[1],value:m[2].trim(),proof:proof(node,'show: '+capture.filename,i,line)});
-   });
+   if(scope.has('VPC')&&hasVPC){
+    let inMlagStatus=false;
+    raw.forEach((line,i)=>{
+     if(/^\s*MLAG Status:\s*$/i.test(line)){inMlagStatus=true;return;}
+     if(/^\s*MLAG (?:Configuration|Ports):\s*$/i.test(line)){inMlagStatus=false;return;}
+     const pattern=inMlagStatus&&vendor==='arista'
+      ?/^\s*(state|negotiation status|peer-link status|local-int status)\s*[:=]\s*(\S.*?)\s*$/i
+      :/^\s*(Peer status|Peer keepalive status|vPC keep-alive status|Peer Gateway|Peer-link status)\s*[:=]\s*(\S.*?)\s*$/i;
+     const m=line.match(pattern);
+     if(m)vpc.push({field:m[1],value:m[2].trim(),proof:proof(node,'show: '+capture.filename,i,line)});
+    });
+   }
    if(scope.has('SDWAN')&&hasSDWAN){
     let check='';
     raw.forEach((line,i)=>{
@@ -131,6 +141,7 @@ function assess(args){
     observed:data.node.hostname+' neighbor '+peer+' reports '+observed.state+
       (observed.prefixCount!==null?' ('+observed.prefixCount+' prefixes)':'')+'.',
     explanation:changed?'Different states occur in the supplied files; capture times and transitions are unknown.':
+      observed.state==='Idle (Admin)'?'The reported session is administratively idle. Confirm intended shutdown state before investigating reachability or attributing an outage.':
       down?'Session was not Established in this capture; transport, authentication, AFI/SAFI and policy require investigation.':
       'Session state is observed, but received prefixes do not prove expected reachability or best path.',
     networkImpact:'Conditional route-exchange exposure; no service impact established.',
@@ -171,7 +182,7 @@ function assess(args){
    evidence:d.evpn.slice(0,8).map(x=>x.proof)});
  }
  if(scope.has('VPC'))for(const [id,d] of parsed)for(const x of d.vpc){
-  const impaired=/(not formed|peer.*down|not alive|suspended|inactive|failed)/i.test(x.value);
+  const impaired=/(not formed|peer.*down|not alive|suspended|inactive|failed|disconnected|disabled)/i.test(x.value);
   add({technology:'VPC',status:impaired?'REVIEW':'OBSERVED',confidence:'OPERATIONAL_SINGLE_DEVICE',
    deviceIds:[id],devices:[d.node.hostname],title:'Observed vPC / MLAG state',titleTr:'Gözlenen vPC / MLAG durumu',
    observed:d.node.hostname+' '+x.field+': '+x.value,
