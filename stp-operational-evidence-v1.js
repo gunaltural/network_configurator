@@ -3,7 +3,7 @@
 function parse(text,source){
  const lines=String(text||'').replace(/\r\n?/g,'\n').split('\n');
  let section='',vlan=null,part='',version=null,model=null;
- const vlans=new Map(),commands=[],trunks=[],udld=[];
+ const vlans=new Map(),commands=[],trunks=[],udld=[],interfaceMedia=[];
  const ref=i=>source+' L'+(i+1)+': '+lines[i].trim().slice(0,200);
  for(let i=0;i<lines.length;i++){
   const s=lines[i].trim();if(!s)continue;
@@ -37,9 +37,15 @@ function parse(text,source){
   if(m)trunks.push({name:m[1],native:Number(m[2]),line:ref(i)});
   m=s.match(/^((?:Te|Gi|Fa|Eth|Ethernet|Po|Port-channel|TenGigabitEthernet|GigabitEthernet)\S+)\s+(?:aggressive|enable)\s+(?:bidirectional|undetermined|up|down|disabled)/i);
   if(m)udld.push({name:m[1],line:ref(i),state:s});
+  // 'show interfaces status' is used only to corroborate optical media,
+  // not as evidence that an unobserved port is operationally protected.
+  if(/show interfaces status/.test(section)){
+   const port=s.match(/^((?:Te|Gi|Fa|Eth|Ethernet|Po|Port-channel|TenGigabitEthernet|GigabitEthernet)\S+)\s+connected\s+(?:trunk|\d+)\s+\S+\s+\S+\s+(.+)$/i);
+   if(port)interfaceMedia.push({name:port[1],type:port[2],line:ref(i)});
+  }
  }
  for(const v of vlans.values())v.isRoot=v.root?.address&&v.bridge?.address?v.root.address===v.bridge.address:null;
- return {source,version,model,vlans:[...vlans.values()],commands,trunks,udld};
+ return {source,version,model,vlans:[...vlans.values()],commands,trunks,udld,interfaceMedia};
 }
 function assess(workspace,deviceIds){
  const wanted=new Set(deviceIds||[]),devices=[];
