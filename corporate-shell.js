@@ -32,7 +32,7 @@
  +group('Quick Design','network','design',family('Routing & WAN',['BGP','OSPF','SDWAN'])+family('Switching & Fabric',['STP','VPC','EVPN'])+family('Network Services',['BASIC','QOS'])+tabItem('notes','Engineering Design Notes','report'))
  +group('Inventory','inventory','inventory',viewItem('inventory','Device Inventory','inventory')+item('Collect via SSH','network','data-nc-collection="automatic"','/reporting?view=inventory&context=inventory&collection=automatic')+item('Manual Entry & Excel','inventory','data-nc-collection="manual"','/reporting?view=inventory&context=inventory&collection=manual')+item('Network Discovery','network','data-nc-discovery','/network-discovery')+item('MAC Port Mapping','network','data-nc-port-mapping','/port-mapping'))
  +group('Implementation & Validation','settings','operations',tabItem('config','Device Configurations','settings')+tabItem('deploy','Configuration Deployment','upgrade')+item('Network Lab & Simulation','network','data-nc-lab','/network-lab')+item('Config Compare','settings','data-nc-compare','/config-compare')+tabItem('verify','Verification Commands','lifecycle'))
- +group('Analysis','settings','analysis',item('AI · Show Output Analysis','settings','data-nc-analysis','/analysis')+tabItem('trouble','Live Troubleshooting','settings'))
+ +group('Analysis','settings','analysis',item('AI Analysis Workspace','network','data-nc-ai-workspace','/ai-topology')+item('CLI / Show-Tech Analysis','settings','data-nc-analysis','/analysis')+tabItem('trouble','Live Troubleshooting','settings'))
  +group('Reports & Deliverables','report','reports',item('Project Deliverables','report','data-nc-deliverables="projects"','/deliverables?view=projects')+item('Evidence & Acceptance','lifecycle','data-nc-deliverables="evidence"','/deliverables?view=evidence')+item('Saved Revisions','lifecycle','data-nc-deliverables="revisions"','/deliverables?view=revisions'))
  +group('Lifecycle Management','upgrade','maintenance',viewItem('lifecycle','Lifecycle & Software Review','lifecycle')+viewItem('upgrade','Upgrade Planning','upgrade'))
  +group('Roadmap','lifecycle','roadmap',planned('Customers and Sites')+planned('Topology Library')+planned('Configuration Backups')+planned('Acceptance Tests')+planned('Diagnostic History')+'<div class="nc-menu-label">Automation</div>'+planned('Scheduled Jobs')+planned('Network Workflows')+'<div class="nc-menu-label">Administration</div>'+planned('Application Settings')+planned('Users and Roles'))
@@ -87,7 +87,7 @@
    link.innerHTML='<span class="nc-step">0'+(index+1)+'</span><span><strong>'+label+'</strong><small data-nc-flow-status></small></span>';
    link.addEventListener('click',e=>{if(e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;if(key==='network'&&main){e.preventDefault();startDesign();}else if(reporting&&key!=='network'){e.preventDefault();openView(key);}});nav.append(link);
   });
-  const detail=document.createElement('div');detail.className='nc-flow-detail';detail.innerHTML='<div><strong data-nc-flow-title></strong><p data-nc-flow-purpose></p><small data-nc-flow-output></small></div><a class="nc-flow-next"></a>';
+  const detail=document.createElement('div');detail.className='nc-flow-detail';detail.innerHTML='<div><strong data-nc-flow-title></strong><p data-nc-flow-purpose></p><small data-nc-flow-output></small></div><a class="nc-flow-next"></a><button type="button" class="nc-flow-next" data-nc-ai-design>Analyze Design with AI →</button>';
   panel.append(heading,nav,detail);workflowPanels.push(panel);return panel;
  }
  let startGuidance=false;
