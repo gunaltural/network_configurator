@@ -109,5 +109,25 @@ assert.equal(ospfFinding.evidence[0].line,303,'Original line numbers survive lat
 const unscoped={...workspace,showTech:[{deviceId:'n',filename:'unknown.txt',text:'Route Type: 5\npeer-link status : down'}]};
 assert.equal(C.assess({workspace:unscoped,deviceIds:['n'],modules:['EVPN','VPC']}).findings.length,0,'Free-floating text is insufficient evidence');
 
+// Huawei CloudEngine uses Peer / State / PrefRcv, not Cisco State/PfxRcd.
+const huawei={...workspace,nodes:workspace.nodes.concat([{id:'h',hostname:'CE6865-A',vendor:'Huawei CloudEngine VRP8'}]),
+ configs:workspace.configs.concat([{deviceId:'h',source:'design',
+  text:'sysname CE6865-A\nbgp 64512\npeer 192.0.2.2 as-number 64513\nip address 192.0.2.1 255.255.255.255'}]),
+ showTech:[{deviceId:'h',filename:'display-bgp-peer.txt',text:
+  '<HUAWEI> display bgp peer\nBGP local router ID : 192.0.2.1\nLocal AS number : 64512\n'+
+  'Peer            V          AS  MsgRcvd  MsgSent  OutQ  Up/Down        State  PrefRcv\n'+
+  '192.0.2.2      4       64513   104931   104925     0 0242h14m Established       62\n'+
+  '192.0.2.3      4       64514        0        0     0 0423h23m Connect            0\n'+
+  '<HUAWEI> display ip routing-table\n192.0.2.4       4       64514        0        0     0 0423h23m Active             0'}]};
+const hw=C.assess({workspace:huawei,deviceIds:['h'],modules:['BGP']});
+const hwGood=hw.findings.find(x=>x.observed.includes('192.0.2.2'));
+const hwDown=hw.findings.find(x=>x.observed.includes('192.0.2.3'));
+assert.equal(hwGood?.status,'OBSERVED','Huawei Established is observed, not compliance PASS');
+assert.match(hwGood.observed,/62 prefixes/);
+assert.equal(hwDown?.status,'REVIEW','Huawei Connect requires further verification');
+assert.ok(hwGood.source.some(x=>x.url.includes('huawei.com')),'Huawei source is Huawei, not Cisco');
+assert.ok(!hw.findings.some(x=>x.observed.includes('192.0.2.4')),'Routing-table lines cannot masquerade as BGP peer states');
+assert.equal(hwGood.evidence[0].line,5,'Huawei command original CLI line is retained');
+
 assert.throws(()=>C.assess({workspace,deviceIds:['missing'],modules:['BGP']}),/valid device/);
 console.log('Cross-domain vendor-scoped evidence contracts, counterevidence and no-false-PASS passed');
