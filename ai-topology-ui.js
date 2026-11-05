@@ -804,6 +804,27 @@ function buildGenericReport(options={}){
     observed?observed+' '+L('dosya','files'):captures.length?L('Yalnız sentetik','Synthetic only'):L('İsteğe bağlı · yok','Optional · absent'),
     c?L('CLI gözlendi; operasyon doğrulanmadı','CLI observed; operation unverified'):L('Konfigürasyon kanıtı gerekli','Configuration evidence needed')];
   })));
+ const technologyContext={
+  SYSTEM:['Secure administration, access control, logging and time synchronization','Weak/absent controls can impede attribution, auditability and incident response','AAA/VTY, SSH, SNMP, logging and NTP configuration; device audit outputs'],
+  BGP:['Inter-domain routing policy, prefix exchange and preferred-path selection','Incorrect peering, filters or attributes can conditionally cause missing routes, asymmetric paths or unintended advertisements','router bgp, neighbor address families, route-maps; show BGP summary, neighbor FSM and received/advertised routes'],
+  OSPF:['Link-state routing, topology distribution and internal path convergence','Area, authentication, MTU or timer incompatibilities can conditionally prevent adjacency and routing','router ospf, interface area and costs; show OSPF neighbors, interfaces, LSDB and RIB'],
+  STP:['Prevent Layer-2 switching loops and control the redundant forwarding topology','Uncontrolled root selection or role-inappropriate safeguards can conditionally create loops, blocked links or unexpected reconvergence','STP mode and bridge priorities, mapped interface safeguards; show spanning-tree per VLAN/instance'],
+  VPC:['Multi-chassis link redundancy and coordinated Layer-2 forwarding','Peer-link / keepalive divergence or consistency mismatch can conditionally trigger suspended members or split-brain exposure','vPC/MLAG peer domain, peer-link, keepalive and member configuration; observed peer and consistency state'],
+  EVPN:['BGP control-plane MAC/IP distribution over VXLAN and scalable tenant L2/L3 connectivity','Incorrect VNI/RT, overlay reachability or Type-2/Type-5 route propagation can conditionally break endpoint or prefix reachability','VLAN–VNI, NVE/VTEP, BGP EVPN and VRF routes; observed Type-2/Type-5, MAC and reachability tables'],
+  SDWAN:['SLA-aware WAN path selection, policy-based steering and failover','Incorrect health-check, rule precedence or routing interactions can conditionally steer traffic onto failed or unsuitable paths','SD-WAN zone/member/SLA/service and BGP overlay; observed performance SLA, route and session selection'],
+  DCI:['Join sites using scoped L2 extension and L3 routing while preserving failure boundaries','Uncontrolled stretched VLANs or route-target policies can extend faults or create route isolation','DCI peer/overlay design, VLAN/VNI and routing policy; observed route, MAC and underlay/overlay reachability']
+ };
+ const context=section(L('Teknolojinin amacı, kullanılmaması halinde koşullu risk ve doğrulama kanıtı','Technology purpose, conditional exposure and required evidence'));
+ context.append(E('p','report-muted',L(
+  'Bu açıklamalar mühendislik arka planıdır; ilgili cihazda teknolojinin kullanıldığı veya eksik olduğu yalnızca bu açıklamalardan çıkarılamaz.',
+  'These are engineering background statements. They do not establish that a technology is present or missing on any selected device.'
+ )));
+ context.append(makeTable(
+  [L('Teknoloji','Technology'),L('Neden kullanılır?','Purpose'),L('Eksik / hatalıysa olası etki','Conditional exposure if missing or misconfigured'),L('Nerede ve hangi kanıtla doğrulanır?','Where and how to verify')],
+  modules.map(m=>[m,...(technologyContext[m]||[
+   'Technology-specific control-plane/data-plane design','Incorrect implementation may reduce intended resilience or reachability',
+   'Review platform-scoped configuration and captured operational evidence'])])
+ ));
  const detail=section(L('Teknik kanıt ve satır referansları','Technical evidence and line references'));
  detail.append(E('p','report-muted',L('Her cihazın ilk 80 CLI satırı (gizli bilgiler maskeli); tam konfigürasyon 2. adımda görülebilir.','First 80 configuration CLI lines per device (secrets redacted); full configurations are accessible in Step 2.')));
  const secret=/(?:\bpassword\b|\bpasswd\b|\bsecret\b|snmp[-\s]?server\s+community|snmp\s+community|community-string|private.?key|api.?key|\bauthorization\b|sk-[A-Za-z0-9_-]+)/i;
