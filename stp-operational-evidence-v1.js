@@ -44,7 +44,9 @@ function parse(text,source){
 function assess(workspace,deviceIds){
  const wanted=new Set(deviceIds||[]),devices=[];
  for(const node of (workspace.nodes||[]).filter(n=>wanted.has(n.id))){
-  const captures=(workspace.showTech||[]).filter(x=>x.deviceId===node.id);
+  const capturesAll=(workspace.showTech||[]).filter(x=>x.deviceId===node.id);
+  const liveCaptures=capturesAll.filter(x=>!x.synthetic);
+  const captures=liveCaptures.length?liveCaptures:capturesAll;
   const parsed=captures.map(x=>({...parse(x.text,(x.synthetic?'SYNTHETIC LAB: ':'CAPTURE: ')+x.filename),
     filename:x.filename,synthetic:!!x.synthetic}));
   const vlans=new Map();
