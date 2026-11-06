@@ -18,9 +18,11 @@ import torch.nn.functional as F
 
 from .model import LMConfig, ScratchNetworkLM, ByteTokenizer
 from .curriculum import _STATE_PAIRS, CURRICULUM_VERSION, curriculum_examples, curriculum_digest
+from .data import SECRET
 
 STATES = tuple(state for state, _, _ in _STATE_PAIRS)
 STATE_INDEX = {state: i for i, state in enumerate(STATES)}
+CHALLENGE_PATH = Path(__file__).with_name("challenge_v1.jsonl")
 
 # Independently written phrasings. They are not training examples or copied
 # vendor documentation; they assess small out-of-template surface transfer.
@@ -42,6 +44,34 @@ TRANSFER_CASES = (
     ("dci-peer-up", "DC interconnect: NVE remote VTEP peer 192.0.2.22 reports Up."),
     ("dci-peer-down", "DC interconnect: NVE remote VTEP peer 192.0.2.22 reports Down."),
 )
+
+
+def load_challenge(path=CHALLENGE_PATH):
+    """Frozen evaluation-only synthetic CLI observations; never used in training."""
+    rows = []
+    seen_ids, seen_prompts = set(), set()
+    counts = {state: 0 for state in STATES}
+    for number, raw in enumerate(Path(path).read_text(encoding="utf-8").splitlines(), 1):
+        try:
+            item = json.loads(raw)
+        except ValueError as exc:
+            raise ValueError("Invalid challenge record JSON") from exc
+        if (not isinstance(item, dict) or
+                set(item) != {"id", "state", "origin", "split", "prompt"} or
+                item["origin"] != "original-synthetic" or
+                item["split"] != "challenge" or item["state"] not in STATE_INDEX or
+                any(not isinstance(item[k], str) or not item[k].strip()
+                    for k in item) or SECRET.search(item["prompt"])):
+            raise ValueError("Invalid or unsafe challenge record")
+        if item["id"] in seen_ids or item["prompt"] in seen_prompts:
+            raise ValueError("Duplicate challenge observation")
+        seen_ids.add(item["id"])
+        seen_prompts.add(item["prompt"])
+        counts[item["state"]] += 1
+        rows.append((item["state"], item["prompt"]))
+    if any(n != 2 for n in counts.values()) or len(rows) != 2 * len(STATES):
+        raise ValueError("Each challenge state requires two independent cases")
+    return rows
 
 
 class ScratchStateProbe(nn.Module):
@@ -116,19 +146,23 @@ def train_probe(*, steps=240, samples_per_state=12, seed=42, context=512,
     train_rows = [(x.scenario_id.removeprefix("curriculum-"), x.prompt) for x in examples]
     eval_rows = [(x.scenario_id.removeprefix("curriculum-"), x.prompt) for x in evaluation]
     template_rows = list(TRANSFER_CASES)
+    challenge_rows = load_challenge()
     train_prompts = {x.prompt for x in examples}
     if (train_prompts.intersection(x.prompt for x in evaluation) or
-            train_prompts.intersection(prompt for _, prompt in template_rows)):
+            train_prompts.intersection(prompt for _, prompt in template_rows) or
+            train_prompts.intersection(prompt for _, prompt in challenge_rows)):
         raise ValueError("Probe has exact training/evaluation overlap")
     training = encode_records(train_rows, tokenizer, context)
     surface = encode_records(eval_rows, tokenizer, context)
     transfer = encode_records(template_rows, tokenizer, context)
+    challenge = encode_records(challenge_rows, tokenizer, context)
 
     device = torch.device("cpu")
     model = ScratchStateProbe(config).to(device)  # Zero pretrained weights
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
     initial_surface = accuracy(model, surface, device)
     initial_transfer = accuracy(model, transfer, device)
+    initial_challenge = accuracy(model, challenge, device)
     order = list(range(len(training)))
     rng.shuffle(order)
     pointer = 0
@@ -155,6 +189,7 @@ def train_probe(*, steps=240, samples_per_state=12, seed=42, context=512,
     final_train = accuracy(model, training, device)
     final_surface = accuracy(model, surface, device)
     final_transfer = accuracy(model, transfer, device)
+    final_challenge = accuracy(model, challenge, device)
     manifest = {
         "status": "SCRATCH_STATE_RECOGNITION_RESEARCH_ONLY",
         "architecture": asdict(config),
@@ -164,14 +199,18 @@ def train_probe(*, steps=240, samples_per_state=12, seed=42, context=512,
         "curriculum_holdout_digest": curriculum_digest(evaluation),
         "transfer_sha256": hashlib.sha256(
             json.dumps(TRANSFER_CASES, ensure_ascii=False).encode()).hexdigest(),
+        "challenge_sha256": hashlib.sha256(CHALLENGE_PATH.read_bytes()).hexdigest(),
         "seed": seed, "steps": steps, "train_cases": len(training),
         "surface_heldout_cases": len(surface), "template_transfer_cases": len(transfer),
+        "frozen_challenge_cases": len(challenge),
         "loss_first": loss_first, "loss_last": loss_last,
         "train_result": {k: v for k, v in final_train.items() if k != "per_case"},
         "surface_before": {k: v for k, v in initial_surface.items() if k != "per_case"},
         "surface_after": {k: v for k, v in final_surface.items() if k != "per_case"},
         "template_before": {k: v for k, v in initial_transfer.items() if k != "per_case"},
         "template_after": final_transfer,
+        "challenge_before": {k: v for k, v in initial_challenge.items() if k != "per_case"},
+        "challenge_after": final_challenge,
         "limitation": "Only supervised synthetic state recognition; not root cause reasoning, vendor expertise or independent operational evidence.",
         "engineering_verified": False, "production_ready": False,
     }
