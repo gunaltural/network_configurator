@@ -11,6 +11,7 @@ from .curriculum import CLASSES, training_cases, load_frozen_holdout
 from .experiment import FROZEN_PATH
 from .language import (
     BOUNDARIES, as_examples, target, generate_on_frozen, train_language,
+    ACCEPTANCE_V3,
 )
 
 
@@ -117,6 +118,15 @@ class CiscoBGPLanguageTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "pretraining must leave"):
             train_language(steps=2, state_pretrain_steps=2)
 
+    def test_v3_frozen_cisco_bgp_holdout_not_used_in_training(self):
+        train_rows = training_cases(48, seed=42)
+        old = load_frozen_holdout(FROZEN_PATH)
+        newest = load_frozen_holdout(ACCEPTANCE_V3)
+        self.assertEqual(len(newest), 32)
+        self.assertTrue({x.text for x in newest}.isdisjoint(x.text for x in train_rows))
+        self.assertTrue({x.text for x in newest}.isdisjoint(x.text for x in old))
+        self.assertTrue(all(x.case_id.startswith("BGPV3-") for x in newest))
+
     def test_actual_random_initialized_transformer_trains_and_generates(self):
         with tempfile.TemporaryDirectory() as d:
             path = Path(d) / "cisco-bgp-language.pt"
@@ -128,6 +138,7 @@ class CiscoBGPLanguageTests(unittest.TestCase):
             self.assertEqual(result["training_examples"], 64)
             self.assertEqual(result["heldout_generation"]["heldout_cases"], 32)
             self.assertEqual(result["fresh_acceptance_v2"]["heldout_cases"], 32)
+            self.assertEqual(result["fresh_acceptance_v3"]["heldout_cases"], 32)
             self.assertEqual(result["state_warmup_steps"], 0)
             self.assertEqual(result["state_encoder_pretrain_steps"], 0)
             self.assertFalse(result["production_ready"])
