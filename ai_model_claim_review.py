@@ -10,7 +10,7 @@ from typing import Any
 SCHEMA = "network-ai-claim-review-v1"
 _READ_ONLY = re.compile(r"^(?:show|display|get|diagnose)\s+\S+", re.I)
 _CITATION_LINES = re.compile(r"^L([1-9]\d*):\s?(.*)$")
-_SENSITIVE = re.compile(r"(?i)(?:\\bpassword\\b|\\bpasswd\\b|\\bsecret\\b|\\bprivate.key\\b|\\bauthorization\\b|snmp[-\\s]?server\\s+community|pre-shared-key|set\\s+psksecret|crypto\\s+isakmp\\s+key)")
+_SENSITIVE = re.compile(r"(?i)(?:\bpassword\b|\bpasswd\b|\bsecret\b|\bprivate.key\b|\bauthorization\b|snmp[-\s]?server\s+community|pre-shared-key|set\s+psksecret|crypto\s+isakmp\s+key)")
 
 
 class ClaimReviewInvalid(ValueError):
