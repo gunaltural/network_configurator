@@ -23,6 +23,7 @@ from ..model import LMConfig, ScratchNetworkLM
 from ..train import batch, validate
 from .tokenizer import train_bpe
 from .compositional_training import load_compositional_cases
+from .v4_evaluation import load_v4_holdout
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
@@ -181,7 +182,8 @@ def grade_simulation(model, tok, examples, *, max_new_tokens=160):
     }
 
 
-def grade_focused(model, tokenizer, examples, *, max_new_tokens=100):
+def grade_focused(model, tokenizer, examples, *, max_new_tokens=100,
+                  contrast_prefix="sim-", contrast_variants=4):
     """Score generated individual results, not just the presence of headers."""
     model.eval()
     by_field = {field: {"correct": 0, "total": 0} for field in FIELDS[:4]}
@@ -220,10 +222,10 @@ def grade_focused(model, tokenizer, examples, *, max_new_tokens=100):
     )
     contrasts = []
     for left, right in contrast_groups:
-        for variant in range(4):
+        for variant in range(contrast_variants):
             suffix = str(variant).zfill(2) + "-CE1_EXIT"
-            a = decisions.get("sim-" + left + "-" + suffix)
-            b = decisions.get("sim-" + right + "-" + suffix)
+            a = decisions.get(contrast_prefix + left + "-" + suffix)
+            b = decisions.get(contrast_prefix + right + "-" + suffix)
             if a is None or b is None:
                 continue
             if a["expected"] == b["expected"]:
@@ -249,17 +251,21 @@ def grade_focused(model, tokenizer, examples, *, max_new_tokens=100):
 
 
 def experiment(*, include_design=False, focused=False, compositional=False,
-               steps=360, seed=42, width=96,
+               evaluate_v4=False, steps=360, seed=42, width=96,
                layers=2, heads=4, context=512, vocab_size=512,
                batch_size=6, threads=2, output="/tmp/bgp-module-lm.pt"):
     if (type(include_design) is not bool or type(focused) is not bool
-            or type(compositional) is not bool or not 1 <= steps <= 2000):
+            or type(compositional) is not bool or type(evaluate_v4) is not bool
+            or not 1 <= steps <= 2000):
         raise ValueError("Invalid original module experiment")
     if compositional and not focused:
         raise ValueError("Compositional BGP lessons require focused outcome training")
+    if evaluate_v4 and not focused:
+        raise ValueError("V4 topology benchmark requires focused model outputs")
     if not 1 <= batch_size <= 32 or not 1 <= threads <= 8:
         raise ValueError("Invalid batch or thread count")
     torch.set_num_threads(threads)
+    torch.use_deterministic_algorithms(True)
     torch.manual_seed(seed)
     rng = random.Random(seed)
     corpus, sim_source_sha = load_owned_module_cases()
@@ -319,6 +325,21 @@ def experiment(*, include_design=False, focused=False, compositional=False,
         grade_focused(model, tokenizer, corpus["test"]) if focused
         else grade_simulation(model, tokenizer, corpus["test"])
     )
+    v4_score, v4_digest = None, None
+    if evaluate_v4:
+        novel, v4_digest = load_v4_holdout(source_sha=sim_source_sha)
+        train_prompts = {x.prompt for x in training}
+        train_groups = {x.scenario_id for x in training}
+        if any(x.prompt in train_prompts or x.scenario_id in train_groups
+               for x in novel):
+            raise ValueError("V4 evaluation leaked into training records")
+        v4_score = grade_focused(
+            model, tokenizer, novel, contrast_prefix="novel-",
+            contrast_variants=6,
+        )
+        if (v4_score["cases"] != 144
+                or v4_score["counterfactual_exit_pairs"]["total"] != 18):
+            raise ValueError("V4 evaluation sample count mismatch")
     report = {
         "status": "SCRATCH_BGP_MODULE_KNOWLEDGE_RESEARCH_ONLY",
         "include_design_knowledge": include_design,
@@ -328,6 +349,10 @@ def experiment(*, include_design=False, focused=False, compositional=False,
         "compositional_groups": len({x.scenario_id for x in composed}),
         "compositional_sha256": composed_digest,
         "seed": seed, "steps": steps,
+        "torch_version": torch.__version__,
+        "deterministic_algorithms": torch.are_deterministic_algorithms_enabled(),
+        "novel_topology_v4_sha256": v4_digest,
+        "novel_topology_v4": v4_score,
         "configuration": asdict(config),
         "parameters": sum(p.numel() for p in model.parameters()),
         "training_cases": len(training),
@@ -365,6 +390,7 @@ def experiment(*, include_design=False, focused=False, compositional=False,
                     "focused_training": focused,
                     "compositional_training": compositional,
                     "compositional_sha256": composed_digest,
+                    "novel_topology_v4_sha256": v4_digest,
                     "engineering_verified": False,
                     "production_ready": False,
                 }}, output)
@@ -376,6 +402,9 @@ def experiment(*, include_design=False, focused=False, compositional=False,
         "compositional_training": compositional,
         "compositional_examples": len(composed),
         "train_examples": len(training), "model_parameters": report["parameters"],
+        "v4_correct": None if v4_score is None
+            else v4_score["correct_single_outcome"],
+        "v4_total": None if v4_score is None else v4_score["cases"],
         "dev_loss": dev_loss, "withheld_cases": outcomes["cases"],
         "heldout_exact": outcomes["exact_canonical"],
         "heldout_correct": (
@@ -395,6 +424,7 @@ def main():
     parser.add_argument("--include-design", action="store_true")
     parser.add_argument("--focused", action="store_true")
     parser.add_argument("--compositional", action="store_true")
+    parser.add_argument("--evaluate-v4", action="store_true")
     parser.add_argument("--steps", type=int, default=360)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--width", type=int, default=96)
@@ -408,6 +438,7 @@ def main():
     args = parser.parse_args()
     experiment(include_design=args.include_design, focused=args.focused,
                compositional=args.compositional,
+               evaluate_v4=args.evaluate_v4,
                steps=args.steps,
                seed=args.seed, width=args.width, layers=args.layers,
                heads=args.heads, context=args.context,
