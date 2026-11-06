@@ -976,6 +976,61 @@ function buildGenericReport(options={}){
      'No source-scoped operational finding was recognized. This is neither a healthy-state nor a noncompliance verdict.'
     )));
     panel.append(E('p','report-muted',matrix.limitations.join(' · ')));
+    if(window.NetworkAIHypothesisReviewV1){
+     const review=window.NetworkAIHypothesisReviewV1.review({assessment:matrix,language:tr?'tr':'en',maxFindings:24});
+     const hypotheses=section(L('Hipotez ve karşıt kanıt incelemesi','Hypothesis and counterevidence investigation'));
+     hypotheses.dataset.hypothesisSchema=review.schema;
+     hypotheses.append(E('p','report-muted',L(
+      'Bu bölüm kanıt doğrulaması yapılmış gözlemlerden soru üretir. Farklı teknolojilerde aynı cihazda görülen belirtiler neden-sonuç ilişkisi değildir. Kesin kök neden kararı verilmedi.',
+      'This section raises testable questions from verified observations. Co-occurring symptoms on the same device do not establish causality. No root cause is confirmed.'
+     )));
+     hypotheses.append(E('p','report-meta',
+      L('İncelenecek bulgu: ','Investigations: ')+review.counts.investigations+
+      ' · '+L('Çapraz teknoloji sinyali: ','Cross-technology signals: ')+review.counts.withCrossTechnologySignals+
+      ' · '+L('Doğrulanan çift cihaz kanıtı: ','Explicit multi-device evidence: ')+review.counts.withExplicitMultiDeviceEvidence
+     ));
+     if(!review.items.length)hypotheses.append(E('p','report-muted',L(
+      'Kök neden hipotezi oluşturmaya yetecek kaynaklı REVIEW/CONFLICT bulgusu bulunamadı.',
+      'No source-verified REVIEW/CONFLICT observations support an investigation card.'
+     )));
+     for(const item of review.items){
+      const card=E('article','evidence-correlation-item ai-hypothesis-review-card');
+      card.dataset.investigationState='NOT_CAUSAL';
+      card.append(E('h3','',item.title+' · '+item.technology+' · '+L('İNCELEME','INVESTIGATION')));
+      card.append(makeTable([L('Değerlendirme','Assessment'),L('Kanıtla sınanacak açıklama','Evidence-bound question')],[
+       [L('Gözlenen','Observed'),item.observed],
+       [L('Ön hipotez','Provisional hypothesis'),item.primary],
+       [L('Alternatif açıklamalar','Competing explanations'),item.possibleExplanations.map((q,i)=>(i+1)+'. '+q).join(' · ')],
+       [L('Karşıt kanıt / sınırlama','Counterevidence / limits'),item.contraryEvidence.map(c=>c.text).join(' · ')||L('Bağımsız karşıt kanıt doğrulanmadı','No independent contrary evidence confirmed')],
+       [L('Sonraki doğrulama','Read-only next checks'),item.nextChecks.join(' · ')||L('Platforma özel doğrulama gerekli','Platform-specific verification required')],
+       [L('Kabul kriteri','Acceptance criteria'),item.acceptance],
+       [L('Sonuç sınırı','Conclusion boundary'),item.uncertainty]
+      ]));
+      if(item.crossTechnology.length){
+       const related=E('details','ai-related-technology');
+       related.append(E('summary','',L('Aynı cihazdaki diğer teknoloji gözlemleri (nedensellik kanıtı değil)',
+        'Other technologies observed on this device (not causal proof)')));
+       for(const signal of item.crossTechnology){
+        related.append(E('p','report-muted',signal.technology+' · '+signal.observed));
+        for(const ev of signal.evidence){
+         related.append(E('p','report-meta',ev.device+' · '+ev.source+' · L'+ev.line+': '+ev.excerpt));
+        }
+       }
+       card.append(related);
+      }
+      const proof=E('details','ai-hypothesis-source');
+      proof.append(E('summary','',L('Orijinal kanıt satırları','Original evidence lines')));
+      for(const ev of item.sourceEvidence)proof.append(E('p','report-meta',
+       ev.device+' · '+ev.source+' · L'+ev.line+': '+ev.excerpt));
+      card.append(proof);hypotheses.append(card);
+     }
+     if(matrix.findings.filter(f=>f.status==='REVIEW'||f.status==='CONFLICT').length>review.items.length)
+      hypotheses.append(E('p','report-muted',L(
+       'En fazla 24 inceleme kartı gösterildi; diğer gözlemler analiz matrisinde yer alır.',
+       'At most 24 investigation cards shown; remaining observations stay in the assessment matrix.'
+      )));
+     hypotheses.append(E('p','report-meta',review.limitations.join(' · ')));
+    }
    }
   }catch(error){
    const disabled=section(L('CLI korelasyonu tamamlanamadı','CLI correlation unavailable'));
