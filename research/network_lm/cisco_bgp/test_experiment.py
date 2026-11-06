@@ -68,6 +68,22 @@ class CiscoBGPTests(unittest.TestCase):
             self.assertEqual(len(item["expected"]), 2)
             self.assertNotEqual(*item["expected"])
 
+    def test_masked_sequence_pooling_is_padding_invariant(self):
+        config = LMConfig(block_size=384, width=32, layers=1, heads=4)
+        for mode in ("last", "mean", "max"):
+            with self.subTest(mode=mode):
+                torch.manual_seed(42)
+                student = BGPStudent(config, pooling=mode).eval()
+                single = torch.tensor([[256, 67, 68, 69]], dtype=torch.long)
+                padded = torch.tensor([[256, 67, 68, 69, 0, 0, 0, 0]],
+                                      dtype=torch.long)
+                with torch.no_grad():
+                    one = student(single, torch.tensor([4]))
+                    two = student(padded, torch.tensor([4]))
+                self.assertTrue(torch.allclose(one, two, atol=1e-5))
+        with self.assertRaisesRegex(ValueError, "Unsupported sequence pooling"):
+            BGPStudent(config, pooling="nonexistent")
+
     def test_actual_scratch_training_and_checkpoint_never_verify_network(self):
         with tempfile.TemporaryDirectory() as folder:
             checkpoint = Path(folder) / "test-bgp.pt"
