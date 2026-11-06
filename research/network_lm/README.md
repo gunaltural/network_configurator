@@ -136,6 +136,16 @@ The server is disabled by default; the explicit CLI opt-in binds only to `127.0.
 
 **Real validation:** CI trains fresh weights, tests rejection of corrupted manifests and suspicious inputs, validates disabled-by-default behavior and submits an actual localhost HTTP request to the trained model. Successful software/HTTP tests do **not** change the independent engineering-quality acceptance requirements.
 
+### Synthetic closed-pilot eligibility gate
+
+The added `pilot_gate.py` evaluates actual scratch weights against the frozen 32-case synthetic CLI challenge, records raw accuracy, *selective accuracy among non-abstained predictions*, coverage and incorrectly accepted candidates. It does **not** release the model: a research-only `CLOSED_PILOT_ELIGIBLE_FOR_HUMAN_REVIEW` status would require at least 95% raw accuracy, at least 95% selective precision and at least 50% candidate coverage on this narrow challenge. A failing score is recorded as `NOT_ELIGIBLE_FOR_CLOSED_PILOT` without masking software-integrity CI successes.
+
+```bash
+python -m research.network_lm.pilot_gate --checkpoint /tmp/network-state-probe.pt
+```
+
+Current independently measured three-seed *raw* accuracy is approximately 45.83%, well below the 95% synthetic gate. Neither the preview UI nor the downloadable synthetic checkpoint is approved for operational use. Before any real closed pilot, significantly more rigorous, independently held-out real-world evidence, privacy controls and human engineering sign-off are required.
+
 ### Productization gates
 
 Before offering this inside Network Configurator: acquire permissioned and privacy-reviewed network training material; improve blind multi-device/multi-protocol generalization, original-source citation and competing hypothesis quality; compare against deterministic parsing and an accepted strong model; calibrate or empirically bound abstention error; perform independent engineer review. This research demo is not ready for production or operational decisions.
