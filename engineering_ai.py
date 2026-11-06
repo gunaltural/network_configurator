@@ -4,6 +4,7 @@ from tac_overview import overview
 from engineering_knowledge import retrieve_knowledge
 from engineering_source_index import retrieve_sources
 from ai_model_claim_review import validate_claim_review, render_claim_review, ClaimReviewInvalid
+from ai_model_response_schema import add_structured_response_format, has_structured_output_support
 import json
 import os
 import re
@@ -121,6 +122,13 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 def generate(payload, *, local_choices=()):
     local = os.getenv('AI_PROVIDER', 'local') == 'local'
     strong_local = local and os.getenv('AI_LOCAL_REASONING_PROFILE') == 'full'
+    structured = payload.pop('structured_claim_review', False)
+    # This is only a provider output contract. Original-source validation still
+    # runs in the application after inference; strict JSON is not a diagnosis.
+    if structured and not has_structured_output_support(
+            os.getenv('AI_PROVIDER','local'), payload['model'],
+            os.getenv('AI_LOCAL_REASONING_PROFILE')):
+        raise HTTPException(422, 'Strict structured claims unsupported for configured model.')
     headers = {'Content-Type': 'application/json'}
     if local:
         url = os.environ['AI_BASE_URL'].rstrip('/') + '/chat/completions'
@@ -143,8 +151,12 @@ def generate(payload, *, local_choices=()):
             # Keep the invisible reasoning budget bounded; do not expose chains
             # in engineering reports or consume free-tier output on them.
             payload.update(reasoning_effort='low', include_reasoning=False)
+        if structured:
+            payload = add_structured_response_format(payload, 'groq')
     else:
         url = 'https://api.openai.com/v1/responses'
+        if structured:
+            payload = add_structured_response_format(payload, 'openai')
         key = os.environ['OPENAI_API_KEY']
     if key:
         headers['Authorization'] = 'Bearer ' + key
@@ -342,7 +354,9 @@ def install_engineering_ai(app):
                 'provider': os.getenv('AI_PROVIDER', 'local') if enabled else 'disabled',
                 'externalDataTransfer': bool(enabled and external_data_transfer()),
                 'reasoningVerified': False,
-                'structuredClaimsSupported': enabled and (os.getenv('AI_PROVIDER', 'local') in ('openai', 'groq') or os.getenv('AI_LOCAL_REASONING_PROFILE') == 'full'),
+                'structuredClaimsSupported': enabled and has_structured_output_support(
+                    os.getenv('AI_PROVIDER', 'local'), os.getenv('AI_MODEL', ''),
+                    os.getenv('AI_LOCAL_REASONING_PROFILE')),
                 'structuredClaimsSchema': 'network-ai-claim-review-v1',
                 'knowledgeRetrieval': 'curated-versioned-source-metadata-not-full-text-RAG',
                 'note': 'Credentials configured; this endpoint does not verify model quality or live inference.'}
@@ -354,7 +368,8 @@ def install_engineering_ai(app):
         if len({e.id for e in body.evidence}) != len(body.evidence):
             raise HTTPException(422, 'Evidence IDs must be unique.')
         if body.reviewFormat == 'evidence-claims-v1' and (body.module != 'CLI_ANALYSIS' or
-                (os.getenv('AI_PROVIDER', 'local') == 'local' and os.getenv('AI_LOCAL_REASONING_PROFILE') != 'full')):
+                not has_structured_output_support(os.getenv('AI_PROVIDER', 'local'),
+                    os.getenv('AI_MODEL', ''), os.getenv('AI_LOCAL_REASONING_PROFILE'))):
             raise HTTPException(422, 'Structured claim review requires CLI Analysis and a supported full model.')
         content = body.model_dump()
         if len(json.dumps(content)) > 40000:
@@ -396,6 +411,7 @@ def install_engineering_ai(app):
                         review_instructions = INSTRUCTIONS + _CLI_REVIEW + _CLAIM_REVIEW_PROMPT
                     draft = generate({'model': os.environ['AI_MODEL'], 'store': False,
                         'max_output_tokens': (1800 if full_profile else 2600) if structured else (850 if full_profile else 2200),
+                        'structured_claim_review': structured,
                         'instructions': review_instructions,
                         'input': json.dumps(inputs, ensure_ascii=False)})
                 except HTTPException:
