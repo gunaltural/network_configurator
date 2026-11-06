@@ -11,10 +11,11 @@ class LMConfig:
     width: int = 64
     layers: int = 2
     heads: int = 4
-    vocab_size: int = 258   # bytes, BOS=256, EOS=257
+    vocab_size: int = 258   # default raw bytes, BOS=256, EOS=257; research BPE extends >=258
 
     def validate(self):
-        if self.block_size < 8 or self.width < 8 or self.layers < 1 or self.heads < 1 or self.width % self.heads or self.vocab_size != 258:
+        if (self.block_size < 8 or self.width < 8 or self.layers < 1 or self.heads < 1
+                or self.width % self.heads or not 258 <= self.vocab_size <= 4096):
             raise ValueError("Invalid model dimensions")
 
 
