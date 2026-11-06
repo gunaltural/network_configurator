@@ -424,8 +424,8 @@ def install_engineering_ai(app):
                                    'This is not an engineering diagnosis.')
                         excerpts = []
                         for item in content['evidence'][:8]:
-                            rows = [line for line in item['text'].splitlines() if re.match(r'^L\\d+:', line)]
-                            excerpts.append('### ' + item['id'] + '\\n' + '\\n'.join(rows[:4]))
+                            rows = [line for line in item['text'].splitlines() if re.match(r'^L\d+:', line)]
+                            excerpts.append('### ' + item['id'] + '\n' + '\n'.join(rows[:4]))
                         return {'text': warning + '\\n\\n' + '\\n\\n'.join(excerpts),
                                 'mode': 'model-unverified-draft', 'reviewRequired': True,
                                 'engineeringVerified': False, 'claimReviewStatus': 'REJECTED_UNBOUND_MODEL_CLAIMS',
