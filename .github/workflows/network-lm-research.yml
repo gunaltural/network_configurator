@@ -21,7 +21,7 @@ jobs:
       - name: Install isolated research demo dependencies
         run: python -m pip install 'fastapi>=0.110' 'httpx>=0.27' 'uvicorn>=0.29'
       - name: Validate privacy, causal mask, data splits and actual training
-        run: python -m unittest research.network_lm.test_scratch research.network_lm.test_evaluate research.network_lm.test_counterfactual research.network_lm.test_curriculum research.network_lm.test_compare research.network_lm.test_state_probe research.network_lm.test_summarize_probe research.network_lm.test_demo_api -v
+        run: python -m unittest research.network_lm.test_scratch research.network_lm.test_evaluate research.network_lm.test_counterfactual research.network_lm.test_curriculum research.network_lm.test_compare research.network_lm.test_state_probe research.network_lm.test_summarize_probe research.network_lm.test_demo_api research.network_lm.test_pilot_gate -v
       - name: Train random weights and record research-only metrics
         run: python -m research.network_lm.train --steps 3 --output /tmp/network-mini.pt
       - name: Run unseen scenario generation (does not claim engineering success)
@@ -61,6 +61,12 @@ jobs:
             --data '{"observation":"DIST-01 OSPF neighbor 10.0.0.3 state EXSTART/DR","device":"LAB-01","evidence_id":"syn-1"}' \
             | python -c 'import json,sys;d=json.load(sys.stdin);assert d["mode"]=="offline-scratch-state-probe";assert d["decision"] in ("ABSTAIN","RESEARCH_CANDIDATE_ONLY");assert not d["engineering_verified"];assert not d["production_ready"];assert len(d["top_candidates"])==3'
           echo "Local scratch demo HTTP smoke passed. This is NOT engineering acceptance."
+      - name: Evaluate closed-pilot safety gate on actual scratch weights
+        run: |
+          python -m research.network_lm.pilot_gate \
+            --checkpoint /tmp/network-state-probe.pt \
+            --output /tmp/network-scratch-pilot-gate.json
+          python -c 'import json; d=json.load(open("/tmp/network-scratch-pilot-gate.json")); assert d["engineering_verified"] is False and d["production_ready"] is False; print("PILOT_STATUS:",d["status"])'
       - name: Save synthetic-only research checkpoint for local demo (never deploy)
         uses: actions/upload-artifact@v4
         with:
