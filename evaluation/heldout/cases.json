@@ -54,37 +54,161 @@
     "id": "M1",
     "tech": "MLAG",
     "vendor": "Arista EOS",
-    "raw": "PAIR7# show mlag\nMLAG Configuration:\npeer-link : Port-Channel90\nMLAG Status:\nstate : Active\nnegotiation status : Connected\npeer-link status : Up\nlocal-int status : Up\nPAIR7# show mlag interfaces\nmlag id local-intf peer-intf status\n10 Po10 Po10 active-full"
+    "raw": "PAIR7# show mlag\nMLAG Configuration:\npeer-link : Port-Channel90\nMLAG Status:\nstate : Active\nnegotiation status : Connected\npeer-link status : Up\nlocal-int status : Up\nPAIR7# show mlag interfaces\nmlag id local-intf peer-intf status\n10 Po10 Po10 active-full",
+    "acceptance": {
+      "must_mention_any": [
+        [
+          "mlag",
+          "peer-link",
+          "peer link"
+        ],
+        [
+          "up",
+          "active",
+          "connected"
+        ]
+      ],
+      "must_not_claim": [
+        "peer link is down",
+        "peer-link is down",
+        "redundancy is fully verified",
+        "failover is verified"
+      ],
+      "minimum_line_citations": 1
+    }
   },
   {
     "id": "M2",
     "tech": "MLAG",
     "vendor": "Cisco NX-OS",
-    "raw": "N7# show vpc peer-keepalive\nvPC keep-alive status : peer is not reachable through peer-keepalive"
+    "raw": "N7# show vpc peer-keepalive\nvPC keep-alive status : peer is not reachable through peer-keepalive",
+    "acceptance": {
+      "must_mention_any": [
+        [
+          "keepalive",
+          "keep-alive",
+          "peer-keepalive"
+        ]
+      ],
+      "must_not_claim": [
+        "peer-link is down",
+        "split brain confirmed",
+        "split-brain confirmed",
+        "both peers have failed"
+      ],
+      "minimum_line_citations": 1
+    }
   },
   {
     "id": "S1",
     "tech": "STP",
     "vendor": "Cisco IOS-XE",
-    "raw": "ACC7# show spanning-tree vlan 37\nVLAN0037\nSpanning tree enabled protocol rstp\nInterface Role Sts Cost Prio.Nbr Type\nGi1/0/47 Root FWD 4 128.47 P2p\nGi1/0/48 Altn BLK 4 128.48 P2p"
+    "raw": "ACC7# show spanning-tree vlan 37\nVLAN0037\nSpanning tree enabled protocol rstp\nInterface Role Sts Cost Prio.Nbr Type\nGi1/0/47 Root FWD 4 128.47 P2p\nGi1/0/48 Altn BLK 4 128.48 P2p",
+    "acceptance": {
+      "must_mention_any": [
+        [
+          "vlan37",
+          "vlan 37",
+          "vlan0037",
+          "gi1/0/47",
+          "gi1/0/48"
+        ],
+        [
+          "altn",
+          "alternate",
+          "blocking",
+          "blocked",
+          "blk"
+        ]
+      ],
+      "must_not_claim": [
+        "physical link failure confirmed",
+        "loop detected",
+        "all ports forwarding"
+      ],
+      "minimum_line_citations": 1
+    }
   },
   {
     "id": "S2",
     "tech": "STP",
     "vendor": "Cisco IOS-XE",
-    "raw": "DIST7# show spanning-tree inconsistentports\nName Interface Inconsistency\nVLAN0037 GigabitEthernet1/0/23 Root Inconsistent\nNumber of inconsistent ports (segments) in the system : 1"
+    "raw": "DIST7# show spanning-tree inconsistentports\nName Interface Inconsistency\nVLAN0037 GigabitEthernet1/0/23 Root Inconsistent\nNumber of inconsistent ports (segments) in the system : 1",
+    "acceptance": {
+      "must_mention_any": [
+        [
+          "root inconsistent",
+          "root-inconsistent",
+          "inconsistent"
+        ],
+        [
+          "gi1/0/23",
+          "vlan37",
+          "vlan 37",
+          "vlan0037"
+        ]
+      ],
+      "must_not_claim": [
+        "root guard is definitely misconfigured",
+        "physical link is down",
+        "normal alternate blocking"
+      ],
+      "minimum_line_citations": 1
+    }
   },
   {
     "id": "W1",
     "tech": "SDWAN",
     "vendor": "FortiGate",
-    "raw": "FG7# diagnose sys sdwan health-check\nHealth Check(DC_PROBE):\nSeq(1 wan1): state(dead), packet-loss(100.000%)\nSeq(2 wan2): state(alive), packet-loss(0.000%) latency(12.300)"
+    "raw": "FG7# diagnose sys sdwan health-check\nHealth Check(DC_PROBE):\nSeq(1 wan1): state(dead), packet-loss(100.000%)\nSeq(2 wan2): state(alive), packet-loss(0.000%) latency(12.300)",
+    "acceptance": {
+      "must_mention_any": [
+        [
+          "wan1",
+          "member 1",
+          "seq(1"
+        ],
+        [
+          "wan2",
+          "member 2",
+          "seq(2"
+        ]
+      ],
+      "must_not_claim": [
+        "all sd-wan paths are down",
+        "branch outage confirmed",
+        "application outage confirmed",
+        "wan2 is selected by policy"
+      ],
+      "minimum_line_citations": 1
+    }
   },
   {
     "id": "W2",
     "tech": "SDWAN",
     "vendor": "FortiGate",
-    "raw": "FG8# diagnose sys sdwan health-check\nHealth Check(VOICE_PROBE):\nSeq(1 wan1): state(alive), packet-loss(0.000%) latency(28.100)\nSeq(2 wan2): state(alive), packet-loss(0.000%) latency(9.000)"
+    "raw": "FG8# diagnose sys sdwan health-check\nHealth Check(VOICE_PROBE):\nSeq(1 wan1): state(alive), packet-loss(0.000%) latency(28.100)\nSeq(2 wan2): state(alive), packet-loss(0.000%) latency(9.000)",
+    "acceptance": {
+      "must_mention_any": [
+        [
+          "wan1",
+          "member 1",
+          "seq(1"
+        ],
+        [
+          "wan2",
+          "member 2",
+          "seq(2"
+        ]
+      ],
+      "must_not_claim": [
+        "wan2 is the selected path",
+        "wan1 is the selected path",
+        "application performance measured",
+        "service rule prefers wan2"
+      ],
+      "minimum_line_citations": 1
+    }
   },
   {
     "id": "V1",
@@ -128,6 +252,118 @@
       ],
       "minimum_line_citations": 2,
       "minimum_distinct_evidence_ids": 2
+    }
+  },
+  {
+    "id": "O1",
+    "tech": "OSPF",
+    "vendor": "Cisco IOS-XE",
+    "raw": "DIST9# show ip ospf neighbor\nNeighbor ID Pri State Dead Time Address Interface\n10.0.0.3 1 2WAY/DROTHER 00:00:35 10.0.0.3 GigabitEthernet0/0\nDIST9# show ip ospf interface GigabitEthernet0/0\nNetwork Type BROADCAST, State DROTHER",
+    "acceptance": {
+      "must_mention_any": [
+        [
+          "ospf",
+          "2way",
+          "2-way"
+        ],
+        [
+          "drother",
+          "dr",
+          "bdr"
+        ]
+      ],
+      "must_not_claim": [
+        "ospf failure confirmed",
+        "adjacency is down",
+        "2way is always a failure"
+      ],
+      "minimum_line_citations": 2
+    }
+  },
+  {
+    "id": "O2",
+    "tech": "OSPF",
+    "vendor": "Cisco IOS-XE",
+    "raw": "DIST10# show ip ospf neighbor\nNeighbor ID Pri State Dead Time Address Interface\n10.0.0.4 1 EXSTART/DR 00:00:37 10.0.0.4 GigabitEthernet0/1\nDIST10# show ip ospf interface GigabitEthernet0/1\nInternet Address 10.0.0.10/24, Area 0, Network Type BROADCAST",
+    "acceptance": {
+      "must_mention_any": [
+        [
+          "exstart",
+          "ospf"
+        ],
+        [
+          "mtu",
+          "interface",
+          "neighbor",
+          "adja"
+        ]
+      ],
+      "must_not_claim": [
+        "mtu mismatch is confirmed",
+        "ospf is established",
+        "root cause is authentication"
+      ],
+      "minimum_line_citations": 1
+    }
+  },
+  {
+    "id": "E1",
+    "tech": "EVPN",
+    "vendor": "Cisco NX-OS",
+    "raw": "N9K-DC1# show bgp l2vpn evpn\nBGP routing table information for VRF default, address family L2VPN EVPN\nRoute Type: 2, MAC/IP Advertisement Route\nRD: 192.0.2.11:1000, RT: 65001:1000\nN9K-DC1# show nve peers\nInterface Peer-IP State LearnType Uptime\nnve1 192.0.2.12 Up CP 02:05:00",
+    "acceptance": {
+      "must_mention_any": [
+        [
+          "evpn",
+          "type-2",
+          "type 2",
+          "route type"
+        ],
+        [
+          "vni",
+          "rt",
+          "vtep",
+          "nve",
+          "underlay",
+          "reachability"
+        ]
+      ],
+      "must_not_claim": [
+        "type-5 is disabled",
+        "type 5 disabled",
+        "type-5 is missing",
+        "tenant connectivity is verified"
+      ],
+      "minimum_line_citations": 1
+    }
+  },
+  {
+    "id": "E2",
+    "tech": "EVPN",
+    "vendor": "Arista EOS",
+    "raw": "EOS-DC2# show bgp evpn\nBGP routing table information for VRF default\nRoute Type: 5 IP Prefix Route\n10.220.0.0/16 next-hop 192.0.2.22 valid best\nEOS-DC2# show vxlan vtep\nRemote VTEPS\n192.0.2.22",
+    "acceptance": {
+      "must_mention_any": [
+        [
+          "type-5",
+          "type 5",
+          "prefix",
+          "evpn"
+        ],
+        [
+          "next-hop",
+          "vtep",
+          "route",
+          "fib",
+          "vrf"
+        ]
+      ],
+      "must_not_claim": [
+        "traffic forwarding verified",
+        "remote service is reachable",
+        "fib installation confirmed"
+      ],
+      "minimum_line_citations": 1
     }
   }
 ]
