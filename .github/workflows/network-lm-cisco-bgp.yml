@@ -38,35 +38,47 @@ jobs:
           for mode in ('last','mean','max'):
               d = json.load(open(f'/tmp/cisco-bgp-{mode}42.metrics.json'))
               assert d['heldout']['total'] == 32
+              assert d['fresh_acceptance_v2']['total'] == 32
               assert d['counterfactual']['total'] == 4
               assert d['production_ready'] is False
               assert d['engineering_verified'] is False
               print(f"SCRATCH_CISCO_BGP mode={mode} seed=42: unseen {d['heldout']['correct']}/32, "
+                    f"NEW frozen {d['fresh_acceptance_v2']['correct']}/32, "
                     f"counterfactual {d['counterfactual']['correct']}/4")
               print("MISCLASSIFICATIONS:", [
                   x for x in d['heldout']['predictions'] if not x['correct']
               ])
           PY
-      - name: Train actual causal language model from random weights (NOT a status head)
+      - name: Compare real causal language training with and without state warmup
         run: |
           python -m research.network_lm.cisco_bgp.language \
             --steps 900 --per-class 48 --batch-size 8 --seed 42 \
+            --state-warmup-steps 0 \
             --output /tmp/cisco-bgp-language-seed42.pt
+          python -m research.network_lm.cisco_bgp.language \
+            --steps 900 --per-class 48 --batch-size 8 --seed 42 \
+            --state-warmup-steps 300 \
+            --output /tmp/cisco-bgp-language-warmup42.pt
       - name: Enforce real generated-answer evaluation and publish negative results
         run: |
           python - <<'PY'
           import json
-          report=json.load(open("/tmp/cisco-bgp-language-seed42.metrics.json"))
-          output=report["heldout_generation"]
-          assert output["heldout_cases"]==32
-          assert report["engineering_verified"] is False
-          assert report["production_ready"] is False
-          assert report["status"]=="CISCO_BGP_CAUSAL_LM_SCRATCH_ONLY"
-          print("REAL_SCRATCH_LANGUAGE_MODEL:",
-                "32-case correct BGP state",output["state_correct"],
-                "complete conditional reviews",output["full_format_correct"],
-                "heldout token loss",report["dev_token_loss_after"])
-          print("UNSEEN_GENERATION_EXAMPLES:",output["cases"][:4])
+          for mode, path in (
+              ("full-only", "/tmp/cisco-bgp-language-seed42.metrics.json"),
+              ("staged", "/tmp/cisco-bgp-language-warmup42.metrics.json"),
+          ):
+              report=json.load(open(path))
+              reused=report["heldout_generation"]
+              fresh=report["fresh_acceptance_v2"]
+              assert reused["heldout_cases"]==fresh["heldout_cases"]==32
+              assert report["engineering_verified"] is False
+              assert report["production_ready"] is False
+              assert report["status"]=="CISCO_BGP_CAUSAL_LM_SCRATCH_ONLY"
+              print("REAL_SCRATCH_LANGUAGE_MODEL:", mode,
+                    "reused state",reused["state_correct"],"reused full",reused["full_format_correct"],
+                    "NEW frozen state",fresh["state_correct"],"NEW frozen full",fresh["full_format_correct"],
+                    "dev loss",report["dev_token_loss_after"])
+              print("NEW_GENERATION_SAMPLES:",fresh["cases"][:3])
           PY
       - name: Keep research metrics only, not live application artifacts
         uses: actions/upload-artifact@v4
