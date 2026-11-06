@@ -29,7 +29,7 @@ export const SCENARIO_GROUPS=Object.freeze([
   {id:'ce2-wan1',split:'test',devices:['ce2'],links:['wan1']},
   {id:'both-ces',split:'test',devices:['ce1','ce2'],links:[]},
 ]);
-function buildModel(i){
+export function buildModel(i){
  const a=(i%3===0?120:200)+(i%5),b=(i%3===0?230:100)+(i%7);
  const p1=(i%4===0?3:0),p2=(i%4===1?2:0),octet=20+(i%110);
  return {nodes:[
