@@ -1,0 +1,53 @@
+name: Scratch Cisco BGP learning (independent research)
+on:
+  pull_request:
+    paths:
+      - 'research/network_lm/cisco_bgp/**'
+      - '.github/workflows/network-lm-cisco-bgp.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  cisco-bgp-student:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install isolated scratch training dependency
+        run: python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Confirm split isolation, eight classes and real gradient updates
+        run: python -m unittest research.network_lm.cisco_bgp.test_experiment -v
+      - name: Train Cisco IOS-XE BGP-only scratch Transformer from random initialization
+        run: |
+          python -m research.network_lm.cisco_bgp.experiment \
+            --steps 600 --per-class 48 --batch-size 8 --seed 42 \
+            --output /tmp/cisco-bgp-seed42.pt
+          python -m research.network_lm.cisco_bgp.experiment \
+            --steps 600 --per-class 48 --batch-size 8 --seed 7 \
+            --output /tmp/cisco-bgp-seed7.pt
+      - name: Summarize genuinely unseen BGP status tests and strict pair contrasts
+        run: |
+          python - <<'PY'
+          import json
+          for seed in (42, 7):
+              d = json.load(open(f'/tmp/cisco-bgp-seed{seed}.metrics.json'))
+              assert d['heldout']['total'] == 32
+              assert d['counterfactual']['total'] == 4
+              assert d['production_ready'] is False
+              assert d['engineering_verified'] is False
+              print(f"SCRATCH_CISCO_BGP seed={seed}: unseen {d['heldout']['correct']}/32, "
+                    f"counterfactual {d['counterfactual']['correct']}/4")
+              print("MISCLASSIFICATIONS:", [
+                  x for x in d['heldout']['predictions'] if not x['correct']
+              ])
+          PY
+      - name: Keep research metrics only, not live application artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cisco-bgp-scratch-research-metrics
+          path: /tmp/cisco-bgp-*.metrics.json
+          retention-days: 14
+          if-no-files-found: error
