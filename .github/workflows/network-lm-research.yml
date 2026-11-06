@@ -61,6 +61,13 @@ jobs:
             --data '{"observation":"DIST-01 OSPF neighbor 10.0.0.3 state EXSTART/DR","device":"LAB-01","evidence_id":"syn-1"}' \
             | python -c 'import json,sys;d=json.load(sys.stdin);assert d["mode"]=="offline-scratch-state-probe";assert d["decision"] in ("ABSTAIN","RESEARCH_CANDIDATE_ONLY");assert not d["engineering_verified"];assert not d["production_ready"];assert len(d["top_candidates"])==3'
           echo "Local scratch demo HTTP smoke passed. This is NOT engineering acceptance."
+      - name: Save synthetic-only research checkpoint for local demo (never deploy)
+        uses: actions/upload-artifact@v4
+        with:
+          name: network-ai-scratch-research-preview-seed42-not-production
+          path: /tmp/network-state-probe.pt
+          retention-days: 7
+          if-no-files-found: error
       - name: Independently train two additional scratch seeds on the frozen challenge
         run: |
           python -m research.network_lm.state_probe --steps 400 --samples-per-state 12 \
