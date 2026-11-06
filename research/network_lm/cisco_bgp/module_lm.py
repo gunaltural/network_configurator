@@ -24,6 +24,7 @@ from ..train import batch, validate
 from .tokenizer import train_bpe
 from .compositional_training import load_compositional_cases
 from .v4_evaluation import load_v4_holdout
+from .prompt_abstraction import abstract_examples
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
@@ -251,11 +252,13 @@ def grade_focused(model, tokenizer, examples, *, max_new_tokens=100,
 
 
 def experiment(*, include_design=False, focused=False, compositional=False,
-               evaluate_v4=False, steps=360, seed=42, width=96,
+               evaluate_v4=False, abstract_identity=False,
+               steps=360, seed=42, width=96,
                layers=2, heads=4, context=512, vocab_size=512,
                batch_size=6, threads=2, output="/tmp/bgp-module-lm.pt"):
     if (type(include_design) is not bool or type(focused) is not bool
             or type(compositional) is not bool or type(evaluate_v4) is not bool
+            or type(abstract_identity) is not bool
             or not 1 <= steps <= 2000):
         raise ValueError("Invalid original module experiment")
     if compositional and not focused:
@@ -283,8 +286,13 @@ def experiment(*, include_design=False, focused=False, compositional=False,
             or any(x.split != "train" for x in composed)):
         raise ValueError("Composed Cisco BGP cases overlap existing test or validation")
     training = simulation_train + (knowledge if include_design else []) + composed
-    # Same tokenizer in BOTH ablation arms: fitted only to available, original
-    # TRAIN data, never validation or heldout source responses.
+    if abstract_identity:
+        training = abstract_examples(training)
+        simulation_train = abstract_examples(simulation_train)
+        knowledge = abstract_examples(knowledge)
+        corpus = {split: abstract_examples(rows) for split, rows in corpus.items()}
+    # BPE merges are fitted exclusively to synthetic TRAIN inputs/outputs.
+    # Never use withheld or V4 evaluation texts when building vocabulary.
     combined = simulation_train + knowledge
     docs = [string for ex in combined for string in (
         "Network observation:\n" + ex.prompt + "\nEngineering review:\n",
@@ -328,6 +336,8 @@ def experiment(*, include_design=False, focused=False, compositional=False,
     v4_score, v4_digest = None, None
     if evaluate_v4:
         novel, v4_digest = load_v4_holdout(source_sha=sim_source_sha)
+        if abstract_identity:
+            novel = abstract_examples(novel)
         train_prompts = {x.prompt for x in training}
         train_groups = {x.scenario_id for x in training}
         if any(x.prompt in train_prompts or x.scenario_id in train_groups
@@ -348,6 +358,7 @@ def experiment(*, include_design=False, focused=False, compositional=False,
         "compositional_examples": len(composed),
         "compositional_groups": len({x.scenario_id for x in composed}),
         "compositional_sha256": composed_digest,
+        "abstract_identity": abstract_identity,
         "seed": seed, "steps": steps,
         "torch_version": torch.__version__,
         "deterministic_algorithms": torch.are_deterministic_algorithms_enabled(),
@@ -389,6 +400,7 @@ def experiment(*, include_design=False, focused=False, compositional=False,
                     "include_design_knowledge": include_design,
                     "focused_training": focused,
                     "compositional_training": compositional,
+                    "abstract_identity": abstract_identity,
                     "compositional_sha256": composed_digest,
                     "novel_topology_v4_sha256": v4_digest,
                     "engineering_verified": False,
@@ -400,6 +412,7 @@ def experiment(*, include_design=False, focused=False, compositional=False,
         "status": report["status"], "includes_design": include_design,
         "focused_training": focused,
         "compositional_training": compositional,
+        "abstract_identity": abstract_identity,
         "compositional_examples": len(composed),
         "train_examples": len(training), "model_parameters": report["parameters"],
         "v4_correct": None if v4_score is None
@@ -425,6 +438,7 @@ def main():
     parser.add_argument("--focused", action="store_true")
     parser.add_argument("--compositional", action="store_true")
     parser.add_argument("--evaluate-v4", action="store_true")
+    parser.add_argument("--abstract-identity", action="store_true")
     parser.add_argument("--steps", type=int, default=360)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--width", type=int, default=96)
@@ -439,6 +453,7 @@ def main():
     experiment(include_design=args.include_design, focused=args.focused,
                compositional=args.compositional,
                evaluate_v4=args.evaluate_v4,
+               abstract_identity=args.abstract_identity,
                steps=args.steps,
                seed=args.seed, width=args.width, layers=args.layers,
                heads=args.heads, context=args.context,
