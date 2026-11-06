@@ -84,6 +84,21 @@ def load_owned_module_cases():
     return grouped, actual_sha
 
 
+def focused_cases(examples):
+    """Teach one modeled outcome at a time; no answer enters the prompt."""
+    tasks = []
+    for ex in examples:
+        expected = dict(line.split("=", 1) for line in ex.completion.splitlines())
+        for field in FIELDS[:4]:
+            tasks.append(Example(
+                ex.id + "-" + field, ex.scenario_id, ex.split,
+                ex.prompt + "\nRequested simulator outcome: " + field + ".",
+                "RESULT=" + expected[field]
+                + "\nLIMITATION=SIMULATION_NOT_LIVE_BGP_OR_FORWARDING",
+            ))
+    return tasks
+
+
 def design_teaching_examples(repetitions=5):
     """Original explanations from curated project source, never Cisco body text."""
     obj = json.loads(KNOWLEDGE.read_text(encoding="utf-8"))
@@ -165,10 +180,48 @@ def grade_simulation(model, tok, examples, *, max_new_tokens=160):
     }
 
 
-def experiment(*, include_design=False, steps=360, seed=42, width=96,
+def grade_focused(model, tokenizer, examples, *, max_new_tokens=100):
+    """Score generated individual results, not just the presence of headers."""
+    model.eval()
+    by_field = {field: {"correct": 0, "total": 0} for field in FIELDS[:4]}
+    full, previews = 0, []
+    for ex in examples:
+        field = ex.id.rsplit("-", 1)[-1]
+        if field not in by_field:
+            raise ValueError("Unknown focused BGP task")
+        prefix = prompt_tokens(ex, tokenizer)
+        if len(prefix) > model.config.block_size:
+            raise ValueError("Focused heldout exceeds model context")
+        with torch.no_grad():
+            produced = tokenizer.decode(
+                model.complete(prefix, max_new_tokens=max_new_tokens)[len(prefix):]
+            ).strip()
+        correct_line = ex.completion.splitlines()[0]
+        observed = next(
+            (line for line in produced.splitlines() if line.startswith("RESULT=")),
+            None,
+        )
+        good = observed == correct_line
+        by_field[field]["correct"] += int(good)
+        by_field[field]["total"] += 1
+        full += produced == ex.completion
+        if len(previews) < 6:
+            previews.append({"case": ex.id, "expected": ex.completion,
+                             "generated": produced[:200], "result_correct": good})
+    return {
+        "cases": len(examples),
+        "correct_single_outcome": sum(x["correct"] for x in by_field.values()),
+        "exact_canonical": full, "by_field": by_field,
+        "first_six": previews, "engineering_verified": False,
+        "production_ready": False,
+    }
+
+
+def experiment(*, include_design=False, focused=False, steps=360, seed=42, width=96,
                layers=2, heads=4, context=512, vocab_size=512,
                batch_size=6, threads=2, output="/tmp/bgp-module-lm.pt"):
-    if type(include_design) is not bool or not 1 <= steps <= 2000:
+    if (type(include_design) is not bool or type(focused) is not bool
+            or not 1 <= steps <= 2000):
         raise ValueError("Invalid original module experiment")
     if not 1 <= batch_size <= 32 or not 1 <= threads <= 8:
         raise ValueError("Invalid batch or thread count")
@@ -177,6 +230,8 @@ def experiment(*, include_design=False, steps=360, seed=42, width=96,
     rng = random.Random(seed)
     corpus, sim_source_sha = load_owned_module_cases()
     knowledge = design_teaching_examples(5)
+    if focused:
+        corpus = {key: focused_cases(items) for key, items in corpus.items()}
     simulation_train = corpus["train"]
     training = simulation_train + (knowledge if include_design else [])
     # Same tokenizer in BOTH ablation arms: fitted only to available, original
@@ -217,10 +272,14 @@ def experiment(*, include_design=False, steps=360, seed=42, width=96,
             initial = round(float(loss.item()), 6)
         final = round(float(loss.item()), 6)
     dev_loss = validate(model, encoded_val, torch.device("cpu"))
-    outcomes = grade_simulation(model, tokenizer, corpus["test"])
+    outcomes = (
+        grade_focused(model, tokenizer, corpus["test"]) if focused
+        else grade_simulation(model, tokenizer, corpus["test"])
+    )
     report = {
         "status": "SCRATCH_BGP_MODULE_KNOWLEDGE_RESEARCH_ONLY",
         "include_design_knowledge": include_design,
+        "focused_training": focused,
         "seed": seed, "steps": steps,
         "configuration": asdict(config),
         "parameters": sum(p.numel() for p in model.parameters()),
@@ -256,6 +315,7 @@ def experiment(*, include_design=False, steps=360, seed=42, width=96,
                     "tokenizer_sha256": tokenizer.fingerprint(),
                     "training_steps": steps,
                     "include_design_knowledge": include_design,
+                    "focused_training": focused,
                     "engineering_verified": False,
                     "production_ready": False,
                 }}, output)
@@ -263,11 +323,17 @@ def experiment(*, include_design=False, steps=360, seed=42, width=96,
     report_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({
         "status": report["status"], "includes_design": include_design,
+        "focused_training": focused,
         "train_examples": len(training), "model_parameters": report["parameters"],
         "dev_loss": dev_loss, "withheld_cases": outcomes["cases"],
         "heldout_exact": outcomes["exact_canonical"],
-        "heldout_four_outcomes": outcomes["all_four_outcomes_correct"],
-        "heldout_fields": outcomes["field_correct"],
+        "heldout_correct": (
+            outcomes["correct_single_outcome"] if focused
+            else outcomes["all_four_outcomes_correct"]
+        ),
+        "heldout_fields": (
+            outcomes["by_field"] if focused else outcomes["field_correct"]
+        ),
         "production_ready": False,
     }), flush=True)
     return report
@@ -276,6 +342,7 @@ def experiment(*, include_design=False, steps=360, seed=42, width=96,
 def main():
     parser = ArgumentParser(description=__doc__)
     parser.add_argument("--include-design", action="store_true")
+    parser.add_argument("--focused", action="store_true")
     parser.add_argument("--steps", type=int, default=360)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--width", type=int, default=96)
@@ -287,7 +354,8 @@ def main():
     parser.add_argument("--threads", type=int, default=2)
     parser.add_argument("--output", default="/tmp/bgp-module-lm.pt")
     args = parser.parse_args()
-    experiment(include_design=args.include_design, steps=args.steps,
+    experiment(include_design=args.include_design, focused=args.focused,
+               steps=args.steps,
                seed=args.seed, width=args.width, layers=args.layers,
                heads=args.heads, context=args.context,
                vocab_size=args.vocab_size, batch_size=args.batch_size,
