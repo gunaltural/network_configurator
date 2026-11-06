@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 
 CASES = json.loads(Path(__file__).with_name('cases.json').read_text(encoding='utf-8'))
-EXPECTED = {'BGP', 'VPC', 'MLAG', 'STP', 'SDWAN', 'OSPF', 'EVPN'}
+EXPECTED = {'BGP', 'VPC', 'MLAG', 'STP', 'SDWAN', 'OSPF', 'EVPN', 'SYSTEM', 'DCI'}
 
 
 class HeldoutManifestTest(unittest.TestCase):
