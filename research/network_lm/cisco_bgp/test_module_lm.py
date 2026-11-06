@@ -6,8 +6,8 @@ import unittest
 import torch
 
 from .module_lm import (
-    FIELDS, design_teaching_examples, experiment,
-    load_owned_module_cases, grade_simulation,
+    FIELDS, design_teaching_examples, experiment, focused_cases,
+    load_owned_module_cases, grade_simulation, grade_focused,
 )
 from ..model import ByteTokenizer
 
@@ -75,6 +75,36 @@ class ModuleKnowledgeTests(unittest.TestCase):
         best = grade_simulation(Canonical(sample), tok, sample)
         self.assertEqual(best["all_four_outcomes_correct"], 2)
         self.assertEqual(best["exact_canonical"], 2)
+
+    def test_focused_tasks_keep_heldout_failure_groups_sealed(self):
+        corpus, _ = load_owned_module_cases()
+        focused = {split: focused_cases(rows) for split, rows in corpus.items()}
+        self.assertEqual(len(focused["train"]), 768)
+        self.assertEqual(len(focused["val"]), 40)
+        self.assertEqual(len(focused["test"]), 96)
+        self.assertTrue({x.scenario_id for x in focused["train"]}.isdisjoint(
+            x.scenario_id for x in focused["test"]))
+        self.assertTrue(all(x.completion.startswith("RESULT=")
+                            and "LIMITATION=SIMULATION_NOT_LIVE" in x.completion
+                            for x in focused["test"]))
+        self.assertEqual(len({x.id for x in focused["test"]}), 96)
+        self.assertTrue(all("Requested simulator outcome:" in x.prompt
+                            for x in focused["test"]))
+
+    def test_focused_grading_checks_values_not_just_syntax(self):
+        corpus, _ = load_owned_module_cases()
+        heldout = focused_cases(corpus["test"][:2])
+        tok = ByteTokenizer()
+        class Bad:
+            config = type("Config", (), {"block_size": 2048})()
+            def eval(self):
+                return self
+            def complete(self, prefix, max_new_tokens=100):
+                return prefix + tok.encode("RESULT=MADE_UP\nLIMITATION=SIMULATION_NOT_LIVE_BGP_OR_FORWARDING")
+        result = grade_focused(Bad(), tok, heldout)
+        self.assertEqual(result["cases"], 8)
+        self.assertEqual(result["correct_single_outcome"], 0)
+        self.assertEqual(result["exact_canonical"], 0)
 
     def test_actual_random_weights_learn_from_source_without_product_approval(self):
         with TemporaryDirectory() as tmp:
