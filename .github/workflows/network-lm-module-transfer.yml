@@ -22,7 +22,7 @@ jobs:
       - name: Install CPU-only training framework
         run: python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
       - name: Check original simulator evaluation, failover semantics and provenance
-        run: node --test research/network_lm/cisco_bgp/test_module_scenarios.mjs
+        run: node --test research/network_lm/cisco_bgp/test_module_scenarios.mjs research/network_lm/cisco_bgp/test_compositional_scenarios.mjs
       - name: Prove design facts and real synthetic learning are independent of product
         run: python -m unittest research.network_lm.cisco_bgp.test_module_lm -v
       - name: Baseline scratch model - simulation-only teaching
@@ -98,6 +98,44 @@ jobs:
           assert reports[0]['tokenizer_sha256']==reports[1]['tokenizer_sha256']
           assert reports[0]['parameters']==reports[1]['parameters']
           assert reports[0]['curated_design_knowledge_sha256']==reports[1]['curated_design_knowledge_sha256']
+          PY
+      - name: Teach causal dependencies from same read-only BGP simulator
+        run: |
+          python -m research.network_lm.cisco_bgp.module_lm \
+            --focused --compositional --steps 600 \
+            --width 96 --layers 2 --heads 4 \
+            --seed 42 --vocab-size 512 --include-design \
+            --output /tmp/bgp-focus-compositional.pt
+      - name: Compare honest generation and CE1 exit counterfactual generalization
+        run: |
+          python - <<'PY'
+          import json
+          baseline=json.load(open('/tmp/bgp-focus-plus-design.metrics.json'))
+          compositional=json.load(open('/tmp/bgp-focus-compositional.metrics.json'))
+          assert baseline['focused_training'] and compositional['focused_training']
+          assert baseline['compositional_training'] is False
+          assert compositional['compositional_training'] is True
+          assert compositional['compositional_examples']==960
+          assert compositional['compositional_groups']==16
+          assert baseline['tokenizer_sha256']==compositional['tokenizer_sha256']
+          assert baseline['configuration']==compositional['configuration']
+          assert baseline['seed']==compositional['seed']
+          assert baseline['steps']==compositional['steps']==600
+          assert baseline['synthetic_simulation_source_sha256']==compositional['synthetic_simulation_source_sha256']
+          for name,d in (('DESIGN_ONLY',baseline),('DESIGN_PLUS_CAUSAL_COMPOSITION',compositional)):
+              scored=d['withheld_simulation']
+              paired=scored['counterfactual_exit_pairs']
+              assert scored['cases']==96
+              assert paired['total']==12
+              assert not d['production_ready'] and not d['engineering_verified']
+              print('SCRATCH_BGP_CAUSAL_ABLATION',name,
+                    'correct_generated_result',scored['correct_single_outcome'],'/96',
+                    'exact_report',scored['exact_canonical'],'/96',
+                    'CE1_EXIT_correct',scored['by_field']['CE1_EXIT']['correct'],'/24',
+                    'paired_exit_both_correct',paired['both_correct'],'/12',
+                    'predicted_exit_change',paired['changed_output'],'/12',
+                    'training_examples',d['training_cases'],
+                    'no_live_claims',True)
           PY
       - name: Retain synthetic research metrics without deploying models
         uses: actions/upload-artifact@v4
