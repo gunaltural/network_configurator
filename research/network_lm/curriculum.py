@@ -11,7 +11,7 @@ import random
 
 from .data import Example
 
-CURRICULUM_VERSION = "original-synthetic-protocol-states-v1"
+CURRICULUM_VERSION = "original-synthetic-protocol-states-v2"
 
 # Each response is intentionally conditional: a state observation never certifies
 # service impact, a root cause or end-to-end connectivity.
@@ -51,6 +51,78 @@ _STATE_PAIRS = (
 )
 
 
+# Two extra ORIGINAL phrasings per label. No model outputs or held-out
+# transfer prompts were copied into this training augmentation.
+_ALT_PROMPTS = {
+    "bgp-active": (
+        "On {host}, remote BGP endpoint {peer} is in FSM Active and is not Established.",
+        "Protocol BGP, node {host}, neighbor {peer}: state Active; prefix count zero.",
+    ),
+    "bgp-established": (
+        "On {host}, remote BGP endpoint {peer} is Established with 15 learned prefixes.",
+        "Protocol BGP, node {host}, neighbor {peer}: session Established, routes received 15.",
+    ),
+    "ospf-drotwo": (
+        "Node {host}: OSPF broadcast neighbor {peer} reports status 2-WAY as DROTHER.",
+        "Routing snapshot {host}: OSPF peer {peer} is 2WAY; broadcast DROTHER adjacency.",
+    ),
+    "ospf-exstart": (
+        "Node {host}: OSPF neighbor {peer} is negotiating EXSTART with DR role.",
+        "Routing snapshot {host}: OSPF adjacency to {peer} reports EXSTART/DR on Ethernet1.",
+    ),
+    "evpn-type2": (
+        "Leaf {host}: an L2VPN EVPN MAC/IP advertisement of route type two is present.",
+        "Overlay routing on {host} advertises EVPN route-type 2 with RT 65001:1000.",
+    ),
+    "evpn-type5": (
+        "Leaf {host}: an L2VPN EVPN IP-prefix advertisement of route type five is present.",
+        "Overlay routing on {host} advertises EVPN route-type 5 for 10.220.0.0/16.",
+    ),
+    "sdwan-probe-dead": (
+        "Firewall {host} reports the SD-WAN wan1 performance probe as dead.",
+        "SDWAN health status on {host}: wan1 has 100 percent loss, SLA state dead.",
+    ),
+    "sdwan-probe-alive": (
+        "Firewall {host} reports the SD-WAN wan1 performance probe as alive.",
+        "SDWAN health status on {host}: wan1 has zero percent loss, SLA state alive.",
+    ),
+    "mlag-link-up": (
+        "Switch {host}: MLAG peer interconnect is operationally Up.",
+        "Redundancy snapshot {host}: MLAG peer-link Up and member interface Up.",
+    ),
+    "mlag-link-down": (
+        "Switch {host}: MLAG peer interconnect is operationally Down.",
+        "Redundancy snapshot {host}: MLAG peer-link Down although member interface is Up.",
+    ),
+    "stp-alt-block": (
+        "Switch {host}: STP on VLAN 37 selected Ethernet1 Alternate/Blocking.",
+        "Layer-2 status {host}, spanning tree: Ethernet1 is alternate and blocked.",
+    ),
+    "stp-root-forward": (
+        "Switch {host}: STP on VLAN 37 selected Ethernet1 Root/Forwarding.",
+        "Layer-2 status {host}, spanning tree: Ethernet1 is root and forwarding.",
+    ),
+    "system-ntp-sync": (
+        "Device {host}: NTP reports clock synchronized, stratum three.",
+        "Management clock check for {host} indicates NTP sync acquired at stratum 3.",
+    ),
+    "system-ntp-unsync": (
+        "Device {host}: NTP reports clock unsynchronized, stratum sixteen.",
+        "Management clock check for {host} indicates NTP unsynced at stratum 16.",
+    ),
+    "dci-peer-up": (
+        "DCI node {host}: remote NVE VTEP neighbor {peer} has status Up.",
+        "VXLAN interconnect snapshot {host}: remote peer {peer} shows operational Up.",
+    ),
+    "dci-peer-down": (
+        "DCI node {host}: remote NVE VTEP neighbor {peer} has status Down.",
+        "VXLAN interconnect snapshot {host}: remote peer {peer} shows operational Down.",
+    ),
+}
+if set(_ALT_PROMPTS) != {state for state, _, _ in _STATE_PAIRS}:
+    raise RuntimeError("Incomplete synthetic curriculum variants")
+
+
 def curriculum_examples(per_state=0, seed=42):
     if type(per_state) is not int or not 0 <= per_state <= 64:
         raise ValueError("curriculum_per_state must be an integer 0..64")
@@ -73,7 +145,8 @@ def curriculum_examples(per_state=0, seed=42):
                 id=f"curr-{name}-{i:03d}",
                 scenario_id=f"curriculum-{name}",
                 split="train",
-                prompt=prompt.format(peer=address, host=host) + " " + variant,
+                prompt=(prompt, *_ALT_PROMPTS[name])[i % 3].format(
+                    peer=address, host=host) + " " + variant,
                 completion=response,
             ))
     rng.shuffle(records)
