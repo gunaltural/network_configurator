@@ -22,6 +22,7 @@ from ..data import Example, encode_example, SECRET
 from ..model import LMConfig, ScratchNetworkLM
 from ..train import batch, validate
 from .tokenizer import train_bpe
+from .compositional_training import load_compositional_cases
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
@@ -217,12 +218,15 @@ def grade_focused(model, tokenizer, examples, *, max_new_tokens=100):
     }
 
 
-def experiment(*, include_design=False, focused=False, steps=360, seed=42, width=96,
+def experiment(*, include_design=False, focused=False, compositional=False,
+               steps=360, seed=42, width=96,
                layers=2, heads=4, context=512, vocab_size=512,
                batch_size=6, threads=2, output="/tmp/bgp-module-lm.pt"):
     if (type(include_design) is not bool or type(focused) is not bool
-            or not 1 <= steps <= 2000):
+            or type(compositional) is not bool or not 1 <= steps <= 2000):
         raise ValueError("Invalid original module experiment")
+    if compositional and not focused:
+        raise ValueError("Compositional BGP lessons require focused outcome training")
     if not 1 <= batch_size <= 32 or not 1 <= threads <= 8:
         raise ValueError("Invalid batch or thread count")
     torch.set_num_threads(threads)
@@ -233,7 +237,16 @@ def experiment(*, include_design=False, focused=False, steps=360, seed=42, width
     if focused:
         corpus = {key: focused_cases(items) for key, items in corpus.items()}
     simulation_train = corpus["train"]
-    training = simulation_train + (knowledge if include_design else [])
+    composed, composed_digest = (
+        load_compositional_cases(expected_source_sha=sim_source_sha)
+        if compositional else ([], None)
+    )
+    original_ids = {x.id for split in corpus.values() for x in split}
+    original_groups = {x.scenario_id for split in corpus.values() for x in split}
+    if (any(x.id in original_ids or x.scenario_id in original_groups for x in composed)
+            or any(x.split != "train" for x in composed)):
+        raise ValueError("Composed Cisco BGP cases overlap existing test or validation")
+    training = simulation_train + (knowledge if include_design else []) + composed
     # Same tokenizer in BOTH ablation arms: fitted only to available, original
     # TRAIN data, never validation or heldout source responses.
     combined = simulation_train + knowledge
@@ -280,6 +293,10 @@ def experiment(*, include_design=False, focused=False, steps=360, seed=42, width
         "status": "SCRATCH_BGP_MODULE_KNOWLEDGE_RESEARCH_ONLY",
         "include_design_knowledge": include_design,
         "focused_training": focused,
+        "compositional_training": compositional,
+        "compositional_examples": len(composed),
+        "compositional_groups": len({x.scenario_id for x in composed}),
+        "compositional_sha256": composed_digest,
         "seed": seed, "steps": steps,
         "configuration": asdict(config),
         "parameters": sum(p.numel() for p in model.parameters()),
@@ -316,6 +333,8 @@ def experiment(*, include_design=False, focused=False, steps=360, seed=42, width
                     "training_steps": steps,
                     "include_design_knowledge": include_design,
                     "focused_training": focused,
+                    "compositional_training": compositional,
+                    "compositional_sha256": composed_digest,
                     "engineering_verified": False,
                     "production_ready": False,
                 }}, output)
@@ -324,6 +343,8 @@ def experiment(*, include_design=False, focused=False, steps=360, seed=42, width
     print(json.dumps({
         "status": report["status"], "includes_design": include_design,
         "focused_training": focused,
+        "compositional_training": compositional,
+        "compositional_examples": len(composed),
         "train_examples": len(training), "model_parameters": report["parameters"],
         "dev_loss": dev_loss, "withheld_cases": outcomes["cases"],
         "heldout_exact": outcomes["exact_canonical"],
@@ -343,6 +364,7 @@ def main():
     parser = ArgumentParser(description=__doc__)
     parser.add_argument("--include-design", action="store_true")
     parser.add_argument("--focused", action="store_true")
+    parser.add_argument("--compositional", action="store_true")
     parser.add_argument("--steps", type=int, default=360)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--width", type=int, default=96)
@@ -355,6 +377,7 @@ def main():
     parser.add_argument("--output", default="/tmp/bgp-module-lm.pt")
     args = parser.parse_args()
     experiment(include_design=args.include_design, focused=args.focused,
+               compositional=args.compositional,
                steps=args.steps,
                seed=args.seed, width=args.width, layers=args.layers,
                heads=args.heads, context=args.context,
