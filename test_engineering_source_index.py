@@ -53,6 +53,36 @@ class EngineeringSourceIndexTests(unittest.TestCase):
         self.assertNotIn("cisco-bgp-basic-2026",ids)
         self.assertFalse(any(item["vendor"]=="Cisco" for item in catalog()["sources"] if item["id"]=="huawei-ce-bgp-peer"))
 
+    def test_bgp_neighbor_does_not_select_ospf_metadata(self):
+        evidence=[{"id":"bgp","text":"Device: CE1\nVendor: Cisco IOS-XE\n"
+            "Command: show ip bgp summary\nL2: Neighbor V AS State/PfxRcd\n"
+            "L3: 192.0.2.2 4 65002 0 0 0 0 0 never Idle"}]
+        found=retrieve_sources(evidence,"Cisco IOS-XE")
+        ids=[item["id"] for item in found]
+        self.assertIn("cisco-bgp-basic-2026",ids)
+        self.assertNotIn("cisco-ospf-exstart-2024",ids)
+
+    def test_ospf_neighbor_does_not_select_bgp_metadata(self):
+        evidence=[{"id":"ospf","text":"Device: CE1\nVendor: Cisco IOS-XE\n"
+            "Command: show ip ospf neighbor\nL1: Neighbor ID Pri State\n"
+            "L2: 2.2.2.2 1 EXSTART/DR"}]
+        ids=[item["id"] for item in retrieve_sources(evidence,"Cisco IOS-XE")]
+        self.assertIn("cisco-ospf-exstart-2024",ids)
+        self.assertNotIn("cisco-bgp-basic-2026",ids)
+
+    def test_joint_show_tech_matches_each_technology_only_if_present(self):
+        evidence=[{"id":"combined","text":"Vendor: Cisco IOS-XE\n"
+            "CE1#show ip bgp summary\nL2: Neighbor V AS\n"
+            "CE1#show ip ospf neighbor\nL4: 2.2.2.2 1 EXSTART/DR"}]
+        ids=[item["id"] for item in retrieve_sources(evidence,"Cisco IOS-XE")]
+        self.assertIn("cisco-bgp-basic-2026",ids)
+        self.assertIn("cisco-ospf-exstart-2024",ids)
+
+    def test_generic_neighbor_without_protocol_does_not_get_a_guide(self):
+        evidence=[{"id":"a","text":"Device: CE1\nVendor: Cisco IOS-XE\n"
+            "Command: unknown\nL1: Neighbor 192.0.2.1 Active"}]
+        self.assertEqual(retrieve_sources(evidence,"Cisco IOS-XE"),[])
+
     def test_software_module_not_inferred_from_missing_vendor(self):
         self.assertEqual(retrieve_sources([{"id":"a","text":"L1: show vpc peer-gateway"}], "Unknown"), [])
     def test_bound_results(self):

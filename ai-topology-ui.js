@@ -839,6 +839,9 @@ function buildGenericReport(options={}){
    'Technology-specific control-plane/data-plane design','Incorrect implementation may reduce intended resilience or reachability',
    'Review platform-scoped configuration and captured operational evidence'])])
  ));
+ // Technical source links are chosen from the actual device-scoped finding,
+ // never added to a mixed-vendor report based only on the selected module name.
+ let scopedReferences=[];
  // Technology-independent operational evidence correlation. This is a separate,
  // versioned read-only adapter, never a substitute for the real AI reasoning layer.
  if(window.NetworkEvidenceCorrelationV1){
@@ -846,6 +849,9 @@ function buildGenericReport(options={}){
    const intelligence=window.NetworkEvidenceCorrelationV1.assess({
     workspace,deviceIds:nodes.map(n=>n.id),modules
    });
+   scopedReferences=intelligence.findings.flatMap(finding=>(finding.source||[]).map(src=>({
+    ...src,technology:finding.technology,devices:finding.devices||[]
+   })));
    const assessment=section(L('Cihazlar arası CLI korelasyonu ve kanıt değerlendirmesi','Cross-device CLI evidence correlation'));
    assessment.append(E('p','report-muted',L(
     'Bu bölüm yalnızca sağlanan CLI kanıtlarından çıkarılan sınırlı gözlemleri gösterir. Gözlendi = doğru tasarım veya uyumluluk PASS değildir. İncelenmeli = kesin arıza değildir. Çelişki = ayrıca doğrulanmalıdır.',
@@ -903,6 +909,129 @@ function buildGenericReport(options={}){
     }
    }
    assessment.append(E('p','report-muted',intelligence.limitations.join(' · ')));
+   if(window.NetworkAIEngineeringAssessmentV1){
+    const matrix=window.NetworkAIEngineeringAssessmentV1.evaluate({
+     workspace,deviceIds:nodes.map(node=>node.id),modules,
+     correlation:intelligence,language:tr?'tr':'en'
+    });
+    const panel=section(L('Mühendislik değerlendirme matrisi — kanıt ve karar','Engineering assessment matrix — evidence and decision'));
+    panel.dataset.assessmentSchema=matrix.schema;
+    if(matrix.rejectedUnboundFindings>0){
+     const warning=E('p','report-muted',L(
+      'KANIT UYARI: '+matrix.rejectedUnboundFindings+' bulgu, cihaz/dosya/orijinal CLI satırıyla doğrulanamadığından rapordan çıkarıldı.',
+      'EVIDENCE WARNING: '+matrix.rejectedUnboundFindings+' finding(s) excluded because their device/file/original CLI line could not be verified.'
+     ));
+     warning.dataset.evidenceRejected=String(matrix.rejectedUnboundFindings);
+     panel.append(warning);
+    }
+    panel.append(E('p','report-muted',L(
+     'Ortak metodoloji: amaç → uygulanabilirlik → konfigürasyon niyeti → operasyonel gözlem → olası etki → audit → aksiyon → kabul kriteri. Bunlar otomatik PASS/FAIL veya doğrulanmış kök neden değildir.',
+     'Shared methodology: purpose → applicability → configuration intent → operational observation → conditional impact → audit → action → acceptance. This is not an automatic PASS/FAIL or certified root cause.'
+    )));
+    panel.append(makeTable(
+     [L('Teknoloji','Technology'),L('Amaç ve bağımlılıklar','Purpose and dependencies'),
+      L('Operasyonel durum','Operational state'),L('Doğrulama amacı','Audit objective')],
+     matrix.controls.map(control=>[control.technology,control.purpose,
+      control.state==='EVIDENCE_OBSERVED'?
+       control.findings+' '+L('operasyonel gözlem · inceleme gerekli','operational facts · engineering review required'):
+       control.state==='CONFIG_ONLY_REVIEW'?
+       control.findings+' '+L('yalnız konfigürasyon / niyet; operasyonel durum doğrulanmadı','configuration/intent only; operation not verified'):
+       L('DOĞRULANMADI · kapsam/kanıt eksik olabilir','NOT VERIFIED · evidence may be missing or unsupported'),
+      control.audit])
+    ));
+    if(matrix.findings.length){
+     for(const finding of matrix.findings){
+      const card=E('article','evidence-correlation-item ai-engineering-matrix-finding');
+      card.dataset.status=finding.status;card.dataset.technology=finding.technology;
+      card.append(E('h3','',finding.title+' · '+finding.status));
+      card.append(makeTable(
+       [L('Değerlendirme boyutu','Assessment dimension'),L('Mühendislik açıklaması','Engineering explanation')],
+       [
+        [L('Amaç / uygulanabilirlik','Purpose / applicability'),finding.purpose+' · '+finding.sourceApplicability],
+        [L('Beklenen davranış','Expected behavior'),finding.expected],
+        [L('Konfigürasyon','Configuration evidence'),finding.configured],
+        [L('Gözlem','Observed evidence'),finding.observed],
+        [L('Teknik değerlendirme / hipotez','Rationale / hypothesis'),finding.hypothesis],
+        [L('Karşıt kanıt ve sınırlama','Counterevidence / limitations'),finding.counterevidence+' · '+finding.limitations.join(' ')],
+        [L('Olası teknik ve iş etkisi','Conditional technical and business impact'),finding.conditionalImpact],
+        [L('Salt-okunur audit','Read-only audit'),finding.audit.join(' · ')||L('Üretici doğrulaması gerekli','Vendor-specific review required')],
+        [L('Kontrollü iyileştirme','Controlled remediation'),finding.remediation],
+        [L('Kabul kriteri','Acceptance criterion'),finding.acceptance]
+       ]
+      ));
+      const proofs=E('details','ai-engineering-matrix-proofs');
+      proofs.append(E('summary','',L('Denetlenebilir kanıtlar ve sürüm kapsamlı kaynaklar','Traceable CLI evidence and release-scoped references')));
+      for(const ev of finding.evidence){
+       proofs.append(E('p','report-meta',ev.device+' · '+ev.source+' · L'+ev.line+': '+ev.excerpt));
+      }
+      for(const src of finding.source){
+       if(!/^https:\/\//i.test(src.url||''))continue;
+       const link=E('a','',src.title);link.href=src.url;link.rel='noopener noreferrer';link.target='_blank';
+       proofs.append(link,E('p','report-meta',src.scope||'Release scope must be confirmed.'));
+      }
+      card.append(proofs);panel.append(card);
+     }
+    }else panel.append(E('p','report-muted',L(
+     'Seçilen teknolojilere ait kaynaklı operasyonel bulgu bulunmadı; bu olumlu veya olumsuz uygunluk kararı değildir.',
+     'No source-scoped operational finding was recognized. This is neither a healthy-state nor a noncompliance verdict.'
+    )));
+    panel.append(E('p','report-muted',matrix.limitations.join(' · ')));
+    if(window.NetworkAIHypothesisReviewV1){
+     const review=window.NetworkAIHypothesisReviewV1.review({assessment:matrix,language:tr?'tr':'en',maxFindings:24});
+     const hypotheses=section(L('Hipotez ve karşıt kanıt incelemesi','Hypothesis and counterevidence investigation'));
+     hypotheses.dataset.hypothesisSchema=review.schema;
+     hypotheses.append(E('p','report-muted',L(
+      'Bu bölüm kanıt doğrulaması yapılmış gözlemlerden soru üretir. Farklı teknolojilerde aynı cihazda görülen belirtiler neden-sonuç ilişkisi değildir. Kesin kök neden kararı verilmedi.',
+      'This section raises testable questions from verified observations. Co-occurring symptoms on the same device do not establish causality. No root cause is confirmed.'
+     )));
+     hypotheses.append(E('p','report-meta',
+      L('İncelenecek bulgu: ','Investigations: ')+review.counts.investigations+
+      ' · '+L('Çapraz teknoloji sinyali: ','Cross-technology signals: ')+review.counts.withCrossTechnologySignals+
+      ' · '+L('Doğrulanan çift cihaz kanıtı: ','Explicit multi-device evidence: ')+review.counts.withExplicitMultiDeviceEvidence
+     ));
+     if(!review.items.length)hypotheses.append(E('p','report-muted',L(
+      'Kök neden hipotezi oluşturmaya yetecek kaynaklı REVIEW/CONFLICT bulgusu bulunamadı.',
+      'No source-verified REVIEW/CONFLICT observations support an investigation card.'
+     )));
+     for(const item of review.items){
+      const card=E('article','evidence-correlation-item ai-hypothesis-review-card');
+      card.dataset.investigationState='NOT_CAUSAL';
+      card.append(E('h3','',item.title+' · '+item.technology+' · '+L('İNCELEME','INVESTIGATION')));
+      card.append(makeTable([L('Değerlendirme','Assessment'),L('Kanıtla sınanacak açıklama','Evidence-bound question')],[
+       [L('Gözlenen','Observed'),item.observed],
+       [L('Ön hipotez','Provisional hypothesis'),item.primary],
+       [L('Alternatif açıklamalar','Competing explanations'),item.possibleExplanations.map((q,i)=>(i+1)+'. '+q).join(' · ')],
+       [L('Karşıt kanıt / sınırlama','Counterevidence / limits'),item.contraryEvidence.map(c=>c.text).join(' · ')||L('Bağımsız karşıt kanıt doğrulanmadı','No independent contrary evidence confirmed')],
+       [L('Sonraki doğrulama','Read-only next checks'),item.nextChecks.join(' · ')||L('Platforma özel doğrulama gerekli','Platform-specific verification required')],
+       [L('Kabul kriteri','Acceptance criteria'),item.acceptance],
+       [L('Sonuç sınırı','Conclusion boundary'),item.uncertainty]
+      ]));
+      if(item.crossTechnology.length){
+       const related=E('details','ai-related-technology');
+       related.append(E('summary','',L('Aynı cihazdaki diğer teknoloji gözlemleri (nedensellik kanıtı değil)',
+        'Other technologies observed on this device (not causal proof)')));
+       for(const signal of item.crossTechnology){
+        related.append(E('p','report-muted',signal.technology+' · '+signal.observed));
+        for(const ev of signal.evidence){
+         related.append(E('p','report-meta',ev.device+' · '+ev.source+' · L'+ev.line+': '+ev.excerpt));
+        }
+       }
+       card.append(related);
+      }
+      const proof=E('details','ai-hypothesis-source');
+      proof.append(E('summary','',L('Orijinal kanıt satırları','Original evidence lines')));
+      for(const ev of item.sourceEvidence)proof.append(E('p','report-meta',
+       ev.device+' · '+ev.source+' · L'+ev.line+': '+ev.excerpt));
+      card.append(proof);hypotheses.append(card);
+     }
+     if(matrix.findings.filter(f=>f.status==='REVIEW'||f.status==='CONFLICT').length>review.items.length)
+      hypotheses.append(E('p','report-muted',L(
+       'En fazla 24 inceleme kartı gösterildi; diğer gözlemler analiz matrisinde yer alır.',
+       'At most 24 investigation cards shown; remaining observations stay in the assessment matrix.'
+      )));
+     hypotheses.append(E('p','report-meta',review.limitations.join(' · ')));
+    }
+   }
   }catch(error){
    const disabled=section(L('CLI korelasyonu tamamlanamadı','CLI correlation unavailable'));
    disabled.append(E('p','report-muted',L('Kanıtlar veya teknoloji adaptörü yeniden incelenmeli.','Review the selected evidence or technology adapter.')+' '+error.message));
@@ -955,20 +1084,24 @@ function buildGenericReport(options={}){
  output.append(E('p','report-meta',L('Metodoloji: Tasarım → konfigürasyon → operasyonel kanıt → mühendislik değerlendirmesi → doğrulama.','Method: Design → configuration → operational evidence → engineering evaluation → verification.')));
  output.append(E('p','report-muted',L('Üretici dokümanları teknoloji ve sürüm özelidir; aşağıdaki kaynaklar seçili cihazlarda otomatik uyumluluk kanıtı değildir.',
   'Manufacturer references are technology- and release-scoped; they are not automatic compliance proof for the selected devices.')));
- const references=[['CIS — Cisco configuration benchmarks','https://www.cisecurity.org/benchmark/cisco']];
- const byModule={
-  STP:[['Cisco — Campus high-availability design (STP)','https://www.cisco.com/c/en/us/td/docs/solutions/Enterprise/Campus/HA_campus_DG/hacampusdg.html']],
-  BGP:[['Cisco — IOS/IOS-XE BGP neighbor troubleshooting (updated 2026-09-02)','https://www.cisco.com/c/en/us/support/docs/ip/border-gateway-protocol-bgp/218027-troubleshoot-border-gateway-protocol-bas.html']],
-  OSPF:[['Cisco — IOS OSPF adjacency troubleshooting','https://www.cisco.com/c/en/us/support/docs/ip/open-shortest-path-first-ospf/13699-29.html']],
-  EVPN:[['Cisco — NX-OS 10.5(x) VXLAN BGP EVPN configuration','https://www.cisco.com/c/en/us/td/docs/dcn/nx-os/nexus9000/105x/configuration/vxlan/cisco-nexus-9000-series-nx-os-vxlan-configuration-guide-release-105x/m_configuring_vxlan_bgp_evpn.html']],
-  VPC:[['Cisco — NX-OS 10.5(x) vPC and keepalive behavior','https://www.cisco.com/c/en/us/td/docs/dcn/nx-os/nexus9000/105x/configuration/interfaces/cisco-nexus-9000-series-nx-os-interfaces-configuration-guide-release-105x/m_configuring_vpcs_9x.html']],
-  SDWAN:[['Fortinet — FortiOS 7.4 SD-WAN / BGP SLA routing','https://docs.fortinet.com/document/fortigate/7.4.0/administration-guide/256748']]
- };
- for(const module of modules)for(const reference of byModule[module]||[])references.push(reference);
- if(modules.includes('EVPN')||modules.includes('DCI'))references.push(['Arista — EOS EVPN user manual (verify release)','https://www.arista.com/en/assets/data/pdf/user-manual/um-books/EOS-User-Manual.pdf']);
- for(const [name,url] of references){
-  const p=E('p',''),link=E('a','',name);link.href=url;link.rel='noopener noreferrer';link.target='_blank';p.append(link);output.append(p);
+ const references=[{
+  title:L('CIS — Değerlendirme metodolojisi; IOS-XE dışı cihazlarda uygunluk hükmü değil','CIS — Evaluation methodology; not cross-vendor compliance'),
+  url:'https://www.cisecurity.org/benchmark/cisco',scope:'Methodological example only; benchmark profile/release applicability is unverified.'
+ }];
+ const seen=new Set(references.map(item=>item.url));
+ for(const source of scopedReferences){
+  if(!/^https:\/\//i.test(source.url||'')||seen.has(source.url))continue;
+  seen.add(source.url);
+  references.push({title:source.title,url:source.url,scope:source.scope||'Vendor software release must be checked.'});
  }
+ for(const item of references){
+  const p=E('p',''),link=E('a','',item.title);link.href=item.url;link.rel='noopener noreferrer';link.target='_blank';
+  p.append(link,E('span','report-meta',' · '+item.scope));output.append(p);
+ }
+ if(!scopedReferences.length)output.append(E('p','report-muted',L(
+  'Seçili kanıtlar için üretici/sürüm ile eşleşen bir teknik kaynak tespit edilemedi. Yanlış üretici dokümanı genel referans olarak eklenmedi.',
+  'No manufacturer/release-scoped source matched selected evidence. Unrelated vendor references are omitted.'
+ )));
  $('stpCTOView').replaceChildren(article);$('stpCTOView').hidden=true;
  $('viewSTPCTO').textContent='HTML View';$('viewSTPCTO').disabled=false;$('exportSTPCTO').disabled=false;
  $('downloadEngineeringPDF').disabled=false;$('downloadEngineeringWord').disabled=false;
@@ -1227,10 +1360,14 @@ $('analyze').onclick=async()=>{
   for(;runState.index<stop;){
    const i=runState.index;
    message('Analyzing batch '+(i+1)+' of '+runState.batches.length+'…');
-   const response=await fetch('/api/ai/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({module:selectedModules().length===1&&selectedModules()[0]==='STP'?'STP_ANALYSIS':'CLI_ANALYSIS',vendor,language:$('language').value,task:'report',evidence:runState.batches[i]})});
+   const response=await fetch('/api/ai/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({module:selectedModules().length===1&&selectedModules()[0]==='STP'?'STP_ANALYSIS':'CLI_ANALYSIS',vendor,language:$('language').value,task:'report',evidence:runState.batches[i],
+    reviewFormat:available.structuredClaimsSupported===true?'evidence-claims-v1':'text'})});
    const result=await response.json();if(!response.ok)throw Error('Batch '+(i+1)+': '+(result.detail||'model request failed'));
    const unverified=result.mode!=='model-evidence-cited-draft';
-   runState.reports.push('## Batch '+(i+1)+' — '+(unverified?'NOT VERIFIED / EVIDENCE ONLY':'Citations syntactically checked; engineering claims unverified')+'\n'+result.text);
+   const label=result.claimReviewStatus==='SOURCE_QUOTES_VALIDATED_HYPOTHESES_UNVERIFIED'
+    ?'CLI quotations matched; competing hypotheses UNVERIFIED'
+    :(unverified?'NOT VERIFIED / EVIDENCE ONLY':'Citations syntactically checked; engineering claims unverified');
+   runState.reports.push('## Batch '+(i+1)+' — '+label+'\n'+result.text);
    runState.modes.push(result.mode);
    runState.index++;
    $('analysisResult').value=reportText();

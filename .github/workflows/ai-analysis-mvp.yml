@@ -7,6 +7,11 @@ on:
       - 'scripts/probe_groq_access.py'
       - 'test_groq_access_probe.py'
       - 'engineering_ai.py'
+      - 'ai_model_claim_review.py'
+      - 'test_ai_model_claim_review.py'
+      - 'ai_model_response_schema.py'
+      - 'test_ai_model_response_schema.py'
+      - 'evaluation/heldout/**'
       - 'engineering_knowledge.py'
       - 'engineering_source_index.py'
       - 'test_engineering_source_index.py'
@@ -22,6 +27,10 @@ on:
       - 'simulation/**'
       - 'ai-topology*'
       - 'network-evidence-correlation-v1.js'
+      - 'ai-engineering-assessment-v1.js'
+      - 'test_ai_engineering_assessment_v1.cjs'
+      - 'ai-hypothesis-review-v1.js'
+      - 'test_ai_hypothesis_review_v1.cjs'
       - 'test_network_evidence_correlation_v1.cjs'
       - 'test_ai_topology*'
       - 'test_ai_analysis_evidence_report.cjs'
@@ -61,6 +70,11 @@ on:
       - 'scripts/probe_groq_access.py'
       - 'test_groq_access_probe.py'
       - 'engineering_ai.py'
+      - 'ai_model_claim_review.py'
+      - 'test_ai_model_claim_review.py'
+      - 'ai_model_response_schema.py'
+      - 'test_ai_model_response_schema.py'
+      - 'evaluation/heldout/**'
       - 'engineering_knowledge.py'
       - 'engineering_source_index.py'
       - 'test_engineering_source_index.py'
@@ -76,6 +90,10 @@ on:
       - 'simulation/**'
       - 'ai-topology*'
       - 'network-evidence-correlation-v1.js'
+      - 'ai-engineering-assessment-v1.js'
+      - 'test_ai_engineering_assessment_v1.cjs'
+      - 'ai-hypothesis-review-v1.js'
+      - 'test_ai_hypothesis_review_v1.cjs'
       - 'test_network_evidence_correlation_v1.cjs'
       - 'test_ai_topology*'
       - 'test_ai_analysis_evidence_report.cjs'
@@ -114,13 +132,13 @@ jobs:
       - name: Install minimal Python dependencies
         run: python -m pip install 'fastapi>=0.110' 'httpx>=0.27'
       - name: Compile AI analysis Python modules before runtime tests
-        run: python -m py_compile engineering_ai.py engineering_knowledge.py test_engineering_ai.py test_engineering_knowledge.py ai_engineering_report_export.py
+        run: python -m py_compile engineering_ai.py ai_model_claim_review.py ai_model_response_schema.py test_ai_model_response_schema.py test_ai_model_claim_review.py engineering_knowledge.py test_engineering_ai.py test_engineering_knowledge.py ai_engineering_report_export.py
       - name: Independently regression-test existing Simulation engine (not an AI answer bank)
         run: node simulation/test_pair_behavior.cjs
       - name: Test hosted provider access probe fail-closed (offline; no API secret)
         run: python -m unittest -v test_groq_access_probe
       - name: Validate model review and knowledge retrieval
-        run: python -m unittest -v test_engineering_ai test_engineering_knowledge test_engineering_source_index test_knowledge_store
+        run: python -m unittest -v test_engineering_ai test_ai_model_claim_review test_ai_model_response_schema test_engineering_knowledge test_engineering_source_index test_knowledge_store evaluation.heldout.test_manifest evaluation.heldout.test_grade
       - name: Verify BGP CLI mixed capture
         run: python -m unittest -v test_bgp_cli_evidence.BgpCaptureTests.test_mixed_capture
       - name: Verify BGP CLI unsupported columns
@@ -138,11 +156,11 @@ jobs:
       - name: TAC overview test_no_cross_router_or_unscoped_security_finding
         run: python -m unittest -v test_tac_overview.OverviewTests.test_no_cross_router_or_unscoped_security_finding
       - name: Validate browser JavaScript syntax
-        run: node --check analysis-ui.js && node --check show-analysis.js && node --check ai-topology-workspace.js && node --check ai-topology-ui.js && node --check network-evidence-correlation-v1.js && node --check stp-analysis-v1.js && node --check stp-knowledge-v1.js && node --check stp-cto-report.js && node --check stp-engineering-v2.js && node --check stp-network-analysis-v2.js && node --check network-engineering-findings-v1.js && node --check network-engineering-review-v1.js && node --check engineering-knowledge-stp-v1.js && node --check stp-operational-evidence-v1.js && node --check stp-synthetic-lab-v1.js && node --check engineering-ai.js && node --check ai-evidence.js && node --check project-workflow.js
+        run: node --check analysis-ui.js && node --check show-analysis.js && node --check ai-topology-workspace.js && node --check ai-topology-ui.js && node --check network-evidence-correlation-v1.js && node --check ai-engineering-assessment-v1.js && node --check ai-hypothesis-review-v1.js && node --check stp-analysis-v1.js && node --check stp-knowledge-v1.js && node --check stp-cto-report.js && node --check stp-engineering-v2.js && node --check stp-network-analysis-v2.js && node --check network-engineering-findings-v1.js && node --check network-engineering-review-v1.js && node --check engineering-knowledge-stp-v1.js && node --check stp-operational-evidence-v1.js && node --check stp-synthetic-lab-v1.js && node --check engineering-ai.js && node --check ai-evidence.js && node --check project-workflow.js
       - name: Install browser DOM test dependency
         run: npm install --no-save --ignore-scripts jsdom@30.1.1 playwright@1.56.1
       - name: Test editable AI topology and Design import contracts
-        run: node test_ai_topology_workspace.cjs && node test_ai_design_handoff.cjs && node test_ai_topology_ui.cjs && node test_ai_analysis_evidence_report.cjs && node test_network_evidence_correlation_v1.cjs && node test_ai_panel.cjs && node test_stp_analysis_v1.cjs && node test_stp_ui_v1.cjs && node test_stp_knowledge_v1.cjs && node test_stp_network_v2.cjs && node test_network_engineering_review_v1.cjs && node test_engineering_knowledge_registry_v1.cjs && node test_network_engineering_findings_v1.cjs && node test_stp_operational_v1.cjs && node test_stp_verification_resolution_v1.cjs
+        run: node test_ai_topology_workspace.cjs && node test_ai_design_handoff.cjs && node test_ai_topology_ui.cjs && node test_ai_analysis_evidence_report.cjs && node test_network_evidence_correlation_v1.cjs && node test_ai_engineering_assessment_v1.cjs && node test_ai_hypothesis_review_v1.cjs && node test_ai_panel.cjs && node test_stp_analysis_v1.cjs && node test_stp_ui_v1.cjs && node test_stp_knowledge_v1.cjs && node test_stp_network_v2.cjs && node test_network_engineering_review_v1.cjs && node test_engineering_knowledge_registry_v1.cjs && node test_network_engineering_findings_v1.cjs && node test_stp_operational_v1.cjs && node test_stp_verification_resolution_v1.cjs
       - name: Run isolated Chromium AI Analysis UI smoke
         env:
           AUTH_ENABLED: '0'

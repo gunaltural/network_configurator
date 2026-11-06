@@ -31,6 +31,26 @@ def catalog() -> dict:
         raise ValueError("Empty manufacturer source index")
     return obj
 
+_TECH_CONTEXT_PATTERNS = {
+    "BGP": re.compile(r"(?i)\bbgp\b|\bremote-as\b|\bpeer\s+\S+\s+as-number\b"),
+    "OSPF": re.compile(r"(?i)\bospf\b|\bexstart\b|\bexchange\b(?=/|\s|$)"),
+    "EVPN": re.compile(r"(?i)\bevpn\b|\bvxlan\b|\bvni\b|\bnve\b|route-target|route[ -]?type\s*[:= -]?\s*[25]\b"),
+    "VPC": re.compile(r"(?i)\bvpc\b|\bmlag\b|peer-link|peer-gateway"),
+    "SDWAN": re.compile(r"(?i)\bsdwan\b|\bsd-wan\b|health-check|\bservice4\b"),
+    "STP": re.compile(r"(?i)\bstp\b|spanning-tree|\bbpdu\b|loop-guard|root-guard"),
+}
+
+def evidence_technologies(text: str) -> set[str]:
+    """Recognize technologies using distinctive protocol context, not generic
+    terms such as 'neighbor', 'peer', 'prefix' or 'active'. A multi-command
+    show-tech may legitimately contain evidence for multiple technologies.
+    """
+    return {
+        tech for tech, pattern in _TECH_CONTEXT_PATTERNS.items()
+        if pattern.search(text)
+    }
+
+
 def retrieve_sources(evidence: list[dict], vendor: str, *, max_items: int = 5) -> list[dict]:
     """Select release-scoped source metadata only when evidence fits.
 
@@ -59,7 +79,13 @@ def retrieve_sources(evidence: list[dict], vendor: str, *, max_items: int = 5) -
             continue
         local_vendor = vendors[0]
         corpus = text.lower()
+        technologies = evidence_technologies(text)
         for source in doc["sources"]:
+            # Source metadata is relevant only when the supplied capture
+            # actually establishes that protocol context. 'Neighbor' can
+            # appear in BGP and OSPF and cannot authorize either alone.
+            if source["technology"] not in technologies:
+                continue
             if not any(alias.lower() in local_vendor for alias in source["platforms"]):
                 continue
             hits = sum(

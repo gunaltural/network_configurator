@@ -14,6 +14,31 @@ HUAWEI_BGP:{title:'Huawei CloudEngine BGP peer verification',url:'https://info.s
  VPC:{title:'Cisco Nexus vPC guide',url:'https://www.cisco.com/c/en/us/td/docs/dcn/nx-os/nexus9000/102x/configuration/interfaces/cisco-nexus-9000-nx-os-interfaces-configuration-guide-102x.pdf',scope:'NX-OS 10.2(x); not equivalent to Arista MLAG'},
  SDWAN:{title:'Fortinet SD-WAN diagnostics',url:'https://docs.fortinet.com/document/fortigate/7.4.8/administration-guide/818746/sd-wan-related-diagnose-commands',scope:'FortiOS 7.4.8; command changes by patch release'}
 };
+function bgpVerification(vendor,product){
+ const p=String(product||'').toLowerCase();
+ if(vendor==='huawei')return ['display bgp peer','display bgp routing-table','display ip routing-table'];
+ if(vendor==='fortinet')return ['get router info bgp summary','get router info bgp neighbors <peer>','get router info routing-table all'];
+ if(vendor==='arista')return ['show ip bgp summary','show ip bgp neighbors <peer>','show ip route <peer>'];
+ if(vendor==='cisco'&&/nx-os|nexus/.test(p))return ['show bgp ipv4 unicast summary','show bgp ipv4 unicast neighbors <peer>','show ip route <peer>'];
+ if(vendor==='cisco'&&/ios-xe|ios xe/.test(p))return ['show ip bgp summary','show ip bgp neighbors <peer>','show ip route <peer>'];
+ return ['Verify BGP peer FSM, AF/VRF and installed routes with platform/release commands'];
+}
+function ospfVerification(vendor,product){
+ const p=String(product||'').toLowerCase();
+ if(vendor==='huawei')return ['display ospf peer','display ospf interface','display ip routing-table protocol ospf'];
+ if(vendor==='fortinet')return ['get router info ospf neighbor','get router info ospf interface','get router info routing-table ospf'];
+ if(vendor==='arista')return ['show ip ospf neighbor','show ip ospf interface','show ip route ospf'];
+ if(vendor==='cisco'&&/nx-os|nexus/.test(p))return ['show ip ospf neighbors','show ip ospf interface','show ip route ospf'];
+ if(vendor==='cisco'&&/ios-xe|ios xe/.test(p))return ['show ip ospf neighbor','show ip ospf interface','show ip route ospf'];
+ return ['Verify adjacency roles, area and RIB with platform-specific commands'];
+}
+function evpnVerification(vendor,product){
+ const p=String(product||'').toLowerCase();
+ if(vendor==='arista')return ['show bgp evpn','show vxlan vtep','show vxlan vni'];
+ if(vendor==='huawei')return ['display bgp evpn all routing-table','display vxlan vni'];
+ if(vendor==='cisco'&&/nx-os|nexus/.test(p))return ['show bgp l2vpn evpn','show nve peers','show nve vni'];
+ return ['Confirm EVPN route, VNI and next-hop evidence for the actual vendor/release'];
+}
 const lines=x=>String(x||'').replace(/\r\n?/g,'\n').split('\n');
 const ok=x=>typeof x==='string'&&!!x.trim();
 const ip=/^(?:\d{1,3}\.){3}\d{1,3}$/;
@@ -175,7 +200,7 @@ function assess(args){
       down?'Session was not Established in this capture; transport, authentication, AFI/SAFI and policy require investigation.':
       'Session state is observed, but received prefixes do not prove expected reachability or best path.',
     networkImpact:'Conditional route-exchange exposure; no service impact established.',
-    verification:['show bgp summary','show bgp neighbors <peer>','show ip route <peer>'],
+    verification:bgpVerification(data.vendor,data.node.vendor),
     evidence:[observed.proof].concat(configured?[configured.proof]:[],changed?states.slice(0,-1).map(x=>x.proof):[])});
   }
   // Pair only when a neighbor IP equals an explicitly configured interface IP
@@ -201,14 +226,14 @@ function assess(args){
    observed:d.node.hostname+' neighbor '+n.neighbor+' state '+n.state+'.',
    explanation:/^FULL\//i.test(n.state)?'FULL was reported; LSDB, routes and forwarding are not established by this fact.':
     'A non-FULL state was reported; network type and expected adjacency must be checked before calling it a fault.',
-   networkImpact:'Conditional route availability exposure.',verification:['show ip ospf neighbor detail','show ip ospf interface','show ip route ospf'],evidence:[n.proof]});
+   networkImpact:'Conditional route availability exposure.',verification:ospfVerification(d.vendor,d.node.vendor),evidence:[n.proof]});
  if(scope.has('EVPN'))for(const [id,d] of parsed)if(d.evpn.length){
   const types=[...new Set(d.evpn.map(x=>x.type))].sort().join(', ');
   add({technology:'EVPN',status:'OBSERVED',confidence:'OPERATIONAL_PARTIAL',deviceIds:[id],devices:[d.node.hostname],
    title:'Observed EVPN route types',titleTr:'Gözlenen EVPN rota türleri',
    observed:d.node.hostname+' capture contains EVPN type(s) '+types+'.',
    explanation:'Presence is evidenced; missing route types, per-VRF reachability and VNI/RT correctness are not established.',
-   networkImpact:'No outage inferred from route presence.',verification:['show bgp l2vpn evpn','show nve peers','show nve vni'],
+   networkImpact:'No outage inferred from route presence.',verification:evpnVerification(d.vendor,d.node.vendor),
    evidence:d.evpn.slice(0,8).map(x=>x.proof)});
  }
  if(scope.has('VPC'))for(const [id,d] of parsed)for(const x of d.vpc){
