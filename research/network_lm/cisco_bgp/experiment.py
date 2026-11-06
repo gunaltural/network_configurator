@@ -23,6 +23,7 @@ from .curriculum import (
 )
 
 FROZEN_PATH = Path(__file__).with_name("frozen_heldout_v1.jsonl")
+ACCEPTANCE_V2 = Path(__file__).with_name("frozen_acceptance_v2.jsonl")
 CLASS_INDEX = {c: i for i, c in enumerate(CLASSES)}
 PREFIX = "Cisco BGP observation:\n"
 
@@ -161,13 +162,17 @@ def train(*, steps=600, per_class=48, seed=42, context=384,
     training = training_cases(per_class=per_class, seed=seed)
     dev = training_cases(per_class=8, seed=seed + 239)
     test = load_frozen_holdout(FROZEN_PATH)
-    if ({x.text for x in training} & {x.text for x in dev + test}
-            or {x.case_id for x in training} & {x.case_id for x in test}
-            or {x.scenario for x in training} & {x.scenario for x in test}):
+    acceptance = load_frozen_holdout(ACCEPTANCE_V2)
+    all_holdouts = test + acceptance
+    if ({x.text for x in training} & {x.text for x in dev + all_holdouts}
+            or {x.case_id for x in training} & {x.case_id for x in all_holdouts}
+            or {x.scenario for x in training} & {x.scenario for x in all_holdouts}
+            or {x.text for x in test} & {x.text for x in acceptance}):
         raise ValueError("Cisco BGP train/evaluation leakage")
     encoded_train = encode(training, tokenizer, context)
     encoded_dev = encode(dev, tokenizer, context)
     encoded_test = encode(test, tokenizer, context)
+    encoded_acceptance = encode(acceptance, tokenizer, context)
     model = BGPStudent(config, pooling=pooling)
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
     before = evaluate(model, encoded_test, test)
@@ -196,6 +201,7 @@ def train(*, steps=600, per_class=48, seed=42, context=384,
     train_result = evaluate(model, encoded_train, training, max_examples=0)
     dev_result = evaluate(model, encoded_dev, dev, max_examples=0)
     heldout = evaluate(model, encoded_test, test)
+    acceptance_result = evaluate(model, encoded_acceptance, acceptance)
     paired = counterfactual_score(model, tokenizer, context)
     report = {
         "status": "CISCO_BGP_SCRATCH_RESEARCH_ONLY",
@@ -207,13 +213,16 @@ def train(*, steps=600, per_class=48, seed=42, context=384,
         "steps": steps, "batch_size": batch_size, "per_class": per_class,
         "train_count": len(training), "dev_count": len(dev),
         "heldout_count": len(test),
+        "new_acceptance_count": len(acceptance),
         "train_digest": dataset_fingerprint(training),
         "dev_digest": dataset_fingerprint(dev),
         "heldout_sha256": sha256(FROZEN_PATH.read_bytes()).hexdigest(),
+        "acceptance_sha256": sha256(ACCEPTANCE_V2.read_bytes()).hexdigest(),
         "loss_first": first, "loss_last": final,
         "train_accuracy": train_result["accuracy"],
         "dev_accuracy": dev_result["accuracy"],
         "heldout": heldout,
+        "fresh_acceptance_v2": acceptance_result,
         "counterfactual": paired,
         "source_scope": "Original synthetic observations; IOS/IOS-XE BGP only",
         "no_model_generated_root_cause": True,
@@ -232,7 +241,7 @@ def train(*, steps=600, per_class=48, seed=42, context=384,
             k: report[k] for k in (
                 "status", "data_version", "architecture", "params",
                 "seed", "steps", "per_class", "pooling", "train_digest",
-                "dev_digest", "heldout_sha256",
+                "dev_digest", "heldout_sha256", "acceptance_sha256",
                 "engineering_verified", "production_ready",
             )
         },
@@ -245,6 +254,8 @@ def train(*, steps=600, per_class=48, seed=42, context=384,
         "heldout": {"correct": heldout["correct"], "total": heldout["total"],
                     "accuracy": heldout["accuracy"]},
         "counterfactual": {"correct": paired["correct"], "total": paired["total"]},
+        "fresh_acceptance": {"correct": acceptance_result["correct"],
+                            "total": acceptance_result["total"]},
         "production_ready": False,
     }), flush=True)
     return report
