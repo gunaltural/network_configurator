@@ -9,7 +9,12 @@
         "idle",
         "admin"
       ],
-      "minimum_line_citations": 1
+      "minimum_line_citations": 1,
+      "must_not_claim": [
+        "idle admin proves tcp failure",
+        "tcp transport failed",
+        "peer configuration is definitely wrong"
+      ]
     }
   },
   {
