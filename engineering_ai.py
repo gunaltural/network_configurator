@@ -447,6 +447,25 @@ def install_engineering_ai(app):
                                 'engineeringVerified': False, 'claimReviewStatus': 'REJECTED_UNBOUND_MODEL_CLAIMS',
                                 'evidenceIds': [], 'knowledgeIds': [k['id'] for k in knowledge],
                                 'sourceIndexIds': [k['id'] for k in source_index]}
+                    if not review['findings']:
+                        # An empty valid model JSON is abstention, not a successful
+                        # evidence-cited engineering review. Preserve the honest
+                        # evidence-only state in exports and UI.
+                        tr = body.language == 'tr'
+                        note = ('AI modeli doğrulanabilir bir bulgu üretmedi. '
+                                'Bu durum ağın sağlıklı olduğunu göstermez; '
+                                'kanıt ve teknik inceleme gereklidir.' if tr else
+                                'The AI model produced no source-anchored findings. '
+                                'This does not demonstrate network health; '
+                                'additional evidence and engineering review are required.')
+                        return {'text': note + ('\\n\\n' + context if context else ''),
+                                'mode': 'evidence-only-no-model-findings',
+                                'reviewRequired': True, 'engineeringVerified': False,
+                                'claimReview': review,
+                                'claimReviewStatus': review['claimReviewStatus'],
+                                'evidenceIds': [],
+                                'knowledgeIds': [k['id'] for k in knowledge],
+                                'sourceIndexIds': [k['id'] for k in source_index]}
                     return {'text': render_claim_review(review, body.language),
                             'mode': 'model-evidence-cited-draft',
                             'reviewRequired': True, 'engineeringVerified': False,
