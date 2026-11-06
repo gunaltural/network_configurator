@@ -20,11 +20,11 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install CPU-only training framework
-        run: python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+        run: python -m pip install 'torch==2.15.0' --index-url https://download.pytorch.org/whl/cpu
       - name: Check original simulator evaluation, failover semantics and provenance
-        run: node --test research/network_lm/cisco_bgp/test_module_scenarios.mjs research/network_lm/cisco_bgp/test_compositional_scenarios.mjs
+        run: node --test research/network_lm/cisco_bgp/test_module_scenarios.mjs research/network_lm/cisco_bgp/test_compositional_scenarios.mjs research/network_lm/cisco_bgp/test_novel_topologies_v4.mjs
       - name: Prove design facts and real synthetic learning are independent of product
-        run: python -m unittest research.network_lm.cisco_bgp.test_module_lm -v
+        run: python -m unittest research.network_lm.cisco_bgp.test_module_lm research.network_lm.cisco_bgp.test_v4_evaluation -v
       - name: Baseline scratch model - simulation-only teaching
         run: |
           python -m research.network_lm.cisco_bgp.module_lm \
@@ -73,7 +73,7 @@ jobs:
       - name: Teach single outcome per incident plus original BGP Design facts
         run: |
           python -m research.network_lm.cisco_bgp.module_lm \
-            --focused --steps 600 --width 96 --layers 2 --heads 4 \
+            --focused --evaluate-v4 --steps 600 --width 96 --layers 2 --heads 4 \
             --seed 42 --vocab-size 512 --include-design \
             --output /tmp/bgp-focus-plus-design.pt
       - name: Inspect focus-task generalization to six heldout failure types
@@ -102,7 +102,7 @@ jobs:
       - name: Teach causal dependencies from same read-only BGP simulator
         run: |
           python -m research.network_lm.cisco_bgp.module_lm \
-            --focused --compositional --steps 600 \
+            --focused --compositional --evaluate-v4 --steps 600 \
             --width 96 --layers 2 --heads 4 \
             --seed 42 --vocab-size 512 --include-design \
             --output /tmp/bgp-focus-compositional.pt
@@ -127,6 +127,11 @@ jobs:
               paired=scored['counterfactual_exit_pairs']
               assert scored['cases']==96
               assert paired['total']==12
+              v4=d['novel_topology_v4']
+              assert v4['cases']==144
+              assert v4['counterfactual_exit_pairs']['total']==18
+              assert d['novel_topology_v4_sha256'] is not None
+              assert d['deterministic_algorithms'] is True
               assert not d['production_ready'] and not d['engineering_verified']
               print('SCRATCH_BGP_CAUSAL_ABLATION',name,
                     'correct_generated_result',scored['correct_single_outcome'],'/96',
@@ -135,6 +140,10 @@ jobs:
                     'paired_exit_both_correct',paired['both_correct'],'/12',
                     'predicted_exit_change',paired['changed_output'],'/12',
                     'training_examples',d['training_cases'],
+                    'v4_correct',v4['correct_single_outcome'],'/144',
+                    'v4_CE1_exit',v4['by_field']['CE1_EXIT']['correct'],'/36',
+                    'v4_both_paired_correct',v4['counterfactual_exit_pairs']['both_correct'],'/18',
+                    'v4_changed',v4['counterfactual_exit_pairs']['changed_output'],'/18',
                     'no_live_claims',True)
           PY
       - name: Benchmark learned BGP outputs against a no-learning majority reference
@@ -152,6 +161,13 @@ jobs:
           print('NO_LEARNING_MAJORITY',baseline['correct'],'/96',baseline['reference_choices'])
           print('SCRATCH_BASELINE',original['withheld_simulation']['correct_single_outcome'],'/96')
           print('SCRATCH_COMPOSITION',composed['withheld_simulation']['correct_single_outcome'],'/96')
+          assert baseline['novel_topology_v4']['total']==144
+          assert original['novel_topology_v4_sha256']==composed['novel_topology_v4_sha256']==baseline['novel_topology_v4']['sha256']
+          print('V4_NON_LEARNING_MAJORITY',baseline['novel_topology_v4']['correct'],'/144')
+          print('V4_OLD_SCRATCH',original['novel_topology_v4']['correct_single_outcome'],'/144')
+          print('V4_CAUSAL_SCRATCH',composed['novel_topology_v4']['correct_single_outcome'],'/144')
+          print('V4_SCRATCH_BEATS_MAJORITY',
+                composed['novel_topology_v4']['correct_single_outcome'] > baseline['novel_topology_v4']['correct'])
           print('SCRATCH_BEATS_MAJORITY',
                 composed['withheld_simulation']['correct_single_outcome'] > baseline['correct'])
           PY
