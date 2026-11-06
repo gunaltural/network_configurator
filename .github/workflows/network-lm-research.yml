@@ -1,6 +1,10 @@
 name: Network LM scratch research (isolated from AI Analysis)
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - 'research/network_lm/**'
+      - '.github/workflows/network-lm-research.yml'
 permissions:
   contents: read
 jobs:
@@ -15,8 +19,10 @@ jobs:
       - name: Install CPU-only PyTorch (research only)
         run: python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
       - name: Validate privacy, causal mask, data splits and actual training
-        run: python -m unittest research.network_lm.test_scratch research.network_lm.test_evaluate -v
+        run: python -m unittest research.network_lm.test_scratch research.network_lm.test_evaluate research.network_lm.test_counterfactual -v
       - name: Train random weights and record research-only metrics
         run: python -m research.network_lm.train --steps 3 --output /tmp/network-mini.pt
       - name: Run unseen scenario generation (does not claim engineering success)
         run: python -m research.network_lm.evaluate --checkpoint /tmp/network-mini.pt --max-new-tokens 35
+      - name: Run paired counterfactual checks (not engineering acceptance)
+        run: python -m research.network_lm.counterfactual --checkpoint /tmp/network-mini.pt --max-new-tokens 35
