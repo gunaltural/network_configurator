@@ -173,3 +173,39 @@ A second [full CPU training and majority-reference CI run](https://github.com/gu
 The same nominal model seed and training setup had previously scored **34/96** (and 11/24 CE1_EXIT, 2/12 contrast pairs) in run 42242720284, so **do not claim exact numerical reproducibility**. The two observed runs suggest a result in the 32–34/96 range under these executions, not a validated confidence interval. Both exceed the simple majority reference but remain too weak for production inference. Follow-up requires explicit deterministic kernel settings, fixed-corpus multiple-seed runs, more difficult independently frozen topologies and a human-validated multi-CLI BGP evidence test.
 
 Note that the earlier 24/96 score from before the incorrect `device-down` label was fixed is not a valid baseline for this corrected evaluation. The current reference is 20/96, which is the value to use in comparisons.
+
+## V4 new topology values and role-aware identity abstraction
+
+**Actual CPU-only model training and tests:** [Actions run 42248886016](https://github.com/gunaltural/network_configurator/actions/runs/42248886016) — **11 Node tests and 15 Python tests passed**, real causal Transformer models were trained. These are original-synthetic 2CE/2ISP simulation tasks, not Cisco production diagnosis.
+
+### V4 exposed serious memorization and transfer failure
+
+`novel_topologies_v4.mjs` defines a held-out evaluation set of **144 focused outcomes** (36 topology/incident variants × 4 outcome questions) and **18 changing-exit counterfactual pairs**. The original simulator supplies the answers, but *none of the V4 texts or labels* are used to fit the BPE vocabulary or train model weights. V4 varies CE/ISP ASNs, customer-owned IPv4 subnets, Local Preference, AS_PATH prepend and heldout combinations, **while retaining the same 2CE/2ISP graph and simplified simulator behavior**. This is a topology-**parameter shift**, not a new network graph, vendor, release or real-site test.
+
+Under fixed model configuration, seed and 600 steps, the causal-composition LM previously doing 32/96 on the old split fell to **1/144 on V4**, below the no-learning majority reference at **30/144**. The simpler focused Design+Simulation LM did **18/144**. This disproves any broad claim of general network inference from the old scores.
+
+### Controlled identity-abstraction experiment
+
+`prompt_abstraction.py` removes only the *identity* of the internal ASN, two upstream ASNs and the exact CE-owned subnet **for this synthetic fixed-topology task**, while retaining which node is CE1/CE2/ISP1/ISP2, all failed devices/links, Local Preference numbers, prepend counts and requested outcome. It **does not compute the answer**, invoke simulation during model generation, paste in labels or use V4 text for training. This is **not** a recommended general preprocessing method for real Cisco network operations, where ASN/prefix values can be decisive evidence.
+
+| Measured result | Raw numeric identity | Standardized identity |
+| --- | ---: | ---: |
+| Previously used 96 model-generated focused outcomes | 32 | **36** |
+| V4 144 model-generated outcomes | **1** | **54** |
+| V4 CE1 exit correct, 36 cases | 1 | **18** |
+| V4 paired failure contrasts both correct, 18 pairs | 0 | **6** |
+| Non-learning per-field majority reference on V4 | 30 | 30 |
+
+With ASN/prefix role normalization, the scratch LM increased to **54/144 (37.5%)**, above the no-learning 30/144 reference, while the exact architecture and 600-step budget were unchanged. This is a **measured reduction in token/identity memorization**, but still poor reliability.
+
+**Evaluation caveats:** V4 was held out of gradient updates, but after inspecting its initial failure we selected an input abstraction using the same V4 benchmark. Hence **V4 is now a development/model-selection benchmark, not a blind independent production acceptance test**. The apparent improvement cannot establish generalization to truly unseen real Cisco CLI or novel graph topologies. Next useful evidence must be prepared separately by independently reviewed, novel **multi-CLI and multi-graph topology** cases, with an additional model-vs-graph reachability baseline and calibrated abstention.
+
+### Reproducible research invocation
+
+```bash
+python -m unittest research.network_lm.cisco_bgp.test_module_lm research.network_lm.cisco_bgp.test_v4_evaluation research.network_lm.cisco_bgp.test_prompt_abstraction -v
+node --test research/network_lm/cisco_bgp/test_module_scenarios.mjs research/network_lm/cisco_bgp/test_compositional_scenarios.mjs research/network_lm/cisco_bgp/test_novel_topologies_v4.mjs
+python -m research.network_lm.cisco_bgp.module_lm --focused --compositional --evaluate-v4 --abstract-identity --include-design --steps 600 --width 96 --layers 2 --heads 4 --seed 42 --vocab-size 512 --output /tmp/bgp-focus-abstracted.pt
+```
+
+No changes were made to the product BGP Design, Simulation, AI Analysis or Render services. All research checkpoints remain `engineering_verified=false`, `production_ready=false`.
