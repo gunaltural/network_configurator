@@ -1360,10 +1360,14 @@ $('analyze').onclick=async()=>{
   for(;runState.index<stop;){
    const i=runState.index;
    message('Analyzing batch '+(i+1)+' of '+runState.batches.length+'…');
-   const response=await fetch('/api/ai/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({module:selectedModules().length===1&&selectedModules()[0]==='STP'?'STP_ANALYSIS':'CLI_ANALYSIS',vendor,language:$('language').value,task:'report',evidence:runState.batches[i]})});
+   const response=await fetch('/api/ai/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({module:selectedModules().length===1&&selectedModules()[0]==='STP'?'STP_ANALYSIS':'CLI_ANALYSIS',vendor,language:$('language').value,task:'report',evidence:runState.batches[i],
+    reviewFormat:available.structuredClaimsSupported===true?'evidence-claims-v1':'text'})});
    const result=await response.json();if(!response.ok)throw Error('Batch '+(i+1)+': '+(result.detail||'model request failed'));
    const unverified=result.mode!=='model-evidence-cited-draft';
-   runState.reports.push('## Batch '+(i+1)+' — '+(unverified?'NOT VERIFIED / EVIDENCE ONLY':'Citations syntactically checked; engineering claims unverified')+'\n'+result.text);
+   const label=result.claimReviewStatus==='SOURCE_QUOTES_VALIDATED_HYPOTHESES_UNVERIFIED'
+    ?'CLI quotations matched; competing hypotheses UNVERIFIED'
+    :(unverified?'NOT VERIFIED / EVIDENCE ONLY':'Citations syntactically checked; engineering claims unverified');
+   runState.reports.push('## Batch '+(i+1)+' — '+label+'\n'+result.text);
    runState.modes.push(result.mode);
    runState.index++;
    $('analysisResult').value=reportText();
