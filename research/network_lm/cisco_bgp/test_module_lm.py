@@ -134,7 +134,7 @@ class ModuleKnowledgeTests(unittest.TestCase):
             sum(x.completion.startswith("RESULT=") for x in composed),
             16 * 12 * 4,
         )
-        with self.assertRaisesRegex(ValueError, "source"):
+        with self.assertRaisesRegex(ValueError, "not verified against original engine"):
             load_compositional_cases(expected_source_sha="0" * 64)
 
     def test_actual_scratch_transformer_trains_on_composed_dependencies(self):
