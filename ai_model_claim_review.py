@@ -169,7 +169,8 @@ def validate_claim_review(response: str, evidence: list[dict], vendor: str | Non
         })
     return {"schema": SCHEMA, "findings": findings, "reviewRequired": True,
             "engineeringVerified": False, "rootCauseVerified": False,
-            "claimReviewStatus": "SOURCE_QUOTES_VALIDATED_HYPOTHESES_UNVERIFIED",
+            "claimReviewStatus": ("SOURCE_QUOTES_VALIDATED_HYPOTHESES_UNVERIFIED"
+                                  if findings else "NO_SOURCE_ANCHORED_FINDINGS"),
             "limitations": [
                 "Exact CLI quote and line existence are checked, not causal engineering claims.",
                 "Competing explanations require read-only tests and peer/time corroboration.",
@@ -181,6 +182,9 @@ def render_claim_review(review: dict, language: str) -> str:
     tr = language == "tr"
     parts = ["KAYNAKLI GÖZLEM — DOĞRULANMIŞ KÖK NEDEN DEĞİL" if tr else
              "SOURCE-ANCHORED OBSERVATION — ROOT CAUSE UNVERIFIED"]
+    if not review["findings"]:
+        parts.append("Model doğrulanabilir bulgu sunmadı; ağın sağlıklı olduğu sonucuna varılamaz." if tr else
+                     "Model returned no source-anchored findings; this does not establish network health.")
     for finding in review["findings"]:
         parts.append("\n## " + finding["technology"])
         for obs in finding["observations"]:
