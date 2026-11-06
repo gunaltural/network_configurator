@@ -71,11 +71,11 @@ def generate_on_frozen(model, tokenizer, heldout, *, max_new_tokens=140):
         predicted = match.group(1) if match else None
         valid_label = predicted in CLASSES
         correct = predicted == case.label
-        full = (
-            correct
-            and "NOT_PROVEN=" in produced
-            and "CHECK=show ip bgp neighbors" in produced
-        )
+        # Strict synthetic-output validation. Merely emitting field names
+        # is not a coherent review: reject garbled words, extra claims and
+        # incorrect/incomplete operational commands. This is a canonical
+        # training-target check, NOT a human expert's semantic judgment.
+        full = bool(correct and produced.strip() == target(case.label))
         results.append({
             "id": case.case_id, "expected": case.label,
             "predicted": predicted if valid_label else None,
