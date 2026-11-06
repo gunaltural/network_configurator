@@ -64,7 +64,7 @@ export function buildCases(){
       clientPrefix:'10.'+(140+i%60)+'.0.0/24'
     });
     const ce1=out.routes.find(x=>x.source==='ce1');
-    const ownerIsolated=out.inboundRoutes.every(x=>x.state==='no-path');
+    const ownerIsolated=!out.inboundRoutes.some(x=>x.state==='reachable'&&x.candidates.length>0);
     const lc=model.links;
     const prompt=[
       'Synthetic 2CE/2ISP BGP Design scenario. No physical network telemetry.',
