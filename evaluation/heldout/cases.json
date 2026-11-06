@@ -370,5 +370,112 @@
       ],
       "minimum_line_citations": 1
     }
+  },
+  {
+    "id": "Y1",
+    "tech": "SYSTEM",
+    "vendor": "Cisco IOS-XE",
+    "raw": "EDGE-SYS1# show running-config\nline vty 0 4\n login authentication ADMIN_VTY\n transport input ssh\n access-class MGMT-IN in\nip access-list standard MGMT-IN\n permit 192.0.2.0 0.0.0.255\n deny any",
+    "acceptance": {
+      "must_mention_any": [
+        [
+          "ssh",
+          "transport input ssh"
+        ],
+        [
+          "access-class",
+          "mgmt-in"
+        ]
+      ],
+      "must_not_claim": [
+        "telnet is enabled",
+        "aaa is confirmed working",
+        "administrative access is fully secure",
+        "all management traffic is encrypted"
+      ],
+      "minimum_line_citations": 2
+    }
+  },
+  {
+    "id": "Y2",
+    "tech": "SYSTEM",
+    "vendor": "Cisco IOS-XE",
+    "raw": "EDGE-SYS2# show ntp status\nClock is unsynchronized, stratum 16, no reference clock\nEDGE-SYS2# show logging\nSyslog logging: enabled (0 messages dropped, 3 messages rate-limited)\nConsole logging: disabled",
+    "acceptance": {
+      "must_mention_any": [
+        [
+          "unsynchronized",
+          "stratum 16"
+        ],
+        [
+          "syslog",
+          "logging"
+        ]
+      ],
+      "must_not_claim": [
+        "syslog is disabled",
+        "ntp outage cause is confirmed",
+        "all log timestamps are wrong",
+        "logging is broken"
+      ],
+      "minimum_line_citations": 2
+    }
+  },
+  {
+    "id": "D1",
+    "tech": "DCI",
+    "vendor": "Cisco NX-OS",
+    "raw": "N9K-DCA# show nve peers\nInterface Peer-IP State LearnType Uptime\nnve1 192.0.2.22 Up CP 02:05:00\nN9K-DCA# show bgp l2vpn evpn\nBGP routing table information for VRF default, address family L2VPN EVPN\nRoute Type: 2, MAC/IP Advertisement Route\nRD: 192.0.2.11:1000, RT: 65001:1000",
+    "acceptance": {
+      "must_mention_any": [
+        [
+          "nve",
+          "vtep",
+          "peer"
+        ],
+        [
+          "up",
+          "type-2",
+          "type 2",
+          "route type"
+        ]
+      ],
+      "must_not_claim": [
+        "inter-dc traffic is verified",
+        "end-to-end connectivity verified",
+        "type-5 is disabled",
+        "tenant service is reachable"
+      ],
+      "minimum_line_citations": 2
+    }
+  },
+  {
+    "id": "D2",
+    "tech": "DCI",
+    "vendor": "Arista EOS",
+    "raw": "EOS-DCB# show bgp evpn route-type ip-prefix\nBGP routing table information for VRF CORP\nRoute Type: 5, IP Prefix Route\n10.220.0.0/16 next-hop 192.0.2.22 valid best\nEOS-DCB# show ip route vrf CORP 10.220.0.0/16\n% Network not in table\nEOS-DCB# show vxlan vtep\nRemote VTEPS\n192.0.2.22",
+    "acceptance": {
+      "must_mention_any": [
+        [
+          "type-5",
+          "type 5",
+          "route type",
+          "evpn"
+        ],
+        [
+          "vrf",
+          "rib",
+          "route",
+          "network not in table"
+        ]
+      ],
+      "must_not_claim": [
+        "data-plane connectivity confirmed",
+        "route installation verified",
+        "remote tenant reachable",
+        "root cause is route target mismatch"
+      ],
+      "minimum_line_citations": 2
+    }
   }
 ]
