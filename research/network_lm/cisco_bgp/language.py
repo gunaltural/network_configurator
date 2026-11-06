@@ -140,7 +140,7 @@ def train_language(*, steps=900, per_class=48, seed=42, context=384,
                    width=64, layers=2, heads=4, batch_size=8, lr=0.001,
                    threads=2, state_warmup_steps=0, state_pretrain_steps=0,
                    tokenizer_mode="byte", bpe_vocab_size=448,
-                   output="/tmp/cisco-bgp-lm.pt"):
+                   data_seed=None, output="/tmp/cisco-bgp-lm.pt"):
     if (not 1 <= steps <= 10000 or not 1 <= batch_size <= 64
             or not 1 <= threads <= 16 or not 0 < lr < 0.1):
         raise ValueError("Invalid scratch BGP language training bounds")
@@ -152,11 +152,15 @@ def train_language(*, steps=900, per_class=48, seed=42, context=384,
         raise ValueError("Warmup must leave at least one full-review learning step")
     if tokenizer_mode not in ("byte", "bpe"):
         raise ValueError("Unsupported scratch tokenizer mode")
+    if data_seed is None:
+        data_seed = seed  # Preserve the previous experiment's exact baseline.
+    if type(data_seed) is not int:
+        raise ValueError("Cisco BGP data seed must be an integer")
     torch.manual_seed(seed)
     torch.set_num_threads(threads)
     rng = random.Random(seed)
-    training = training_cases(per_class=per_class, seed=seed)
-    dev = training_cases(per_class=8, seed=seed + 239)
+    training = training_cases(per_class=per_class, seed=data_seed)
+    dev = training_cases(per_class=8, seed=data_seed + 239)
     heldout = load_frozen_holdout(FROZEN_PATH)
     acceptance = load_frozen_holdout(ACCEPTANCE_V2)
     acceptance_v3 = load_frozen_holdout(ACCEPTANCE_V3)
@@ -234,7 +238,7 @@ def train_language(*, steps=900, per_class=48, seed=42, context=384,
         "architecture": asdict(config),
         "parameter_count": sum(p.numel() for p in model.parameters()),
         "curriculum_version": DATA_VERSION,
-        "seed": seed, "steps": steps,
+        "seed": seed, "steps": steps, "data_seed": data_seed,
         "tokenizer_mode": tokenizer_mode,
         "tokenizer_fingerprint": tok_fingerprint,
         "tokenizer_manifest": tok_manifest,
@@ -269,7 +273,7 @@ def train_language(*, steps=900, per_class=48, seed=42, context=384,
         "manifest": {
             k: metrics[k] for k in (
                 "status", "architecture", "parameter_count",
-                "curriculum_version", "seed", "steps",
+                "curriculum_version", "seed", "steps", "data_seed",
                 "tokenizer_mode", "tokenizer_fingerprint",
                 "training_sha256",
                 "heldout_sha256", "acceptance_sha256", "acceptance_v3_sha256",
@@ -304,6 +308,7 @@ def main():
     ap.add_argument("--steps", type=int, default=900)
     ap.add_argument("--per-class", type=int, default=48)
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--data-seed", type=int, default=None)
     ap.add_argument("--context", type=int, default=384)
     ap.add_argument("--width", type=int, default=64)
     ap.add_argument("--layers", type=int, default=2)
@@ -326,6 +331,7 @@ def main():
                    state_pretrain_steps=args.state_pretrain_steps,
                    tokenizer_mode=args.tokenizer,
                    bpe_vocab_size=args.bpe_vocab_size,
+                   data_seed=args.data_seed,
                    output=args.output)
 
 
