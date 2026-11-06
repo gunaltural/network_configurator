@@ -76,14 +76,21 @@ class ScratchNetworkLM(nn.Module):
             if isinstance(module, nn.Linear) and module.bias is not None:
                 nn.init.zeros_(module.bias)
 
-    def forward(self, tokens, labels=None):
-        if tokens.dtype != torch.long or tokens.ndim != 2 or tokens.size(1) > self.config.block_size:
-            raise ValueError('Input must be long tensor [batch, <=block_size]')
+    def encode(self, tokens):
+        """Expose causal hidden states for research-only supervised probes.
+
+        The language-model head, original token loss and generation are unchanged.
+        """
+        if tokens.dtype != torch.long or tokens.ndim != 2 or not 1 <= tokens.size(1) <= self.config.block_size:
+            raise ValueError('Input must be long tensor [batch, 1..block_size]')
         positions = torch.arange(tokens.size(1), device=tokens.device)
         x = self.token_embedding(tokens) + self.position_embedding(positions)[None, :, :]
         for layer in self.blocks:
             x = layer(x)
-        logits = self.head(self.final_norm(x))
+        return self.final_norm(x)
+
+    def forward(self, tokens, labels=None):
+        logits = self.head(self.encode(tokens))
         loss = None
         if labels is not None:
             if labels.shape != tokens.shape:
