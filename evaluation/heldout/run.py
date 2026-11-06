@@ -1,46 +1,81 @@
-"""Record actual responses (including failures). No rubric or hints sent to inference."""
-import json, os, subprocess, sys, time
+"""Run every blind synthetic engineering case and report independent failures.
+
+Neither holdout answers nor expected phrases are sent to inference. Passing this
+automated proxy is necessary, but insufficient, for expert engineering sign-off.
+"""
+import json
+import os
 from pathlib import Path
+import subprocess
+import sys
+import time
+
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from engineering_ai import install_engineering_ai
-assert (os.environ.get('AI_PROVIDER') == 'local' and os.environ.get('AI_BASE_URL') == 'http://127.0.0.1:18081/v1') or (os.environ.get('AI_PROVIDER') == 'groq' and os.environ.get('GROQ_API_KEY') and os.environ.get('AI_MODEL') == 'openai/gpt-oss-120b'), 'Use an approved local endpoint or an explicit Groq test credential.'
-app=FastAPI()
-install_engineering_ai(app)
-cases=json.loads(Path(__file__).with_name('cases.json').read_text())
-selected = [c for c in cases if c['tech'] == sys.argv[1] and 'acceptance' in c]
-assert selected, 'No independent acceptance cases selected; refusing false-green result.'
-for c in cases:
-    if c['tech']!=sys.argv[1]: continue
-    evidence=json.loads(subprocess.check_output(['node','-e',"require('./show-analysis.js');const a=ShowAnalysis;console.log(JSON.stringify(a.evidence(a.parse(require('fs').readFileSync(0,'utf8')))))"],input=c['raw'],text=True))
-    start=time.monotonic()
-    response=TestClient(app).post('/api/ai/analyze',json=dict(module='CLI_ANALYSIS',vendor=c['vendor'],language='tr',task='report',evidence=evidence))
-    print('CASE_RESULT '+json.dumps(dict(id=c['id'],status=response.status_code,seconds=round(time.monotonic()-start,2),response=response.json()),ensure_ascii=False),flush=True)
-    if 'acceptance' in c:
-        rules=c['acceptance']
-        body=response.json() if response.status_code==200 else {}
-        output=str(body.get('text','')).lower()
-        import re
-        missing=[term for term in rules.get('must_mention',[]) if term.lower() not in output]
-        missing_any=[group for group in rules.get('must_mention_any',[]) if not any(term.lower() in output for term in group)]
-        unsupported=[term for term in rules.get('must_not_claim',[]) if term.lower() in output]
-        # Validate citations against actual submitted CLI lines, not just syntax.
-        available = {}
-        for item in evidence:
-            if isinstance(item, dict):
-                available[str(item.get('id', '')).lower()] = {
-                    int(number) for number in re.findall(r'(?m)^L(\d+):', str(item.get('text', '')))
-                }
-        references = [(match.group(1), int(match.group(2)))
-                      for match in re.finditer(r'\[([\w-]+),\s*L(\d+)\]', output, re.I)]
-        invalid_citations = [f'{evidence_id}:L{line}' for evidence_id, line in references
-                             if line not in available.get(evidence_id.lower(), set())]
-        citations = len(references) - len(invalid_citations)
-        minimum=rules.get('minimum_line_citations',0)
-        distinct_evidence_ids = len({evidence_id.lower() for evidence_id, line in references if line in available.get(evidence_id.lower(), set())})
-        minimum_distinct = rules.get('minimum_distinct_evidence_ids', 0)
-        passed=response.status_code==200 and not missing and not missing_any and not unsupported and citations>=minimum and distinct_evidence_ids>=minimum_distinct and not invalid_citations and body.get('mode')=='model-evidence-cited-draft'
-        print('ACCEPTANCE_RESULT '+json.dumps(dict(id=c['id'],passed=passed,missing_terms=missing,missing_any_groups=missing_any,unsupported_claims=unsupported,valid_citation_count=citations,distinct_evidence_ids=distinct_evidence_ids,expected_minimum_distinct=minimum_distinct,invalid_citations=invalid_citations,expected_minimum=minimum,mode=body.get('mode')),ensure_ascii=False),flush=True)
-        if not passed:
-            raise SystemExit(f"Engineering reasoning acceptance FAILED: {c['id']}")
+from evaluation.heldout.grade import grade_response
 
+assert (
+    (os.environ.get("AI_PROVIDER") == "local" and
+     os.environ.get("AI_BASE_URL") == "http://127.0.0.1:18081/v1") or
+    (os.environ.get("AI_PROVIDER") == "groq" and
+     os.environ.get("GROQ_API_KEY") and
+     os.environ.get("AI_MODEL") == "openai/gpt-oss-120b")
+), "Use an approved local endpoint or explicit Groq test credential."
+
+app = FastAPI()
+install_engineering_ai(app)
+client = TestClient(app)
+cases = json.loads(Path(__file__).with_name("cases.json").read_text())
+suite = sys.argv[1] if len(sys.argv) > 1 else ""
+selected = [c for c in cases if c["tech"] == suite and "acceptance" in c]
+assert selected, "No independent acceptance cases selected; refusing false-green result."
+
+capability = client.get("/api/ai/status").json()
+structured = bool(capability.get("structuredClaimsSupported"))
+print("EVALUATION_PROFILE " + json.dumps({
+    "suite": suite, "provider": capability.get("provider"),
+    "structured_claims": structured, "case_count": len(selected),
+    "engineering_correctness_preaccepted": False
+}), flush=True)
+
+failures = []
+for case in selected:
+    evidence = json.loads(subprocess.check_output([
+        "node", "-e",
+        "require('./show-analysis.js'); const a=ShowAnalysis;"
+        "console.log(JSON.stringify(a.evidence(a.parse("
+        "require('fs').readFileSync(0,'utf8')))))"
+    ], input=case["raw"], text=True))
+    request = {
+        "module": "CLI_ANALYSIS", "vendor": case["vendor"],
+        "language": "tr", "task": "report", "evidence": evidence,
+        "reviewFormat": "evidence-claims-v1" if structured else "text"
+    }
+    start = time.monotonic()
+    response = client.post("/api/ai/analyze", json=request)
+    try:
+        body = response.json()
+    except ValueError:
+        body = {}
+    # Only synthetic diagnostic evidence: no customer device data in logs.
+    print("CASE_RESULT " + json.dumps({
+        "id": case["id"], "status": response.status_code,
+        "seconds": round(time.monotonic() - start, 2),
+        "mode": body.get("mode"), "claimReviewStatus": body.get("claimReviewStatus")
+    }, ensure_ascii=False), flush=True)
+    grade = grade_response(response.status_code, body, evidence, case["acceptance"],
+                           structured=structured)
+    print("ACCEPTANCE_RESULT " + json.dumps({"id": case["id"], **grade},
+                                            ensure_ascii=False), flush=True)
+    if not grade["passed"]:
+        failures.append({"id": case["id"], "categories": grade["failure_categories"]})
+
+print("SUITE_RESULT " + json.dumps({
+    "suite": suite, "passed": len(selected) - len(failures),
+    "total": len(selected), "failed": failures,
+    "accepted": not failures and len(selected) > 0,
+    "expert_signoff": False
+}, ensure_ascii=False), flush=True)
+if failures:
+    raise SystemExit("Engineering reasoning acceptance FAILED: " + suite)
