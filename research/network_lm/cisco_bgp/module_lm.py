@@ -185,7 +185,7 @@ def grade_focused(model, tokenizer, examples, *, max_new_tokens=100):
     """Score generated individual results, not just the presence of headers."""
     model.eval()
     by_field = {field: {"correct": 0, "total": 0} for field in FIELDS[:4]}
-    full, previews = 0, []
+    full, previews, decisions = 0, [], {}
     for ex in examples:
         field = ex.id.rsplit("-", 1)[-1]
         if field not in by_field:
@@ -203,16 +203,46 @@ def grade_focused(model, tokenizer, examples, *, max_new_tokens=100):
             None,
         )
         good = observed == correct_line
+        decisions[ex.id] = {"expected": correct_line, "generated": observed, "correct": good}
         by_field[field]["correct"] += int(good)
         by_field[field]["total"] += 1
         full += produced == ex.completion
         if len(previews) < 6:
             previews.append({"case": ex.id, "expected": ex.completion,
                              "generated": produced[:200], "result_correct": good})
+    # Paired heldout fault observations use the SAME topology/policy variant
+    # and differ in the composed failure set. A model must actually change
+    # its learned CE1 exit prediction, not repeat the healthy baseline.
+    contrast_groups = (
+        ("wan1-interconnect", "wan2-interconnect"),
+        ("ce1-wan2", "ce2-wan1"),
+        ("both-isps", "both-ces"),
+    )
+    contrasts = []
+    for left, right in contrast_groups:
+        for variant in range(4):
+            suffix = str(variant).zfill(2) + "-CE1_EXIT"
+            a = decisions.get("sim-" + left + "-" + suffix)
+            b = decisions.get("sim-" + right + "-" + suffix)
+            if a is None or b is None:
+                continue
+            if a["expected"] == b["expected"]:
+                raise ValueError("Counterfactual expected exit did not change")
+            contrasts.append({
+                "group_a": left, "group_b": right, "variant": variant,
+                "predicted_change": a["generated"] != b["generated"],
+                "both_correct": a["correct"] and b["correct"],
+            })
     return {
         "cases": len(examples),
         "correct_single_outcome": sum(x["correct"] for x in by_field.values()),
         "exact_canonical": full, "by_field": by_field,
+        "counterfactual_exit_pairs": {
+            "total": len(contrasts),
+            "changed_output": sum(x["predicted_change"] for x in contrasts),
+            "both_correct": sum(x["both_correct"] for x in contrasts),
+            "pairs": contrasts,
+        },
         "first_six": previews, "engineering_verified": False,
         "production_ready": False,
     }
