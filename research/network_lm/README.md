@@ -78,7 +78,7 @@ python -m research.network_lm.counterfactual --checkpoint /tmp/network-curriculu
 python -m research.network_lm.state_probe --steps 400 --samples-per-state 12 --output /tmp/network-state-probe.pt
 ```
 
-The workflow keeps only synthetic metric JSON artifacts. Model weights are not uploaded or deployed. To move toward a network-language model that generalizes, next build licensed corpus scale, a better tokenizer/training budget, held-out topology/peer-specific causal benchmarks, and cross-vendor expert-reviewed evaluation. A small classifier alone cannot satisfy those conditions.
+Research CI retains synthetic metric JSON and now also makes the **seed-42 synthetic-only scratch checkpoint** available as a short-lived (7-day) GitHub Actions preview artifact. This is not an approved or deployed model, and it is never copied into live Network Configurator or any customer system. To move toward a network-language model that generalizes, next build licensed corpus scale, a better tokenizer/training budget, held-out topology/peer-specific causal benchmarks, and cross-vendor expert-reviewed evaluation. A small classifier alone cannot satisfy those conditions.
 
 ## Evidence of state recognition — and its limits (2026-11-06)
 
