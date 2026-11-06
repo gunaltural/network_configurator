@@ -89,6 +89,12 @@ const {JSDOM}=require('jsdom'),fs=require('node:fs'),assert=require('node:assert
  assert.match($('stpCTOView').textContent,/show-bgp-summary.out/);
  assert.match($('stpCTOView').textContent,/Observed BGP neighbor FSM/,'Observed FSM is correlated from uploaded show output');
  assert.ok($('stpCTOView').querySelectorAll('.ai-engineering-matrix-finding').length>0);
+ assert.equal($('stpCTOView').querySelector('[data-hypothesis-schema]')?.dataset.hypothesisSchema,'ai-hypothesis-review-v1');
+ assert.ok($('stpCTOView').querySelectorAll('.ai-hypothesis-review-card').length>0,
+  'BGP Active must create evidence-backed investigation hypotheses');
+ assert.match($('stpCTOView').textContent,/Competing explanations/);
+ assert.match($('stpCTOView').textContent,/not causal proof|not establish causality/i);
+ assert.match($('stpCTOView').textContent,/No root cause is confirmed/);
  assert.match($('stpCTOView').textContent,/Acceptance criterion/);
  assert.match($('stpCTOView').textContent,/Counterevidence/);
  assert.match($('stpCTOView').textContent,/L3: 192.0.2.1 4 65002/,'Original device line proof is visible in expanded DOM');
