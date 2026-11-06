@@ -176,6 +176,10 @@ class Tests(unittest.TestCase):
             self.assertIn('SAME assessment methodology', payload['instructions'])
             self.assertIn('counterevidence', payload['instructions'])
             self.assertIn('observable acceptance criterion', payload['instructions'])
+            self.assertIn('two distinct, testable explanations', payload['instructions'])
+            self.assertIn('Do NOT rank hypotheses', payload['instructions'])
+            self.assertIn('Grounded', payload['instructions'].replace('grounded', 'Grounded'))
+
 
     def test_groq_403_error_classifier_exposes_only_safe_categories(self):
         import io
