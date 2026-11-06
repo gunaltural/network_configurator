@@ -42,3 +42,11 @@ The scratch checkpoint now has its own `python -m research.network_lm.evaluate -
 On the first three-step 165,888-parameter prototype, held-out BGP Idle(Admin) and vPC Peer Gateway scenarios passed **0 of 2** very basic lexical checks. The model generated incomplete/unusable text. This is a **documented negative result**, not an engineering acceptance. A zero-score evaluation deliberately does not prevent the isolated research CI job from passing its *software-integrity* checks. `engineering_verified=false` and `production_ready=false` remain explicit in every report.
 
 Research-only checks: `python -m unittest research.network_lm.test_scratch research.network_lm.test_evaluate -v`. No production inference, Design or Simulation changes.
+
+## Contrastive research gate (parallel track)
+
+`python -m research.network_lm.counterfactual --checkpoint /tmp/network-mini.pt --max-new-tokens 35` tests *paired original-synthetic* counterfactual inputs for BGP Idle(Admin) vs a session with received prefixes, OSPF 2WAY/DROTHER vs EXSTART/DR, and EVPN Type-2 vs Type-5. The second observation changes while the surrounding task stays comparable. The model sees only the prompt, **never** the expected lexical signals.
+
+The metric is intentionally conservative: a pair passes only if each generated response contains its respective distinctive observable signal without repeating the opposite state. It is neither a semantic correctness test nor proof of troubleshooting capability; valid paraphrases can score poorly. Evaluation outputs record changed-text sensitivity and lexical contrast separately. Research CI now runs actual scratch training, checkpoint integrity checks and this counterfactual report on PR changes without touching deployed services.
+
+Before this work can become a product candidate, a substantially larger rights-cleared corpus, stronger architecture, independently authored unseen scenarios, vendor/release scoped source checks, cross-device consistency and expert review are still required. No current scratch weights qualify.
