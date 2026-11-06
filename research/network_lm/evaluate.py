@@ -9,6 +9,7 @@ import hashlib
 import json
 import torch
 from .data import load_corpus
+from .curriculum import curriculum_examples, curriculum_digest, CURRICULUM_VERSION
 from .model import ByteTokenizer, LMConfig, ScratchNetworkLM
 
 EXPECTATIONS = {
@@ -31,6 +32,19 @@ def load_verified_checkpoint(checkpoint_path, corpus_path):
         raise ValueError('Only unverified scratch research checkpoints accepted')
     if manifest['corpus_sha256'] != hashlib.sha256(Path(corpus_path).read_bytes()).hexdigest():
         raise ValueError('Corpus/weights mismatch')
+    if manifest.get('curriculum_version') != CURRICULUM_VERSION:
+        raise ValueError('Curriculum generator version mismatch')
+    augmented = curriculum_examples(manifest['curriculum_per_state'],
+                                    manifest['curriculum_seed'])
+    if (manifest.get('curriculum_count') != len(augmented) or
+            manifest.get('curriculum_sha256') != curriculum_digest(augmented)):
+        raise ValueError('Curriculum provenance/hash mismatch')
+    if {x.scenario_id for x in augmented}.intersection(x.scenario_id for x in corpus['val']):
+        raise ValueError('Curriculum leaked held-out scenarios')
+    corpus['train'].extend(augmented)
+    if (manifest.get('train_example_count') != len(corpus['train']) or
+            manifest.get('val_example_count') != len(corpus['val'])):
+        raise ValueError('Checkpoint data-count mismatch')
     for split, key in [('train', 'train_scenarios'), ('val', 'heldout_scenarios')]:
         actual = {x.scenario_id for x in corpus[split]}
         if actual != set(manifest[key]):
