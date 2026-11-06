@@ -107,6 +107,13 @@ class ModuleKnowledgeTests(unittest.TestCase):
         self.assertEqual(result["correct_single_outcome"], 0)
         self.assertEqual(result["exact_canonical"], 0)
 
+        all_heldout = focused_cases(corpus["test"])
+        contrast = grade_focused(Bad(), tok, all_heldout)
+        self.assertEqual(contrast["cases"], 96)
+        self.assertEqual(contrast["counterfactual_exit_pairs"]["total"], 12)
+        self.assertEqual(contrast["counterfactual_exit_pairs"]["changed_output"], 0)
+        self.assertEqual(contrast["counterfactual_exit_pairs"]["both_correct"], 0)
+
     def test_causal_dependency_training_scenarios_are_provenance_bound(self):
         existing, source_sha = load_owned_module_cases()
         composed, digest = load_compositional_cases(
