@@ -458,7 +458,7 @@ def install_engineering_ai(app):
                                 'The AI model produced no source-anchored findings. '
                                 'This does not demonstrate network health; '
                                 'additional evidence and engineering review are required.')
-                        return {'text': note + ('\\n\\n' + context if context else ''),
+                        return {'text': note + ('\n\n' + context if context else ''),
                                 'mode': 'evidence-only-no-model-findings',
                                 'reviewRequired': True, 'engineeringVerified': False,
                                 'claimReview': review,
