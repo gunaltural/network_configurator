@@ -65,6 +65,41 @@ class ClaimReviewTests(unittest.TestCase):
         self.assertIn("[ce-bgp, L4]", render_claim_review(result, "en"))
         self.assertIn("KÖK NEDEN", render_claim_review(result, "tr"))
 
+    def test_empty_structured_response_is_abstention_not_accepted_analysis(self):
+        empty = {"schema": SCHEMA, "findings": []}
+        validated = validate_claim_review(json.dumps(empty), EVIDENCE)
+        self.assertEqual(validated["claimReviewStatus"], "NO_SOURCE_ANCHORED_FINDINGS")
+        self.assertFalse(validated["engineeringVerified"])
+        self.assertFalse(validated["rootCauseVerified"])
+        self.assertIn("does not establish network health",
+                      render_claim_review(validated, "en"))
+
+        app = FastAPI()
+        install_engineering_ai(app)
+        client = TestClient(app)
+        env = {"AI_PROVIDER": "openai", "AI_MODEL": "synthetic",
+               "AI_ENABLED": "1", "OPENAI_API_KEY": "synthetic"}
+        with patch.dict(os.environ, env, clear=True), patch(
+                "engineering_ai.generate", return_value=json.dumps(empty)):
+            for language, expected in [
+                ("en", "does not demonstrate network health"),
+                ("tr", "ağın sağlıklı olduğunu göstermez"),
+            ]:
+                response = client.post("/api/ai/analyze", json={
+                    "module": "CLI_ANALYSIS", "vendor": "Cisco IOS-XE",
+                    "language": language, "task": "report",
+                    "evidence": EVIDENCE, "reviewFormat": "evidence-claims-v1"
+                })
+                self.assertEqual(response.status_code, 200)
+                data = response.json()
+                self.assertEqual(data["mode"], "evidence-only-no-model-findings")
+                self.assertEqual(data["claimReviewStatus"], "NO_SOURCE_ANCHORED_FINDINGS")
+                self.assertEqual(data["evidenceIds"], [])
+                self.assertFalse(data["engineeringVerified"])
+                self.assertTrue(data["reviewRequired"])
+                self.assertIn(expected, data["text"])
+                self.assertNotIn("PASSWORD_MUST_NOT_LEAK", data["text"])
+
     def test_adversarial_rejections(self):
         def reject(change):
             data = good()
