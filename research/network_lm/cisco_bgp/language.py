@@ -21,7 +21,7 @@ from .curriculum import (
     CLASSES, DATA_VERSION, dataset_fingerprint,
     load_frozen_holdout, training_cases,
 )
-from .experiment import FROZEN_PATH
+from .experiment import FROZEN_PATH, ACCEPTANCE_V2
 
 # Synthetically authored teaching targets; these are not copied Cisco material.
 # A predicted label is not itself a verified root cause, nor a quote from CLI.
@@ -46,10 +46,13 @@ def target(label):
             + "\nCHECK=show ip bgp neighbors")
 
 
-def as_examples(rows):
-    return [Example(case_id, scenario, split, text, target(label))
-            for case_id, label, scenario, split, text
-            in ((c.case_id, c.label, c.scenario, c.split, c.text) for c in rows)]
+def as_examples(rows, *, state_only=False):
+    """Two explicit autoregressive curricula; no label appended to prompts."""
+    return [
+        Example(c.case_id, c.scenario, c.split, c.text,
+                ("STATE=" + c.label) if state_only else target(c.label))
+        for c in rows
+    ]
 
 
 @torch.no_grad()
@@ -91,10 +94,13 @@ def generate_on_frozen(model, tokenizer, heldout, *, max_new_tokens=140):
 
 def train_language(*, steps=900, per_class=48, seed=42, context=384,
                    width=64, layers=2, heads=4, batch_size=8, lr=0.001,
-                   threads=2, output="/tmp/cisco-bgp-lm.pt"):
+                   threads=2, state_warmup_steps=0,
+                   output="/tmp/cisco-bgp-lm.pt"):
     if (not 1 <= steps <= 10000 or not 1 <= batch_size <= 64
             or not 1 <= threads <= 16 or not 0 < lr < 0.1):
         raise ValueError("Invalid scratch BGP language training bounds")
+    if type(state_warmup_steps) is not int or not 0 <= state_warmup_steps < steps:
+        raise ValueError("Warmup must leave at least one full-review learning step")
     torch.manual_seed(seed)
     torch.set_num_threads(threads)
     rng = random.Random(seed)
@@ -104,11 +110,15 @@ def train_language(*, steps=900, per_class=48, seed=42, context=384,
     training = training_cases(per_class=per_class, seed=seed)
     dev = training_cases(per_class=8, seed=seed + 239)
     heldout = load_frozen_holdout(FROZEN_PATH)
-    if {c.text for c in training} & {c.text for c in dev + heldout}:
+    acceptance = load_frozen_holdout(ACCEPTANCE_V2)
+    if ({c.text for c in training} & {c.text for c in dev + heldout + acceptance}
+            or {c.text for c in heldout} & {c.text for c in acceptance}):
         raise ValueError("BGP language model training/heldout overlap")
     examples = as_examples(training)
+    warmup_examples = as_examples(training, state_only=True)
     dev_examples = as_examples(dev)
     encoded = [encode_example(x, tok, context) for x in examples]
+    encoded_warmup = [encode_example(x, tok, context) for x in warmup_examples]
     encoded_dev = [encode_example(x, tok, context) for x in dev_examples]
     model = ScratchNetworkLM(config)
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
@@ -125,7 +135,8 @@ def train_language(*, steps=900, per_class=48, seed=42, context=384,
                 cursor = 0
             selected.append(schedule[cursor])
             cursor += 1
-        tokens, labels = batch(encoded, selected, torch.device("cpu"))
+        objective = encoded_warmup if step < state_warmup_steps else encoded
+        tokens, labels = batch(objective, selected, torch.device("cpu"))
         model.train()
         optimizer.zero_grad(set_to_none=True)
         _, loss = model(tokens, labels)
@@ -137,18 +148,24 @@ def train_language(*, steps=900, per_class=48, seed=42, context=384,
         latest = round(float(loss.item()), 6)
     final_eval = validate(model, encoded_dev, torch.device("cpu"))
     outputs = generate_on_frozen(model, tok, heldout)
+    fresh_outputs = generate_on_frozen(model, tok, acceptance)
     metrics = {
         "status": "CISCO_BGP_CAUSAL_LM_SCRATCH_ONLY",
         "architecture": asdict(config),
         "parameter_count": sum(p.numel() for p in model.parameters()),
         "curriculum_version": DATA_VERSION,
-        "seed": seed, "steps": steps, "training_examples": len(examples),
+        "seed": seed, "steps": steps,
+        "state_warmup_steps": state_warmup_steps,
+        "full_review_steps": steps - state_warmup_steps,
+        "training_examples": len(examples),
         "training_sha256": dataset_fingerprint(training),
         "heldout_sha256": sha256(FROZEN_PATH.read_bytes()).hexdigest(),
+        "acceptance_sha256": sha256(ACCEPTANCE_V2.read_bytes()).hexdigest(),
         "loss_first": initial, "loss_last": latest,
         "dev_token_loss_before": first_eval,
         "dev_token_loss_after": final_eval,
         "heldout_generation": outputs,
+        "fresh_acceptance_v2": fresh_outputs,
         "engineering_verified": False, "production_ready": False,
         "note": ("This is ACTUAL causal text generation from random weights. "
                  "Matching a short templated response is not network diagnosis."),
@@ -161,7 +178,8 @@ def train_language(*, steps=900, per_class=48, seed=42, context=384,
             k: metrics[k] for k in (
                 "status", "architecture", "parameter_count",
                 "curriculum_version", "seed", "steps", "training_sha256",
-                "heldout_sha256", "engineering_verified", "production_ready",
+                "heldout_sha256", "acceptance_sha256",
+                "state_warmup_steps", "engineering_verified", "production_ready",
             )
         },
     }, checkpoint)
@@ -174,6 +192,9 @@ def train_language(*, steps=900, per_class=48, seed=42, context=384,
         "heldout_states": outputs["state_correct"],
         "heldout_full_reports": outputs["full_format_correct"],
         "heldout_total": outputs["heldout_cases"],
+        "fresh_state_correct": fresh_outputs["state_correct"],
+        "fresh_full_reports": fresh_outputs["full_format_correct"],
+        "fresh_total": fresh_outputs["heldout_cases"],
         "production_ready": False,
     }), flush=True)
     return metrics
@@ -190,6 +211,7 @@ def main():
     ap.add_argument("--heads", type=int, default=4)
     ap.add_argument("--batch-size", type=int, default=8)
     ap.add_argument("--lr", type=float, default=0.001)
+    ap.add_argument("--state-warmup-steps", type=int, default=0)
     ap.add_argument("--threads", type=int, default=2)
     ap.add_argument("--output", default="/tmp/cisco-bgp-lm.pt")
     args = ap.parse_args()
@@ -197,7 +219,9 @@ def main():
                    seed=args.seed, context=args.context, width=args.width,
                    layers=args.layers, heads=args.heads,
                    batch_size=args.batch_size, lr=args.lr,
-                   threads=args.threads, output=args.output)
+                   threads=args.threads,
+                   state_warmup_steps=args.state_warmup_steps,
+                   output=args.output)
 
 
 if __name__ == "__main__":
