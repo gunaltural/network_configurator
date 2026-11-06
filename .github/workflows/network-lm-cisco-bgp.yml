@@ -19,7 +19,7 @@ jobs:
       - name: Install isolated scratch training dependency
         run: python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
       - name: Confirm split isolation, eight classes and real gradient updates
-        run: python -m unittest research.network_lm.cisco_bgp.test_experiment research.network_lm.cisco_bgp.test_language research.network_lm.cisco_bgp.test_tokenizer -v
+        run: python -m unittest research.network_lm.cisco_bgp.test_experiment research.network_lm.cisco_bgp.test_language research.network_lm.cisco_bgp.test_tokenizer research.network_lm.cisco_bgp.test_summarize_language -v
       - name: Retain max-pooling BGP state baseline (independent of generative LM)
         run: |
           python -m research.network_lm.cisco_bgp.experiment \
@@ -46,22 +46,34 @@ jobs:
       - name: Compare scratch causal BGP model capacity with fixed train-only BPE
         run: |
           python -m research.network_lm.cisco_bgp.language \
-            --steps 900 --per-class 48 --batch-size 8 --seed 42 \
+            --steps 900 --per-class 48 --batch-size 8 --seed 42 --data-seed 42 \
             --tokenizer bpe --bpe-vocab-size 448 \
             --width 64 --layers 2 --heads 4 \
             --output /tmp/cisco-bgp-language-bpe-small42.pt
           python -m research.network_lm.cisco_bgp.language \
-            --steps 900 --per-class 48 --batch-size 8 --seed 42 \
+            --steps 900 --per-class 48 --batch-size 8 --seed 42 --data-seed 42 \
             --tokenizer bpe --bpe-vocab-size 448 \
             --width 128 --layers 3 --heads 4 \
             --output /tmp/cisco-bgp-language-bpe-large42.pt
+          python -m research.network_lm.cisco_bgp.language \
+            --steps 900 --per-class 48 --batch-size 8 --seed 7 --data-seed 42 \
+            --tokenizer bpe --bpe-vocab-size 448 \
+            --width 128 --layers 3 --heads 4 \
+            --output /tmp/cisco-bgp-language-bpe-large7.pt
+          python -m research.network_lm.cisco_bgp.language \
+            --steps 900 --per-class 48 --batch-size 8 --seed 99 --data-seed 42 \
+            --tokenizer bpe --bpe-vocab-size 448 \
+            --width 128 --layers 3 --heads 4 \
+            --output /tmp/cisco-bgp-language-bpe-large99.pt
       - name: Enforce real generated-answer evaluation and publish negative results
         run: |
           python - <<'PY'
           import json
           for mode, path in (
               ("bpe-64x2", "/tmp/cisco-bgp-language-bpe-small42.metrics.json"),
-              ("bpe-128x3", "/tmp/cisco-bgp-language-bpe-large42.metrics.json"),
+              ("bpe-128x3-seed42", "/tmp/cisco-bgp-language-bpe-large42.metrics.json"),
+              ("bpe-128x3-seed7", "/tmp/cisco-bgp-language-bpe-large7.metrics.json"),
+              ("bpe-128x3-seed99", "/tmp/cisco-bgp-language-bpe-large99.metrics.json"),
           ):
               report=json.load(open(path))
               reused=report["heldout_generation"]
@@ -81,6 +93,13 @@ jobs:
                     "dev token loss (NOT comparable across tokenizers)",report["dev_token_loss_after"])
               print("NEW_GENERATION_SAMPLES:",fresh["cases"][:3])
           PY
+      - name: Require strictly comparable multi-seed language metrics
+        run: |
+          python -m research.network_lm.cisco_bgp.summarize_language \
+            /tmp/cisco-bgp-language-bpe-large42.metrics.json \
+            /tmp/cisco-bgp-language-bpe-large7.metrics.json \
+            /tmp/cisco-bgp-language-bpe-large99.metrics.json \
+            --output /tmp/cisco-bgp-language-multiseed.metrics.json
       - name: Keep research metrics only, not live application artifacts
         uses: actions/upload-artifact@v4
         with:
