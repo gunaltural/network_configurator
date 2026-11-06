@@ -1,5 +1,5 @@
 {
-  "catalog_version": "cisco-ios-xe-bgp-official-sources-2026-11-06-v1",
+  "catalog_version": "cisco-bgp-source-inventory-2026-11-06-v2",
   "copyright": "Original topic summaries only; no Cisco document text, images or CLI examples were copied into training.",
   "scope": "Cisco IOS / IOS XE BGP, with release/platform caveats. IOS XR and NX-OS not a training target.",
   "sources": [
@@ -10,25 +10,28 @@
       "applicability": "IOS XE 17.x",
       "url": "https://www.cisco.com/c/en/us/td/docs/routers/ios/config/17-x/ip-routing/b-ip-routing/m_irg-basic-net-0.html",
       "original_learning_objective": "Separate neighbor session parameters from address-family-specific advertisements and policy.",
-      "read_only_check": "show ip bgp summary"
+      "read_only_check": "show ip bgp summary",
+      "source_verification": "official URL opened; IOS XE 17.x configuration guide"
     },
     {
       "id": "CISCO-BGP-02",
       "title": "Understand Basic BGP Troubleshoot",
       "topic": "fsm",
-      "applicability": "IOS / IOS XE",
+      "applicability": "Nexus-focused troubleshooting article; IOS XE training may use general FSM concepts only after IOS XE-specific cross-check",
       "url": "https://www.cisco.com/c/en/us/support/docs/ip/border-gateway-protocol-bgp/220604-understand-basic-bgp-troubleshoot.html",
       "original_learning_objective": "Idle, Connect, Active, OpenSent, OpenConfirm and Established are session stages; a state alone does not establish an underlying cause.",
-      "read_only_check": "show ip bgp neighbors"
+      "read_only_check": "show ip bgp neighbors",
+      "source_verification": "official URL opened; article explicitly identifies Nexus examples"
     },
     {
       "id": "CISCO-BGP-03",
       "title": "Troubleshoot Border Gateway Protocol Basic Issues",
       "topic": "adjacency",
-      "applicability": "IOS / IOS XE",
+      "applicability": "General BGP troubleshooting; updated September 2 2026; verify platform commands",
       "url": "https://www.cisco.com/c/en/us/support/docs/ip/border-gateway-protocol-bgp/218027-troubleshoot-border-gateway-protocol-bas.html",
       "original_learning_objective": "Correlate BGP session with peer reachability, TCP/179, neighbor configuration, authentication notifications and next-hop checks.",
-      "read_only_check": "show ip bgp all summary"
+      "read_only_check": "show ip bgp all summary",
+      "source_verification": "official URL opened"
     },
     {
       "id": "CISCO-BGP-04",
@@ -43,10 +46,11 @@
       "id": "CISCO-BGP-05",
       "title": "Cisco IOS IP Routing BGP Command Reference",
       "topic": "cli",
-      "applicability": "IOS / IOS XE; release syntax varies",
+      "applicability": "Cisco IOS BGP command reference (2019); verify exact commands against target IOS XE release",
       "url": "https://www.cisco.com/c/en/us/td/docs/ios-xml/ios/iproute_bgp/command/irg-cr-book/bgp-s1.html",
       "original_learning_objective": "Verify session status, peer-specific advertised/received route views and the address-family scope of each command.",
-      "read_only_check": "show ip bgp neighbors"
+      "read_only_check": "show ip bgp neighbors",
+      "source_verification": "official URL opened; historic IOS command reference"
     },
     {
       "id": "CISCO-BGP-06",
@@ -55,7 +59,8 @@
       "applicability": "Cisco IOS / IOS XE; flags alter criteria",
       "url": "https://www.cisco.com/c/en/us/support/docs/ip/border-gateway-protocol-bgp/13753-25.html",
       "original_learning_objective": "A valid candidate is chosen using ordered conditions including local weight and local preference; RIB installation still needs independent verification.",
-      "read_only_check": "show ip bgp"
+      "read_only_check": "show ip bgp",
+      "source_verification": "official URL opened; Cisco best-path article updated April 28 2026"
     },
     {
       "id": "CISCO-BGP-07",
@@ -91,7 +96,8 @@
       "applicability": "IOS XE 17.x; features release-specific",
       "url": "https://www.cisco.com/c/en/us/td/docs/routers/ios/config/17-x/ip-routing/b-ip-routing/m_irg-max-prefix.html",
       "original_learning_objective": "A configured maximum-prefix threshold can terminate a session, warn only or discard excess routes according to exact option and release.",
-      "read_only_check": "show ip bgp neighbors"
+      "read_only_check": "show ip bgp neighbors",
+      "source_verification": "official URL opened; IOS XE 17.x maximum-prefix guide"
     },
     {
       "id": "CISCO-BGP-11",
@@ -129,5 +135,6 @@
       "original_learning_objective": "Use structured troubleshooting flows rather than treating one CLI state as a complete incident.",
       "read_only_check": "show ip bgp summary"
     }
-  ]
+  ],
+  "source_quality": "Curated official Cisco documentation pointers; links vary by platform/release and may need re-verification before use. Only source metadata and original learning objectives are stored, not copyrighted document bodies."
 }
