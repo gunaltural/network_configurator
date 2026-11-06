@@ -43,34 +43,39 @@ jobs:
                   x for x in d['heldout']['predictions'] if not x['correct']
               ])
           PY
-      - name: Compare causal scratch language learning with raw bytes vs train-only BPE
+      - name: Compare scratch causal BGP model capacity with fixed train-only BPE
         run: |
           python -m research.network_lm.cisco_bgp.language \
             --steps 900 --per-class 48 --batch-size 8 --seed 42 \
-            --tokenizer byte \
-            --output /tmp/cisco-bgp-language-byte42.pt
+            --tokenizer bpe --bpe-vocab-size 448 \
+            --width 64 --layers 2 --heads 4 \
+            --output /tmp/cisco-bgp-language-bpe-small42.pt
           python -m research.network_lm.cisco_bgp.language \
             --steps 900 --per-class 48 --batch-size 8 --seed 42 \
             --tokenizer bpe --bpe-vocab-size 448 \
-            --output /tmp/cisco-bgp-language-bpe42.pt
+            --width 128 --layers 3 --heads 4 \
+            --output /tmp/cisco-bgp-language-bpe-large42.pt
       - name: Enforce real generated-answer evaluation and publish negative results
         run: |
           python - <<'PY'
           import json
           for mode, path in (
-              ("byte", "/tmp/cisco-bgp-language-byte42.metrics.json"),
-              ("train-only-bpe", "/tmp/cisco-bgp-language-bpe42.metrics.json"),
+              ("bpe-64x2", "/tmp/cisco-bgp-language-bpe-small42.metrics.json"),
+              ("bpe-128x3", "/tmp/cisco-bgp-language-bpe-large42.metrics.json"),
           ):
               report=json.load(open(path))
               reused=report["heldout_generation"]
               fresh=report["fresh_acceptance_v2"]
-              assert reused["heldout_cases"]==fresh["heldout_cases"]==32
+              newest=report["fresh_acceptance_v3"]
+              assert reused["heldout_cases"]==fresh["heldout_cases"]==newest["heldout_cases"]==32
               assert report["engineering_verified"] is False
               assert report["production_ready"] is False
               assert report["status"]=="CISCO_BGP_CAUSAL_LM_SCRATCH_ONLY"
               print("REAL_SCRATCH_LANGUAGE_MODEL:", mode,
                     "reused state",reused["state_correct"],"reused full",reused["full_format_correct"],
-                    "NEW frozen state",fresh["state_correct"],"NEW frozen full",fresh["full_format_correct"],
+                    "v2 state",fresh["state_correct"],"v2 full",fresh["full_format_correct"],
+                    "v3 state",newest["state_correct"],"v3 full",newest["full_format_correct"],
+                    "parameter_count",report["parameter_count"],
                     "mean prompt tokens",report["train_mean_prompt_tokens"],
                     "vocab",report["architecture"]["vocab_size"],
                     "dev token loss (NOT comparable across tokenizers)",report["dev_token_loss_after"])
