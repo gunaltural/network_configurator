@@ -116,8 +116,13 @@ jobs:
           python scripts/check_budget_analysis.py
 
   stronger-model-evaluation:
-    # Optional manual diagnostic. Hosted GPT-OSS is the V0.1 reasoning acceptance gate.
-    if: github.event_name == 'workflow_dispatch'
+    # One real 3B candidate on the trusted AI Analysis PR, also available manually.
+    # No provider secrets or production changes; this remains a diagnostic, not a release.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' &&
+       github.head_ref == 'feature/ai-engineering-matrix-and-knowledge-20261106' &&
+       github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -149,16 +154,19 @@ jobs:
             -v /tmp/strong-model.gguf:/models/model.gguf:ro \
             ghcr.io/ggml-org/llama.cpp:server \
             -m /models/model.gguf --alias network-engineer --host 0.0.0.0 \
-            --port 8080 --ctx-size 4096 --parallel 1 --threads 2
+            --port 8080 --ctx-size 8192 --parallel 1 --threads 2
           trap 'docker logs --tail 50 strong-inference || true; docker stats --no-stream strong-inference || true; docker rm -f strong-inference || true' EXIT
           for i in $(seq 1 90); do
             if curl -fsS --max-time 3 http://127.0.0.1:18081/health >/dev/null; then break; fi
             sleep 2
           done
           curl -fsS http://127.0.0.1:18081/health
-          python scripts/evaluate_local_model.py
-          # Mandatory independent engineering-accuracy gate, not merely model availability.
-          python evaluation/heldout/run.py BGP
+          # Run both gates, even if the smoke fails. Do not hide the independent
+          # engineering result behind an earlier transport or output-length failure.
+          failed=0
+          python scripts/evaluate_local_model.py || failed=1
+          python evaluation/heldout/run.py BGP || failed=1
+          exit "${failed}"
 
   hosted-bgp-acceptance:
     # Run automatically on trusted feature-branch pushes with synthetic holdout only.
