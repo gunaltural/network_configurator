@@ -98,6 +98,25 @@ class CiscoBGPLanguageTests(unittest.TestCase):
         self.assertEqual(exact["state_correct"], 2)
         self.assertEqual(exact["full_format_correct"], 2)
 
+    def test_pretrained_scratch_encoder_is_transferred_into_real_decoder(self):
+        from ..model import LMConfig, ScratchNetworkLM
+        from .language import pretrain_state_encoder
+
+        torch.manual_seed(91)
+        config = LMConfig(block_size=384, width=32, layers=1, heads=4)
+        student_backbone = ScratchNetworkLM(config)
+        original = student_backbone.token_embedding.weight.detach().clone()
+        report = pretrain_state_encoder(
+            student_backbone, config, training_cases(8, seed=42),
+            ByteTokenizer(), steps=2, batch_size=4, seed=42, lr=0.001,
+        )
+        self.assertEqual(report["steps"], 2)
+        self.assertGreater(report["first_loss"], 0)
+        self.assertFalse(torch.equal(original,
+                                     student_backbone.token_embedding.weight.detach()))
+        with self.assertRaisesRegex(ValueError, "pretraining must leave"):
+            train_language(steps=2, state_pretrain_steps=2)
+
     def test_actual_random_initialized_transformer_trains_and_generates(self):
         with tempfile.TemporaryDirectory() as d:
             path = Path(d) / "cisco-bgp-language.pt"
@@ -110,6 +129,7 @@ class CiscoBGPLanguageTests(unittest.TestCase):
             self.assertEqual(result["heldout_generation"]["heldout_cases"], 32)
             self.assertEqual(result["fresh_acceptance_v2"]["heldout_cases"], 32)
             self.assertEqual(result["state_warmup_steps"], 0)
+            self.assertEqual(result["state_encoder_pretrain_steps"], 0)
             self.assertFalse(result["production_ready"])
             self.assertFalse(result["engineering_verified"])
             package = torch.load(path, map_location="cpu", weights_only=True)
