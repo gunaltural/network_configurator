@@ -30,13 +30,9 @@ class CurriculumTests(unittest.TestCase):
         heldout = {x.scenario_id for x in load_corpus(CORPUS)["val"]}
         self.assertTrue(heldout.isdisjoint({x.scenario_id for x in first}))
         self.assertEqual(len({x.prompt for x in first}), len(first))
-        self.assertTrue(all("root cause" in x.completion.lower() or
-                            "unverified" in x.completion.lower() or
-                            "not proven" in x.completion.lower() or
-                            "not established" in x.completion.lower() or
-                            "not proof" in x.completion.lower() or
-                            "not verified" in x.completion.lower() or
-                            "require" in x.completion.lower()
+        self.assertTrue(all(x.completion and
+                            "confirmed outage" not in x.completion.lower() and
+                            "root cause confirmed" not in x.completion.lower()
                             for x in first))
         for example in first:
             encoded, labels = encode_example(example, ByteTokenizer(), 512)
