@@ -23,6 +23,7 @@ from .curriculum import (
 )
 from .experiment import (FROZEN_PATH, ACCEPTANCE_V2, BGPStudent,
                          encode as encode_bgp_states, make_batch as bgp_batch)
+from .tokenizer import train_bpe
 
 # Synthetically authored teaching targets; these are not copied Cisco material.
 # A predicted label is not itself a verified root cause, nor a quote from CLI.
@@ -136,6 +137,7 @@ def pretrain_state_encoder(model, config, cases, tokenizer, *, steps, batch_size
 def train_language(*, steps=900, per_class=48, seed=42, context=384,
                    width=64, layers=2, heads=4, batch_size=8, lr=0.001,
                    threads=2, state_warmup_steps=0, state_pretrain_steps=0,
+                   tokenizer_mode="byte", bpe_vocab_size=448,
                    output="/tmp/cisco-bgp-lm.pt"):
     if (not 1 <= steps <= 10000 or not 1 <= batch_size <= 64
             or not 1 <= threads <= 16 or not 0 < lr < 0.1):
@@ -146,12 +148,11 @@ def train_language(*, steps=900, per_class=48, seed=42, context=384,
     if (type(state_warmup_steps) is not int
             or not 0 <= state_warmup_steps < steps - state_pretrain_steps):
         raise ValueError("Warmup must leave at least one full-review learning step")
+    if tokenizer_mode not in ("byte", "bpe"):
+        raise ValueError("Unsupported scratch tokenizer mode")
     torch.manual_seed(seed)
     torch.set_num_threads(threads)
     rng = random.Random(seed)
-    config = LMConfig(block_size=context, width=width, layers=layers, heads=heads)
-    config.validate()
-    tok = ByteTokenizer()
     training = training_cases(per_class=per_class, seed=seed)
     dev = training_cases(per_class=8, seed=seed + 239)
     heldout = load_frozen_holdout(FROZEN_PATH)
@@ -162,6 +163,25 @@ def train_language(*, steps=900, per_class=48, seed=42, context=384,
     examples = as_examples(training)
     warmup_examples = as_examples(training, state_only=True)
     dev_examples = as_examples(dev)
+    if tokenizer_mode == "bpe":
+        # Fit merges to original synthetic TRAIN prompts and targets only.
+        # No heldout text, evaluation labels or reference material is added.
+        training_documents = [
+            part for ex in examples for part in (
+                "Network observation:\n" + ex.prompt + "\nEngineering review:\n",
+                ex.completion,
+            )
+        ]
+        tok = train_bpe(training_documents, vocab_size=bpe_vocab_size)
+        tok_manifest = tok.to_manifest()
+        tok_fingerprint = tok.fingerprint()
+    else:
+        tok = ByteTokenizer()
+        tok_manifest = {"version": "raw-byte-v1", "vocab_size": 258}
+        tok_fingerprint = sha256(b"raw-byte-v1").hexdigest()
+    config = LMConfig(block_size=context, width=width, layers=layers,
+                      heads=heads, vocab_size=tok_manifest["vocab_size"])
+    config.validate()
     encoded = [encode_example(x, tok, context) for x in examples]
     encoded_warmup = [encode_example(x, tok, context) for x in warmup_examples]
     encoded_dev = [encode_example(x, tok, context) for x in dev_examples]
@@ -204,6 +224,13 @@ def train_language(*, steps=900, per_class=48, seed=42, context=384,
         "parameter_count": sum(p.numel() for p in model.parameters()),
         "curriculum_version": DATA_VERSION,
         "seed": seed, "steps": steps,
+        "tokenizer_mode": tokenizer_mode,
+        "tokenizer_fingerprint": tok_fingerprint,
+        "tokenizer_manifest": tok_manifest,
+        "train_mean_prompt_tokens": round(
+            sum(len(tok.encode("Network observation:\n" + x.prompt +
+                               "\nEngineering review:\n", bos=True))
+                for x in examples) / len(examples), 2),
         "state_warmup_steps": state_warmup_steps,
         "state_encoder_pretrain_steps": state_pretrain_steps,
         "state_encoder_training": supervised_pretraining,
@@ -225,10 +252,13 @@ def train_language(*, steps=900, per_class=48, seed=42, context=384,
     checkpoint.parent.mkdir(parents=True, exist_ok=True)
     torch.save({
         "weights": model.state_dict(), "config": asdict(config),
+        "tokenizer": tok_manifest,
         "manifest": {
             k: metrics[k] for k in (
                 "status", "architecture", "parameter_count",
-                "curriculum_version", "seed", "steps", "training_sha256",
+                "curriculum_version", "seed", "steps",
+                "tokenizer_mode", "tokenizer_fingerprint",
+                "training_sha256",
                 "heldout_sha256", "acceptance_sha256",
                 "state_warmup_steps", "state_encoder_pretrain_steps",
                 "engineering_verified", "production_ready",
@@ -240,6 +270,7 @@ def train_language(*, steps=900, per_class=48, seed=42, context=384,
     print(json.dumps({
         "mode": "real_autoregressive_scratch_model",
         "steps": steps,
+        "tokenizer": tokenizer_mode, "vocab_size": config.vocab_size,
         "dev_loss_before": first_eval, "dev_loss_after": final_eval,
         "heldout_states": outputs["state_correct"],
         "heldout_full_reports": outputs["full_format_correct"],
@@ -265,6 +296,8 @@ def main():
     ap.add_argument("--lr", type=float, default=0.001)
     ap.add_argument("--state-warmup-steps", type=int, default=0)
     ap.add_argument("--state-pretrain-steps", type=int, default=0)
+    ap.add_argument("--tokenizer", choices=("byte", "bpe"), default="byte")
+    ap.add_argument("--bpe-vocab-size", type=int, default=448)
     ap.add_argument("--threads", type=int, default=2)
     ap.add_argument("--output", default="/tmp/cisco-bgp-lm.pt")
     args = ap.parse_args()
@@ -275,6 +308,8 @@ def main():
                    threads=args.threads,
                    state_warmup_steps=args.state_warmup_steps,
                    state_pretrain_steps=args.state_pretrain_steps,
+                   tokenizer_mode=args.tokenizer,
+                   bpe_vocab_size=args.bpe_vocab_size,
                    output=args.output)
 
 
