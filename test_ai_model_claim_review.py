@@ -92,6 +92,47 @@ class ClaimReviewTests(unittest.TestCase):
         with self.assertRaises(ClaimReviewInvalid):
             validate_claim_review(json.dumps(good())[:-12], EVIDENCE)
 
+    def test_vendor_aware_readonly_commands_and_diagnostic_safety(self):
+        from ai_model_claim_review import validate_readonly_command
+        valid = [
+            ("show ip bgp neighbors <peer>", "Cisco IOS-XE"),
+            ("show bgp l2vpn evpn", "Cisco NX-OS"),
+            ("show mlag", "Arista EOS"),
+            ("display bgp peer", "Huawei CloudEngine VRP8"),
+            ("get router info bgp summary", "FortiGate FortiOS 7.4"),
+            ("diagnose sys sdwan health-check", "FortiGate FortiOS 7.4"),
+            ("diagnose sys sdwan service4", "FortiGate FortiOS 7.4"),
+            ("diagnose vpn ike gateway list", "FortiGate FortiOS 7.4"),
+        ]
+        for command, vendor in valid:
+            with self.subTest(command=command, vendor=vendor):
+                self.assertEqual(validate_readonly_command(command, vendor), command)
+        invalid = [
+            ("show ip bgp > /tmp/output", "Cisco IOS-XE"),
+            ("show ip bgp && configure terminal", "Cisco IOS-XE"),
+            ("show ip route <peer> > file", "Cisco IOS-XE"),
+            ("show ip route $(rm -rf /)", "Cisco IOS-XE"),
+            ("display bgp peer", "Cisco NX-OS"),
+            ("show bgp summary", "Huawei CloudEngine VRP8"),
+            ("show ip route", "FortiGate FortiOS"),
+            ("diagnose sys session clear", "FortiGate FortiOS"),
+            ("diagnose debug enable", "FortiGate FortiOS"),
+            ("diagnose sys sdwan member clear", "FortiGate FortiOS"),
+            ("diagnose sys sdwan service4 | grep down", "FortiGate FortiOS"),
+        ]
+        for command, vendor in invalid:
+            with self.subTest(command=command, vendor=vendor):
+                with self.assertRaises(ClaimReviewInvalid):
+                    validate_readonly_command(command, vendor)
+
+        draft = good()
+        draft["findings"][0]["hypotheses"][0]["verification_command"] = "display bgp peer"
+        with self.assertRaises(ClaimReviewInvalid):
+            validate_claim_review(json.dumps(draft), EVIDENCE, vendor="Cisco IOS-XE")
+        draft["findings"][0]["hypotheses"][0]["verification_command"] = "show ip bgp summary"
+        self.assertFalse(validate_claim_review(json.dumps(draft), EVIDENCE,
+                                               vendor="Cisco IOS-XE")["engineeringVerified"])
+
     def test_redacted_original_line_is_not_usable_as_observation(self):
         sample = copy.deepcopy(EVIDENCE)
         sample[0]["text"] = sample[0]["text"].replace(
