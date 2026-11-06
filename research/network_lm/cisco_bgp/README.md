@@ -128,3 +128,34 @@ Our BGP Design and Simulation modules are used **read-only** as original, line-t
 Develop compositional training over explicit alternative exit, CE interconnect dependency, CE-owned versus shared client LAN, VRRP gateway and simultaneous failure sets. Keep original engine supervision and group-separated unseen failure scenarios. Demand correctly generated **individual outcomes first**, then integrated review. Treat every modeled result as simulation-only; no inferred live Cisco BGP FSM, forwarding, root cause or outage decision is allowed.
 
 Code: module_lm.py, module_scenarios.mjs, internal_module_knowledge.json and their tests. No UI or production integration is required.
+
+## 2026-11-06 — Causal dependency composition and corrected labels
+
+New results from [GitHub Actions research run 42242720284](https://github.com/gunaltural/network_configurator/actions/runs/42242720284). No production or live application changes.
+
+### Training-label bug fixed *before* comparing approaches
+
+In the original research-only simulation dataset generator, a CE-owned prefix was incorrectly marked `PATH_AVAILABLE` whenever all inbound route states were not literally `no-path`. In particular, an ISP can be `device-down`: that is *not* a usable route. We fixed both research generators to mark `PATH_AVAILABLE` **only if at least one inbound route actually has state `reachable` and a candidate path**. New regression tests specifically assert that `both-isps` gives `NO_MODELED_PATH` for both CE-owned prefix and shared LAN while surviving alternate paths can remain available. **Previous heldout scores using the faulty labels should not be compared to corrected-label results.**
+
+### Compositional curriculum and source provenance
+
+`compositional_scenarios.mjs` creates **16 TRAIN-only compound-failure groups** that are disjoint from all existing train-group signatures, validation groups and the six heldout compound-failure groups. It derives **960 extra synthetic training examples**, including explicit, engine-cross-checked direct WAN1 and alternate CE2/WAN2 candidate availability, CE1 exit, route ownership, shared-LAN and client-outbound outcomes. `compositional_training.py` rejects mismatched engine hashes, duplicates, non-train records or unsupported targets. During inference, no simulator outcome is copied or called: the random-initialized Transformer generates its own answers.
+
+### Controlled outcome
+
+Both arms use the same BPE vocabulary, model configuration (~371,328 parameters), random seed 42 and **600 optimizer steps**, with Design knowledge included. The only experimental difference is the additional training records; therefore the data distribution also changes, and the test suite is synthetic and already inspected.
+
+| Corrected synthetic heldout metric | Original focused Design + Simulation | Plus causal dependency curriculum |
+| --- | ---: | ---: |
+| Individual modeled outcomes correct / 96 | **20** | **34** |
+| Exact canonical focused answers / 96 | **20** | **34** |
+| CE1 exit correctly generated / 24 | **4** | **11** |
+| Both outcomes correct on paired exit-changing failures / 12 | **0** | **2** |
+| Any output change on paired exit-changing failures / 12 | **0** | **4** |
+| Training examples | 838 | 1,798 |
+
+Eight Node tests and eight Python tests passed; synthetic evaluation and training ran successfully. This supports limited learned generalization to compound dependencies compared with the previous baseline but **not** true causal engineering competence: 34/96 overall and 2/12 fully correct contrast pairs remain inadequate for network diagnosis. The original simulator only models simplified BGP Design assumptions, not BGP FSM, actual Cisco best-path, live VRRP, reconvergence or packet forwarding.
+
+### Next gate
+
+Before evaluating a further model, freeze independent source topologies and failure group combinations, implement a simple route-availability heuristic baseline and calibrate a safe abstention mechanism. Subsequently teach evidence-bound relationships from multiple independently sourced Cisco BGP `show` commands (session, prefix advertisement, next-hop and RIB). The live Network Configurator and Render are separate.
