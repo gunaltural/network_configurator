@@ -79,3 +79,29 @@ python -m research.network_lm.state_probe --steps 400 --samples-per-state 12 --o
 ```
 
 The workflow keeps only synthetic metric JSON artifacts. Model weights are not uploaded or deployed. To move toward a network-language model that generalizes, next build licensed corpus scale, a better tokenizer/training budget, held-out topology/peer-specific causal benchmarks, and cross-vendor expert-reviewed evaluation. A small classifier alone cannot satisfy those conditions.
+
+## Evidence of state recognition — and its limits (2026-11-06)
+
+A 16-class scratch Transformer state probe ran for 400 CPU training steps on 192 original-synthetic cases with a 166,928-parameter randomly initialized network. The *first* one-template curriculum memorized training examples and achieved 3/16 on separately worded transfer cases. A new **versioned, three-phrasing** curriculum with the same number of examples and steps reached 10/16 on that previously viewed transfer set. Because we inspected that set, it is **development feedback**, not blind acceptance.
+
+We then froze **32 additional original-synthetic CLI-format challenge observations** in `challenge_v1.jsonl`, two for each of the 16 labels. Their exact SHA is recorded in the checkpoint and research results. These observations are not fed into training, and no model weights, Design/Simulation or deployed product components are changed.
+
+[Actual three-seed GitHub Actions training](https://github.com/gunaltural/network_configurator/actions/runs/42198138109) completed **20 software/integrity tests** plus three independently initialized 400-step state probes (seeds 42/7/99). Results on the same frozen 32-case challenge:
+
+| Seed | Correct / 32 | Accuracy |
+| --- | ---: | ---: |
+| 42 | 15 / 32 | 46.875% |
+| 7 | 15 / 32 | 46.875% |
+| 99 | 14 / 32 | 43.750% |
+| **Mean** | **14.67 / 32** | **45.83%** |
+
+The 16 equally populated classes have a 6.25% uniform-random chance baseline. This is narrow **synthetic state classification** only. It is not confirmed network engineering, independent real-CLI diagnosis, root-cause reasoning, a working generative language model or production readiness. BGP state generalization and multiple STP/EVPN/SD-WAN contrasts still fail on unseen CLI phrasings.
+
+The generative language-model track remains below its own minimal behavioral threshold: its expanded 160-step run reduced held-out token loss from 5.361920 to around 3.0, but held-out lexical tests remained 0/2 and paired counterfactual output tests remained 0/3. The state classifier **is a separate supervised probe**, not a substitute for generative model acceptance.
+
+### Next research gates
+
+1. Obtain sufficiently large rights-cleared and privacy-screened network-domain material, including multilingual explanations, device-scoped CLI evidence and original adversarial examples. Audit licensing, near-duplicate scenario families and secret exposure before ingestion.
+2. Improve tokenizer/context coverage and conduct controlled architecture/optimizer/data ablations. Record GPU/CPU time, multiple seeds and reproducibility; do not infer quality solely from falling loss.
+3. Demand unseen *topology- and evidence-level causal* tasks: BGP Idle(Admin) versus transport failure, OSPF 2-WAY versus EXSTART, vPC peer link/keepalive, EVPN route presence versus FIB installation, and SD-WAN SLA versus actual selected service. Require explicit falsifiable alternatives and grounded citations, not keyword-matched labels.
+4. Freeze stronger independent test sets before tuning, compare against deterministic parsing and accepted external-model baselines, and require engineer adjudication. Scratch weights remain research-only until all release criteria are met.
