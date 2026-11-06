@@ -208,7 +208,7 @@ jobs:
           # Collect every independent domain result even if VPC fails; a failed
           # suite must never turn the job green. No rubric is sent to the model.
           failed=0
-          for suite in VPC BGP MLAG STP SDWAN OSPF EVPN; do
+          for suite in VPC BGP MLAG STP SDWAN OSPF EVPN SYSTEM DCI; do
             echo "::group::Hosted engineering acceptance: ${suite}"
             if python evaluation/heldout/run.py "${suite}"; then
               echo "ENGINEERING_SUITE suite=${suite} result=pass"
