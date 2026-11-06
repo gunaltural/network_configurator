@@ -137,6 +137,24 @@ jobs:
                     'training_examples',d['training_cases'],
                     'no_live_claims',True)
           PY
+      - name: Benchmark learned BGP outputs against a no-learning majority reference
+        run: |
+          python -m unittest research.network_lm.cisco_bgp.test_majority_baseline -v
+          python -m research.network_lm.cisco_bgp.majority_baseline \
+            --output /tmp/bgp-majority-reference.metrics.json
+          python - <<'PY'
+          import json
+          baseline=json.load(open('/tmp/bgp-majority-reference.metrics.json'))
+          original=json.load(open('/tmp/bgp-focus-plus-design.metrics.json'))
+          composed=json.load(open('/tmp/bgp-focus-compositional.metrics.json'))
+          assert baseline['total']==original['withheld_simulation']['cases']==composed['withheld_simulation']['cases']==96
+          assert baseline['source_sha256']==original['synthetic_simulation_source_sha256']==composed['synthetic_simulation_source_sha256']
+          print('NO_LEARNING_MAJORITY',baseline['correct'],'/96',baseline['reference_choices'])
+          print('SCRATCH_BASELINE',original['withheld_simulation']['correct_single_outcome'],'/96')
+          print('SCRATCH_COMPOSITION',composed['withheld_simulation']['correct_single_outcome'],'/96')
+          print('SCRATCH_BEATS_MAJORITY',
+                composed['withheld_simulation']['correct_single_outcome'] > baseline['correct'])
+          PY
       - name: Retain synthetic research metrics without deploying models
         uses: actions/upload-artifact@v4
         with:
