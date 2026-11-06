@@ -24,7 +24,7 @@ jobs:
       - name: Check original simulator evaluation, failover semantics and provenance
         run: node --test research/network_lm/cisco_bgp/test_module_scenarios.mjs research/network_lm/cisco_bgp/test_compositional_scenarios.mjs research/network_lm/cisco_bgp/test_novel_topologies_v4.mjs
       - name: Prove design facts and real synthetic learning are independent of product
-        run: python -m unittest research.network_lm.cisco_bgp.test_module_lm research.network_lm.cisco_bgp.test_v4_evaluation -v
+        run: python -m unittest research.network_lm.cisco_bgp.test_module_lm research.network_lm.cisco_bgp.test_v4_evaluation research.network_lm.cisco_bgp.test_prompt_abstraction -v
       - name: Baseline scratch model - simulation-only teaching
         run: |
           python -m research.network_lm.cisco_bgp.module_lm \
@@ -145,6 +145,42 @@ jobs:
                     'v4_both_paired_correct',v4['counterfactual_exit_pairs']['both_correct'],'/18',
                     'v4_changed',v4['counterfactual_exit_pairs']['changed_output'],'/18',
                     'no_live_claims',True)
+          PY
+      - name: Teach with topology ASN and prefix abstraction, without changing causal model architecture
+        run: |
+          python -m research.network_lm.cisco_bgp.module_lm \
+            --focused --compositional --evaluate-v4 --abstract-identity \
+            --steps 600 --width 96 --layers 2 --heads 4 \
+            --seed 42 --vocab-size 512 --include-design \
+            --output /tmp/bgp-focus-abstracted.pt
+      - name: Measure raw-vs-abstracted causal LM generation on NEW V4 topology values
+        run: |
+          python - <<'PY'
+          import json
+          raw=json.load(open('/tmp/bgp-focus-compositional.metrics.json'))
+          reduced=json.load(open('/tmp/bgp-focus-abstracted.metrics.json'))
+          assert raw['abstract_identity'] is False and reduced['abstract_identity'] is True
+          assert raw['novel_topology_v4_sha256']==reduced['novel_topology_v4_sha256']
+          assert raw['synthetic_simulation_source_sha256']==reduced['synthetic_simulation_source_sha256']
+          assert raw['configuration']==reduced['configuration']
+          assert raw['training_cases']==reduced['training_cases']==1798
+          assert raw['seed']==reduced['seed']==42
+          assert raw['steps']==reduced['steps']==600
+          assert raw['deterministic_algorithms'] and reduced['deterministic_algorithms']
+          for name,record in (('RAW_IDENTITIES',raw),('ABSTRACTED_IDENTITIES',reduced)):
+              v4=record['novel_topology_v4']
+              old=record['withheld_simulation']
+              assert v4['cases']==144 and old['cases']==96
+              assert v4['counterfactual_exit_pairs']['total']==18
+              assert record['engineering_verified'] is False
+              assert record['production_ready'] is False
+              print('SCRATCH_BGP_IDENTITY_ABLATION',name,
+                    'v4_exact',v4['exact_canonical'],'/144',
+                    'v4_correct',v4['correct_single_outcome'],'/144',
+                    'v4_CE1_EXIT',v4['by_field']['CE1_EXIT']['correct'],'/36',
+                    'v4_contrast_both',v4['counterfactual_exit_pairs']['both_correct'],'/18',
+                    'old_correct',old['correct_single_outcome'],'/96',
+                    'torch',record['torch_version'])
           PY
       - name: Benchmark learned BGP outputs against a no-learning majority reference
         run: |
