@@ -8,7 +8,7 @@ from .curriculum import curriculum_examples
 from .model import ByteTokenizer, LMConfig
 from .state_probe import (
     STATES, STATE_INDEX, TRANSFER_CASES, ScratchStateProbe,
-    accuracy, batch, encode_records, train_probe,
+    accuracy, batch, encode_records, train_probe, load_challenge,
 )
 
 
@@ -20,6 +20,10 @@ class StateProbeTests(unittest.TestCase):
     def test_all_classes_have_observation_and_independent_transfer_case(self):
         self.assertEqual(len(STATES), 16)
         self.assertEqual(len(STATES), len(set(STATES)))
+        challenge = load_challenge()
+        self.assertEqual(len(challenge), 32)
+        self.assertTrue({prompt for _, prompt in challenge}.isdisjoint(
+            {prompt for _, prompt in TRANSFER_CASES}))
         self.assertEqual(set(STATES), {state for state, _ in TRANSFER_CASES})
         a = curriculum_examples(2, seed=42)
         b = curriculum_examples(2, seed=443)
@@ -59,6 +63,8 @@ class StateProbeTests(unittest.TestCase):
             self.assertEqual(result["train_cases"], 16)
             self.assertEqual(result["surface_heldout_cases"], 48)
             self.assertEqual(result["template_transfer_cases"], 16)
+            self.assertEqual(result["frozen_challenge_cases"], 32)
+            self.assertEqual(result["challenge_after"]["total"], 32)
             self.assertFalse(result["engineering_verified"])
             self.assertFalse(result["production_ready"])
             self.assertTrue(0 <= result["template_after"]["accuracy"] <= 1)
