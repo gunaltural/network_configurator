@@ -30,7 +30,7 @@ class PilotGateTests(unittest.TestCase):
         self.assertFalse(metrics["root_cause_verified"])
 
     def test_even_perfect_synthetic_scores_only_allow_human_review(self):
-        answers = dict(load_challenge())
+        answers = {observation: state for state, observation in load_challenge()}
         def synthetic_perfect(model, tokenizer, observation):
             label = answers[observation]
             return {"top_candidates": [{"label": label}],
