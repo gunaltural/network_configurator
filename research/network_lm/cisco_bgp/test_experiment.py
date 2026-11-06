@@ -12,7 +12,7 @@ from .curriculum import (
     CLASSES, INTERPRETATIONS, READ_ONLY_CHECKS, dataset_fingerprint,
     load_frozen_holdout, training_cases,
 )
-from .experiment import BGPStudent, FROZEN_PATH, counterfactual_score, encode, train
+from .experiment import BGPStudent, FROZEN_PATH, ACCEPTANCE_V2, counterfactual_score, encode, train
 
 
 class CiscoBGPTests(unittest.TestCase):
@@ -49,6 +49,16 @@ class CiscoBGPTests(unittest.TestCase):
         self.assertTrue(all(x.split == "test" for x in test))
         self.assertTrue({x.text for x in alternate}.isdisjoint(
             x.text for x in training))
+
+    def test_new_frozen_acceptance_set_is_disjoint_from_selected_model_test(self):
+        training = training_cases(48, seed=42)
+        selected = load_frozen_holdout(FROZEN_PATH)
+        new_test = load_frozen_holdout(ACCEPTANCE_V2)
+        self.assertEqual(len(new_test), 32)
+        self.assertTrue({x.text for x in selected}.isdisjoint(x.text for x in new_test))
+        self.assertTrue({x.text for x in training}.isdisjoint(x.text for x in new_test))
+        self.assertTrue({x.scenario for x in training}.isdisjoint(x.scenario for x in new_test))
+        self.assertTrue(all(x.case_id.startswith("BGPA-") for x in new_test))
 
     def test_all_evidence_fits_without_truncation(self):
         cases = training_cases(48, seed=42) + load_frozen_holdout(FROZEN_PATH)
@@ -92,6 +102,8 @@ class CiscoBGPTests(unittest.TestCase):
                            threads=2, output=str(checkpoint))
             self.assertTrue(checkpoint.is_file())
             self.assertEqual(result["heldout_count"], 32)
+            self.assertEqual(result["new_acceptance_count"], 32)
+            self.assertEqual(result["fresh_acceptance_v2"]["total"], 32)
             self.assertEqual(result["train_count"], 64)
             self.assertEqual(result["counterfactual"]["total"], 4)
             self.assertFalse(result["engineering_verified"])
