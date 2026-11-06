@@ -28,8 +28,11 @@ PREFIX = "Cisco BGP observation:\n"
 
 
 class BGPStudent(nn.Module):
-    def __init__(self, config):
+    def __init__(self, config, pooling="last"):
         super().__init__()
+        if pooling not in ("last", "mean", "max"):
+            raise ValueError("Unsupported sequence pooling")
+        self.pooling = pooling
         self.backbone = ScratchNetworkLM(config)
         self.classifier = nn.Linear(config.width, len(CLASSES))
 
@@ -38,8 +41,17 @@ class BGPStudent(nn.Module):
         last = lengths - 1
         if bool((last < 0).any()) or bool((lengths > tokens.shape[1]).any()):
             raise ValueError("Invalid token span")
-        # Sequence length is observed, not inferred from padded byte values.
-        pooled = features[torch.arange(tokens.shape[0], device=tokens.device), last]
+        # Explicit sequence mask avoids letting padding dilute or skew an
+        # example's attention-pooled representation. The Transformer remains
+        # causal and uses only original scratch-trained parameters.
+        mask = (torch.arange(tokens.shape[1], device=tokens.device)[None, :]
+                < lengths[:, None])
+        if self.pooling == "mean":
+            pooled = (features * mask[..., None]).sum(dim=1) / lengths[:, None]
+        elif self.pooling == "max":
+            pooled = features.masked_fill(~mask[..., None], float("-inf")).max(dim=1).values
+        else:
+            pooled = features[torch.arange(tokens.shape[0], device=tokens.device), last]
         return self.classifier(pooled)
 
 
@@ -136,7 +148,7 @@ def counterfactual_score(model, tokenizer, context):
 
 def train(*, steps=600, per_class=48, seed=42, context=384,
           width=64, layers=2, heads=4, batch_size=8, lr=0.001,
-          threads=2, output="/tmp/cisco-bgp-student.pt"):
+          threads=2, pooling="last", output="/tmp/cisco-bgp-student.pt"):
     if not (1 <= steps <= 10000 and 1 <= batch_size <= 64
             and 1 <= threads <= 16 and 0 < lr < 0.1):
         raise ValueError("Invalid training bounds")
@@ -156,7 +168,7 @@ def train(*, steps=600, per_class=48, seed=42, context=384,
     encoded_train = encode(training, tokenizer, context)
     encoded_dev = encode(dev, tokenizer, context)
     encoded_test = encode(test, tokenizer, context)
-    model = BGPStudent(config)
+    model = BGPStudent(config, pooling=pooling)
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
     before = evaluate(model, encoded_test, test)
     schedule = list(range(len(training)))
@@ -191,6 +203,7 @@ def train(*, steps=600, per_class=48, seed=42, context=384,
         "architecture": asdict(config),
         "params": sum(p.numel() for p in model.parameters()),
         "seed": seed,
+        "pooling": pooling,
         "steps": steps, "batch_size": batch_size, "per_class": per_class,
         "train_count": len(training), "dev_count": len(dev),
         "heldout_count": len(test),
@@ -218,7 +231,7 @@ def train(*, steps=600, per_class=48, seed=42, context=384,
         "classes": CLASSES, "manifest": {
             k: report[k] for k in (
                 "status", "data_version", "architecture", "params",
-                "seed", "steps", "per_class", "train_digest",
+                "seed", "steps", "per_class", "pooling", "train_digest",
                 "dev_digest", "heldout_sha256",
                 "engineering_verified", "production_ready",
             )
@@ -248,13 +261,14 @@ def main():
     ap.add_argument("--heads", type=int, default=4)
     ap.add_argument("--batch-size", type=int, default=8)
     ap.add_argument("--lr", type=float, default=0.001)
+    ap.add_argument("--pooling", choices=("last", "mean", "max"), default="last")
     ap.add_argument("--threads", type=int, default=2)
     ap.add_argument("--output", default="/tmp/cisco-bgp-student.pt")
     args = ap.parse_args()
     train(steps=args.steps, per_class=args.per_class, seed=args.seed,
           context=args.context, width=args.width, layers=args.layers,
           heads=args.heads, batch_size=args.batch_size, lr=args.lr,
-          threads=args.threads, output=args.output)
+          threads=args.threads, pooling=args.pooling, output=args.output)
 
 
 if __name__ == "__main__":
