@@ -138,6 +138,11 @@ def generate(payload, *, local_choices=()):
             # Application-owned labels, never CLI text. Constrain decoding itself;
             # post-validation still rejects invalid replies from other runtimes.
             payload['grammar'] = 'root ::= ' + ' | '.join(json.dumps(label) for label in local_choices)
+        if structured:
+            # Real local llama.cpp server-side schema-constrained decoding. This
+            # raises format reliability, but original CLI quote and engineering
+            # evidence gates are still mandatory.
+            payload = add_structured_response_format(payload, 'local')
     elif os.getenv('AI_PROVIDER') == 'groq':
         # Explicit opt-in to external processing; never send customer CLI to
         # an external provider simply because a dependency is installed.
