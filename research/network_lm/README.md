@@ -105,3 +105,37 @@ The generative language-model track remains below its own minimal behavioral thr
 2. Improve tokenizer/context coverage and conduct controlled architecture/optimizer/data ablations. Record GPU/CPU time, multiple seeds and reproducibility; do not infer quality solely from falling loss.
 3. Demand unseen *topology- and evidence-level causal* tasks: BGP Idle(Admin) versus transport failure, OSPF 2-WAY versus EXSTART, vPC peer link/keepalive, EVPN route presence versus FIB installation, and SD-WAN SLA versus actual selected service. Require explicit falsifiable alternatives and grounded citations, not keyword-matched labels.
 4. Freeze stronger independent test sets before tuning, compare against deterministic parsing and accepted external-model baselines, and require engineer adjudication. Scratch weights remain research-only until all release criteria are met.
+
+## Local scratch-model product candidate: offline demo
+
+**Development-only, end-to-end product slice:** A scratch-trained state recognition checkpoint is loaded from local disk, validated against the versioned curriculum and frozen evaluation manifest, and queried through an explicitly enabled, localhost-only FastAPI service and browser page. This is not yet a network troubleshooting agent. Design, Simulation, strong-model AI Analysis and live Beta remain unchanged.
+
+### Run with synthetic examples
+
+Python 3.12, PyTorch, FastAPI, HTTPX and Uvicorn:
+
+```bash
+python -m pip install torch fastapi httpx uvicorn
+python -m research.network_lm.state_probe --steps 400 --samples-per-state 12 --seed 42 --output /tmp/network-state-probe.pt
+python -m research.network_lm.demo_api --checkpoint /tmp/network-state-probe.pt --port 8766
+```
+
+Open **http://127.0.0.1:8766** on the same machine. Use only the included original-synthetic observation examples. Do not enter customer data, upload full Show-Tech or open the server to the network.
+
+### API (synthetic data only)
+
+```bash
+curl -sS http://127.0.0.1:8766/api/research/predict \
+  -H 'Content-Type: application/json' \
+  -d '{"observation":"DIST-01 OSPF neighbor 10.0.0.3 state EXSTART/DR","device":"LAB-01","evidence_id":"synthetic-1"}'
+```
+
+The response has an experimental candidate among 16 known synthetic state classes and a softmax score that is **NOT calibrated correctness probability**. A low score or low class margin triggers `ABSTAIN`. No response is an accepted diagnosis: `engineering_verified=false`, `root_cause_verified=false` and `production_ready=false`. Device and evidence IDs are unverified user submissions, not source-verified CLI citations.
+
+The server is disabled by default; the explicit CLI opt-in binds only to `127.0.0.1`. It neither connects to external AI providers nor changes any network equipment. Short single-line inputs are required; the basic regex secret filter is not comprehensive DLP. Neither training weights nor inputs are automatically uploaded.
+
+**Real validation:** CI trains fresh weights, tests rejection of corrupted manifests and suspicious inputs, validates disabled-by-default behavior and submits an actual localhost HTTP request to the trained model. Successful software/HTTP tests do **not** change the independent engineering-quality acceptance requirements.
+
+### Productization gates
+
+Before offering this inside Network Configurator: acquire permissioned and privacy-reviewed network training material; improve blind multi-device/multi-protocol generalization, original-source citation and competing hypothesis quality; compare against deterministic parsing and an accepted strong model; calibrate or empirically bound abstention error; perform independent engineer review. This research demo is not ready for production or operational decisions.
