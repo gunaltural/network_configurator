@@ -73,6 +73,10 @@ def add_structured_response_format(payload, provider):
             "format": {"type": "json_schema", "name": "network_ai_claim_review",
                        "strict": True, "schema": schema},
         }
+    elif provider == "local":
+        # llama.cpp /v1/chat/completions accepts this native schema-constrained
+        # response format. It constrains syntax, not engineering correctness.
+        request["response_format"] = {"type": "json_schema", "schema": schema}
     else:
         raise ValueError("Structured provider format is unsupported")
     return request
