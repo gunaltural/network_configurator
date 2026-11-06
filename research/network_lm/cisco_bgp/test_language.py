@@ -75,6 +75,29 @@ class CiscoBGPLanguageTests(unittest.TestCase):
         self.assertEqual(score["state_correct"], 2)
         self.assertEqual(score["full_format_correct"], 0)
 
+        class CorruptedButTaggedLanguageModel:
+            def eval(self):
+                return self
+            def complete(self, prompt, max_new_tokens=140):
+                return prompt + tok.encode(
+                    "STATE=IDLE_ADMIN\nNOT_PROVEN=maintentenancte is unknown"
+                    "\nCHECK=show ip bgp neighbors"
+                )
+
+        corrupted = generate_on_frozen(CorruptedButTaggedLanguageModel(), tok, test)
+        self.assertEqual(corrupted["state_correct"], 2)
+        self.assertEqual(corrupted["full_format_correct"], 0)
+
+        class ExactCanonicalLanguageModel:
+            def eval(self):
+                return self
+            def complete(self, prompt, max_new_tokens=140):
+                return prompt + tok.encode(target("IDLE_ADMIN"))
+
+        exact = generate_on_frozen(ExactCanonicalLanguageModel(), tok, test)
+        self.assertEqual(exact["state_correct"], 2)
+        self.assertEqual(exact["full_format_correct"], 2)
+
     def test_actual_random_initialized_transformer_trains_and_generates(self):
         with tempfile.TemporaryDirectory() as d:
             path = Path(d) / "cisco-bgp-language.pt"
