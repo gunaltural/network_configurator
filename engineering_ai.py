@@ -429,7 +429,7 @@ def install_engineering_ai(app):
                         'sourceIndexIds': [k['id'] for k in source_index]}
                 if body.reviewFormat == 'evidence-claims-v1':
                     try:
-                        review = validate_claim_review(draft, content['evidence'])
+                        review = validate_claim_review(draft, content['evidence'], body.vendor)
                     except ClaimReviewInvalid:
                         # Never forward malformed structured model content, inferred
                         # statuses or invented evidence to the Engineering Report.
