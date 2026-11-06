@@ -46,3 +46,57 @@ GitHub Actions repeats this with **independent seeds 42 and 7** in the research-
 4. **Blindness and quality:** Freeze unseen scenarios *before* tuning, compare with a simple direct CLI parser and a human-validated rubric, and record false claims and abstention. No benchmark score proves readiness until those tests and independent engineering review pass.
 
 **Out of scope:** Live Network Configurator application, any product deployment, and other technology modules including STP.
+
+## Measured BPE and scratch Transformer scaling (2026-11-06)
+
+All results below come from actual GitHub Actions CPU training on **original-synthetic Cisco BGP-only data** with random initial weights. No customer CLI and no pretrained vocabulary. These are proof-of-learning experiments, not real network engineering acceptance.
+
+### 1. Raw UTF-8 bytes versus original train-only BPE
+
+The first controlled 900-step run used identical synthetic examples, optimizer settings, width 64, 2 layers and seed 42. The tokenizer is fitted exclusively on training prompts and targets, never evaluation examples. Both versions use the same causal decoder without grafting classifier outputs.
+
+| Metric | Original bytes | Scratch BPE, 448 tokens |
+| --- | ---: | ---: |
+| Model parameters | fewer due to vocabulary | 182,016 |
+| Mean training prompt tokens | 131.13 | **42.54** |
+| V2 held-out state recognition in **generated text** | 9 / 32 | **19 / 32** |
+| V2 exact canonical short explanations in **generated text** | 5 / 32 | **15 / 32** |
+
+[Actual training and 18 passed tests](https://github.com/gunaltural/network_configurator/actions/runs/42209020847). Teacher-forced per-token losses are **not directly comparable** across tokenizers because tokens and their distributions differ.
+
+### 2. Scaling with the same train-only BPE
+
+A new V3 set of 32 independent original-synthetic CLI-style observations was frozen **before** testing the larger capacity. The data, tokenizer, training steps (900) and random seed (42) were unchanged.
+
+| Scratch causal model | Parameters | V3 state | V3 exact explanation |
+| --- | ---: | ---: | ---: |
+| Width 64, 2 layers | 182,016 | 18 / 32 | 11 / 32 |
+| Width 128, 3 layers | **758,912** | **22 / 32** | **15 / 32** |
+
+[Actual capacity comparison and 19 passed tests](https://github.com/gunaltural/network_configurator/actions/runs/42209525715).
+
+### 3. Three independent random initializations, fixed corpus
+
+Training-data seed was separated from model initialization/shuffle seed so all three training runs use **identical 384 training examples and identical BPE merge vocabulary**. Each model was trained from scratch for 900 optimizer steps.
+
+| Model seed | V3 state | V3 exact explanation |
+| --- | ---: | ---: |
+| 42 | 22 / 32 | 15 / 32 |
+| 7 | 20 / 32 | 16 / 32 |
+| 99 | 22 / 32 | 16 / 32 |
+| **Mean** | **66.67%** | **48.96%** |
+
+[Actual three-seed run, 21 passed tests](https://github.com/gunaltural/network_configurator/actions/runs/42210083308). Measured population standard deviations were 2.95 percentage points for state accuracy and 1.47 percentage points for exact canonical review accuracy. This improves reproducibility, **not** external validity.
+
+**What the model has learned:** BGP FSM status labels and a small number of short conditional, authored explanation patterns; direct generation, not only classification. **What it has not learned:** independent root-cause inference; robust free-form engineering discussion; attribution to verified original CLI files/line numbers; selection among alternative explanations; calibrated uncertainty; or multi-device service impact. In particular `Established` with prefixes received does not prove RIB/FIB installation, and `Idle (Admin)` does not by itself prove an unplanned incident.
+
+The V1/V2/V3 frozen test sets are synthetic and have been inspected during research iterations. Do not call them a final blind production benchmark. The next meaningful teaching set must cover **multiple commands for the same neighbor**, adversarial peer-specific evidence, safe abstention on insufficient evidence and independent human-reviewed Cisco BGP causal outcomes. Only then should we evaluate explanation generation beyond short canonical strings.
+
+### Research-only reproducibility
+
+```bash
+python -m unittest research.network_lm.cisco_bgp.test_experiment research.network_lm.cisco_bgp.test_language research.network_lm.cisco_bgp.test_tokenizer research.network_lm.cisco_bgp.test_summarize_language -v
+python -m research.network_lm.cisco_bgp.language --tokenizer bpe --bpe-vocab-size 448 --width 128 --layers 3 --heads 4 --steps 900 --per-class 48 --data-seed 42 --seed 42 --output /tmp/cisco-bgp-large42.pt
+```
+
+This work is an isolated small language-model project, not a component or deployment request of the live Network Configurator.
