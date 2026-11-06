@@ -100,3 +100,31 @@ python -m research.network_lm.cisco_bgp.language --tokenizer bpe --bpe-vocab-siz
 ```
 
 This work is an isolated small language-model project, not a component or deployment request of the live Network Configurator.
+
+## Training from our own BGP Design and Simulation modules
+
+Our BGP Design and Simulation modules are used **read-only** as original, line-traceable teaching material. Neither production code nor live Render/Network Configurator deployments were modified.
+
+- The source_catalog.json inventories 14 official Cisco pointers. Only original learning objectives, not copied Cisco document bodies, appear in research artifacts.
+- The internal_module_knowledge.json maps **14** BGP design, policy, simulation and FSM principles to the exact project files and line ranges, with explicit not-proven limitations.
+- The module_scenarios.mjs generator actually calls the original synthetic-bgp.js engine. A source hash and group split are recorded; **192** simulator-derived examples are training-only, **10** are validation, and **24** heldout examples span six unseen multi-failure combinations.
+- The module_lm.py script trains a fresh BPE Transformer, compares simulation-only with simulation + **70** authored Design examples, and separately tests focused single-outcome generation. Its outputs are **model-generated text**, not simulator answers patched into the response.
+
+### Measured outcomes (research only)
+
+[Actual GitHub Actions experiment](https://github.com/gunaltural/network_configurator/actions/runs/42238250876) passed **4 Node simulator tests and 6 Python teaching/integrity tests**, then trained scratch models with a fixed architecture and same optimizer budget.
+
+| Metric on withheld simulator failure combinations | Simulation only | Simulation + Design |
+| --- | ---: | ---: |
+| Whole four-outcome response (24 scenarios) | 0/24 | 0/24 |
+| Individual outcome answer (96 questions) | 22/96 | **24/96** |
+| Exact focused response including limitation | 18/96 | **20/96** |
+| Correct CE1 exit (24 questions) | 2/24 | **4/24** |
+
+**Interpretation:** This demonstrates a reproducible teaching pipeline, NOT working causal network inference. The tiny model often predicts an active path during a compound failure. Even a perfectly formatted LIMITATION line cannot make a wrong route assessment correct. Design samples helped slightly but generalization is still weak. The current withheld tests have now been inspected and should not become a final untainted production benchmark.
+
+### Next learning gate
+
+Develop compositional training over explicit alternative exit, CE interconnect dependency, CE-owned versus shared client LAN, VRRP gateway and simultaneous failure sets. Keep original engine supervision and group-separated unseen failure scenarios. Demand correctly generated **individual outcomes first**, then integrated review. Treat every modeled result as simulation-only; no inferred live Cisco BGP FSM, forwarding, root cause or outage decision is allowed.
+
+Code: module_lm.py, module_scenarios.mjs, internal_module_knowledge.json and their tests. No UI or production integration is required.
