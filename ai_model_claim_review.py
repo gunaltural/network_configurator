@@ -10,6 +10,7 @@ from typing import Any
 SCHEMA = "network-ai-claim-review-v1"
 _READ_ONLY = re.compile(r"^(?:show|display|get|diagnose)\s+\S+", re.I)
 _CITATION_LINES = re.compile(r"^L([1-9]\d*):\s?(.*)$")
+_SENSITIVE = re.compile(r"(?i)(?:\\bpassword\\b|\\bpasswd\\b|\\bsecret\\b|\\bprivate.key\\b|\\bauthorization\\b|snmp[-\\s]?server\\s+community|pre-shared-key|set\\s+psksecret|crypto\\s+isakmp\\s+key)")
 
 
 class ClaimReviewInvalid(ValueError):
@@ -54,7 +55,7 @@ def _cite(citation: Any, lines: dict, with_quote: bool = False) -> dict:
     if not isinstance(eid, str) or type(number) is not int or number < 1:
         raise ClaimReviewInvalid("Invalid source coordinate")
     original = lines.get(eid, {}).get(number, "")
-    if not original or original == "[REDACTED]":
+    if not original or original == "[REDACTED]" or _SENSITIVE.search(original):
         raise ClaimReviewInvalid("Missing or redacted cited line")
     if with_quote:
         quote = _str(citation["quote"], "CLI quotation", 220)
