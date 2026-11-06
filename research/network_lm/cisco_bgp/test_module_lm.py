@@ -9,6 +9,7 @@ from .module_lm import (
     FIELDS, design_teaching_examples, experiment, focused_cases,
     load_owned_module_cases, grade_simulation, grade_focused,
 )
+from .compositional_training import load_compositional_cases
 from ..model import ByteTokenizer
 
 
@@ -105,6 +106,48 @@ class ModuleKnowledgeTests(unittest.TestCase):
         self.assertEqual(result["cases"], 8)
         self.assertEqual(result["correct_single_outcome"], 0)
         self.assertEqual(result["exact_canonical"], 0)
+
+    def test_causal_dependency_training_scenarios_are_provenance_bound(self):
+        existing, source_sha = load_owned_module_cases()
+        composed, digest = load_compositional_cases(
+            expected_source_sha=source_sha,
+        )
+        self.assertEqual(len(composed), 16 * 12 * 5)
+        self.assertEqual(len(digest), 64)
+        self.assertEqual(len({x.id for x in composed}), len(composed))
+        self.assertEqual(len({x.scenario_id for x in composed}), 16)
+        self.assertTrue(all(x.split == "train" for x in composed))
+        reserved = {x.scenario_id for group in existing.values() for x in group}
+        self.assertTrue({x.scenario_id for x in composed}.isdisjoint(reserved))
+        self.assertEqual(
+            sum(x.completion.startswith("CE1_DIRECT_WAN1=") for x in composed),
+            16 * 12,
+        )
+        self.assertEqual(
+            sum(x.completion.startswith("RESULT=") for x in composed),
+            16 * 12 * 4,
+        )
+        with self.assertRaisesRegex(ValueError, "source"):
+            load_compositional_cases(expected_source_sha="0" * 64)
+
+    def test_actual_scratch_transformer_trains_on_composed_dependencies(self):
+        with TemporaryDirectory() as tmp:
+            result = experiment(
+                include_design=True, focused=True, compositional=True,
+                steps=2, seed=23, width=32, layers=1, heads=4,
+                context=512, vocab_size=344, batch_size=2,
+                output=str(Path(tmp) / "composed.pt"),
+            )
+            self.assertEqual(result["compositional_examples"], 960)
+            self.assertEqual(result["compositional_groups"], 16)
+            self.assertEqual(result["train_simulation"], 768)
+            self.assertEqual(result["train_design_knowledge"], 70)
+            self.assertEqual(result["training_cases"], 1798)
+            self.assertEqual(result["withheld_simulation"]["cases"], 96)
+            self.assertFalse(result["engineering_verified"])
+            self.assertFalse(result["production_ready"])
+        with self.assertRaisesRegex(ValueError, "require focused"):
+            experiment(compositional=True, focused=False, steps=1)
 
     def test_actual_random_weights_learn_from_source_without_product_approval(self):
         with TemporaryDirectory() as tmp:
