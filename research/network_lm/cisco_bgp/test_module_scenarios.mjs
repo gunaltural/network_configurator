@@ -50,10 +50,14 @@ test('matches original simulation nuanced failure semantics',()=>{
  const ce1Failure=fields(byGroup('ce1').completion);
  assert.equal(ce1Failure.CE1_EXIT,'DEVICE_FAILED');
  assert.equal(ce1Failure.CE1_PREFIX_INBOUND,'NO_MODELED_PATH');
+ assert.equal(fields(byGroup('isp1').completion).CE1_PREFIX_INBOUND,'PATH_AVAILABLE',
+   'A surviving second ISP and reachable CE interconnect should preserve the CE-owned advertisement');
  assert.equal(ce1Failure.SHARED_LAN_INBOUND,'PATH_AVAILABLE');
  const internetDown=fields(byGroup('both-isps').completion);
  assert.equal(internetDown.SHARED_LAN_INBOUND,'NO_MODELED_PATH');
  assert.equal(internetDown.CLIENT_OUTBOUND,'NO_MODELED_PATH');
+ assert.equal(internetDown.CE1_PREFIX_INBOUND,'NO_MODELED_PATH',
+   'An ISP source being device-down is NOT an available inbound path');
  const clientsDown=fields(byGroup('both-ces').completion);
  assert.equal(clientsDown.CLIENT_OUTBOUND,'NO_MODELED_GATEWAY');
  assert.equal(clientsDown.SHARED_LAN_INBOUND,'NO_MODELED_PATH');
