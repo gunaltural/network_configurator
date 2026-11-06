@@ -159,3 +159,17 @@ Eight Node tests and eight Python tests passed; synthetic evaluation and trainin
 ### Next gate
 
 Before evaluating a further model, freeze independent source topologies and failure group combinations, implement a simple route-availability heuristic baseline and calibrate a safe abstention mechanism. Subsequently teach evidence-bound relationships from multiple independently sourced Cisco BGP `show` commands (session, prefix advertisement, next-hop and RIB). The live Network Configurator and Render are separate.
+
+### Follow-up no-learning majority reference and exact-score replication
+
+A second [full CPU training and majority-reference CI run](https://github.com/gunaltural/network_configurator/actions/runs/42243897141) completed successfully after adding `majority_baseline.py` (and its test). The reference uses only the most common training response per outcome field and **does not learn BGP or infer causal relationships**.
+
+| Corrected 96-case evaluation | No-learning majority | Standard Design + Simulation LM | Additional dependency teaching LM |
+| --- | ---: | ---: | ---: |
+| Correct generated outcome / 96 | **20** | **20** | **32** |
+| CE1_EXIT correct / 24 | N/A | **4** | **9** |
+| Both outcomes correct on 12 contrast pairs | N/A | **0** | **1** |
+
+The same nominal model seed and training setup had previously scored **34/96** (and 11/24 CE1_EXIT, 2/12 contrast pairs) in run 42242720284, so **do not claim exact numerical reproducibility**. The two observed runs suggest a result in the 32–34/96 range under these executions, not a validated confidence interval. Both exceed the simple majority reference but remain too weak for production inference. Follow-up requires explicit deterministic kernel settings, fixed-corpus multiple-seed runs, more difficult independently frozen topologies and a human-validated multi-CLI BGP evidence test.
+
+Note that the earlier 24/96 score from before the incorrect `device-down` label was fixed is not a valid baseline for this corrected evaluation. The current reference is 20/96, which is the value to use in comparisons.
