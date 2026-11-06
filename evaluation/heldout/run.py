@@ -22,6 +22,7 @@ for c in cases:
         output=str(body.get('text','')).lower()
         import re
         missing=[term for term in rules.get('must_mention',[]) if term.lower() not in output]
+        missing_any=[group for group in rules.get('must_mention_any',[]) if not any(term.lower() in output for term in group)]
         unsupported=[term for term in rules.get('must_not_claim',[]) if term.lower() in output]
         # Validate citations against actual submitted CLI lines, not just syntax.
         available = {}
@@ -38,8 +39,8 @@ for c in cases:
         minimum=rules.get('minimum_line_citations',0)
         distinct_evidence_ids = len({evidence_id.lower() for evidence_id, line in references if line in available.get(evidence_id.lower(), set())})
         minimum_distinct = rules.get('minimum_distinct_evidence_ids', 0)
-        passed=response.status_code==200 and not missing and not unsupported and citations>=minimum and distinct_evidence_ids>=minimum_distinct and not invalid_citations and body.get('mode')=='model-evidence-cited-draft'
-        print('ACCEPTANCE_RESULT '+json.dumps(dict(id=c['id'],passed=passed,missing_terms=missing,unsupported_claims=unsupported,valid_citation_count=citations,distinct_evidence_ids=distinct_evidence_ids,expected_minimum_distinct=minimum_distinct,invalid_citations=invalid_citations,expected_minimum=minimum,mode=body.get('mode')),ensure_ascii=False),flush=True)
+        passed=response.status_code==200 and not missing and not missing_any and not unsupported and citations>=minimum and distinct_evidence_ids>=minimum_distinct and not invalid_citations and body.get('mode')=='model-evidence-cited-draft'
+        print('ACCEPTANCE_RESULT '+json.dumps(dict(id=c['id'],passed=passed,missing_terms=missing,missing_any_groups=missing_any,unsupported_claims=unsupported,valid_citation_count=citations,distinct_evidence_ids=distinct_evidence_ids,expected_minimum_distinct=minimum_distinct,invalid_citations=invalid_citations,expected_minimum=minimum,mode=body.get('mode')),ensure_ascii=False),flush=True)
         if not passed:
             raise SystemExit(f"Engineering reasoning acceptance FAILED: {c['id']}")
 
