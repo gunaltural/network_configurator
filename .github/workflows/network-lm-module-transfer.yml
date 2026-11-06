@@ -1,0 +1,74 @@
+name: BGP Design + Simulation knowledge transfer (isolated research)
+on:
+  pull_request:
+    paths:
+      - 'research/network_lm/cisco_bgp/**'
+      - '.github/workflows/network-lm-module-transfer.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  module-knowledge-learning:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install CPU-only training framework
+        run: python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Check original simulator evaluation, failover semantics and provenance
+        run: node --test research/network_lm/cisco_bgp/test_module_scenarios.mjs
+      - name: Prove design facts and real synthetic learning are independent of product
+        run: python -m unittest research.network_lm.cisco_bgp.test_module_lm -v
+      - name: Baseline scratch model - simulation-only teaching
+        run: |
+          python -m research.network_lm.cisco_bgp.module_lm \
+            --steps 300 --width 96 --layers 2 --heads 4 \
+            --seed 42 --vocab-size 512 --output /tmp/bgp-sim-only.pt
+      - name: Same scratch model and steps - simulation plus BGP Design knowledge
+        run: |
+          python -m research.network_lm.cisco_bgp.module_lm \
+            --steps 300 --width 96 --layers 2 --heads 4 \
+            --seed 42 --vocab-size 512 --include-design \
+            --output /tmp/bgp-sim-plus-design.pt
+      - name: Compare held-out, unseen failure combinations and no live claims
+        run: |
+          python - <<'PY'
+          import json
+          metrics=[]
+          for key,name in [('sim-only','/tmp/bgp-sim-only.metrics.json'),
+                           ('plus-design','/tmp/bgp-sim-plus-design.metrics.json')]:
+              m=json.load(open(name))
+              h=m['withheld_simulation']
+              assert m['status']=='SCRATCH_BGP_MODULE_KNOWLEDGE_RESEARCH_ONLY'
+              assert m['engineering_verified'] is False
+              assert m['production_ready'] is False
+              assert h['cases']==24 and m['withheld_failure_groups']==6
+              assert m['train_simulation']==192 and m['validation']==10
+              metrics.append(m)
+              print('ACTUAL_SCRATCH_BGP_MODULE_LM',key,
+                    'train examples',m['training_cases'],
+                    'heldout exact',h['exact_canonical'],'/24',
+                    'four outcomes',h['all_four_outcomes_correct'],'/24',
+                    'per field',h['field_correct'],
+                    'no real BGP conclusions')
+              print('FIRST_SYNTHETIC_PREDICTIONS',h['first_six'][:2])
+          assert metrics[0]['synthetic_simulation_source_sha256']==metrics[1]['synthetic_simulation_source_sha256']
+          assert metrics[0]['tokenizer_sha256']==metrics[1]['tokenizer_sha256']
+          assert metrics[0]['parameters']==metrics[1]['parameters']
+          assert metrics[0]['steps']==metrics[1]['steps']
+          assert metrics[0]['train_design_knowledge']==0
+          assert metrics[1]['train_design_knowledge']>=70
+          PY
+      - name: Retain synthetic research metrics without deploying models
+        uses: actions/upload-artifact@v4
+        with:
+          name: cisco-bgp-owned-design-simulation-model-metrics
+          path: /tmp/bgp-*.metrics.json
+          retention-days: 14
+          if-no-files-found: error
