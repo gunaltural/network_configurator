@@ -110,6 +110,35 @@ class ProviderSchemaTests(unittest.TestCase):
             self.assertNotIn("structured_claim_review", outgoing)
             self.assertEqual(request.full_url, "https://api.openai.com/v1/responses")
 
+    def test_local_full_profile_passes_real_llamacpp_schema_to_server(self):
+        env = {"AI_PROVIDER": "local", "AI_ENABLED": "1",
+               "AI_MODEL": "network-engineer", "AI_LOCAL_REASONING_PROFILE": "full",
+               "AI_BASE_URL": "http://127.0.0.1:18081/v1"}
+        app = FastAPI()
+        install_engineering_ai(app)
+        client = TestClient(app)
+        request = {"module": "CLI_ANALYSIS", "vendor": "Cisco IOS-XE",
+                   "language": "en", "task": "report", "evidence": EVIDENCE,
+                   "reviewFormat": "evidence-claims-v1"}
+        with patch.dict(os.environ, env, clear=True), patch(
+                "engineering_ai.urllib.request.build_opener") as opener:
+            response = opener.return_value.open.return_value.__enter__.return_value
+            response.read.return_value = self._response_json()
+            self.assertTrue(client.get("/api/ai/status").json()["structuredClaimsSupported"])
+            result = client.post("/api/ai/analyze", json=request)
+            self.assertEqual(result.status_code, 200)
+            self.assertEqual(result.json()["mode"], "model-evidence-cited-draft")
+            self.assertFalse(result.json()["engineeringVerified"])
+            outgoing = json.loads(opener.return_value.open.call_args.args[0].data)
+            self.assertEqual(outgoing["response_format"]["type"], "json_schema")
+            self.assertEqual(outgoing["response_format"]["schema"], CLAIM_REVIEW_SCHEMA)
+            self.assertNotIn("json_schema", outgoing["response_format"])
+            self.assertNotIn("PASSWORD_MUST_NOT_LEAK", json.dumps(outgoing))
+
+        formatted = add_structured_response_format({"model": "full"}, "local")
+        self.assertEqual(formatted["response_format"]["schema"], CLAIM_REVIEW_SCHEMA)
+        self.assertNotIn("response_format", {"model": "full"})
+
     def test_non_structured_existing_provider_calls_are_unchanged(self):
         env = {"AI_PROVIDER": "groq", "AI_ENABLED": "1", "AI_MODEL": "openai/gpt-oss-120b",
                "GROQ_API_KEY": "synthetic"}
