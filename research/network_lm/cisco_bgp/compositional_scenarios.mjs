@@ -68,8 +68,8 @@ function recordsOf(group,i){
  if(ce1Direct!==directFromEngine||ce1ViaCe2!==backupFromEngine)
    throw Error("The causal decomposition disagrees with existing simulator");
  const selected=exit(ce1);
- const ownerOut=simulated.inboundRoutes.every(x=>x.state==="no-path")
-   ?"NO_MODELED_PATH":"PATH_AVAILABLE";
+ const ownerOut=simulated.inboundRoutes.some(x=>x.state==="reachable"&&x.candidates.length>0)
+   ?"PATH_AVAILABLE":"NO_MODELED_PATH";
  const actual={
    CE1_EXIT:selected,
    CE1_PREFIX_INBOUND:ownerOut,
