@@ -25,6 +25,8 @@ from .experiment import (FROZEN_PATH, ACCEPTANCE_V2, BGPStudent,
                          encode as encode_bgp_states, make_batch as bgp_batch)
 from .tokenizer import train_bpe
 
+ACCEPTANCE_V3 = Path(__file__).with_name("frozen_acceptance_v3.jsonl")
+
 # Synthetically authored teaching targets; these are not copied Cisco material.
 # A predicted label is not itself a verified root cause, nor a quote from CLI.
 BOUNDARIES = {
@@ -157,8 +159,16 @@ def train_language(*, steps=900, per_class=48, seed=42, context=384,
     dev = training_cases(per_class=8, seed=seed + 239)
     heldout = load_frozen_holdout(FROZEN_PATH)
     acceptance = load_frozen_holdout(ACCEPTANCE_V2)
-    if ({c.text for c in training} & {c.text for c in dev + heldout + acceptance}
-            or {c.text for c in heldout} & {c.text for c in acceptance}):
+    acceptance_v3 = load_frozen_holdout(ACCEPTANCE_V3)
+    if ({c.text for c in training} & {
+            c.text for c in dev + heldout + acceptance + acceptance_v3
+        } or any(
+            {x.text for x in first} & {x.text for x in second}
+            for first, second in (
+                (heldout, acceptance), (heldout, acceptance_v3),
+                (acceptance, acceptance_v3),
+            )
+        )):
         raise ValueError("BGP language model training/heldout overlap")
     examples = as_examples(training)
     warmup_examples = as_examples(training, state_only=True)
@@ -218,6 +228,7 @@ def train_language(*, steps=900, per_class=48, seed=42, context=384,
     final_eval = validate(model, encoded_dev, torch.device("cpu"))
     outputs = generate_on_frozen(model, tok, heldout)
     fresh_outputs = generate_on_frozen(model, tok, acceptance)
+    newest_outputs = generate_on_frozen(model, tok, acceptance_v3)
     metrics = {
         "status": "CISCO_BGP_CAUSAL_LM_SCRATCH_ONLY",
         "architecture": asdict(config),
@@ -239,11 +250,13 @@ def train_language(*, steps=900, per_class=48, seed=42, context=384,
         "training_sha256": dataset_fingerprint(training),
         "heldout_sha256": sha256(FROZEN_PATH.read_bytes()).hexdigest(),
         "acceptance_sha256": sha256(ACCEPTANCE_V2.read_bytes()).hexdigest(),
+        "acceptance_v3_sha256": sha256(ACCEPTANCE_V3.read_bytes()).hexdigest(),
         "loss_first": initial, "loss_last": latest,
         "dev_token_loss_before": first_eval,
         "dev_token_loss_after": final_eval,
         "heldout_generation": outputs,
         "fresh_acceptance_v2": fresh_outputs,
+        "fresh_acceptance_v3": newest_outputs,
         "engineering_verified": False, "production_ready": False,
         "note": ("This is ACTUAL causal text generation from random weights. "
                  "Matching a short templated response is not network diagnosis."),
@@ -259,7 +272,7 @@ def train_language(*, steps=900, per_class=48, seed=42, context=384,
                 "curriculum_version", "seed", "steps",
                 "tokenizer_mode", "tokenizer_fingerprint",
                 "training_sha256",
-                "heldout_sha256", "acceptance_sha256",
+                "heldout_sha256", "acceptance_sha256", "acceptance_v3_sha256",
                 "state_warmup_steps", "state_encoder_pretrain_steps",
                 "engineering_verified", "production_ready",
             )
@@ -278,6 +291,9 @@ def train_language(*, steps=900, per_class=48, seed=42, context=384,
         "fresh_state_correct": fresh_outputs["state_correct"],
         "fresh_full_reports": fresh_outputs["full_format_correct"],
         "fresh_total": fresh_outputs["heldout_cases"],
+        "v3_state_correct": newest_outputs["state_correct"],
+        "v3_full_reviews": newest_outputs["full_format_correct"],
+        "v3_total": newest_outputs["heldout_cases"],
         "production_ready": False,
     }), flush=True)
     return metrics
