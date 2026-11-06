@@ -37,6 +37,10 @@ class CiscoBGPLanguageTests(unittest.TestCase):
         records = as_examples(train_rows)
         self.assertEqual(len(records), 64)
         self.assertTrue({r.prompt for r in records}.isdisjoint(r.text for r in frozen))
+        state_only = as_examples(train_rows, state_only=True)
+        self.assertTrue(all(x.completion.startswith("STATE=")
+                            and x.completion[6:] in CLASSES for x in state_only))
+        self.assertEqual([x.prompt for x in state_only], [x.prompt for x in records])
         tok = ByteTokenizer()
         for record in records:
             x, y = encode_example(record, tok, 384)
@@ -81,6 +85,8 @@ class CiscoBGPLanguageTests(unittest.TestCase):
             self.assertTrue(path.is_file())
             self.assertEqual(result["training_examples"], 64)
             self.assertEqual(result["heldout_generation"]["heldout_cases"], 32)
+            self.assertEqual(result["fresh_acceptance_v2"]["heldout_cases"], 32)
+            self.assertEqual(result["state_warmup_steps"], 0)
             self.assertFalse(result["production_ready"])
             self.assertFalse(result["engineering_verified"])
             package = torch.load(path, map_location="cpu", weights_only=True)
@@ -91,6 +97,8 @@ class CiscoBGPLanguageTests(unittest.TestCase):
                 sum(p.numel() for p in package["weights"].values()),
                 package["manifest"]["parameter_count"],
             )
+            with self.assertRaisesRegex(ValueError, "Warmup must leave"):
+                train_language(steps=2, state_warmup_steps=2)
 
 
 if __name__ == "__main__":
