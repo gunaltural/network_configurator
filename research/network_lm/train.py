@@ -92,7 +92,7 @@ def train(args):
         'architecture': asdict(config),
         'parameter_count': sum(p.numel() for p in model.parameters()),
         'corpus_sha256': hashlib.sha256(Path(args.corpus).read_bytes()).hexdigest(),
-        'train_scenarios': sorted(x.scenario_id for x in corpus['train']),
+        'train_scenarios': sorted({x.scenario_id for x in corpus['train']}),
         'heldout_scenarios': sorted({x.scenario_id for x in corpus['val']}),
         'curriculum_version': CURRICULUM_VERSION,
         'curriculum_per_state': curriculum_size, 'curriculum_seed': curriculum_seed,
