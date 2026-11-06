@@ -34,3 +34,11 @@ A decreasing training loss **is not proof of useful language or engineering diag
 5. **Release isolation:** Never merge research weights into the product or bypass held-out acceptance. Product's existing AI Analysis route must remain usable regardless of research progress.
 
 Technical references: [PyTorch causal SDPA](https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.scaled_dot_product_attention.html) · [AdamW](https://docs.pytorch.org/docs/stable/generated/torch.optim.AdamW.html).
+
+## Independent held-out generation (added 2026-11-06)
+
+The scratch checkpoint now has its own `python -m research.network_lm.evaluate --checkpoint /tmp/network-mini.pt --max-new-tokens 35` evaluator. The evaluator checks checkpoint provenance, corpus SHA-256, held-out scenario separation and generated text **only**. It does not provide the target completion to inference and does not score training loss as engineering accuracy.
+
+On the first three-step 165,888-parameter prototype, held-out BGP Idle(Admin) and vPC Peer Gateway scenarios passed **0 of 2** very basic lexical checks. The model generated incomplete/unusable text. This is a **documented negative result**, not an engineering acceptance. A zero-score evaluation deliberately does not prevent the isolated research CI job from passing its *software-integrity* checks. `engineering_verified=false` and `production_ready=false` remain explicit in every report.
+
+Research-only checks: `python -m unittest research.network_lm.test_scratch research.network_lm.test_evaluate -v`. No production inference, Design or Simulation changes.
