@@ -127,6 +127,30 @@ jobs:
           assert reports[0]['tokenizer_sha256']==reports[1]['tokenizer_sha256']
           assert reports[0]['third_cli_holdout_sha256']==reports[1]['third_cli_holdout_sha256']
           PY
+      - name: Verify seed-7 scratch checkpoint provenance before research-only archiving
+        run: |
+          python - <<'PY'
+          from research.network_lm.cisco_bgp.multicli_decode import restore_checkpoint
+          p='/tmp/bgp-cli-views-seed7.pt'
+          model,tok,m=restore_checkpoint(p)
+          assert m['seed']==7
+          assert m['abstract_identities'] is True
+          assert m['augment_training_views'] is True
+          assert m['engineering_verified'] is False
+          assert m['production_ready'] is False
+          assert tok.vocab_size==model.config.vocab_size
+          print('RESEARCH_CHECKPOINT_VERIFIED',m['status'],
+                'parameters',sum(p.numel() for p in model.parameters()),
+                'tokenizer_sha256',m['tokenizer_sha256'],
+                'no_production_or_render_deploy',True)
+          PY
+      - name: Archive original scratch-trained research checkpoint (not production)
+        uses: actions/upload-artifact@v4
+        with:
+          name: scratch-cisco-bgp-multicli-seed7-research-checkpoint-not-production
+          path: /tmp/bgp-cli-views-seed7.pt
+          retention-days: 14
+          if-no-files-found: error
       - name: Preserve research metrics only - never deploy to Render
         uses: actions/upload-artifact@v4
         with:
