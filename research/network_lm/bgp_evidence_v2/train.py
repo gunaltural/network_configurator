@@ -23,6 +23,11 @@ from ..cisco_bgp.tokenizer import train_bpe
 from .curriculum import (
     VERSION, FIELDS, KINDS, SPLIT_CONTEXTS, cases, tasks, digest, report,
 )
+from .abstention_curriculum import (
+    VERSION as ABSTENTION_VERSION, UNKNOWN_KIND, GAPS,
+    cases as abstention_cases, field_tasks as abstention_tasks,
+    audit as abstention_audit,
+)
 
 CONTRASTS = (
     ("ACTIVE_TARGET", "ACTIVE_WRONG_PEER"),
@@ -114,6 +119,47 @@ def test_model_generation(model, tok, records, *, limit=100):
     }
 
 
+@torch.no_grad()
+def evaluate_insufficient_evidence(model, tok, records, *, limit=100):
+    """Grade whether the *model*, not a parser, admits it lacks proof."""
+    model.eval()
+    right=Counter()
+    count=Counter()
+    snippets=[]
+    by_incident=defaultdict(dict)
+    for record in records:
+        field=record.id.rsplit("-",1)[-1]
+        if field not in FIELDS:
+            raise ValueError("Unsupported insufficiency evaluation field")
+        prefix=prompt_tokens(tok,record.prompt)
+        if len(prefix)>=model.config.block_size:
+            raise ValueError("Insufficient evidence exceeds scratch context")
+        predicted=tok.decode(model.complete(prefix,max_new_tokens=limit)[len(prefix):]).strip()
+        first=predicted.splitlines()[0].strip() if predicted else ""
+        correct=(first==record.completion)
+        right[field]+=int(correct)
+        count[field]+=1
+        incident=record.id.rsplit("-",2)[0]
+        by_incident[incident][field]=correct
+        if len(snippets)<8:
+            snippets.append({"case":record.id,"expected":record.completion,
+                             "generated":predicted[:220],"correct":correct})
+    if len(by_incident)*len(FIELDS)!=len(records):
+        raise ValueError("Four separate abstention fields required per incident")
+    return {
+        "field_tasks":len(records),
+        "incidents":len(by_incident),
+        "by_field":{k:{"correct":right[k],"total":count[k]} for k in FIELDS},
+        "all_four_correct":sum(
+            all(v.get(k,False) for k in FIELDS)
+            for v in by_incident.values()
+        ),
+        "samples":snippets,
+        "engineering_verified":False,
+        "production_ready":False,
+    }
+
+
 class BalancedEvidenceSampler:
     """Cycle through four requested output fields and cover all eight findings.
 
@@ -123,17 +169,22 @@ class BalancedEvidenceSampler:
     This is *training sampling*, not hardcoded inference behavior.
     """
 
-    def __init__(self, training, *, seed):
+    def __init__(self, training, *, seed, include_unknown=False):
         self.rng = random.Random(seed)
+        self.include_unknown = include_unknown
+        self.kinds = KINDS + ((UNKNOWN_KIND,) if include_unknown else ())
         self.buckets = {}
         self.cursors = {}
         for field in FIELDS:
-            for kind in KINDS:
+            for kind in self.kinds:
                 matches = [
                     index for index,x in enumerate(training)
                     if x.id.endswith("-" + kind + "-" + field)
                 ]
-                if len(matches) != len(SPLIT_CONTEXTS["train"]):
+                required=len(SPLIT_CONTEXTS["train"])
+                if ((not include_unknown and len(matches)!=required)
+                        or (include_unknown and len(matches)<required)
+                        or (kind!=UNKNOWN_KIND and len(matches)!=required)):
                     raise ValueError("Training data missing balanced BGP classes")
                 self.rng.shuffle(matches)
                 self.buckets[(field,kind)] = matches
@@ -142,9 +193,15 @@ class BalancedEvidenceSampler:
     def indices(self, step):
         if not isinstance(step, int) or step < 0:
             raise ValueError("Invalid BGP training batch index")
-        field = FIELDS[step % len(FIELDS)]
+        field = FIELDS[(step//len(self.kinds))%len(FIELDS)] if self.include_unknown else FIELDS[step % len(FIELDS)]
         selection = []
-        for kind in KINDS:
+        # In 9-class mode, choose 8 of 9 classes per batch. The skipped
+        # class rotates; across nine optimizer updates each class is sampled
+        # eight times. Batch size and model architecture stay unchanged.
+        excluded = (step%len(self.kinds)) if self.include_unknown else -1
+        for idx,kind in enumerate(self.kinds):
+            if idx == excluded:
+                continue
             key = (field,kind)
             cursor = self.cursors[key]
             if cursor == len(self.buckets[key]):
@@ -157,12 +214,15 @@ class BalancedEvidenceSampler:
 
 def _train(*, seed=42, steps=900, width=96, layers=2, heads=4,
            context=768, vocab_size=512, batch_size=8,
-           balanced_batches=False,
+           balanced_batches=False, teach_abstention=False,
            output="/tmp/bgp-factorial-scratch.pt", threads=2):
     if (type(seed) is not int or not 1 <= steps <= 4000
             or not 1 <= batch_size <= 24 or not 1 <= threads <= 8
-            or type(balanced_batches) is not bool):
+            or type(balanced_batches) is not bool
+            or type(teach_abstention) is not bool):
         raise ValueError("Invalid scratch BGP research training parameters")
+    if teach_abstention and not balanced_batches:
+        raise ValueError("Safety curriculum requires balanced class coverage")
     if balanced_batches and batch_size != len(KINDS):
         raise ValueError("Balanced batches require one sample per BGP class")
     torch.set_num_threads(threads)
@@ -172,6 +232,11 @@ def _train(*, seed=42, steps=900, width=96, layers=2, heads=4,
     groups = cases()
     audit = report()
     split = {name: tasks(rows) for name,rows in groups.items()}
+    uncertain_split = {name: abstention_tasks(rows)
+                       for name,rows in abstention_cases().items()}
+    if teach_abstention:
+        for name in ("train","val"):
+            split[name].extend(uncertain_split[name])
     training = split["train"]
     # Only training examples contribute to the BPE merges; neither validation
     # nor test prompts, nor even their model output targets are read by BPE.
@@ -196,7 +261,8 @@ def _train(*, seed=42, steps=900, width=96, layers=2, heads=4,
     rng.shuffle(order)
     cursor = 0
     balanced_sampler = (
-        BalancedEvidenceSampler(training, seed=seed)
+        BalancedEvidenceSampler(training, seed=seed,
+                                include_unknown=teach_abstention)
         if balanced_batches else None
     )
     initial, last = None, None
@@ -223,6 +289,12 @@ def _train(*, seed=42, steps=900, width=96, layers=2, heads=4,
         last = round(float(loss.item()), 6)
     val_loss = validate(net, val_encoded, torch.device("cpu"))
     results = test_model_generation(net, tokenizer, split["test"])
+    unknown_score = evaluate_insufficient_evidence(
+        net, tokenizer, uncertain_split["test"]
+    )
+    if (unknown_score["incidents"] != 60
+            or unknown_score["field_tasks"] != 240):
+        raise ValueError("Abstention evaluation coverage incomplete")
     if results["field_tasks"] != 384 or results["incidents"] != 96:
         raise ValueError("Incorrect factorial research evaluation size")
 
@@ -244,6 +316,8 @@ def _train(*, seed=42, steps=900, width=96, layers=2, heads=4,
         "params": sum(p.numel() for p in net.parameters()),
         "seed": seed, "steps": steps, "batch_size": batch_size,
         "balanced_evidence_batches": balanced_batches,
+        "teach_abstention": teach_abstention,
+        "abstention_curriculum_version": ABSTENTION_VERSION,
         "torch_version": torch.__version__,
         "deterministic_algorithms": torch.are_deterministic_algorithms_enabled(),
         "train_cases": audit["cases"]["train"],
@@ -252,9 +326,12 @@ def _train(*, seed=42, steps=900, width=96, layers=2, heads=4,
         "train_field_tasks": len(split["train"]),
         "val_field_tasks": len(split["val"]),
         "test_field_tasks": len(split["test"]),
-        "train_sha256": audit["train_sha256"],
-        "val_sha256": audit["val_sha256"],
+        "train_sha256": digest(training),
+        "val_sha256": digest(split["val"]),
         "test_sha256": audit["test_sha256"],
+        "unknown_test_sha256": digest(uncertain_split["test"]),
+        "unknown_test_cases":60,
+        "unknown_test_field_tasks":240,
         "tokenizer_sha256": tokenizer.fingerprint(),
         "train_loss_first": initial, "train_loss_last": last,
         "val_loss_random": random_model_val_loss,
@@ -262,6 +339,7 @@ def _train(*, seed=42, steps=900, width=96, layers=2, heads=4,
         "majority_reference_correct": majority_accuracy,
         "majority_reference_total": len(SPLIT_CONTEXTS["test"]) * len(KINDS),
         "heldout_generated": results,
+        "abstention_generated": unknown_score,
         "source": "ORIGINAL_SYNTHETIC_CLI_NOT_VENDOR_COPY",
         "note": (
             "This tests heldout combinations of the same four authored context "
@@ -281,8 +359,10 @@ def _train(*, seed=42, steps=900, width=96, layers=2, heads=4,
             "status": report_data["status"],
             "seed": seed,
             "balanced_evidence_batches": balanced_batches,
-            "train_sha256": audit["train_sha256"],
+            "teach_abstention": teach_abstention,
+            "train_sha256": digest(training),
             "test_sha256": audit["test_sha256"],
+            "unknown_test_sha256":digest(uncertain_split["test"]),
             "tokenizer_sha256": tokenizer.fingerprint(),
             "engineering_verified": False, "production_ready": False,
         },
@@ -293,6 +373,9 @@ def _train(*, seed=42, steps=900, width=96, layers=2, heads=4,
     print(json.dumps({
         "status": report_data["status"],
         "seed": seed, "balanced_evidence_batches": balanced_batches,
+        "teach_abstention":teach_abstention,
+        "unknown_findings":unknown_score["by_field"]["FINDING"]["correct"],
+        "unknown_total":60,
         "train_cases": report_data["train_cases"],
         "train_field_tasks": report_data["train_field_tasks"],
         "test_cases": report_data["test_cases"],
@@ -321,12 +404,14 @@ def main():
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--threads", type=int, default=2)
     parser.add_argument("--balanced-batches", action="store_true")
+    parser.add_argument("--teach-abstention", action="store_true")
     parser.add_argument("--output", default="/tmp/bgp-factorial-scratch.pt")
     args = parser.parse_args()
     _train(seed=args.seed, steps=args.steps, width=args.width,
            layers=args.layers, heads=args.heads, context=args.context,
            vocab_size=args.vocab_size, batch_size=args.batch_size,
            balanced_batches=args.balanced_batches,
+           teach_abstention=args.teach_abstention,
            threads=args.threads, output=args.output)
 
 
