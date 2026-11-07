@@ -32,9 +32,11 @@ if len(set(ALLOWED_FINDINGS)) != len(ALLOWED_FINDINGS):
 def label_log_prob(model, tok, input_tokens, label):
     if label not in ALLOWED_FINDINGS:
         raise ValueError("Unsupported synthetic finding label")
-    fixed = tok.encode("FINDING=")
-    answer = tok.encode(label + "\n")
-    prefix = input_tokens + fixed
+    # The supervised completion was tokenized as ONE string. BPE may merge
+    # across FINDING= and the label, so do not separately encode them.
+    # Scoring a mismatched token segmentation punishes legitimate labels.
+    answer = tok.encode("FINDING=" + label + "\n")
+    prefix = input_tokens
     if len(prefix) + len(answer) - 1 > model.config.block_size:
         raise ValueError("BGP evidence longer than model context")
     full_input = torch.tensor(
