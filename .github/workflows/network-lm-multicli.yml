@@ -19,7 +19,7 @@ jobs:
       - name: Install fixed, CPU-only PyTorch
         run: python -m pip install 'torch==2.15.0' --index-url https://download.pytorch.org/whl/cpu
       - name: Verify CLI evidence, role abstraction and training/heldout boundaries
-        run: python -m unittest research.network_lm.cisco_bgp.test_multicli_lm research.network_lm.cisco_bgp.test_multicli_abstraction research.network_lm.cisco_bgp.test_multicli_views -v
+        run: python -m unittest research.network_lm.cisco_bgp.test_multicli_lm research.network_lm.cisco_bgp.test_multicli_abstraction research.network_lm.cisco_bgp.test_multicli_views research.network_lm.cisco_bgp.test_multicli_decode -v
       - name: Control - train normalized scratch model without multi-command view augmentation (seed 42)
         run: |
           python -m research.network_lm.cisco_bgp.multicli_lm \
@@ -95,6 +95,38 @@ jobs:
                 '/96 versus no-augmentation baseline',
                 control['third_cli_holdout_generation']['finding_correct'],'/96')
           PY
+      - name: Compare free-form versus model-scored FINDING grammar on identical heldout CLI
+        run: |
+          python -m research.network_lm.cisco_bgp.multicli_decode \
+            --checkpoint /tmp/bgp-cli-views-seed42.pt \
+            --output /tmp/bgp-cli-grammar-seed42.metrics.json
+          python -m research.network_lm.cisco_bgp.multicli_decode \
+            --checkpoint /tmp/bgp-cli-views-seed7.pt \
+            --output /tmp/bgp-cli-grammar-seed7.metrics.json
+          python - <<'PY'
+          import json
+          reports=[]
+          for seed in (42,7):
+              x=json.load(open(f'/tmp/bgp-cli-grammar-seed{seed}.metrics.json'))
+              greedy=x['greedy']
+              constrained=x['constrained']
+              assert x['method']=='same-scratch-decoder-model-scores-valid-finding-labels'
+              assert x['production_ready'] is False and x['engineering_verified'] is False
+              assert greedy['total']==constrained['total']==96
+              assert greedy['paired_contrasts']['total']==constrained['paired_contrasts']['total']==36
+              print('BGP_SCRATCH_OUTPUT_GRAMMAR',seed,
+                    'unconstrained_finding',greedy['finding_correct'],'/96',
+                    'model_scored_grammar_finding',constrained['finding_correct'],'/96',
+                    'unconstrained_full_explanation',greedy['exact_explanation'],'/96',
+                    'model_scored_grammar_full_explanation',constrained['exact_explanation'],'/96',
+                    'model_scored_both_counterfactual_correct',
+                    constrained['paired_contrasts']['both_correct'],'/36',
+                    'model_scored_samples',constrained['first_samples'][:2])
+              reports.append(x)
+          assert reports[0]['training_sha256']==reports[1]['training_sha256']
+          assert reports[0]['tokenizer_sha256']==reports[1]['tokenizer_sha256']
+          assert reports[0]['third_cli_holdout_sha256']==reports[1]['third_cli_holdout_sha256']
+          PY
       - name: Preserve research metrics only - never deploy to Render
         uses: actions/upload-artifact@v4
         with:
@@ -102,5 +134,6 @@ jobs:
           path: |
             /tmp/bgp-cli-abstract-*.metrics.json
             /tmp/bgp-cli-views-*.metrics.json
+            /tmp/bgp-cli-grammar-*.metrics.json
           retention-days: 14
           if-no-files-found: error
