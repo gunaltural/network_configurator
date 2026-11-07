@@ -10,7 +10,7 @@ permissions:
 jobs:
   original-scratch-multicli:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -19,78 +19,88 @@ jobs:
       - name: Install fixed, CPU-only PyTorch
         run: python -m pip install 'torch==2.15.0' --index-url https://download.pytorch.org/whl/cpu
       - name: Verify CLI evidence, role abstraction and training/heldout boundaries
-        run: python -m unittest research.network_lm.cisco_bgp.test_multicli_lm research.network_lm.cisco_bgp.test_multicli_abstraction -v
-      - name: Teach original random-init BGP Transformer for 800 updates (seed 42)
+        run: python -m unittest research.network_lm.cisco_bgp.test_multicli_lm research.network_lm.cisco_bgp.test_multicli_abstraction research.network_lm.cisco_bgp.test_multicli_views -v
+      - name: Control - train normalized scratch model without multi-command view augmentation (seed 42)
         run: |
           python -m research.network_lm.cisco_bgp.multicli_lm \
-            --steps 800 --width 96 --layers 2 --heads 4 \
+            --abstract-identities --steps 1600 --width 96 --layers 2 --heads 4 \
             --seed 42 --context 512 --vocab-size 512 \
-            --output /tmp/bgp-cli-evidence-seed42.pt
-      - name: Train identical scratch architecture with peer/prefix identity abstraction (seed 42)
+            --output /tmp/bgp-cli-abstract-control42.pt
+      - name: Teach equivalent command spellings and CLI order with same scratch model (seed 42)
         run: |
           python -m research.network_lm.cisco_bgp.multicli_lm \
-            --abstract-identities --steps 800 --width 96 --layers 2 --heads 4 \
+            --abstract-identities --augment-views \
+            --steps 1600 --width 96 --layers 2 --heads 4 \
             --seed 42 --context 512 --vocab-size 512 \
-            --output /tmp/bgp-cli-abstract-seed42.pt
-      - name: Repeat abstracted scratch training independently (seed 7)
+            --output /tmp/bgp-cli-views-seed42.pt
+      - name: Independently train same augmented scratch model (seed 7)
         run: |
           python -m research.network_lm.cisco_bgp.multicli_lm \
-            --abstract-identities --steps 800 --width 96 --layers 2 --heads 4 \
+            --abstract-identities --augment-views \
+            --steps 1600 --width 96 --layers 2 --heads 4 \
             --seed 7 --context 512 --vocab-size 512 \
-            --output /tmp/bgp-cli-abstract-seed7.pt
-      - name: Test generated findings against alternate IOS XE CLI and no-learning reference
+            --output /tmp/bgp-cli-views-seed7.pt
+      - name: Score ORIGINAL model-generated explanations on third unseen CLI format
         run: |
           python - <<'PY'
           import json
           runs=[
-              ('RAW_SEED42','/tmp/bgp-cli-evidence-seed42.metrics.json'),
-              ('ABSTRACT_SEED42','/tmp/bgp-cli-abstract-seed42.metrics.json'),
-              ('ABSTRACT_SEED7','/tmp/bgp-cli-abstract-seed7.metrics.json'),
+              ('NO_AUGMENT_SEED42','/tmp/bgp-cli-abstract-control42.metrics.json'),
+              ('MULTI_VIEW_SEED42','/tmp/bgp-cli-views-seed42.metrics.json'),
+              ('MULTI_VIEW_SEED7','/tmp/bgp-cli-views-seed7.metrics.json'),
           ]
           reports=[]
           for name,path in runs:
               m=json.load(open(path))
-              old=m['heldout_generation']
-              v2=m['new_alternate_cli_generation']
+              base=m['heldout_generation']
+              alt=m['new_alternate_cli_generation']
+              v3=m['third_cli_holdout_generation']
               assert m['status']=='CISCO_BGP_MULTI_CLI_GENERATIVE_RESEARCH_ONLY'
-              assert m['engineering_verified'] is False and m['production_ready'] is False
-              assert m['train_samples']==240 and m['val_samples']==56
-              assert old['total']==v2['total']==m['test_samples']==96
+              assert not m['production_ready'] and not m['engineering_verified']
+              assert m['abstract_identities'] is True
+              assert m['val_samples']==56 and m['test_samples']==96
+              assert base['total']==alt['total']==v3['total']==96
+              assert v3['paired_contrasts']['total']==36
+              assert all(x['total']==12 for x in v3['by_kind'].values())
               assert m['majority_reference_correct']==12
-              assert old['paired_contrasts']['total']==v2['paired_contrasts']['total']==36
-              assert all(x['total']==12 for x in v2['by_kind'].values())
-              assert m['deterministic_algorithms'] is True and m['steps']==800
+              assert m['deterministic_algorithms'] and m['steps']==1600
               reports.append(m)
-              print('SCRATCH_BGP_ALTCLI',name,
-                    'raw_test_finding',old['finding_correct'],'/96',
-                    'ALT_CLI_Finding',v2['finding_correct'],'/96',
-                    'ALT_CLI_Full_explanation',v2['exact_explanation'],'/96',
-                    'ALT_CLI_pair_both',v2['paired_contrasts']['both_correct'],'/36',
-                    'ALT_CLI_pair_changed',v2['paired_contrasts']['prediction_changed'],'/36',
-                    'majority_reference',m['majority_reference_correct'],'/96',
-                    'ALT_CLI_by_kind',v2['by_kind'],
-                    'ALT_CLI_first_sample',v2['first_samples'][:1])
-          raw,a42,a7=reports
-          assert raw['abstract_identities'] is False
-          assert a42['abstract_identities'] and a7['abstract_identities']
-          for m in reports[1:]:
-              assert m['configuration']==raw['configuration']
-              assert m['new_alternate_cli_sha256']==raw['new_alternate_cli_sha256']
-              assert m['steps']==raw['steps']
-          for key in ('training_sha256','validation_sha256',
-                      'heldout_sha256','tokenizer_sha256','parameter_count'):
-              assert a42[key]==a7[key],f'Uncontrolled training seed comparison: {key}'
-          print('ABSTRACTED_TWO_SEED_AVERAGE_ALT_CLI_FINDING',
-                (a42['new_alternate_cli_generation']['finding_correct']
-                 +a7['new_alternate_cli_generation']['finding_correct'])/2,
-                '/96; strict exact full explanation independently above.')
+              print('SCRATCH_BGP_CLI_VIEW',name,
+                    'train_samples',m['train_samples'],
+                    'old_style_finding',base['finding_correct'],'/96',
+                    'v2_finding',alt['finding_correct'],'/96',
+                    'V3_FINDING',v3['finding_correct'],'/96',
+                    'V3_FULL',v3['exact_explanation'],'/96',
+                    'V3_WHY',v3['fields_correct']['WHY'],'/96',
+                    'V3_NOT_PROVEN',v3['fields_correct']['NOT_PROVEN'],'/96',
+                    'V3_PAIR_BOTH',v3['paired_contrasts']['both_correct'],'/36',
+                    'V3_PAIR_CHANGED',v3['paired_contrasts']['prediction_changed'],'/36',
+                    'V3_BY_KIND',v3['by_kind'],
+                    'V3_SAMPLES',v3['first_samples'][:2])
+          control,a42,a7=reports
+          assert control['augment_training_views'] is False
+          assert a42['augment_training_views'] and a7['augment_training_views']
+          assert control['train_samples']==240
+          assert a42['train_samples']==a7['train_samples']==960
+          for m in reports:
+              assert m['configuration']==control['configuration']
+              assert m['third_cli_holdout_sha256']==control['third_cli_holdout_sha256']
+              assert m['steps']==control['steps']
+          for key in ('training_sha256','validation_sha256','heldout_sha256',
+                      'tokenizer_sha256','parameter_count'):
+              assert a42[key]==a7[key],f'Uncontrolled augmented model variation {key}'
+          print('THIRD_VIEW_TWO_SEED_MEAN_FINDINGS',
+                (a42['third_cli_holdout_generation']['finding_correct']
+                 +a7['third_cli_holdout_generation']['finding_correct'])/2,
+                '/96 versus no-augmentation baseline',
+                control['third_cli_holdout_generation']['finding_correct'],'/96')
           PY
       - name: Preserve research metrics only - never deploy to Render
         uses: actions/upload-artifact@v4
         with:
           name: research-cisco-bgp-multicli-evidence-metrics-not-production
           path: |
-            /tmp/bgp-cli-evidence-*.metrics.json
             /tmp/bgp-cli-abstract-*.metrics.json
+            /tmp/bgp-cli-views-*.metrics.json
           retention-days: 14
           if-no-files-found: error
