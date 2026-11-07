@@ -193,7 +193,10 @@ class BalancedEvidenceSampler:
     def indices(self, step):
         if not isinstance(step, int) or step < 0:
             raise ValueError("Invalid BGP training batch index")
-        field = FIELDS[(step//len(self.kinds))%len(FIELDS)] if self.include_unknown else FIELDS[step % len(FIELDS)]
+        # Both curricula rotate FINDING/WHY/NOT_PROVEN/CHECK *every step*.
+        # Holding a field for nine updates biases the decoder toward the
+        # most recent field and made both nine-class models collapse.
+        field = FIELDS[step % len(FIELDS)]
         selection = []
         # In 9-class mode, choose 8 of 9 classes per batch. The skipped
         # class rotates; across nine optimizer updates each class is sampled
@@ -302,7 +305,7 @@ def _train(*, seed=42, steps=900, width=96, layers=2, heads=4,
     # is represented equally among twelve unseen context combinations.
     count_labels = Counter(
         e.completion for e in split["train"]
-        if e.id.endswith("-FINDING")
+        if e.id.startswith("factor-") and e.id.endswith("-FINDING")
     )
     majority = max(sorted(count_labels), key=lambda k: count_labels[k])
     majority_accuracy = sum(
