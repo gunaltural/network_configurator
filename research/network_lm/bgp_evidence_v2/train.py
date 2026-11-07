@@ -10,6 +10,7 @@ integration or operational safety approval.
 from argparse import ArgumentParser
 from collections import Counter, defaultdict
 from dataclasses import asdict
+from hashlib import sha256
 from pathlib import Path
 import json
 import random
@@ -27,6 +28,9 @@ from .abstention_curriculum import (
     VERSION as ABSTENTION_VERSION, UNKNOWN_KIND, GAPS,
     cases as abstention_cases, field_tasks as abstention_tasks,
     audit as abstention_audit,
+)
+from .reproducibility import (
+    model_fingerprint, runtime_info, compact_batch_fingerprint,
 )
 
 CONTRASTS = (
@@ -218,16 +222,23 @@ class BalancedEvidenceSampler:
 def _train(*, seed=42, steps=900, width=96, layers=2, heads=4,
            context=768, vocab_size=512, batch_size=8,
            balanced_batches=False, teach_abstention=False,
+           strict_cpu=False,
            output="/tmp/bgp-factorial-scratch.pt", threads=2):
     if (type(seed) is not int or not 1 <= steps <= 4000
             or not 1 <= batch_size <= 24 or not 1 <= threads <= 8
             or type(balanced_batches) is not bool
-            or type(teach_abstention) is not bool):
+            or type(teach_abstention) is not bool
+            or type(strict_cpu) is not bool):
         raise ValueError("Invalid scratch BGP research training parameters")
     if teach_abstention and not balanced_batches:
         raise ValueError("Safety curriculum requires balanced class coverage")
     if balanced_batches and batch_size != len(KINDS):
         raise ValueError("Balanced batches require one sample per BGP class")
+    # Separate controlled research mode: remove multithreaded CPU scheduling
+    # and MKLDNN implementation selection as possible numerical divergence.
+    if strict_cpu:
+        threads = 1
+        torch.backends.mkldnn.enabled = False
     torch.set_num_threads(threads)
     torch.use_deterministic_algorithms(True)
     torch.manual_seed(seed)
@@ -258,6 +269,8 @@ def _train(*, seed=42, steps=900, width=96, layers=2, heads=4,
     train_encoded = [encode_example(x, tokenizer, context) for x in training]
     val_encoded = [encode_example(x, tokenizer, context) for x in split["val"]]
     net = ScratchNetworkLM(config)
+    initial_weights_sha256 = model_fingerprint(net)
+    cpu_info = runtime_info()
     random_model_val_loss = validate(net, val_encoded, torch.device("cpu"))
     optimizer = torch.optim.AdamW(net.parameters(), lr=0.001)
     order = list(range(len(train_encoded)))
@@ -269,6 +282,7 @@ def _train(*, seed=42, steps=900, width=96, layers=2, heads=4,
         if balanced_batches else None
     )
     initial, last = None, None
+    batch_digest = sha256()
     for step in range(steps):
         if balanced_sampler is not None:
             sampled = balanced_sampler.indices(step)
@@ -280,6 +294,7 @@ def _train(*, seed=42, steps=900, width=96, layers=2, heads=4,
                     rng.shuffle(order)
                 sampled.append(order[cursor])
                 cursor += 1
+        batch_digest.update(compact_batch_fingerprint(sampled))
         x,y = batch(train_encoded, sampled, torch.device("cpu"))
         net.train()
         optimizer.zero_grad(set_to_none=True)
@@ -291,6 +306,7 @@ def _train(*, seed=42, steps=900, width=96, layers=2, heads=4,
             initial = round(float(loss.item()), 6)
         last = round(float(loss.item()), 6)
     val_loss = validate(net, val_encoded, torch.device("cpu"))
+    trained_weights_sha256 = model_fingerprint(net)
     results = test_model_generation(net, tokenizer, split["test"])
     unknown_score = evaluate_insufficient_evidence(
         net, tokenizer, uncertain_split["test"]
@@ -318,6 +334,11 @@ def _train(*, seed=42, steps=900, width=96, layers=2, heads=4,
         "model_config": asdict(config),
         "params": sum(p.numel() for p in net.parameters()),
         "seed": seed, "steps": steps, "batch_size": batch_size,
+        "strict_cpu":strict_cpu,
+        "cpu_environment":cpu_info,
+        "initial_weights_sha256":initial_weights_sha256,
+        "final_weights_sha256":trained_weights_sha256,
+        "batch_sequence_sha256":batch_digest.hexdigest(),
         "balanced_evidence_batches": balanced_batches,
         "teach_abstention": teach_abstention,
         "abstention_curriculum_version": ABSTENTION_VERSION,
@@ -382,6 +403,11 @@ def _train(*, seed=42, steps=900, width=96, layers=2, heads=4,
     print(json.dumps({
         "status": report_data["status"],
         "seed": seed, "balanced_evidence_batches": balanced_batches,
+        "strict_cpu":strict_cpu,
+        "first_loss":initial,"final_loss":last,
+        "initial_weights_sha256":initial_weights_sha256,
+        "final_weights_sha256":trained_weights_sha256,
+        "batch_sequence_sha256":batch_digest.hexdigest(),
         "teach_abstention":teach_abstention,
         "unknown_findings":unknown_score["by_field"]["FINDING"]["correct"],
         "unknown_total":60,
@@ -414,6 +440,7 @@ def main():
     parser.add_argument("--threads", type=int, default=2)
     parser.add_argument("--balanced-batches", action="store_true")
     parser.add_argument("--teach-abstention", action="store_true")
+    parser.add_argument("--strict-cpu", action="store_true")
     parser.add_argument("--output", default="/tmp/bgp-factorial-scratch.pt")
     args = parser.parse_args()
     _train(seed=args.seed, steps=args.steps, width=args.width,
@@ -421,6 +448,7 @@ def main():
            vocab_size=args.vocab_size, batch_size=args.batch_size,
            balanced_batches=args.balanced_batches,
            teach_abstention=args.teach_abstention,
+           strict_cpu=args.strict_cpu,
            threads=args.threads, output=args.output)
 
 
