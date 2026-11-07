@@ -117,7 +117,7 @@ def compare(path):
     # token probabilities. They are visible only to the final evaluation.
     greedy = evaluate(model, tokenizer, third)
     constrained = evaluate(LearnedFindingGrammar(model, tokenizer), tokenizer, third)
-    if (greedy["total"] != constrained["total"] != 96):
+    if greedy["total"] != 96 or constrained["total"] != 96:
         raise ValueError("Unexpected constrained evaluation count")
     result = {
         "status": "BGP_GRAMMAR_DECODING_RESEARCH_ONLY",
