@@ -6,7 +6,10 @@ import torch
 
 from ..model import ByteTokenizer
 from .curriculum import FIELDS, SPLIT_CONTEXTS, KINDS, cases, tasks, report
-from .train import test_model_generation, BalancedEvidenceSampler
+from .train import test_model_generation, BalancedEvidenceSampler, evaluate_insufficient_evidence
+from .abstention_curriculum import (
+    UNKNOWN_KIND, GAPS, cases as uncertainty_cases, field_tasks as uncertainty_tasks
+)
 
 
 class EvidenceLearningTests(unittest.TestCase):
@@ -53,6 +56,46 @@ class EvidenceLearningTests(unittest.TestCase):
             )
         with self.assertRaisesRegex(ValueError,"Invalid"):
             a.indices(-1)
+
+    def test_9_class_sampler_balances_uncertainty_without_hiding_original_classes(self):
+        training=tasks(cases()["train"])+uncertainty_tasks(uncertainty_cases()["train"])
+        a=BalancedEvidenceSampler(training,seed=42,include_unknown=True)
+        b=BalancedEvidenceSampler(training,seed=42,include_unknown=True)
+        observed=Counter()
+        observed_fields=Counter()
+        for step in range(72):
+            selected=a.indices(step)
+            self.assertEqual(selected,b.indices(step))
+            self.assertEqual(len(selected),8)
+            self.assertEqual(len(set(selected)),8)
+            kinds=[UNKNOWN_KIND if "-"+UNKNOWN_KIND+"-" in training[i].id
+                   else next(k for k in KINDS if training[i].id.endswith(
+                       "-"+k+"-"+FIELDS[(step//9)%4]))
+                   for i in selected]
+            self.assertEqual(len(set(kinds)),8)
+            observed.update(kinds)
+            field=FIELDS[(step//9)%4]
+            self.assertEqual({training[i].id.rsplit("-",1)[-1] for i in selected},
+                             {field})
+            observed_fields[field]+=1
+        self.assertEqual(set(observed),set(KINDS)|{UNKNOWN_KIND})
+        self.assertEqual(len(set(observed.values())),1)
+
+    def test_grade_unknown_keeps_four_fields_and_penalizes_constant_finding(self):
+        tokens=ByteTokenizer()
+        class Constant:
+            config=type("Config",(),{"block_size":2048})()
+            def eval(self):return self
+            def complete(self,prompt,max_new_tokens=100):
+                return prompt+tokens.encode("FINDING=EVIDENCE_INSUFFICIENT")
+        unknown=uncertainty_tasks(uncertainty_cases()["test"])
+        report=evaluate_insufficient_evidence(Constant(),tokens,unknown,limit=40)
+        self.assertEqual(report["field_tasks"],240)
+        self.assertEqual(report["incidents"],60)
+        self.assertEqual(report["by_field"]["FINDING"]["correct"],60)
+        self.assertEqual(report["by_field"]["WHY"]["correct"],0)
+        self.assertEqual(report["all_four_correct"],0)
+        self.assertFalse(report["production_ready"])
 
     def test_training_and_test_are_distinct_factor_combinations(self):
         x=report()
