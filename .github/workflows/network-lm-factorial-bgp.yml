@@ -1,0 +1,82 @@
+name: Cisco BGP factorial evidence learning (isolated scratch research)
+on:
+  pull_request:
+    paths:
+      - 'research/network_lm/bgp_evidence_v2/**'
+      - '.github/workflows/network-lm-factorial-bgp.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  research-factorial-bgp:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned CPU-only PyTorch
+        run: python -m pip install 'torch==2.15.0' --index-url https://download.pytorch.org/whl/cpu
+      - name: Test real peer-scoped semantic variation and no source leakage
+        run: |
+          python -m unittest research.network_lm.bgp_evidence_v2.test_curriculum research.network_lm.bgp_evidence_v2.test_train -v
+          python -m research.network_lm.bgp_evidence_v2.curriculum
+      - name: Train truly random-init BGP decoder, seed 42
+        run: |
+          python -m research.network_lm.bgp_evidence_v2.train \
+            --seed 42 --steps 900 --context 768 --width 96 --layers 2 \
+            --heads 4 --batch-size 8 --vocab-size 512 \
+            --output /tmp/factorial-bgp-scratch-seed42.pt
+      - name: Reinitialize and train same BGP decoder, seed 7
+        run: |
+          python -m research.network_lm.bgp_evidence_v2.train \
+            --seed 7 --steps 900 --context 768 --width 96 --layers 2 \
+            --heads 4 --batch-size 8 --vocab-size 512 \
+            --output /tmp/factorial-bgp-scratch-seed7.pt
+      - name: Check heldout novel context combinations and true model-generation output
+        run: |
+          python - <<'PY'
+          import json
+          scores=[]
+          for seed in (42,7):
+              m=json.load(open(f'/tmp/factorial-bgp-scratch-seed{seed}.metrics.json'))
+              r=m['heldout_generated']
+              assert m['status']=='FACTORIAL_CISCO_BGP_SCRATCH_RESEARCH_ONLY'
+              assert m['source']=='ORIGINAL_SYNTHETIC_CLI_NOT_VENDOR_COPY'
+              assert m['train_cases']==224 and m['val_cases']==64 and m['test_cases']==96
+              assert m['train_field_tasks']==896 and m['val_field_tasks']==256
+              assert m['test_field_tasks']==r['field_tasks']==384
+              assert m['deterministic_algorithms'] and m['steps']==900
+              assert m['majority_reference_correct']==12
+              assert r['counterfactual_finding']['total_pairs']==36
+              assert all(r['by_field'][x]['total']==96
+                         for x in ('FINDING','WHY','NOT_PROVEN','CHECK'))
+              assert not m['engineering_verified'] and not m['production_ready']
+              print('FACTORIAL_SCRATCH_BGP',seed,
+                    'finding',r['by_field']['FINDING']['first_line_correct'],'/96',
+                    'why',r['by_field']['WHY']['first_line_correct'],'/96',
+                    'not_proven',r['by_field']['NOT_PROVEN']['first_line_correct'],'/96',
+                    'next_check',r['by_field']['CHECK']['first_line_correct'],'/96',
+                    'all_four',r['all_four_fields_correct'],'/96',
+                    'counterfactual_both',r['counterfactual_finding']['both_correct'],'/36',
+                    'counterfactual_changed',r['counterfactual_finding']['prediction_changed'],'/36',
+                    'majority',m['majority_reference_correct'],'/96',
+                    'generated_samples',r['samples'][:3])
+              scores.append(m)
+          left,right=scores
+          for field in ('model_config','params','train_sha256','val_sha256',
+                        'test_sha256','tokenizer_sha256','steps'):
+              assert left[field]==right[field],f'Differing experiment input: {field}'
+          print('FINDING_TWO_SEED_MEAN',sum(m['heldout_generated']['by_field']['FINDING']['first_line_correct'] for m in scores)/2,'/96')
+          PY
+      - name: Keep research metrics and one checkpoint only; never modify live app
+        uses: actions/upload-artifact@v4
+        with:
+          name: scratch-bgp-factorial-research-not-production
+          path: |
+            /tmp/factorial-bgp-scratch-seed42.pt
+            /tmp/factorial-bgp-scratch-seed42.metrics.json
+            /tmp/factorial-bgp-scratch-seed7.metrics.json
+          retention-days: 14
+          if-no-files-found: error
