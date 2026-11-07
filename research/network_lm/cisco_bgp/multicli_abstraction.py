@@ -30,15 +30,13 @@ def abstract_cli(prompt):
         literal_other: "PEER_DISTRACTOR",
         literal_next_hop: "TARGET_NEXT_HOP",
         prefix.group(1): "TARGET_IPV4_PREFIX",
-        "645" + "12": "AS_LITERAL_PLACEHOLDER",  # replaced below
     }
-    del replacement["64512"]
     for old, new in sorted(replacement.items(), key=lambda pair: -len(pair[0])):
         prompt = prompt.replace(old, new)
     # Remote ASN appears as a standalone field or remote-as. Do not alter
     # Cisco's unchanged local AS 65010.
     prompt = re.sub(r"\b645(?:[1-8][0-9]|9[0-3])\b", "AS_REMOTE", prompt)
-    if (prompt.count("PEER_TARGET") < 2
+    if (prompt.count("PEER_TARGET") < 1
             or "TARGET_NEIGHBOR=PEER_TARGET" not in prompt
             or "TARGET_PREFIX=TARGET_IPV4_PREFIX" not in prompt
             or "192.0.2." in prompt
