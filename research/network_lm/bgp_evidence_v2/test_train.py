@@ -70,15 +70,17 @@ class EvidenceLearningTests(unittest.TestCase):
             self.assertEqual(len(set(selected)),8)
             kinds=[UNKNOWN_KIND if "-"+UNKNOWN_KIND+"-" in training[i].id
                    else next(k for k in KINDS if training[i].id.endswith(
-                       "-"+k+"-"+FIELDS[(step//9)%4]))
+                       "-"+k+"-"+FIELDS[step%4]))
                    for i in selected]
             self.assertEqual(len(set(kinds)),8)
             observed.update(kinds)
-            field=FIELDS[(step//9)%4]
+            field=FIELDS[step%4]
             self.assertEqual({training[i].id.rsplit("-",1)[-1] for i in selected},
                              {field})
             observed_fields[field]+=1
         self.assertEqual(set(observed),set(KINDS)|{UNKNOWN_KIND})
+        self.assertEqual(set(observed_fields),set(FIELDS))
+        self.assertEqual(len(set(observed_fields.values())),1)
         self.assertEqual(len(set(observed.values())),1)
 
     def test_grade_unknown_keeps_four_fields_and_penalizes_constant_finding(self):
