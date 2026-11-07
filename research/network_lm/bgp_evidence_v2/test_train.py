@@ -97,6 +97,12 @@ class EvidenceLearningTests(unittest.TestCase):
         self.assertEqual(report["by_field"]["FINDING"]["correct"],60)
         self.assertEqual(report["by_field"]["WHY"]["correct"],0)
         self.assertEqual(report["all_four_correct"],0)
+        self.assertEqual(set(report["by_gap"]),set(GAPS))
+        for gap in GAPS:
+            self.assertEqual(report["by_gap"][gap]["FINDING"],
+                             {"correct":12,"total":12})
+            self.assertEqual(report["by_gap"][gap]["WHY"],
+                             {"correct":0,"total":12})
         self.assertFalse(report["production_ready"])
 
     def test_training_and_test_are_distinct_factor_combinations(self):

@@ -32,6 +32,7 @@ from .abstention_curriculum import (
 from .reproducibility import (
     model_fingerprint, runtime_info, compact_batch_fingerprint,
 )
+from .gap_sampler import GapBalancedSampler
 from .field_scaffold import (
     scaffold_prefix, encode_scaffold_example, FieldPrefixAdapter,
 )
@@ -134,6 +135,8 @@ def evaluate_insufficient_evidence(model, tok, records, *, limit=100):
     count=Counter()
     snippets=[]
     by_incident=defaultdict(dict)
+    gap_correct=defaultdict(Counter)
+    gap_count=defaultdict(Counter)
     for record in records:
         field=record.id.rsplit("-",1)[-1]
         if field not in FIELDS:
@@ -144,6 +147,11 @@ def evaluate_insufficient_evidence(model, tok, records, *, limit=100):
         predicted=tok.decode(model.complete(prefix,max_new_tokens=limit)[len(prefix):]).strip()
         first=predicted.splitlines()[0].strip() if predicted else ""
         correct=(first==record.completion)
+        gap=record.id.rsplit("-",3)[-3]
+        if gap not in GAPS:
+            raise ValueError("Unknown evidence gap in evaluation")
+        gap_correct[gap][field]+=int(correct)
+        gap_count[gap][field]+=1
         right[field]+=int(correct)
         count[field]+=1
         incident=record.id.rsplit("-",2)[0]
@@ -157,6 +165,9 @@ def evaluate_insufficient_evidence(model, tok, records, *, limit=100):
         "field_tasks":len(records),
         "incidents":len(by_incident),
         "by_field":{k:{"correct":right[k],"total":count[k]} for k in FIELDS},
+        "by_gap": {gap: {field: {"correct": gap_correct[gap][field],
+                                  "total": gap_count[gap][field]}
+                         for field in FIELDS} for gap in GAPS},
         "all_four_correct":sum(
             all(v.get(k,False) for k in FIELDS)
             for v in by_incident.values()
@@ -225,15 +236,18 @@ class BalancedEvidenceSampler:
 def _train(*, seed=42, steps=900, width=96, layers=2, heads=4,
            context=768, vocab_size=512, batch_size=8,
            balanced_batches=False, teach_abstention=False,
-           strict_cpu=False, field_scaffold=False,
+           strict_cpu=False, field_scaffold=False, balance_gaps=False,
            output="/tmp/bgp-factorial-scratch.pt", threads=2):
     if (type(seed) is not int or not 1 <= steps <= 4000
             or not 1 <= batch_size <= 24 or not 1 <= threads <= 8
             or type(balanced_batches) is not bool
             or type(teach_abstention) is not bool
             or type(strict_cpu) is not bool
-            or type(field_scaffold) is not bool):
+            or type(field_scaffold) is not bool
+            or type(balance_gaps) is not bool):
         raise ValueError("Invalid scratch BGP research training parameters")
+    if balance_gaps and not (teach_abstention and balanced_batches):
+        raise ValueError("Gap balancing requires the balanced abstention curriculum")
     if teach_abstention and not balanced_batches:
         raise ValueError("Safety curriculum requires balanced class coverage")
     if balanced_batches and batch_size != len(KINDS):
@@ -298,6 +312,8 @@ def _train(*, seed=42, steps=900, width=96, layers=2, heads=4,
                                 include_unknown=teach_abstention)
         if balanced_batches else None
     )
+    if balance_gaps:
+        balanced_sampler = GapBalancedSampler(training, seed=seed)
     initial, last = None, None
     batch_digest = sha256()
     for step in range(steps):
@@ -356,6 +372,7 @@ def _train(*, seed=42, steps=900, width=96, layers=2, heads=4,
         "seed": seed, "steps": steps, "batch_size": batch_size,
         "strict_cpu":strict_cpu,
         "field_scaffold":field_scaffold,
+        "balance_gaps":balance_gaps,
         "cpu_environment":cpu_info,
         "initial_weights_sha256":initial_weights_sha256,
         "final_weights_sha256":trained_weights_sha256,
@@ -412,6 +429,7 @@ def _train(*, seed=42, steps=900, width=96, layers=2, heads=4,
             "balanced_evidence_batches": balanced_batches,
             "teach_abstention": teach_abstention,
             "field_scaffold": field_scaffold,
+            "balance_gaps": balance_gaps,
             "train_sha256": digest(training),
             "test_sha256": audit["test_sha256"],
             "unknown_test_sha256":digest(uncertain_split["test"]),
@@ -427,6 +445,7 @@ def _train(*, seed=42, steps=900, width=96, layers=2, heads=4,
         "seed": seed, "balanced_evidence_batches": balanced_batches,
         "strict_cpu":strict_cpu,
         "field_scaffold":field_scaffold,
+        "balance_gaps":balance_gaps,
         "first_loss":initial,"final_loss":last,
         "initial_weights_sha256":initial_weights_sha256,
         "final_weights_sha256":trained_weights_sha256,
@@ -465,6 +484,7 @@ def main():
     parser.add_argument("--teach-abstention", action="store_true")
     parser.add_argument("--strict-cpu", action="store_true")
     parser.add_argument("--field-scaffold", action="store_true")
+    parser.add_argument("--balance-gaps", action="store_true")
     parser.add_argument("--output", default="/tmp/bgp-factorial-scratch.pt")
     args = parser.parse_args()
     _train(seed=args.seed, steps=args.steps, width=args.width,
@@ -474,6 +494,7 @@ def main():
            teach_abstention=args.teach_abstention,
            strict_cpu=args.strict_cpu,
            field_scaffold=args.field_scaffold,
+           balance_gaps=args.balance_gaps,
            threads=args.threads, output=args.output)
 
 
