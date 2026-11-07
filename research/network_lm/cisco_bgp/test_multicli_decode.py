@@ -37,6 +37,13 @@ class GenerativeLabelGrammarTests(unittest.TestCase):
         self.assertIn(result, ALLOWED_FINDINGS)
         self.assertEqual(len(ALLOWED_FINDINGS), 8)
         self.assertEqual(len(set(ALLOWED_FINDINGS)), 8)
+        with_scores = choose_finding(
+            self.model, self.tokenizer, prompt, with_scores=True
+        )
+        self.assertEqual(with_scores[0], result)
+        self.assertEqual(set(with_scores[1]), set(ALLOWED_FINDINGS))
+        self.assertTrue(all(isinstance(score, float)
+                            for score in with_scores[1].values()))
         for label in ALLOWED_FINDINGS:
             score = label_log_prob(
                 self.model, self.tokenizer, prompt, label
@@ -59,6 +66,11 @@ class GenerativeLabelGrammarTests(unittest.TestCase):
         produced = policy.complete(prompt, max_new_tokens=45)
         decoded = self.tokenizer.decode(produced[len(prompt):])
         self.assertTrue(decoded.startswith("FINDING=" + predicted_label + "\n"))
+        self.assertEqual(len(policy.decisions), 1)
+        self.assertEqual(policy.decisions[0]["label"], predicted_label)
+        self.assertGreaterEqual(
+            policy.decisions[0]["margin_logprob_per_token"], 0.0
+        )
         self.assertFalse(hasattr(policy, "evaluate_diagnostics"))
         with self.assertRaisesRegex(ValueError, "Insufficient"):
             policy.complete(prompt, max_new_tokens=1)
