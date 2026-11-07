@@ -55,13 +55,14 @@ def label_log_prob(model, tok, input_tokens, label):
 
 
 @torch.no_grad()
-def choose_finding(model, tok, prompt):
+def choose_finding(model, tok, prompt, *, with_scores=False):
     model.eval()
     scores = {
         label: label_log_prob(model, tok, prompt, label)
         for label in ALLOWED_FINDINGS
     }
-    return max(ALLOWED_FINDINGS, key=lambda label: (scores[label], -ALLOWED_FINDINGS.index(label)))
+    chosen = max(ALLOWED_FINDINGS, key=lambda label: (scores[label], -ALLOWED_FINDINGS.index(label)))
+    return (chosen, scores) if with_scores else chosen
 
 
 class LearnedFindingGrammar:
@@ -71,6 +72,7 @@ class LearnedFindingGrammar:
         self.model = model
         self.tokenizer = tokenizer
         self.config = model.config
+        self.decisions = []
 
     def eval(self):
         self.model.eval()
@@ -78,7 +80,14 @@ class LearnedFindingGrammar:
 
     @torch.no_grad()
     def complete(self, prompt, max_new_tokens=160):
-        label = choose_finding(self.model, self.tokenizer, prompt)
+        label, scores = choose_finding(
+            self.model, self.tokenizer, prompt, with_scores=True
+        )
+        ordered = sorted(scores.values(), reverse=True)
+        self.decisions.append({
+            "label": label,
+            "margin_logprob_per_token": ordered[0] - ordered[1],
+        })
         initial = self.tokenizer.encode("FINDING=" + label + "\n")
         if len(initial) >= max_new_tokens:
             raise ValueError("Insufficient decoding budget for BGP grammar")
@@ -118,9 +127,32 @@ def compare(path):
     # Never use reference labels while scoring the model's own candidate
     # token probabilities. They are visible only to the final evaluation.
     greedy = evaluate(model, tokenizer, third)
-    constrained = evaluate(LearnedFindingGrammar(model, tokenizer), tokenizer, third)
+    grammar = LearnedFindingGrammar(model, tokenizer)
+    constrained = evaluate(grammar, tokenizer, third)
     if greedy["total"] != 96 or constrained["total"] != 96:
         raise ValueError("Unexpected constrained evaluation count")
+    if len(grammar.decisions) != len(third):
+        raise ValueError("Missing learned finding-score observations")
+    calibrated = []
+    for record, decision in zip(third, grammar.decisions):
+        expected = record.example.completion.splitlines()[0].split("=", 1)[1]
+        calibrated.append({
+            "correct": decision["label"] == expected,
+            "margin": decision["margin_logprob_per_token"],
+        })
+    # A likelihood margin is NOT a calibrated confidence probability.
+    # Report selective coverage/precision without enabling production traffic.
+    selective = {}
+    for margin_limit in (0.0, 0.1, 0.3, 0.6):
+        kept = [x for x in calibrated if x["margin"] >= margin_limit]
+        selective[str(margin_limit)] = {
+            "accepted": len(kept),
+            "correct": sum(x["correct"] for x in kept),
+            "precision": None if not kept else round(
+                sum(x["correct"] for x in kept) / len(kept), 4
+            ),
+            "coverage": round(len(kept) / len(calibrated), 4),
+        }
     result = {
         "status": "BGP_GRAMMAR_DECODING_RESEARCH_ONLY",
         "seed": manifest["seed"],
@@ -130,11 +162,13 @@ def compare(path):
         "method": "same-scratch-decoder-model-scores-valid-finding-labels",
         "greedy": greedy,
         "constrained": constrained,
+        "uncalibrated_selective_margins": selective,
         "limitations": (
             "Constrained output labels are drawn from an authored finite list. "
             "This does not demonstrate learned open-ended Cisco CLI semantics; "
             "only the generative LM can choose label likelihoods and freely "
-            "generate subsequent explanation text. Synthetic research only."
+            "generate subsequent explanation text. Token log-prob margins are "
+            "not calibrated confidence or approved abstention rules. Synthetic research only."
         ),
         "engineering_verified": False, "production_ready": False,
     }
@@ -146,6 +180,7 @@ def compare(path):
         "constrained_full": constrained["exact_explanation"],
         "greedy_pairs": greedy["paired_contrasts"]["both_correct"],
         "constrained_pairs": constrained["paired_contrasts"]["both_correct"],
+        "selective_margins": selective,
         "total": constrained["total"], "not_for_live_network": True,
     }), flush=True)
     return result
