@@ -22,6 +22,8 @@ from .multicli_curriculum import (
     CURRICULUM_VERSION, KINDS, SOURCE_IDS, TARGET, dataset, fingerprint,
 )
 from .tokenizer import train_bpe
+from .multicli_abstraction import abstract_record
+from .multicli_holdout_v2 import holdout
 
 ROOT = Path(__file__).resolve().parent
 EVIDENCE_FIELDS = ("FINDING", "WHY", "NOT_PROVEN", "CHECK")
@@ -132,9 +134,12 @@ def evaluate(model, tok, records, *, max_new_tokens=160):
 
 def train(*, seed=42, steps=800, width=96, layers=2, heads=4,
           context=512, vocab_size=512, batch_size=6, threads=2,
+          abstract_identities=False,
           output="/tmp/cisco-bgp-multicli.pt"):
     if not 1 <= steps <= 4000 or not 1 <= batch_size <= 32:
         raise ValueError("Invalid training budget")
+    if type(abstract_identities) is not bool:
+        raise ValueError("Invalid abstraction flag")
     if not 1 <= threads <= 8:
         raise ValueError("Invalid CPU thread configuration")
     torch.manual_seed(seed)
@@ -142,6 +147,20 @@ def train(*, seed=42, steps=800, width=96, layers=2, heads=4,
     torch.use_deterministic_algorithms(True)
     rng = random.Random(seed)
     records = dataset()
+    v2_original, v2_raw_fingerprint = holdout()
+    if abstract_identities:
+        records = {
+            split: [abstract_record(x) for x in items]
+            for split, items in records.items()
+        }
+        v2 = [abstract_record(x) for x in v2_original]
+    else:
+        v2 = v2_original
+    # Crucial: evaluation-only alternate CLI examples, after normalization,
+    # must not appear in the exact TRAIN or validation input set.
+    train_prompts = {x.example.prompt for x in records["train"] + records["val"]}
+    if any(x.example.prompt in train_prompts for x in v2):
+        raise ValueError("Alternative-command BGP holdout leaked into training")
     catalog = json.loads((ROOT / "source_catalog.json").read_text(encoding="utf-8"))
     allowed = {s["id"] for s in catalog["sources"]}
     if any(source not in allowed for ids in SOURCE_IDS.values() for source in ids):
@@ -194,7 +213,9 @@ def train(*, seed=42, steps=800, width=96, layers=2, heads=4,
     after = validate(model, valid_data, torch.device("cpu"))
     # No scripted fallback: full autogeneration from random-init weights.
     scored = evaluate(model, tokenizer, records["test"])
-    if scored["paired_contrasts"]["total"] != 36:
+    v2_scored = evaluate(model, tokenizer, v2)
+    if (scored["paired_contrasts"]["total"] != 36
+            or v2_scored["paired_contrasts"]["total"] != 36):
         raise ValueError("Multi-CLI paired counterfactual coverage is incomplete")
     references = Counter(TARGET[k][0] for k in KINDS)
     majority = sorted(references, key=lambda x: (-references[x], x))[0]
@@ -206,6 +227,7 @@ def train(*, seed=42, steps=800, width=96, layers=2, heads=4,
         "status": "CISCO_BGP_MULTI_CLI_GENERATIVE_RESEARCH_ONLY",
         "curriculum_version": CURRICULUM_VERSION,
         "seed": seed, "steps": steps,
+        "abstract_identities": abstract_identities,
         "configuration": asdict(config),
         "parameter_count": sum(p.numel() for p in model.parameters()),
         "train_samples": len(training),
@@ -214,6 +236,8 @@ def train(*, seed=42, steps=800, width=96, layers=2, heads=4,
         "training_sha256": fingerprint(training),
         "validation_sha256": fingerprint(records["val"]),
         "heldout_sha256": fingerprint(records["test"]),
+        "new_alternate_cli_sha256": v2_raw_fingerprint,
+        "new_alternate_cli_view_sha256": fingerprint(v2),
         "tokenizer_sha256": tokenizer.fingerprint(),
         "data_source_ids": sorted(allowed),
         "torch": torch.__version__,
@@ -225,6 +249,7 @@ def train(*, seed=42, steps=800, width=96, layers=2, heads=4,
         "majority_reference_correct": baseline_correct,
         "majority_reference_total": len(records["test"]),
         "heldout_generation": scored,
+        "new_alternate_cli_generation": v2_scored,
         "limitations": (
             "Entirely original-synthetic CLI snippets; not real Cisco operations, "
             "complete root-cause diagnoses or cross-platform BGP engineering. "
@@ -242,6 +267,8 @@ def train(*, seed=42, steps=800, width=96, layers=2, heads=4,
             "status": report["status"], "seed": seed,
             "train_sha256": report["training_sha256"],
             "heldout_sha256": report["heldout_sha256"],
+            "new_alternate_cli_sha256": v2_raw_fingerprint,
+            "abstract_identities": abstract_identities,
             "tokenizer_sha256": report["tokenizer_sha256"],
             "parameter_count": report["parameter_count"],
             "engineering_verified": False, "production_ready": False,
@@ -256,6 +283,8 @@ def train(*, seed=42, steps=800, width=96, layers=2, heads=4,
         "val_loss": after,
         "correct_finding": scored["finding_correct"],
         "exact_full_explanation": scored["exact_explanation"],
+        "alt_cli_correct_finding": v2_scored["finding_correct"],
+        "alt_cli_exact_explanation": v2_scored["exact_explanation"],
         "total": scored["total"],
         "paired_both_correct": scored["paired_contrasts"]["both_correct"],
         "paired_total": scored["paired_contrasts"]["total"],
@@ -276,12 +305,14 @@ def main():
     parser.add_argument("--vocab-size", type=int, default=512)
     parser.add_argument("--batch-size", type=int, default=6)
     parser.add_argument("--threads", type=int, default=2)
+    parser.add_argument("--abstract-identities", action="store_true")
     parser.add_argument("--output", default="/tmp/cisco-bgp-multicli.pt")
     a = parser.parse_args()
     train(
         seed=a.seed, steps=a.steps, width=a.width, layers=a.layers,
         heads=a.heads, context=a.context, vocab_size=a.vocab_size,
-        batch_size=a.batch_size, threads=a.threads, output=a.output,
+        batch_size=a.batch_size, threads=a.threads,
+        abstract_identities=a.abstract_identities, output=a.output,
     )
 
 
