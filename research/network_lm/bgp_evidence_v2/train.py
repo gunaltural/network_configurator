@@ -114,12 +114,57 @@ def test_model_generation(model, tok, records, *, limit=100):
     }
 
 
+class BalancedEvidenceSampler:
+    """Cycle through four requested output fields and cover all eight findings.
+
+    Each optimizer batch includes exactly one example for each of the eight
+    evidence classes. The field task rotates deterministically, so short runs
+    cannot accidentally starve a finding class or requested engineering field.
+    This is *training sampling*, not hardcoded inference behavior.
+    """
+
+    def __init__(self, training, *, seed):
+        self.rng = random.Random(seed)
+        self.buckets = {}
+        self.cursors = {}
+        for field in FIELDS:
+            for kind in KINDS:
+                matches = [
+                    index for index,x in enumerate(training)
+                    if x.id.endswith("-" + kind + "-" + field)
+                ]
+                if len(matches) != len(SPLIT_CONTEXTS["train"]):
+                    raise ValueError("Training data missing balanced BGP classes")
+                self.rng.shuffle(matches)
+                self.buckets[(field,kind)] = matches
+                self.cursors[(field,kind)] = 0
+
+    def indices(self, step):
+        if not isinstance(step, int) or step < 0:
+            raise ValueError("Invalid BGP training batch index")
+        field = FIELDS[step % len(FIELDS)]
+        selection = []
+        for kind in KINDS:
+            key = (field,kind)
+            cursor = self.cursors[key]
+            if cursor == len(self.buckets[key]):
+                self.rng.shuffle(self.buckets[key])
+                cursor = 0
+            selection.append(self.buckets[key][cursor])
+            self.cursors[key] = cursor + 1
+        return selection
+
+
 def _train(*, seed=42, steps=900, width=96, layers=2, heads=4,
            context=768, vocab_size=512, batch_size=8,
+           balanced_batches=False,
            output="/tmp/bgp-factorial-scratch.pt", threads=2):
     if (type(seed) is not int or not 1 <= steps <= 4000
-            or not 1 <= batch_size <= 24 or not 1 <= threads <= 8):
+            or not 1 <= batch_size <= 24 or not 1 <= threads <= 8
+            or type(balanced_batches) is not bool):
         raise ValueError("Invalid scratch BGP research training parameters")
+    if balanced_batches and batch_size != len(KINDS):
+        raise ValueError("Balanced batches require one sample per BGP class")
     torch.set_num_threads(threads)
     torch.use_deterministic_algorithms(True)
     torch.manual_seed(seed)
@@ -150,15 +195,22 @@ def _train(*, seed=42, steps=900, width=96, layers=2, heads=4,
     order = list(range(len(train_encoded)))
     rng.shuffle(order)
     cursor = 0
+    balanced_sampler = (
+        BalancedEvidenceSampler(training, seed=seed)
+        if balanced_batches else None
+    )
     initial, last = None, None
     for step in range(steps):
-        sampled = []
-        for _ in range(batch_size):
-            if cursor == len(order):
-                cursor = 0
-                rng.shuffle(order)
-            sampled.append(order[cursor])
-            cursor += 1
+        if balanced_sampler is not None:
+            sampled = balanced_sampler.indices(step)
+        else:
+            sampled = []
+            for _ in range(batch_size):
+                if cursor == len(order):
+                    cursor = 0
+                    rng.shuffle(order)
+                sampled.append(order[cursor])
+                cursor += 1
         x,y = batch(train_encoded, sampled, torch.device("cpu"))
         net.train()
         optimizer.zero_grad(set_to_none=True)
@@ -191,6 +243,7 @@ def _train(*, seed=42, steps=900, width=96, layers=2, heads=4,
         "model_config": asdict(config),
         "params": sum(p.numel() for p in net.parameters()),
         "seed": seed, "steps": steps, "batch_size": batch_size,
+        "balanced_evidence_batches": balanced_batches,
         "torch_version": torch.__version__,
         "deterministic_algorithms": torch.are_deterministic_algorithms_enabled(),
         "train_cases": audit["cases"]["train"],
@@ -227,6 +280,7 @@ def _train(*, seed=42, steps=900, width=96, layers=2, heads=4,
         "manifest": {
             "status": report_data["status"],
             "seed": seed,
+            "balanced_evidence_batches": balanced_batches,
             "train_sha256": audit["train_sha256"],
             "test_sha256": audit["test_sha256"],
             "tokenizer_sha256": tokenizer.fingerprint(),
@@ -238,7 +292,7 @@ def _train(*, seed=42, steps=900, width=96, layers=2, heads=4,
     )
     print(json.dumps({
         "status": report_data["status"],
-        "seed": seed,
+        "seed": seed, "balanced_evidence_batches": balanced_batches,
         "train_cases": report_data["train_cases"],
         "train_field_tasks": report_data["train_field_tasks"],
         "test_cases": report_data["test_cases"],
@@ -266,11 +320,13 @@ def main():
     parser.add_argument("--vocab-size", type=int, default=512)
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--threads", type=int, default=2)
+    parser.add_argument("--balanced-batches", action="store_true")
     parser.add_argument("--output", default="/tmp/bgp-factorial-scratch.pt")
     args = parser.parse_args()
     _train(seed=args.seed, steps=args.steps, width=args.width,
            layers=args.layers, heads=args.heads, context=args.context,
            vocab_size=args.vocab_size, batch_size=args.batch_size,
+           balanced_batches=args.balanced_batches,
            threads=args.threads, output=args.output)
 
 
