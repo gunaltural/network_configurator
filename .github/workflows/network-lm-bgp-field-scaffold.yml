@@ -1,0 +1,100 @@
+name: Scratch BGP field-scaffold explanation learning (research only)
+on:
+  pull_request:
+    paths:
+      - 'research/network_lm/bgp_evidence_v2/**'
+      - '.github/workflows/network-lm-bgp-field-scaffold.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compare-evidence-explanations:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Fixed CPU-only PyTorch; no pretrained models
+        run: python -m pip install 'torch==2.15.0' --index-url https://download.pytorch.org/whl/cpu
+      - name: Verify field names may be scaffolded but target explanations never leaked
+        run: |
+          python -m unittest research.network_lm.bgp_evidence_v2.test_field_scaffold research.network_lm.bgp_evidence_v2.test_reproducibility -v
+      - name: Reference - balanced nine-class model, no field scaffolding
+        run: |
+          python -m research.network_lm.bgp_evidence_v2.train \
+            --balanced-batches --teach-abstention --strict-cpu \
+            --seed 42 --steps 900 --context 768 --width 96 --layers 2 \
+            --heads 4 --batch-size 8 --vocab-size 512 \
+            --output /tmp/bgp-field-control42.pt
+      - name: Teach scratch Transformer to generate only requested field value - seed 42
+        run: |
+          python -m research.network_lm.bgp_evidence_v2.train \
+            --balanced-batches --teach-abstention --strict-cpu --field-scaffold \
+            --seed 42 --steps 900 --context 768 --width 96 --layers 2 \
+            --heads 4 --batch-size 8 --vocab-size 512 \
+            --output /tmp/bgp-field-scaffold42.pt
+      - name: Repeat independently with new weights - seed 7
+        run: |
+          python -m research.network_lm.bgp_evidence_v2.train \
+            --balanced-batches --teach-abstention --strict-cpu --field-scaffold \
+            --seed 7 --steps 900 --context 768 --width 96 --layers 2 \
+            --heads 4 --batch-size 8 --vocab-size 512 \
+            --output /tmp/bgp-field-scaffold7.pt
+      - name: Compare free-generated evidence fields without hidden rule-based answers
+        run: |
+          python - <<'PY'
+          import json
+          outputs=[
+              ('CONTROL42','/tmp/bgp-field-control42.metrics.json'),
+              ('SCAFFOLD42','/tmp/bgp-field-scaffold42.metrics.json'),
+              ('SCAFFOLD7','/tmp/bgp-field-scaffold7.metrics.json'),
+          ]
+          records=[]
+          for name,path in outputs:
+              m=json.load(open(path))
+              known=m['heldout_generated']
+              gap=m['abstention_generated']
+              assert m['status']=='FACTORIAL_CISCO_BGP_SCRATCH_RESEARCH_ONLY'
+              assert m['strict_cpu'] and m['teach_abstention'] and m['balanced_evidence_batches']
+              assert m['steps']==900 and m['test_field_tasks']==384
+              assert known['incidents']==96 and gap['incidents']==60
+              assert not m['production_ready'] and not m['engineering_verified']
+              records.append(m)
+              print('SCRATCH_BGP_FIELD_CONDITIONING',name,
+                    'known_F',known['by_field']['FINDING']['first_line_correct'],'/96',
+                    'known_WHY',known['by_field']['WHY']['first_line_correct'],'/96',
+                    'known_NOT_PROVEN',known['by_field']['NOT_PROVEN']['first_line_correct'],'/96',
+                    'known_CHECK',known['by_field']['CHECK']['first_line_correct'],'/96',
+                    'known_all_four',known['all_four_fields_correct'],'/96',
+                    'unknown_F',gap['by_field']['FINDING']['correct'],'/60',
+                    'unknown_WHY',gap['by_field']['WHY']['correct'],'/60',
+                    'unknown_CHECK',gap['by_field']['CHECK']['correct'],'/60',
+                    'unknown_all_four',gap['all_four_correct'],'/60',
+                    'paired_both',known['counterfactual_finding']['both_correct'],'/36',
+                    'unknown_samples',gap['samples'][:2])
+          control,trained42,trained7=records
+          assert control['field_scaffold'] is False
+          assert trained42['field_scaffold'] and trained7['field_scaffold']
+          for model in records:
+              assert model['train_sha256']==control['train_sha256']
+              assert model['test_sha256']==control['test_sha256']
+              assert model['unknown_test_sha256']==control['unknown_test_sha256']
+              assert model['model_config']==control['model_config']
+              assert model['params']==control['params']
+          for field in ('train_sha256','val_sha256','tokenizer_sha256'):
+              assert trained42[field]==trained7[field]
+          print('STRICT_CPU_TWO_SEED_UNKNOWN_CHECK',
+                trained42['abstention_generated']['by_field']['CHECK']['correct'],
+                trained7['abstention_generated']['by_field']['CHECK']['correct'],
+                'out_of_60; generated value still not verified Cisco root cause')
+          PY
+      - name: Preserve research output only; no production deployment
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bgp-field-scaffold-explanation-metrics-nonproduction
+          path: /tmp/bgp-field-*.metrics.json
+          if-no-files-found: warn
+          retention-days: 14
