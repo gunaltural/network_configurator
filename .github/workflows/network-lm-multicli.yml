@@ -1,0 +1,76 @@
+name: Scratch Cisco BGP multi-CLI evidence learning (research only)
+on:
+  pull_request:
+    paths:
+      - 'research/network_lm/cisco_bgp/**'
+      - '.github/workflows/network-lm-multicli.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-scratch-multicli:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install fixed, CPU-only PyTorch
+        run: python -m pip install 'torch==2.15.0' --index-url https://download.pytorch.org/whl/cpu
+      - name: Verify independent peer/prefix-scoped CLI evidence and genuine scratch inference
+        run: python -m unittest research.network_lm.cisco_bgp.test_multicli_lm -v
+      - name: Teach original random-init BGP Transformer for 800 updates (seed 42)
+        run: |
+          python -m research.network_lm.cisco_bgp.multicli_lm \
+            --steps 800 --width 96 --layers 2 --heads 4 \
+            --seed 42 --context 512 --vocab-size 512 \
+            --output /tmp/bgp-cli-evidence-seed42.pt
+      - name: Independently reinitialize and train same BGP evidence model (seed 7)
+        run: |
+          python -m research.network_lm.cisco_bgp.multicli_lm \
+            --steps 800 --width 96 --layers 2 --heads 4 \
+            --seed 7 --context 512 --vocab-size 512 \
+            --output /tmp/bgp-cli-evidence-seed7.pt
+      - name: Validate genuine heldout generation, counterfactuals and safety flags
+        run: |
+          python - <<'PY'
+          import json
+          reports=[]
+          for seed in (42,7):
+              m=json.load(open(f'/tmp/bgp-cli-evidence-seed{seed}.metrics.json'))
+              h=m['heldout_generation']
+              assert m['status']=='CISCO_BGP_MULTI_CLI_GENERATIVE_RESEARCH_ONLY'
+              assert not m['production_ready'] and not m['engineering_verified']
+              assert m['train_samples']==240 and m['val_samples']==56
+              assert m['test_samples']==h['total']==96
+              assert m['majority_reference_correct']==12
+              assert h['paired_contrasts']['total']==36
+              assert len(h['by_kind'])==8
+              assert all(e['total']==12 for e in h['by_kind'].values())
+              assert m['deterministic_algorithms'] is True
+              assert m['steps']==800
+              reports.append(m)
+              print('SCRATCH_BGP_MULTICLI',seed,
+                    'correct_findings',h['finding_correct'],'/96',
+                    'full_evidence_explanations',h['exact_explanation'],'/96',
+                    'paired_both_correct',h['paired_contrasts']['both_correct'],'/36',
+                    'paired_prediction_changed',h['paired_contrasts']['prediction_changed'],'/36',
+                    'majority_reference',m['majority_reference_correct'],'/96',
+                    'by_kind',h['by_kind'],
+                    'first_generated_examples',h['first_samples'][:2])
+          left,right=reports
+          for field in ('configuration','training_sha256','validation_sha256',
+                        'heldout_sha256','tokenizer_sha256','parameter_count'):
+              assert left[field]==right[field],f'Different multi-CLI research inputs: {field}'
+          print('MULTI_SEED_MEAN_FINDING',
+                sum(x['heldout_generation']['finding_correct'] for x in reports)/2,
+                'out_of_96; exact and counterfactual scores above')
+          PY
+      - name: Preserve research metrics only - never deploy to Render
+        uses: actions/upload-artifact@v4
+        with:
+          name: research-cisco-bgp-multicli-evidence-metrics-not-production
+          path: /tmp/bgp-cli-evidence-*.metrics.json
+          retention-days: 14
+          if-no-files-found: error
