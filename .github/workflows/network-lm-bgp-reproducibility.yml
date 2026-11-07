@@ -1,0 +1,77 @@
+name: Scratch BGP reproducibility root-cause check (isolated research)
+on:
+  pull_request:
+    paths:
+      - 'research/network_lm/bgp_evidence_v2/**'
+      - '.github/workflows/network-lm-bgp-reproducibility.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  reproduce-scratch-training:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install exact CPU PyTorch version
+        run: python -m pip install 'torch==2.15.0' --index-url https://download.pytorch.org/whl/cpu
+      - name: Prove old and new eight-class batch sequences are identical
+        run: python -m unittest research.network_lm.bgp_evidence_v2.test_reproducibility -v
+      - name: Repeat same seed 42 with fixed single-thread non-MKLDNN CPU math - run A
+        run: |
+          python -m research.network_lm.bgp_evidence_v2.train \
+            --balanced-batches --strict-cpu --steps 900 \
+            --context 768 --width 96 --layers 2 --heads 4 \
+            --batch-size 8 --vocab-size 512 --seed 42 \
+            --output /tmp/repro-bgp-seed42-a.pt
+      - name: Repeat identical seed 42 without changing model code or runner - run B
+        run: |
+          python -m research.network_lm.bgp_evidence_v2.train \
+            --balanced-batches --strict-cpu --steps 900 \
+            --context 768 --width 96 --layers 2 --heads 4 \
+            --batch-size 8 --vocab-size 512 --seed 42 \
+            --output /tmp/repro-bgp-seed42-b.pt
+      - name: Fail if identical training inputs and CPU still produce different model weights
+        run: |
+          python - <<'PY'
+          import json
+          a=json.load(open('/tmp/repro-bgp-seed42-a.metrics.json'))
+          b=json.load(open('/tmp/repro-bgp-seed42-b.metrics.json'))
+          assert a['strict_cpu'] is b['strict_cpu'] is True
+          assert a['balanced_evidence_batches'] is b['balanced_evidence_batches'] is True
+          assert a['teach_abstention'] is b['teach_abstention'] is False
+          assert a['cpu_environment']['cpu_threads']==b['cpu_environment']['cpu_threads']==1
+          assert a['cpu_environment']['mkldnn_enabled'] is b['cpu_environment']['mkldnn_enabled'] is False
+          assert a['cpu_environment']['deterministic_algorithms'] is b['cpu_environment']['deterministic_algorithms'] is True
+          same=('cpu_environment','train_sha256','val_sha256','test_sha256',
+                'tokenizer_sha256','model_config','params','seed','steps',
+                'batch_sequence_sha256','initial_weights_sha256',
+                'final_weights_sha256','train_loss_first','train_loss_last',
+                'val_loss_random','val_loss_trained','heldout_generated',
+                'abstention_generated')
+          mismatches=[key for key in same if a[key]!=b[key]]
+          print('SCRATCH_BGP_REPRODUCIBILITY',
+                'same_runner_exact_repeat',not mismatches,
+                'mismatches',mismatches,
+                'batch_sequence_sha256',a['batch_sequence_sha256'],
+                'initial_weights_sha256',a['initial_weights_sha256'],
+                'final_weights_sha256_a',a['final_weights_sha256'],
+                'final_weights_sha256_b',b['final_weights_sha256'],
+                'finding_correct_a',a['heldout_generated']['by_field']['FINDING']['first_line_correct'],
+                'finding_correct_b',b['heldout_generated']['by_field']['FINDING']['first_line_correct'],
+                'known_counterfactual_a',a['heldout_generated']['counterfactual_finding']['both_correct'],
+                'known_counterfactual_b',b['heldout_generated']['counterfactual_finding']['both_correct'])
+          assert not mismatches, 'Same-host strict CPU training was not bit-reproducible'
+          assert not a['production_ready'] and not a['engineering_verified']
+          PY
+      - name: Archive small reproducibility metrics only, no deployment
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: scratch-bgp-strict-cpu-reproducibility-metrics
+          path: /tmp/repro-bgp-*.metrics.json
+          if-no-files-found: warn
+          retention-days: 14
