@@ -49,9 +49,10 @@ class SyntheticPeerIdentityAbstractionTests(unittest.TestCase):
         }
         new_inputs = {abstract_record(r).example.prompt for r in new}
         self.assertTrue(new_inputs.isdisjoint(old))
-        self.assertEqual(len(new_inputs), len({
-            r.example.prompt for r in new
-        }) - 70 + 70 if False else len(new_inputs))  # holdout uniqueness checked below
+        self.assertGreaterEqual(
+            len(new_inputs), 8,
+            "Every distinct evidence class must retain a unique normalized prompt",
+        )
         self.assertNotEqual(
             fingerprint(new), fingerprint(previous["test"])
         )
