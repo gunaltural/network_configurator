@@ -1,0 +1,102 @@
+name: Scratch BGP evidence sufficiency and abstention (research only)
+on:
+  pull_request:
+    paths:
+      - 'research/network_lm/bgp_evidence_v2/**'
+      - '.github/workflows/network-lm-abstention-bgp.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  scratch-bgp-evidence-sufficiency:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Pinned torch CPU only - never download pretrained models
+        run: python -m pip install 'torch==2.15.0' --index-url https://download.pytorch.org/whl/cpu
+      - name: Ensure all five missing or inconsistent evidence situations stay held out
+        run: |
+          python -m unittest research.network_lm.bgp_evidence_v2.test_curriculum research.network_lm.bgp_evidence_v2.test_train research.network_lm.bgp_evidence_v2.test_abstention_curriculum -v
+          python -m research.network_lm.bgp_evidence_v2.abstention_curriculum
+      - name: Control - balanced 8-class learning without evidence sufficiency teaching
+        run: |
+          python -m research.network_lm.bgp_evidence_v2.train \
+            --balanced-batches --steps 900 --context 768 --width 96 \
+            --layers 2 --heads 4 --batch-size 8 --vocab-size 512 \
+            --seed 42 --output /tmp/bgp-evidence-control42.pt
+      - name: Teach 9 classes including explicit EVIDENCE_INSUFFICIENT (seed 42)
+        run: |
+          python -m research.network_lm.bgp_evidence_v2.train \
+            --balanced-batches --teach-abstention --steps 900 --context 768 \
+            --width 96 --layers 2 --heads 4 --batch-size 8 --vocab-size 512 \
+            --seed 42 --output /tmp/bgp-evidence-unknown42.pt
+      - name: Independently train uncertainty-aware scratch model (seed 7)
+        run: |
+          python -m research.network_lm.bgp_evidence_v2.train \
+            --balanced-batches --teach-abstention --steps 900 --context 768 \
+            --width 96 --layers 2 --heads 4 --batch-size 8 --vocab-size 512 \
+            --seed 7 --output /tmp/bgp-evidence-unknown7.pt
+      - name: Measure false diagnostic certainty and retention of known BGP skills
+        run: |
+          python - <<'PY'
+          import json
+          runs=[
+              ('CONTROL_SEED42','/tmp/bgp-evidence-control42.metrics.json'),
+              ('ABSTENTION_SEED42','/tmp/bgp-evidence-unknown42.metrics.json'),
+              ('ABSTENTION_SEED7','/tmp/bgp-evidence-unknown7.metrics.json'),
+          ]
+          results=[]
+          for name,path in runs:
+              m=json.load(open(path))
+              known=m['heldout_generated']
+              unknown=m['abstention_generated']
+              assert m['status']=='FACTORIAL_CISCO_BGP_SCRATCH_RESEARCH_ONLY'
+              assert not m['engineering_verified'] and not m['production_ready']
+              assert m['test_cases']==96 and m['unknown_test_cases']==60
+              assert known['field_tasks']==384 and unknown['field_tasks']==240
+              assert known['incidents']==96 and unknown['incidents']==60
+              assert m['steps']==900 and m['balanced_evidence_batches'] is True
+              assert m['unknown_test_sha256']
+              assert unknown['by_field']['FINDING']['total']==60
+              assert known['counterfactual_finding']['total_pairs']==36
+              print('BGP_SCRATCH_EVIDENCE_SUFFICIENCY',name,
+                    'known_findings',known['by_field']['FINDING']['first_line_correct'],'/96',
+                    'known_all_four',known['all_four_fields_correct'],'/96',
+                    'missing_evidence_findings',unknown['by_field']['FINDING']['correct'],'/60',
+                    'missing_evidence_all_four',unknown['all_four_correct'],'/60',
+                    'unknown_by_field',unknown['by_field'],
+                    'known_counterfactual_both',
+                    known['counterfactual_finding']['both_correct'],'/36',
+                    'examples_unknown',unknown['samples'][:2])
+              results.append(m)
+          control,unk42,unk7=results
+          assert control['teach_abstention'] is False
+          assert unk42['teach_abstention'] is True and unk7['teach_abstention'] is True
+          assert control['train_cases']==224 and control['train_field_tasks']==896
+          assert unk42['train_cases']==unk7['train_cases']==364
+          assert unk42['train_field_tasks']==unk7['train_field_tasks']==1456
+          for m in results:
+              assert m['model_config']==control['model_config']
+              assert m['params']==control['params']
+              assert m['test_sha256']==control['test_sha256']
+              assert m['unknown_test_sha256']==control['unknown_test_sha256']
+          for k in ('train_sha256','val_sha256','tokenizer_sha256'):
+              assert unk42[k]==unk7[k]
+          print('TWO_SEED_UNKNOWN_MEAN',
+                (unk42['abstention_generated']['by_field']['FINDING']['correct']
+                 +unk7['abstention_generated']['by_field']['FINDING']['correct'])/2,
+                '/60; synthetic only, no real BGP RCA or safety validation')
+          PY
+      - name: Archive only research metrics and one nonproduction scratch checkpoint
+        uses: actions/upload-artifact@v4
+        with:
+          name: bgp-scratch-evidence-sufficiency-research-only
+          path: |
+            /tmp/bgp-evidence-*.metrics.json
+            /tmp/bgp-evidence-unknown7.pt
+          retention-days: 14
+          if-no-files-found: error
