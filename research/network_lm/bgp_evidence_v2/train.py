@@ -320,8 +320,12 @@ def _train(*, seed=42, steps=900, width=96, layers=2, heads=4,
         "abstention_curriculum_version": ABSTENTION_VERSION,
         "torch_version": torch.__version__,
         "deterministic_algorithms": torch.are_deterministic_algorithms_enabled(),
-        "train_cases": audit["cases"]["train"],
-        "val_cases": audit["cases"]["val"],
+        "train_cases": audit["cases"]["train"] + (
+            len(abstention_cases()["train"]) if teach_abstention else 0
+        ),
+        "val_cases": audit["cases"]["val"] + (
+            len(abstention_cases()["val"]) if teach_abstention else 0
+        ),
         "test_cases": audit["cases"]["test"],
         "train_field_tasks": len(split["train"]),
         "val_field_tasks": len(split["val"]),
@@ -341,6 +345,8 @@ def _train(*, seed=42, steps=900, width=96, layers=2, heads=4,
         "heldout_generated": results,
         "abstention_generated": unknown_score,
         "source": "ORIGINAL_SYNTHETIC_CLI_NOT_VENDOR_COPY",
+        "unknown_gap_types":list(GAPS),
+        "unknown_supplementary_training":teach_abstention,
         "note": (
             "This tests heldout combinations of the same four authored context "
             "factors and eight findings, not out-of-distribution vendor TAC "
