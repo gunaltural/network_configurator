@@ -6,7 +6,7 @@ import torch
 
 from ..model import ByteTokenizer
 from .curriculum import FIELDS, SPLIT_CONTEXTS, KINDS, cases, tasks, report
-from .train import test_model_generation, _train
+from .train import test_model_generation, BalancedEvidenceSampler
 
 
 class EvidenceLearningTests(unittest.TestCase):
@@ -31,6 +31,28 @@ class EvidenceLearningTests(unittest.TestCase):
         self.assertEqual(scored["counterfactual_finding"]["both_correct"], 0)
         self.assertEqual(scored["counterfactual_finding"]["prediction_changed"], 0)
         self.assertFalse(scored["production_ready"])
+
+    def test_balanced_sampler_rotates_output_fields_and_all_eight_classes(self):
+        training=tasks(cases()["train"])
+        a=BalancedEvidenceSampler(training, seed=42)
+        b=BalancedEvidenceSampler(training, seed=42)
+        for step in range(36):
+            indices=a.indices(step)
+            self.assertEqual(indices,b.indices(step))
+            self.assertEqual(len(indices),8)
+            self.assertEqual(len(set(indices)),8)
+            selected=[training[index] for index in indices]
+            expected_field=FIELDS[step % len(FIELDS)]
+            self.assertEqual(
+                {item.id.rsplit("-",1)[-1] for item in selected},
+                {expected_field},
+            )
+            self.assertEqual(
+                {item.id.rsplit("-",2)[-2] for item in selected},
+                set(KINDS),
+            )
+        with self.assertRaisesRegex(ValueError,"Invalid"):
+            a.indices(-1)
 
     def test_training_and_test_are_distinct_factor_combinations(self):
         x=report()
