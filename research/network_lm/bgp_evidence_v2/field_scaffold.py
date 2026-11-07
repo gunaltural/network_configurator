@@ -65,6 +65,11 @@ class FieldPrefixAdapter:
         if not decoded.endswith("\nEngineering review:\n"):
             raise ValueError("Unexpected BGP research task prompt structure")
         # Scaffold only the *known requested output key*, never a value.
-        start=self.tokenizer.encode(field+"=")
-        generated=self.model.complete(prompt+start,max_new_tokens=max_new_tokens)
-        return prompt+generated[len(prompt):]
+        # Encode the entire visible prefix as one string, matching training.
+        # BPE merges may otherwise cross the field-name boundary differently.
+        full_prefix=self.tokenizer.encode(decoded+field+"=",bos=True)
+        generated=self.model.complete(full_prefix,max_new_tokens=max_new_tokens)
+        # The user-visible field name is known from the request; all value
+        # tokens still come exclusively from the scratch Transformer.
+        field_tokens=self.tokenizer.encode(field+"=")
+        return prompt+field_tokens+generated[len(full_prefix):]
