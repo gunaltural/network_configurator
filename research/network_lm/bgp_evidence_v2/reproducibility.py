@@ -22,7 +22,10 @@ def model_fingerprint(model):
         }, sort_keys=True, separators=(",", ":")).encode("utf-8")
         h.update(len(metadata).to_bytes(4, "big"))
         h.update(metadata)
-        payload = data.numpy().tobytes()
+        # CPU-only research runner has no NumPy dependency. Reinterpret the
+        # contiguous tensor bytes directly through PyTorch; preserve dtype
+        # and shape in the separately hashed metadata above.
+        payload = bytes(data.reshape(-1).view(torch.uint8).tolist())
         h.update(len(payload).to_bytes(8, "big"))
         h.update(payload)
     return h.hexdigest()
