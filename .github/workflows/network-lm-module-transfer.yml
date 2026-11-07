@@ -1,0 +1,216 @@
+name: BGP Design + Simulation knowledge transfer (isolated research)
+on:
+  pull_request:
+    paths:
+      - 'research/network_lm/cisco_bgp/**'
+      - '.github/workflows/network-lm-module-transfer.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  module-knowledge-learning:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install CPU-only training framework
+        run: python -m pip install 'torch==2.15.0' --index-url https://download.pytorch.org/whl/cpu
+      - name: Check original simulator evaluation, failover semantics and provenance
+        run: node --test research/network_lm/cisco_bgp/test_module_scenarios.mjs research/network_lm/cisco_bgp/test_compositional_scenarios.mjs research/network_lm/cisco_bgp/test_novel_topologies_v4.mjs
+      - name: Prove design facts and real synthetic learning are independent of product
+        run: python -m unittest research.network_lm.cisco_bgp.test_module_lm research.network_lm.cisco_bgp.test_v4_evaluation research.network_lm.cisco_bgp.test_prompt_abstraction -v
+      - name: Baseline scratch model - simulation-only teaching
+        run: |
+          python -m research.network_lm.cisco_bgp.module_lm \
+            --steps 300 --width 96 --layers 2 --heads 4 \
+            --seed 42 --vocab-size 512 --output /tmp/bgp-sim-only.pt
+      - name: Same scratch model and steps - simulation plus BGP Design knowledge
+        run: |
+          python -m research.network_lm.cisco_bgp.module_lm \
+            --steps 300 --width 96 --layers 2 --heads 4 \
+            --seed 42 --vocab-size 512 --include-design \
+            --output /tmp/bgp-sim-plus-design.pt
+      - name: Compare held-out, unseen failure combinations and no live claims
+        run: |
+          python - <<'PY'
+          import json
+          metrics=[]
+          for key,name in [('sim-only','/tmp/bgp-sim-only.metrics.json'),
+                           ('plus-design','/tmp/bgp-sim-plus-design.metrics.json')]:
+              m=json.load(open(name))
+              h=m['withheld_simulation']
+              assert m['status']=='SCRATCH_BGP_MODULE_KNOWLEDGE_RESEARCH_ONLY'
+              assert m['engineering_verified'] is False
+              assert m['production_ready'] is False
+              assert h['cases']==24 and m['withheld_failure_groups']==6
+              assert m['train_simulation']==192 and m['validation']==10
+              metrics.append(m)
+              print('ACTUAL_SCRATCH_BGP_MODULE_LM',key,
+                    'train examples',m['training_cases'],
+                    'heldout exact',h['exact_canonical'],'/24',
+                    'four outcomes',h['all_four_outcomes_correct'],'/24',
+                    'per field',h['field_correct'],
+                    'no real BGP conclusions')
+              print('FIRST_SYNTHETIC_PREDICTIONS',h['first_six'][:2])
+          assert metrics[0]['synthetic_simulation_source_sha256']==metrics[1]['synthetic_simulation_source_sha256']
+          assert metrics[0]['tokenizer_sha256']==metrics[1]['tokenizer_sha256']
+          assert metrics[0]['parameters']==metrics[1]['parameters']
+          assert metrics[0]['steps']==metrics[1]['steps']
+          assert metrics[0]['train_design_knowledge']==0
+          assert metrics[1]['train_design_knowledge']>=70
+          PY
+      - name: Teach single outcome per incident (same scratch model; simulation-only)
+        run: |
+          python -m research.network_lm.cisco_bgp.module_lm \
+            --focused --steps 600 --width 96 --layers 2 --heads 4 \
+            --seed 42 --vocab-size 512 --output /tmp/bgp-focus-sim-only.pt
+      - name: Teach single outcome per incident plus original BGP Design facts
+        run: |
+          python -m research.network_lm.cisco_bgp.module_lm \
+            --focused --evaluate-v4 --steps 600 --width 96 --layers 2 --heads 4 \
+            --seed 42 --vocab-size 512 --include-design \
+            --output /tmp/bgp-focus-plus-design.pt
+      - name: Inspect focus-task generalization to six heldout failure types
+        run: |
+          python - <<'PY'
+          import json
+          reports=[]
+          for desc,path in (('sim-only','/tmp/bgp-focus-sim-only.metrics.json'),
+                            ('plus-design','/tmp/bgp-focus-plus-design.metrics.json')):
+              x=json.load(open(path))
+              y=x['withheld_simulation']
+              assert x['focused_training'] is True
+              assert y['cases']==96 and x['withheld_failure_groups']==6
+              assert x['train_simulation']==768 and x['validation']==40
+              assert x['production_ready'] is False and x['engineering_verified'] is False
+              assert y['correct_single_outcome']<=96
+              print('SCRATCH_BGP_FOCUSED',desc,
+                    'learned single outputs',y['correct_single_outcome'],'/96',
+                    'exact target strings',y['exact_canonical'],'/96',
+                    'breakdown',y['by_field'])
+              reports.append(x)
+          assert reports[0]['tokenizer_sha256']==reports[1]['tokenizer_sha256']
+          assert reports[0]['parameters']==reports[1]['parameters']
+          assert reports[0]['curated_design_knowledge_sha256']==reports[1]['curated_design_knowledge_sha256']
+          PY
+      - name: Teach causal dependencies from same read-only BGP simulator
+        run: |
+          python -m research.network_lm.cisco_bgp.module_lm \
+            --focused --compositional --evaluate-v4 --steps 600 \
+            --width 96 --layers 2 --heads 4 \
+            --seed 42 --vocab-size 512 --include-design \
+            --output /tmp/bgp-focus-compositional.pt
+      - name: Compare honest generation and CE1 exit counterfactual generalization
+        run: |
+          python - <<'PY'
+          import json
+          baseline=json.load(open('/tmp/bgp-focus-plus-design.metrics.json'))
+          compositional=json.load(open('/tmp/bgp-focus-compositional.metrics.json'))
+          assert baseline['focused_training'] and compositional['focused_training']
+          assert baseline['compositional_training'] is False
+          assert compositional['compositional_training'] is True
+          assert compositional['compositional_examples']==960
+          assert compositional['compositional_groups']==16
+          assert baseline['tokenizer_sha256']==compositional['tokenizer_sha256']
+          assert baseline['configuration']==compositional['configuration']
+          assert baseline['seed']==compositional['seed']
+          assert baseline['steps']==compositional['steps']==600
+          assert baseline['synthetic_simulation_source_sha256']==compositional['synthetic_simulation_source_sha256']
+          for name,d in (('DESIGN_ONLY',baseline),('DESIGN_PLUS_CAUSAL_COMPOSITION',compositional)):
+              scored=d['withheld_simulation']
+              paired=scored['counterfactual_exit_pairs']
+              assert scored['cases']==96
+              assert paired['total']==12
+              v4=d['novel_topology_v4']
+              assert v4['cases']==144
+              assert v4['counterfactual_exit_pairs']['total']==18
+              assert d['novel_topology_v4_sha256'] is not None
+              assert d['deterministic_algorithms'] is True
+              assert not d['production_ready'] and not d['engineering_verified']
+              print('SCRATCH_BGP_CAUSAL_ABLATION',name,
+                    'correct_generated_result',scored['correct_single_outcome'],'/96',
+                    'exact_report',scored['exact_canonical'],'/96',
+                    'CE1_EXIT_correct',scored['by_field']['CE1_EXIT']['correct'],'/24',
+                    'paired_exit_both_correct',paired['both_correct'],'/12',
+                    'predicted_exit_change',paired['changed_output'],'/12',
+                    'training_examples',d['training_cases'],
+                    'v4_correct',v4['correct_single_outcome'],'/144',
+                    'v4_CE1_exit',v4['by_field']['CE1_EXIT']['correct'],'/36',
+                    'v4_both_paired_correct',v4['counterfactual_exit_pairs']['both_correct'],'/18',
+                    'v4_changed',v4['counterfactual_exit_pairs']['changed_output'],'/18',
+                    'no_live_claims',True)
+          PY
+      - name: Teach with topology ASN and prefix abstraction, without changing causal model architecture
+        run: |
+          python -m research.network_lm.cisco_bgp.module_lm \
+            --focused --compositional --evaluate-v4 --abstract-identity \
+            --steps 600 --width 96 --layers 2 --heads 4 \
+            --seed 42 --vocab-size 512 --include-design \
+            --output /tmp/bgp-focus-abstracted.pt
+      - name: Measure raw-vs-abstracted causal LM generation on NEW V4 topology values
+        run: |
+          python - <<'PY'
+          import json
+          raw=json.load(open('/tmp/bgp-focus-compositional.metrics.json'))
+          reduced=json.load(open('/tmp/bgp-focus-abstracted.metrics.json'))
+          assert raw['abstract_identity'] is False and reduced['abstract_identity'] is True
+          assert raw['novel_topology_v4_sha256']==reduced['novel_topology_v4_sha256']
+          assert raw['synthetic_simulation_source_sha256']==reduced['synthetic_simulation_source_sha256']
+          assert raw['configuration']==reduced['configuration']
+          assert raw['training_cases']==reduced['training_cases']==1798
+          assert raw['seed']==reduced['seed']==42
+          assert raw['steps']==reduced['steps']==600
+          assert raw['deterministic_algorithms'] and reduced['deterministic_algorithms']
+          for name,record in (('RAW_IDENTITIES',raw),('ABSTRACTED_IDENTITIES',reduced)):
+              v4=record['novel_topology_v4']
+              old=record['withheld_simulation']
+              assert v4['cases']==144 and old['cases']==96
+              assert v4['counterfactual_exit_pairs']['total']==18
+              assert record['engineering_verified'] is False
+              assert record['production_ready'] is False
+              print('SCRATCH_BGP_IDENTITY_ABLATION',name,
+                    'v4_exact',v4['exact_canonical'],'/144',
+                    'v4_correct',v4['correct_single_outcome'],'/144',
+                    'v4_CE1_EXIT',v4['by_field']['CE1_EXIT']['correct'],'/36',
+                    'v4_contrast_both',v4['counterfactual_exit_pairs']['both_correct'],'/18',
+                    'old_correct',old['correct_single_outcome'],'/96',
+                    'torch',record['torch_version'])
+          PY
+      - name: Benchmark learned BGP outputs against a no-learning majority reference
+        run: |
+          python -m unittest research.network_lm.cisco_bgp.test_majority_baseline -v
+          python -m research.network_lm.cisco_bgp.majority_baseline \
+            --output /tmp/bgp-majority-reference.metrics.json
+          python - <<'PY'
+          import json
+          baseline=json.load(open('/tmp/bgp-majority-reference.metrics.json'))
+          original=json.load(open('/tmp/bgp-focus-plus-design.metrics.json'))
+          composed=json.load(open('/tmp/bgp-focus-compositional.metrics.json'))
+          assert baseline['total']==original['withheld_simulation']['cases']==composed['withheld_simulation']['cases']==96
+          assert baseline['source_sha256']==original['synthetic_simulation_source_sha256']==composed['synthetic_simulation_source_sha256']
+          print('NO_LEARNING_MAJORITY',baseline['correct'],'/96',baseline['reference_choices'])
+          print('SCRATCH_BASELINE',original['withheld_simulation']['correct_single_outcome'],'/96')
+          print('SCRATCH_COMPOSITION',composed['withheld_simulation']['correct_single_outcome'],'/96')
+          assert baseline['novel_topology_v4']['total']==144
+          assert original['novel_topology_v4_sha256']==composed['novel_topology_v4_sha256']==baseline['novel_topology_v4']['sha256']
+          print('V4_NON_LEARNING_MAJORITY',baseline['novel_topology_v4']['correct'],'/144')
+          print('V4_OLD_SCRATCH',original['novel_topology_v4']['correct_single_outcome'],'/144')
+          print('V4_CAUSAL_SCRATCH',composed['novel_topology_v4']['correct_single_outcome'],'/144')
+          print('V4_SCRATCH_BEATS_MAJORITY',
+                composed['novel_topology_v4']['correct_single_outcome'] > baseline['novel_topology_v4']['correct'])
+          print('SCRATCH_BEATS_MAJORITY',
+                composed['withheld_simulation']['correct_single_outcome'] > baseline['correct'])
+          PY
+      - name: Retain synthetic research metrics without deploying models
+        uses: actions/upload-artifact@v4
+        with:
+          name: cisco-bgp-owned-design-simulation-model-metrics
+          path: /tmp/bgp-*.metrics.json
+          retention-days: 14
+          if-no-files-found: error

@@ -1,0 +1,141 @@
+{
+  "version": "bgp-internal-module-knowledge-2026-11-06-v1",
+  "source_branch": "feature/ai-engineering-matrix-and-knowledge-20261106",
+  "research_scope": "Scratch Cisco BGP LM only; live source modules treated as read-only",
+  "provenance": "Original paraphrases of code/fixtures from user's own project; not Cisco documentation text",
+  "source_files": [
+    "design-checks.js",
+    "bgp-traffic-policy.js",
+    "synthetic-bgp.js",
+    "simulation/test_bgp_end_to_end.mjs",
+    "bgp_diagnostic_rules.py"
+  ],
+  "facts": [
+    {
+      "id": "DESIGN-EBGP-AS",
+      "src": "design-checks.js",
+      "loc": "41-46",
+      "topic": "eBGP ASN",
+      "observation": "Local CE AS must differ from each eBGP upstream AS in this IPv4 design.",
+      "verify": "Compare local router bgp ASN with remote-as neighbor values.",
+      "not_proven": "An ASN equality check is design validation, not proof of a live FSM failure."
+    },
+    {
+      "id": "DESIGN-PEER-IP",
+      "src": "design-checks.js",
+      "loc": "47-63",
+      "topic": "peer address uniqueness",
+      "observation": "Each CE-to-upstream connection needs valid, distinct local/remote interface addresses and unique CE/peer tuples.",
+      "verify": "Compare interface addresses, prefixes, neighbor address and interface selection.",
+      "not_proven": "Configuration form validation does not attest to network transport."
+    },
+    {
+      "id": "DESIGN-NETWORK",
+      "src": "design-checks.js",
+      "loc": "65-65",
+      "topic": "prefix origination",
+      "observation": "BGP network prefix input is required to be the actual network address in this generator.",
+      "verify": "Check exact intended prefix and corresponding BGP origination prerequisites.",
+      "not_proven": "A valid prefix field does not prove advertisement or local RIB eligibility."
+    },
+    {
+      "id": "DESIGN-IBGP",
+      "src": "design-checks.js",
+      "loc": "66-67",
+      "topic": "iBGP prerequisites",
+      "observation": "For multiple CEs, internal transport, loopback reachability and next-hop resolution may be external prerequisites.",
+      "verify": "Check internal IGP/static routes, source loopbacks, peer AF and next-hop reachability.",
+      "not_proven": "A drawn interconnect does not establish iBGP or forwarding state."
+    },
+    {
+      "id": "DESIGN-LOCALPREF",
+      "src": "design-checks.js",
+      "loc": "68-68",
+      "topic": "local preference",
+      "observation": "Preferred route Local Preference must be greater than backup to express desired outbound preference in the modeled configuration.",
+      "verify": "Compare effective per-prefix Local Preference after inbound route-maps.",
+      "not_proven": "It does not guarantee the chosen exit when next hop, route visibility or higher-ranked criteria differ."
+    },
+    {
+      "id": "DESIGN-MAXPREFIX",
+      "src": "design-checks.js",
+      "loc": "70-70",
+      "topic": "maximum-prefix",
+      "observation": "BGP maximum-prefix parameter is validated to a positive integer.",
+      "verify": "Inspect neighbor maximum-prefix policy and observed route count.",
+      "not_proven": "A count alone does not establish actual session shutdown semantics; options and version matter."
+    },
+    {
+      "id": "POLICY-DIRECTION",
+      "src": "bgp-traffic-policy.js",
+      "loc": "20-33",
+      "topic": "policy direction",
+      "observation": "The policy editor rejects Local Preference on export and AS_PATH prepend on import for this BGP design workflow.",
+      "verify": "Check applied inbound/outbound route-map on correct neighbor/address-family.",
+      "not_proven": "These UI checks are not universal protocol enforcement across every deployment."
+    },
+    {
+      "id": "POLICY-PREFIXMATCH",
+      "src": "bgp-traffic-policy.js",
+      "loc": "39-69",
+      "topic": "prefix policy",
+      "observation": "Prefix-scoped policy rules can modify attributes differently from baseline per-link settings.",
+      "verify": "Compare prefix list entries and route-map match/order on the selected peer.",
+      "not_proven": "Model policy planning does not prove actual route-map execution on devices."
+    },
+    {
+      "id": "SIM-OUTBOUND",
+      "src": "synthetic-bgp.js",
+      "loc": "16-26",
+      "topic": "outbound preference",
+      "observation": "Under model assumptions available CE-to-ISP paths rank by imported local preference and deterministic tie-break.",
+      "verify": "Evaluate available model link set and its chosen candidate path.",
+      "not_proven": "Simulation does not reproduce Cisco complete BGP best-path, packet transit or live convergence."
+    },
+    {
+      "id": "SIM-INBOUND",
+      "src": "synthetic-bgp.js",
+      "loc": "28-39",
+      "topic": "inbound prepending",
+      "observation": "The simple synthetic observer prefers shorter AS_PATH under assumed equal upstream preference/policy.",
+      "verify": "Compare exported customer prefix, AS_PATH prepend and which synthetic ISP/CE remains available.",
+      "not_proven": "Cannot guarantee actual Internet inbound preference or third-party policy."
+    },
+    {
+      "id": "SIM-CE-OWNED",
+      "src": "synthetic-bgp.js",
+      "loc": "28-39",
+      "topic": "CE-owned vs shared LAN",
+      "observation": "A CE-owned prefix can lose modeled alternate advertisement when its owner/interconnect fails.",
+      "verify": "Check CE-owned route separately from shared client LAN advertisement.",
+      "not_proven": "An independent shared LAN may survive; do not equate route ownership and VRRP gateway."
+    },
+    {
+      "id": "SIM-CLIENT",
+      "src": "synthetic-bgp.js",
+      "loc": "42-70",
+      "topic": "VRRP concept",
+      "observation": "The synthetic client gateway picks preferred healthy CE, while inbound shared LAN may enter another CE.",
+      "verify": "Inspect separately the model gateway, outbound, inbound, CE-owned and shared-LAN selections.",
+      "not_proven": "VRRP timers, tracking, actual VRRP config and physical forwarding are not simulated."
+    },
+    {
+      "id": "SIM-RESTORE",
+      "src": "simulation/test_bgp_end_to_end.mjs",
+      "loc": "19-50",
+      "topic": "failure/restoration",
+      "observation": "Regression cases cover CE failure, WAN failure, interconnect loss, concurrent failures and restoration.",
+      "verify": "Compare same topology before failure, during failure and after restoration.",
+      "not_proven": "A restored synthetic path is not a tested real BGP reconvergence time."
+    },
+    {
+      "id": "BGP-OBS-FSM",
+      "src": "bgp_diagnostic_rules.py",
+      "loc": "9-57",
+      "topic": "FSM evidence boundary",
+      "observation": "Numeric State/PfxRcd in Cisco summary represents an Established neighbor for this scoped address-family.",
+      "verify": "Correlate BGP summary with neighbor details, notifications and routes.",
+      "not_proven": "Route count in a summary is not proof of RIB/FIB installation or service reachability."
+    }
+  ]
+}

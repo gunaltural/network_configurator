@@ -1,0 +1,67 @@
+name: Scratch BGP multithreaded CPU reproducibility audit (research only)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/network-lm-bgp-threaded-repro.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compare-numeric-cpu-kernels:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned CPU-only scratch training dependency
+        run: python -m pip install 'torch==2.15.0' --index-url https://download.pytorch.org/whl/cpu
+      - name: Default two CPU threads - same seed and machine run A
+        run: |
+          python -m research.network_lm.bgp_evidence_v2.train \
+            --balanced-batches --steps 900 --context 768 --width 96 \
+            --layers 2 --heads 4 --batch-size 8 --vocab-size 512 --threads 2 \
+            --seed 42 --output /tmp/multithread-bgp-42-a.pt
+      - name: Default two CPU threads - same seed and machine run B
+        run: |
+          python -m research.network_lm.bgp_evidence_v2.train \
+            --balanced-batches --steps 900 --context 768 --width 96 \
+            --layers 2 --heads 4 --batch-size 8 --vocab-size 512 --threads 2 \
+            --seed 42 --output /tmp/multithread-bgp-42-b.pt
+      - name: Audit default CPU determinism without asserting that non-determinism is success
+        run: |
+          python - <<'PY'
+          import json
+          a=json.load(open('/tmp/multithread-bgp-42-a.metrics.json'))
+          b=json.load(open('/tmp/multithread-bgp-42-b.metrics.json'))
+          common=['model_config','torch_version','train_sha256','val_sha256',
+                  'test_sha256','tokenizer_sha256','batch_sequence_sha256',
+                  'initial_weights_sha256','steps','seed']
+          mismatches=[key for key in common if a[key]!=b[key]]
+          assert not mismatches, 'Inputs or batches diverged, numerical comparison invalid'
+          assert a['cpu_environment']['cpu_threads']==b['cpu_environment']['cpu_threads']==2
+          same_weights=a['final_weights_sha256']==b['final_weights_sha256']
+          same_findings=(a['heldout_generated']['by_field']['FINDING']['first_line_correct']
+                         ==b['heldout_generated']['by_field']['FINDING']['first_line_correct'])
+          print('TWO_THREAD_SCRATCH_BGP_REPRO',
+                'identical_final_weights',same_weights,
+                'identical_findings',same_findings,
+                'final_hash_a',a['final_weights_sha256'],
+                'final_hash_b',b['final_weights_sha256'],
+                'findings_a',a['heldout_generated']['by_field']['FINDING']['first_line_correct'],'/96',
+                'findings_b',b['heldout_generated']['by_field']['FINDING']['first_line_correct'],'/96',
+                'first_loss_a',a['train_loss_first'],
+                'first_loss_b',b['train_loss_first'],
+                'last_loss_a',a['train_loss_last'],
+                'last_loss_b',b['train_loss_last'],
+                'runtime',a['cpu_environment'])
+          assert not a['production_ready'] and not b['production_ready']
+          PY
+      - name: Archive research-only CPU reproducibility evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: bgp-two-threaded-cpu-training-repro-audit
+          path: /tmp/multithread-bgp-*.metrics.json
+          retention-days: 14
+          if-no-files-found: error

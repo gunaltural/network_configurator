@@ -1,0 +1,96 @@
+name: Network LM scratch research (isolated from AI Analysis)
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'research/network_lm/**'
+      - '.github/workflows/network-lm-research.yml'
+permissions:
+  contents: read
+jobs:
+  synthetic-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install CPU-only PyTorch (research only)
+        run: python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Install isolated research demo dependencies
+        run: python -m pip install 'fastapi>=0.110' 'httpx>=0.27' 'uvicorn>=0.29'
+      - name: Validate privacy, causal mask, data splits and actual training
+        run: python -m unittest research.network_lm.test_scratch research.network_lm.test_evaluate research.network_lm.test_counterfactual research.network_lm.test_curriculum research.network_lm.test_compare research.network_lm.test_state_probe research.network_lm.test_summarize_probe research.network_lm.test_demo_api research.network_lm.test_pilot_gate -v
+      - name: Train random weights and record research-only metrics
+        run: python -m research.network_lm.train --steps 3 --output /tmp/network-mini.pt
+      - name: Run unseen scenario generation (does not claim engineering success)
+        run: python -m research.network_lm.evaluate --checkpoint /tmp/network-mini.pt --max-new-tokens 35
+      - name: Run paired counterfactual checks (not engineering acceptance)
+        run: python -m research.network_lm.counterfactual --checkpoint /tmp/network-mini.pt --max-new-tokens 35
+      - name: Train augmented original-synthetic curriculum (scratch weights only)
+        run: |
+          python -m research.network_lm.train --steps 160 --batch-size 4 \
+            --curriculum-per-state 12 --curriculum-seed 42 \
+            --output /tmp/network-curriculum.pt --threads 2
+      - name: Blind held-out generation for augmented scratch model
+        run: python -m research.network_lm.evaluate --checkpoint /tmp/network-curriculum.pt --max-new-tokens 56
+      - name: Counterfactual sensitivity on augmented scratch model
+        run: python -m research.network_lm.counterfactual --checkpoint /tmp/network-curriculum.pt --max-new-tokens 56
+      - name: Compare actual experiment metrics without granting engineering acceptance
+        run: python -m research.network_lm.compare --baseline /tmp/network-mini.pt --candidate /tmp/network-curriculum.pt
+      - name: Train scratch Transformer state-recognition probe
+        run: |
+          python -m research.network_lm.state_probe --steps 400 \
+            --samples-per-state 12 --seed 42 --batch-size 8 \
+            --output /tmp/network-state-probe.pt --threads 2
+      - name: Real localhost HTTP demo smoke using the trained 400-step checkpoint
+        run: |
+          set -euo pipefail
+          python -m research.network_lm.demo_api --checkpoint /tmp/network-state-probe.pt --port 8766 \
+            >/tmp/scratch-local-demo.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl -fsS --max-time 2 http://127.0.0.1:8766/health >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS --max-time 3 http://127.0.0.1:8766/health | python -c 'import json,sys; d=json.load(sys.stdin); assert d["enabled"] and not d["production_ready"]'
+          curl -fsS --max-time 6 -X POST http://127.0.0.1:8766/api/research/predict \
+            -H 'Content-Type: application/json' \
+            --data '{"observation":"DIST-01 OSPF neighbor 10.0.0.3 state EXSTART/DR","device":"LAB-01","evidence_id":"syn-1"}' \
+            | python -c 'import json,sys;d=json.load(sys.stdin);assert d["mode"]=="offline-scratch-state-probe";assert d["decision"] in ("ABSTAIN","RESEARCH_CANDIDATE_ONLY");assert not d["engineering_verified"];assert not d["production_ready"];assert len(d["top_candidates"])==3'
+          echo "Local scratch demo HTTP smoke passed. This is NOT engineering acceptance."
+      - name: Evaluate closed-pilot safety gate on actual scratch weights
+        run: |
+          python -m research.network_lm.pilot_gate \
+            --checkpoint /tmp/network-state-probe.pt \
+            --output /tmp/network-scratch-pilot-gate.json
+          python -c 'import json; d=json.load(open("/tmp/network-scratch-pilot-gate.json")); assert d["engineering_verified"] is False and d["production_ready"] is False; print("PILOT_STATUS:",d["status"])'
+      - name: Save synthetic-only research checkpoint for local demo (never deploy)
+        uses: actions/upload-artifact@v4
+        with:
+          name: network-ai-scratch-research-preview-seed42-not-production
+          path: /tmp/network-state-probe.pt
+          retention-days: 7
+          if-no-files-found: error
+      - name: Independently train two additional scratch seeds on the frozen challenge
+        run: |
+          python -m research.network_lm.state_probe --steps 400 --samples-per-state 12 \
+            --seed 7 --batch-size 8 --output /tmp/network-state-probe-seed7.pt --threads 2
+          python -m research.network_lm.state_probe --steps 400 --samples-per-state 12 \
+            --seed 99 --batch-size 8 --output /tmp/network-state-probe-seed99.pt --threads 2
+      - name: Publish multi-seed accuracy variance without claiming diagnosis
+        run: |
+          python -m research.network_lm.summarize_probe \
+            /tmp/network-state-probe.metrics.json \
+            /tmp/network-state-probe-seed7.metrics.json \
+            /tmp/network-state-probe-seed99.metrics.json \
+            --output /tmp/network-state-seeds.summary.json
+      - name: Retain synthetic-only experiment metrics (never model weights)
+        uses: actions/upload-artifact@v4
+        with:
+          name: scratch-network-ai-metrics
+          path: /tmp/network-*.json
+          retention-days: 14
+          if-no-files-found: error

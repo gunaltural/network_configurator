@@ -1,0 +1,165 @@
+name: Scratch Cisco BGP multi-CLI evidence learning (research only)
+on:
+  pull_request:
+    paths:
+      - 'research/network_lm/cisco_bgp/**'
+      - '.github/workflows/network-lm-multicli.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-scratch-multicli:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install fixed, CPU-only PyTorch
+        run: python -m pip install 'torch==2.15.0' --index-url https://download.pytorch.org/whl/cpu
+      - name: Verify CLI evidence, role abstraction and training/heldout boundaries
+        run: python -m unittest research.network_lm.cisco_bgp.test_multicli_lm research.network_lm.cisco_bgp.test_multicli_abstraction research.network_lm.cisco_bgp.test_multicli_views research.network_lm.cisco_bgp.test_multicli_decode research.network_lm.cisco_bgp.test_multicli_diversity -v
+      - name: Audit actual unique normalized CLI observations (not just sample rows)
+        run: python -m research.network_lm.cisco_bgp.multicli_diversity
+      - name: Control - train normalized scratch model without multi-command view augmentation (seed 42)
+        run: |
+          python -m research.network_lm.cisco_bgp.multicli_lm \
+            --abstract-identities --steps 1600 --width 96 --layers 2 --heads 4 \
+            --seed 42 --context 512 --vocab-size 512 \
+            --output /tmp/bgp-cli-abstract-control42.pt
+      - name: Teach equivalent command spellings and CLI order with same scratch model (seed 42)
+        run: |
+          python -m research.network_lm.cisco_bgp.multicli_lm \
+            --abstract-identities --augment-views \
+            --steps 1600 --width 96 --layers 2 --heads 4 \
+            --seed 42 --context 512 --vocab-size 512 \
+            --output /tmp/bgp-cli-views-seed42.pt
+      - name: Independently train same augmented scratch model (seed 7)
+        run: |
+          python -m research.network_lm.cisco_bgp.multicli_lm \
+            --abstract-identities --augment-views \
+            --steps 1600 --width 96 --layers 2 --heads 4 \
+            --seed 7 --context 512 --vocab-size 512 \
+            --output /tmp/bgp-cli-views-seed7.pt
+      - name: Score ORIGINAL model-generated explanations on third unseen CLI format
+        run: |
+          python - <<'PY'
+          import json
+          runs=[
+              ('NO_AUGMENT_SEED42','/tmp/bgp-cli-abstract-control42.metrics.json'),
+              ('MULTI_VIEW_SEED42','/tmp/bgp-cli-views-seed42.metrics.json'),
+              ('MULTI_VIEW_SEED7','/tmp/bgp-cli-views-seed7.metrics.json'),
+          ]
+          reports=[]
+          for name,path in runs:
+              m=json.load(open(path))
+              base=m['heldout_generation']
+              alt=m['new_alternate_cli_generation']
+              v3=m['third_cli_holdout_generation']
+              assert m['status']=='CISCO_BGP_MULTI_CLI_GENERATIVE_RESEARCH_ONLY'
+              assert not m['production_ready'] and not m['engineering_verified']
+              assert m['abstract_identities'] is True
+              assert m['val_samples']==56 and m['test_samples']==96
+              assert base['total']==alt['total']==v3['total']==96
+              assert v3['paired_contrasts']['total']==36
+              assert all(x['total']==12 for x in v3['by_kind'].values())
+              assert m['majority_reference_correct']==12
+              assert m['deterministic_algorithms'] and m['steps']==1600
+              reports.append(m)
+              print('SCRATCH_BGP_CLI_VIEW',name,
+                    'train_samples',m['train_samples'],
+                    'old_style_finding',base['finding_correct'],'/96',
+                    'v2_finding',alt['finding_correct'],'/96',
+                    'V3_FINDING',v3['finding_correct'],'/96',
+                    'V3_FULL',v3['exact_explanation'],'/96',
+                    'V3_WHY',v3['fields_correct']['WHY'],'/96',
+                    'V3_NOT_PROVEN',v3['fields_correct']['NOT_PROVEN'],'/96',
+                    'V3_PAIR_BOTH',v3['paired_contrasts']['both_correct'],'/36',
+                    'V3_PAIR_CHANGED',v3['paired_contrasts']['prediction_changed'],'/36',
+                    'V3_BY_KIND',v3['by_kind'],
+                    'V3_SAMPLES',v3['first_samples'][:2])
+          control,a42,a7=reports
+          assert control['augment_training_views'] is False
+          assert a42['augment_training_views'] and a7['augment_training_views']
+          assert control['train_samples']==240
+          assert a42['train_samples']==a7['train_samples']==960
+          for m in reports:
+              assert m['configuration']==control['configuration']
+              assert m['third_cli_holdout_sha256']==control['third_cli_holdout_sha256']
+              assert m['steps']==control['steps']
+          for key in ('training_sha256','validation_sha256','heldout_sha256',
+                      'tokenizer_sha256','parameter_count'):
+              assert a42[key]==a7[key],f'Uncontrolled augmented model variation {key}'
+          print('THIRD_VIEW_TWO_SEED_MEAN_FINDINGS',
+                (a42['third_cli_holdout_generation']['finding_correct']
+                 +a7['third_cli_holdout_generation']['finding_correct'])/2,
+                '/96 versus no-augmentation baseline',
+                control['third_cli_holdout_generation']['finding_correct'],'/96')
+          PY
+      - name: Compare free-form versus model-scored FINDING grammar on identical heldout CLI
+        run: |
+          python -m research.network_lm.cisco_bgp.multicli_decode \
+            --checkpoint /tmp/bgp-cli-views-seed42.pt \
+            --output /tmp/bgp-cli-grammar-seed42.metrics.json
+          python -m research.network_lm.cisco_bgp.multicli_decode \
+            --checkpoint /tmp/bgp-cli-views-seed7.pt \
+            --output /tmp/bgp-cli-grammar-seed7.metrics.json
+          python - <<'PY'
+          import json
+          reports=[]
+          for seed in (42,7):
+              x=json.load(open(f'/tmp/bgp-cli-grammar-seed{seed}.metrics.json'))
+              greedy=x['greedy']
+              constrained=x['constrained']
+              assert x['method']=='same-scratch-decoder-model-scores-valid-finding-labels'
+              assert x['production_ready'] is False and x['engineering_verified'] is False
+              assert greedy['total']==constrained['total']==96
+              assert greedy['paired_contrasts']['total']==constrained['paired_contrasts']['total']==36
+              print('BGP_SCRATCH_OUTPUT_GRAMMAR',seed,
+                    'unconstrained_finding',greedy['finding_correct'],'/96',
+                    'model_scored_grammar_finding',constrained['finding_correct'],'/96',
+                    'unconstrained_full_explanation',greedy['exact_explanation'],'/96',
+                    'model_scored_grammar_full_explanation',constrained['exact_explanation'],'/96',
+                    'model_scored_both_counterfactual_correct',
+                    constrained['paired_contrasts']['both_correct'],'/36',
+                    'model_scored_samples',constrained['first_samples'][:2])
+              reports.append(x)
+          assert reports[0]['training_sha256']==reports[1]['training_sha256']
+          assert reports[0]['tokenizer_sha256']==reports[1]['tokenizer_sha256']
+          assert reports[0]['third_cli_holdout_sha256']==reports[1]['third_cli_holdout_sha256']
+          PY
+      - name: Verify seed-7 scratch checkpoint provenance before research-only archiving
+        run: |
+          python - <<'PY'
+          from research.network_lm.cisco_bgp.multicli_decode import restore_checkpoint
+          p='/tmp/bgp-cli-views-seed7.pt'
+          model,tok,m=restore_checkpoint(p)
+          assert m['seed']==7
+          assert m['abstract_identities'] is True
+          assert m['augment_training_views'] is True
+          assert m['engineering_verified'] is False
+          assert m['production_ready'] is False
+          assert tok.vocab_size==model.config.vocab_size
+          print('RESEARCH_CHECKPOINT_VERIFIED',m['status'],
+                'parameters',sum(p.numel() for p in model.parameters()),
+                'tokenizer_sha256',m['tokenizer_sha256'],
+                'no_production_or_render_deploy',True)
+          PY
+      - name: Archive original scratch-trained research checkpoint (not production)
+        uses: actions/upload-artifact@v4
+        with:
+          name: scratch-cisco-bgp-multicli-seed7-research-checkpoint-not-production
+          path: /tmp/bgp-cli-views-seed7.pt
+          retention-days: 14
+          if-no-files-found: error
+      - name: Preserve research metrics only - never deploy to Render
+        uses: actions/upload-artifact@v4
+        with:
+          name: research-cisco-bgp-multicli-evidence-metrics-not-production
+          path: |
+            /tmp/bgp-cli-abstract-*.metrics.json
+            /tmp/bgp-cli-views-*.metrics.json
+            /tmp/bgp-cli-grammar-*.metrics.json
+          retention-days: 14
+          if-no-files-found: error
