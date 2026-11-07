@@ -32,6 +32,9 @@ from .abstention_curriculum import (
 from .reproducibility import (
     model_fingerprint, runtime_info, compact_batch_fingerprint,
 )
+from .field_scaffold import (
+    scaffold_prefix, encode_scaffold_example, FieldPrefixAdapter,
+)
 
 CONTRASTS = (
     ("ACTIVE_TARGET", "ACTIVE_WRONG_PEER"),
@@ -222,13 +225,14 @@ class BalancedEvidenceSampler:
 def _train(*, seed=42, steps=900, width=96, layers=2, heads=4,
            context=768, vocab_size=512, batch_size=8,
            balanced_batches=False, teach_abstention=False,
-           strict_cpu=False,
+           strict_cpu=False, field_scaffold=False,
            output="/tmp/bgp-factorial-scratch.pt", threads=2):
     if (type(seed) is not int or not 1 <= steps <= 4000
             or not 1 <= batch_size <= 24 or not 1 <= threads <= 8
             or type(balanced_batches) is not bool
             or type(teach_abstention) is not bool
-            or type(strict_cpu) is not bool):
+            or type(strict_cpu) is not bool
+            or type(field_scaffold) is not bool):
         raise ValueError("Invalid scratch BGP research training parameters")
     if teach_abstention and not balanced_batches:
         raise ValueError("Safety curriculum requires balanced class coverage")
@@ -254,20 +258,33 @@ def _train(*, seed=42, steps=900, width=96, layers=2, heads=4,
     training = split["train"]
     # Only training examples contribute to the BPE merges; neither validation
     # nor test prompts, nor even their model output targets are read by BPE.
-    sources = [
-        text for sample in training for text in (
-            "Network observation:\n" + sample.prompt + "\nEngineering review:\n",
-            sample.completion,
-        )
-    ]
+    if field_scaffold:
+        # BPE learned on training-only field-prefixed prompts and *value*
+        # targets, never on heldout CLI or expected test responses.
+        sources = [
+            text for sample in training for text in (
+                "Network observation:\n"+sample.prompt+
+                "\nEngineering review:\n"+
+                sample.id.rsplit("-",1)[-1]+"=",
+                sample.completion.split("=",1)[1],
+            )
+        ]
+    else:
+        sources = [
+            text for sample in training for text in (
+                "Network observation:\n" + sample.prompt + "\nEngineering review:\n",
+                sample.completion,
+            )
+        ]
     tokenizer = train_bpe(sources, vocab_size=vocab_size)
     config = LMConfig(
         block_size=context, width=width, layers=layers, heads=heads,
         vocab_size=tokenizer.vocab_size,
     )
     config.validate()
-    train_encoded = [encode_example(x, tokenizer, context) for x in training]
-    val_encoded = [encode_example(x, tokenizer, context) for x in split["val"]]
+    encode = encode_scaffold_example if field_scaffold else encode_example
+    train_encoded = [encode(x, tokenizer, context) for x in training]
+    val_encoded = [encode(x, tokenizer, context) for x in split["val"]]
     net = ScratchNetworkLM(config)
     initial_weights_sha256 = model_fingerprint(net)
     cpu_info = runtime_info()
@@ -307,9 +324,12 @@ def _train(*, seed=42, steps=900, width=96, layers=2, heads=4,
         last = round(float(loss.item()), 6)
     val_loss = validate(net, val_encoded, torch.device("cpu"))
     trained_weights_sha256 = model_fingerprint(net)
-    results = test_model_generation(net, tokenizer, split["test"])
+    # The requested field prefix is public task context, not a diagnostic
+    # label. The same learned model generates the actual field value.
+    inference = FieldPrefixAdapter(net, tokenizer) if field_scaffold else net
+    results = test_model_generation(inference, tokenizer, split["test"])
     unknown_score = evaluate_insufficient_evidence(
-        net, tokenizer, uncertain_split["test"]
+        inference, tokenizer, uncertain_split["test"]
     )
     if (unknown_score["incidents"] != 60
             or unknown_score["field_tasks"] != 240):
@@ -335,6 +355,7 @@ def _train(*, seed=42, steps=900, width=96, layers=2, heads=4,
         "params": sum(p.numel() for p in net.parameters()),
         "seed": seed, "steps": steps, "batch_size": batch_size,
         "strict_cpu":strict_cpu,
+        "field_scaffold":field_scaffold,
         "cpu_environment":cpu_info,
         "initial_weights_sha256":initial_weights_sha256,
         "final_weights_sha256":trained_weights_sha256,
@@ -390,6 +411,7 @@ def _train(*, seed=42, steps=900, width=96, layers=2, heads=4,
             "seed": seed,
             "balanced_evidence_batches": balanced_batches,
             "teach_abstention": teach_abstention,
+            "field_scaffold": field_scaffold,
             "train_sha256": digest(training),
             "test_sha256": audit["test_sha256"],
             "unknown_test_sha256":digest(uncertain_split["test"]),
@@ -404,6 +426,7 @@ def _train(*, seed=42, steps=900, width=96, layers=2, heads=4,
         "status": report_data["status"],
         "seed": seed, "balanced_evidence_batches": balanced_batches,
         "strict_cpu":strict_cpu,
+        "field_scaffold":field_scaffold,
         "first_loss":initial,"final_loss":last,
         "initial_weights_sha256":initial_weights_sha256,
         "final_weights_sha256":trained_weights_sha256,
@@ -441,6 +464,7 @@ def main():
     parser.add_argument("--balanced-batches", action="store_true")
     parser.add_argument("--teach-abstention", action="store_true")
     parser.add_argument("--strict-cpu", action="store_true")
+    parser.add_argument("--field-scaffold", action="store_true")
     parser.add_argument("--output", default="/tmp/bgp-factorial-scratch.pt")
     args = parser.parse_args()
     _train(seed=args.seed, steps=args.steps, width=args.width,
@@ -449,6 +473,7 @@ def main():
            balanced_batches=args.balanced_batches,
            teach_abstention=args.teach_abstention,
            strict_cpu=args.strict_cpu,
+           field_scaffold=args.field_scaffold,
            threads=args.threads, output=args.output)
 
 
