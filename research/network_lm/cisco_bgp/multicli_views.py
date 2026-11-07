@@ -68,16 +68,12 @@ def v3_view(record):
     e = record.example
     header, first, second = _sections(e.prompt)
     def special(command):
-        return command.replace(
-            "CE# show ip bgp summary",
-            "CE# show ip bgp all summary",
-        ).replace(
-            "CE# show ip bgp neighbors ",
-            "CE# show ip bgp neighbors ",
-        ).replace(
-            "CE# show ip bgp ",
-            "CE# show ip bgp ",
-        )
+        if "CE# show ip bgp summary" in command:
+            return command.replace(
+                "CE# show ip bgp summary",
+                "CE# show ip bgp all summary",
+            )
+        return _af_command(command)
     new_prompt = (
         "Read-only BGP evidence packet for a synthetic IOS-XE node.\n"
         + header + "\n"
