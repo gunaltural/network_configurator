@@ -1,4 +1,4 @@
-name: Cisco BGP factorial evidence learning (isolated scratch research)
+name: Cisco BGP balanced factorial evidence learning (isolated scratch research)
 on:
   pull_request:
     paths:
@@ -26,13 +26,13 @@ jobs:
         run: |
           python -m research.network_lm.bgp_evidence_v2.train \
             --seed 42 --steps 900 --context 768 --width 96 --layers 2 \
-            --heads 4 --batch-size 8 --vocab-size 512 \
+            --heads 4 --batch-size 8 --vocab-size 512 --balanced-batches \
             --output /tmp/factorial-bgp-scratch-seed42.pt
       - name: Reinitialize and train same BGP decoder, seed 7
         run: |
           python -m research.network_lm.bgp_evidence_v2.train \
             --seed 7 --steps 900 --context 768 --width 96 --layers 2 \
-            --heads 4 --batch-size 8 --vocab-size 512 \
+            --heads 4 --batch-size 8 --vocab-size 512 --balanced-batches \
             --output /tmp/factorial-bgp-scratch-seed7.pt
       - name: Check heldout novel context combinations and true model-generation output
         run: |
@@ -48,6 +48,7 @@ jobs:
               assert m['train_field_tasks']==896 and m['val_field_tasks']==256
               assert m['test_field_tasks']==r['field_tasks']==384
               assert m['deterministic_algorithms'] and m['steps']==900
+              assert m['balanced_evidence_batches'] is True
               assert m['majority_reference_correct']==12
               assert r['counterfactual_finding']['total_pairs']==36
               assert all(r['by_field'][x]['total']==96
